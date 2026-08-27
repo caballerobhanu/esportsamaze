@@ -1,0 +1,425 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GameGenre {
+  BATTLE_ROYALE
+  TACTICAL_FPS
+  MOBA
+  FIGHTING
+  SPORTS
+}
+
+enum TournamentStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  COMPLETED
+  POSTPONED
+}
+
+enum TransferType {
+  JOINED
+  LEFT
+  LOANED
+  BENCHED
+}
+
+model Game {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  genre       GameGenre
+  developer   String?
+  logoUrl     String?
+  bannerUrl   String?
+  tournaments Tournament[]
+  matches     Match[]
+  teams       Team[]
+  players     Player[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Team {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String?           @unique
+  displayName       String?
+  tag               String?
+  logoUrl           String?
+  imageDarkUrl      String?
+  gameId            String?
+  game              Game?             @relation(fields: [gameId], references: [id])
+  region            String?
+  founded           DateTime?
+  status            String            @default("ACTIVE")
+  sponsors          String?
+  socialLinks       Json?
+  players           Player[]
+  transferHistory   Transfer[]
+  tournamentRosters TournamentTeam[]
+  matchResults      MatchTeamResult[]
+  matchPlayerStats  MatchPlayerStat[]
+  rankings          TeamRanking[]
+  playerRankingSnapshots PlayerRanking[] @relation("PlayerRankingTeam")
+  tournamentsWon    Tournament[]      @relation("TournamentWinner")
+  tournamentsRunnerUp Tournament[]    @relation("TournamentRunnerUp")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model Player {
+  id              String            @id @default(cuid())
+  ign             String
+  slug            String?           @unique
+  firstName       String?
+  lastName        String?
+  avatarUrl       String?
+  nationality     String?
+  role            String?
+  birthDate       DateTime?
+  status          String            @default("ACTIVE")
+  gameId          String?
+  game            Game?             @relation(fields: [gameId], references: [id])
+  socialLinks     Json?
+  currentTeamId   String?
+  currentTeam     Team?             @relation(fields: [currentTeamId], references: [id])
+  transferHistory Transfer[]
+  matchStats      MatchPlayerStat[]
+  playerRankings  PlayerRanking[]   @relation("PlayerRankingPlayer")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model Transfer {
+  id        String       @id @default(cuid())
+  playerId  String
+  player    Player       @relation(fields: [playerId], references: [id])
+  teamId    String
+  team      Team         @relation(fields: [teamId], references: [id])
+  type      TransferType
+  date      DateTime
+  notes     String?
+}
+
+model Organizer {
+  id          String                @id @default(cuid())
+  name        String
+  slug        String                @unique
+  logoUrl     String?
+  website     String?
+  type        String?               @default("PRIMARY") // PRIMARY, CO_ORGANIZER, BROADCASTER
+  tournaments TournamentOrganizer[]
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+}
+
+model Sponsor {
+  id          String              @id @default(cuid())
+  name        String
+  slug        String              @unique
+  logoUrl     String?
+  website     String?
+  category    String?             // TITLE_SPONSOR, PRESENTING, DEVICE_PARTNER, TICKETING, BROADCAST
+  tournaments TournamentSponsor[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model Venue {
+  id          String            @id @default(cuid())
+  name        String
+  slug        String            @unique
+  city        String?
+  country     String?
+  capacity    Int?
+  mapUrl      String?
+  tournaments TournamentVenue[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model TournamentOrganizer {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  organizerId  String
+  organizer    Organizer  @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  role         String?    // LEAD, HOST, BROADCASTER
+
+  @@unique([tournamentId, organizerId])
+}
+
+model TournamentSponsor {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  sponsorId    String
+  sponsor      Sponsor    @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  tier         String?    // TITLE, POWERED_BY, ASSOCIATE
+
+  @@unique([tournamentId, sponsorId])
+}
+
+model TournamentVenue {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  venueId      String
+  venue        Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  stageName    String?    // e.g. "Grand Finals", "Playoffs"
+
+  @@unique([tournamentId, venueId])
+}
+
+model Tournament {
+  id                String                @id @default(cuid())
+  gameId            String
+  game              Game                  @relation(fields: [gameId], references: [id])
+  name              String
+  slug              String                @unique
+  series            String?               // Blanket Series (e.g. BGIS, BMPS, PMGC)
+  season            String?               // Season / Series Label (e.g. "2026 Edition", "Season 3")
+  seriesValue       Int?                  // Priority weight or series index
+  tier              String                // S-Tier, A-Tier, B-Tier, C-Tier, Qualifier
+  status            TournamentStatus      @default(UPCOMING)
+  eventType         String?               @default("LAN") // Online, LAN, Hybrid
+  gameMode          String?               @default("Squads TPP") // TPP Squad, FPP Squad, Duo, Solo
+  device            String?               // Mobile, PC, Realme GT 7 Pro, etc.
+  region            String?
+  countries         Json?                 // List of country names / codes
+  prizePool         Float?
+  currency          String                @default("USD")
+  usdRate           Float?
+  prizeDistribution Json?                 // [{ rank: '1st', prize: 1000000, percentage: 40 }, ...]
+  startDate         DateTime
+  endDate           DateTime
+  winnerTeamId      String?
+  winnerTeam        Team?                 @relation("TournamentWinner", fields: [winnerTeamId], references: [id])
+  winner            String?               // Cached winner display name
+  runnerUpTeamId    String?
+  runnerUpTeam      Team?                 @relation("TournamentRunnerUp", fields: [runnerUpTeamId], references: [id])
+  runnerUp          String?               // Cached runner-up display name
+  imageUrl          String?               // Light Logo
+  imageDarkUrl      String?               // Dark Logo
+  bannerUrl         String?               // Tournament Header Banner
+  liquipedia        String?
+  socialLinks       Json?                 // { website, instagram, twitter, facebook, youtube, kick, twitch, discord }
+  formatDetails     Json?                 // Detailed format rules & points distribution system
+  // Legacy database columns mapped to keep backwards-compatibility without dropping columns
+  legacyOrganizer   String?               @map("organizer")
+  legacySponsors    String?               @map("sponsors")
+  legacyMode        String?               @map("mode")
+  legacyType        String?               @map("type")
+  legacyLocation    String?               @map("location")
+  legacyVenue       String?               @map("venue")
+  
+  organizers        TournamentOrganizer[]
+  sponsors          TournamentSponsor[]
+  venues            TournamentVenue[]
+  stages            TournamentStage[]
+  teams             TournamentTeam[]
+  matches           Match[]
+  teamRankings      TeamRanking[]
+  playerRankings    PlayerRanking[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+}
+
+model TeamRanking {
+  id           String      @id @default(cuid())
+  tournamentId String?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  tier         String
+  endDate      DateTime
+  teamId       String
+  team         Team        @relation(fields: [teamId], references: [id])
+  rank         Int
+  createdAt    DateTime    @default(now())
+
+  @@index([tier, endDate])
+}
+
+model PlayerRanking {
+  id           String      @id @default(cuid())
+  tournamentId String?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  tier         String
+  endDate      DateTime
+  playerId     String
+  player       Player      @relation("PlayerRankingPlayer", fields: [playerId], references: [id])
+  teamId       String?
+  team         Team?       @relation("PlayerRankingTeam", fields: [teamId], references: [id])
+  finishes     Int         @default(0)
+  mvpTourney   Int         @default(0)
+  igl          Int         @default(0)
+  survivor     Int         @default(0)
+  mvpFinals    Int         @default(0)
+  emerging     Int         @default(0)
+  createdAt    DateTime    @default(now())
+
+  @@index([tier, endDate])
+}
+
+model TournamentStage {
+  id           String            @id @default(cuid())
+  tournamentId String
+  tournament   Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String            // e.g. "Grand Finals", "Semifinals", "Survival Stage"
+  sequence     Int
+  formatType   String            // "Battle Royale Points Table", "Round Robin", "Single Elimination"
+  stageType    String?           @default("GROUPS_WISE") // "ROUND_ROBIN", "GROUPS_WISE", "SWISS", "PLAYOFFS"
+  groups       TournamentGroup[]
+  matches      Match[]
+}
+
+model TournamentGroup {
+  id      String          @id @default(cuid())
+  stageId String
+  stage   TournamentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  name    String          // e.g. "Group A", "Group B", "Group 1"
+  matches Match[]
+}
+
+model TournamentTeam {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamId       String
+  team         Team       @relation(fields: [teamId], references: [id])
+  seed         Int?
+  finalRank    Int?
+  prizeWon     Float?
+  rosterJson   Json       // Array of player IGNs, roles, captain flag
+}
+
+model Match {
+  id           String           @id @default(cuid())
+  tournamentId String
+  tournament   Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stageId      String?
+  stage        TournamentStage? @relation(fields: [stageId], references: [id])
+  groupId      String?
+  group        TournamentGroup? @relation(fields: [groupId], references: [id])
+  gameId       String
+  game         Game             @relation(fields: [gameId], references: [id])
+  matchNumber  Int?             @default(1)
+  stageType    String?          // "Round Robin", "Groups Wise", "Grand Finals"
+  groupName    String?          // "Group A vs Group B"
+  mapName      String?          // "Erangel", "Miramar", "Sanhok", "Vikendi", "Rondo"
+  matchType    String?          @default("LAN") // "LAN", "Online", "Offline"
+  format       String           // Match title / label e.g. "Match 1 (Erangel)"
+  status       MatchStatus      @default(SCHEDULED)
+  scheduledAt  DateTime
+  matchTime    String?          // e.g. "16:30 IST"
+  streamUrl    String?
+  games        MatchGame[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @default(now()) @updatedAt
+}
+
+model MatchGame {
+  id          String            @id @default(cuid())
+  matchId     String
+  match       Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sequence    Int               @default(1)
+  mapName     String?
+  duration    Int?              // Duration in seconds
+  teamResults MatchTeamResult[]
+  playerStats MatchPlayerStat[]
+}
+
+model MatchTeamResult {
+  id             String    @id @default(cuid())
+  matchGameId    String
+  matchGame      MatchGame @relation(fields: [matchGameId], references: [id], onDelete: Cascade)
+  teamId         String
+  team           Team      @relation(fields: [teamId], references: [id])
+  shortCode      String?   // Team Tag / Short Code
+  mp             Int       @default(1) // Matches Played
+  rank           Int       @default(1) // Match placement rank (1..16/24)
+  wwcd           Boolean   @default(false) // Winner Winner Chicken Dinner / 1st
+  placePoints    Int       @default(0) // Placement Points
+  elimsPoints    Int       @default(0) // Elimination Points
+  bonusPoints    Int       @default(0) // Bonus Points
+  totalPoints    Int       @default(0) // placePoints + elimsPoints + bonusPoints
+  damage         Float     @default(0) // Damage done
+  survivalTime   Int       @default(0) // Survival time in seconds
+  healing        Int       @default(0) // Healing items used
+  damageReceived Float     @default(0) // Damage received
+  headshots      Int       @default(0) // Headshots count
+  assists        Int       @default(0) // Assists count
+  knockouts      Int       @default(0) // Knockouts count
+  longestElim    Float     @default(0) // Longest elimination distance (meters)
+  vehicleElims   Int       @default(0) // Vehicle eliminations
+  grenadeElims   Int       @default(0) // Grenade eliminations
+  smokesUsed     Int       @default(0) // Smokes used
+  grenadesUsed   Int       @default(0) // Grenades used
+  molotovsUsed   Int       @default(0) // Molotovs used
+  flashUsed      Int       @default(0) // Flash used
+  utilitiesTotal Int       @default(0) // smokes + grenades + molotovs + flash
+  airdrops       Int       @default(0) // Airdrops looted
+  rescues        Int       @default(0) // Rescues / revives done
+  distDrove      Float     @default(0) // Distance drove in vehicle
+  distWalk       Float     @default(0) // Distance walked
+  totalDist      Float     @default(0) // distDrove + distWalk
+  won            Boolean   @default(false) // Legacy alias for won
+  score          Int?      // Legacy score
+  rawData        Json?
+}
+
+model MatchPlayerStat {
+  id             String    @id @default(cuid())
+  matchGameId    String
+  matchGame      MatchGame @relation(fields: [matchGameId], references: [id], onDelete: Cascade)
+  playerId       String
+  player         Player    @relation(fields: [playerId], references: [id])
+  teamId         String?
+  team           Team?     @relation(fields: [teamId], references: [id])
+  shortCode      String?   // Team tag
+  role           String?   // Assaulter, IGL, Support, Sniper, Flex
+  mp             Int       @default(1)
+  playerElims    Int       @default(0)
+  teamRank       Int       @default(0)
+  teamWwcd       Boolean   @default(false)
+  teamPlacePoints Int      @default(0)
+  teamElimsPoints Int      @default(0)
+  teamBonusPoints Int      @default(0)
+  teamTotalPoints Int      @default(0)
+  damage         Float     @default(0)
+  survivalTime   Int       @default(0)
+  healing        Int       @default(0)
+  damageReceived Float     @default(0)
+  headshots      Int       @default(0)
+  assists        Int       @default(0)
+  knockouts      Int       @default(0)
+  longestElim    Float     @default(0)
+  vehicleElims   Int       @default(0)
+  grenadeElims   Int       @default(0)
+  smokesUsed     Int       @default(0)
+  grenadesUsed   Int       @default(0)
+  molotovsUsed   Int       @default(0)
+  flashUsed      Int       @default(0)
+  utilitiesTotal Int       @default(0)
+  airdrops       Int       @default(0)
+  rescues        Int       @default(0)
+  distDrove      Float     @default(0)
+  distWalk       Float     @default(0)
+  totalDist      Float     @default(0)
+  isMvp          Boolean   @default(false)
+  playerPowerplay Int      @default(0) // Eliminations in Zone 1 / Powerplay
+  kills          Int       @default(0) // Legacy alias for playerElims
+  deaths         Int       @default(0)
+  rawData        Json?
+}
