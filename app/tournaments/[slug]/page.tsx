@@ -38,6 +38,7 @@ import {
   calculateTournamentStandings,
   calculateTournamentFraggers,
 } from '@/lib/tournament-math';
+import { StandingsTable } from '@/components/ui/standings-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -434,69 +435,24 @@ export default async function TournamentDetailPage({
             )}
 
             {/* Standings Points Table */}
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#080d17] flex items-center justify-between">
-                <h2 className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-[#0A5FC4]" /> Cumulative Overall Standings
-                </h2>
-                <span className="text-xs font-mono text-slate-400">
-                  {standings.length} Teams · Tie-breaker: Pts &gt; WWCD &gt; Place &gt; Elims &gt; Dmg
-                </span>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs min-w-[720px]">
-                  <thead>
-                    <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-[#0a0f1d]">
-                      <th className="py-3 px-3 text-center w-14">Rank</th>
-                      <th className="py-3 px-3 text-left">Team</th>
-                      <th className="py-3 px-2 text-center">MP</th>
-                      <th className="py-3 px-2 text-center font-bold text-amber-500">WWCD</th>
-                      <th className="py-3 px-2 text-center">Place Pts</th>
-                      <th className="py-3 px-2 text-center">Elim Pts</th>
-                      <th className="py-3 px-2 text-center font-black text-sm text-[#0A5FC4] dark:text-blue-400">Total Pts</th>
-                      <th className="py-3 px-2 text-center">Damage</th>
-                      <th className="py-3 px-2 text-center">Grenade Elims</th>
-                      <th className="py-3 px-2 text-center">Longest Elim</th>
-                      <th className="py-3 px-2 text-center">Revives</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
-                    {standings.map((s) => (
-                      <tr key={s.teamId} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors font-sans">
-                        <td className="py-3 px-3 text-center font-mono font-black">
-                          #{s.rank}
-                        </td>
-                        <td className="py-3 px-3 font-bold flex items-center gap-2">
-                          <span className="text-sm">{s.teamName}</span>
-                          {s.tag && <span className="text-[10px] text-slate-400 font-mono font-normal">[{s.tag}]</span>}
-                        </td>
-                        <td className="py-3 px-2 text-center font-mono text-slate-400">{s.matchesPlayed}</td>
-                        <td className="py-3 px-2 text-center font-mono font-black text-amber-600 dark:text-amber-400">
-                          {s.wwcd > 0 ? `${s.wwcd} 🍗` : '0'}
-                        </td>
-                        <td className="py-3 px-2 text-center font-mono">{s.placementPoints}</td>
-                        <td className="py-3 px-2 text-center font-mono">{s.eliminationPoints}</td>
-                        <td className="py-3 px-2 text-center font-mono font-black text-sm text-[#0A5FC4] dark:text-blue-400">
-                          {s.totalPoints}
-                        </td>
-                        <td className="py-3 px-2 text-center font-mono text-slate-500">{s.totalDamage.toLocaleString()}</td>
-                        <td className="py-3 px-2 text-center font-mono">{s.grenadeElims}</td>
-                        <td className="py-3 px-2 text-center font-mono">{s.longestElim ? `${s.longestElim}m` : '—'}</td>
-                        <td className="py-3 px-2 text-center font-mono">{s.rescues}</td>
-                      </tr>
-                    ))}
-                    {standings.length === 0 && (
-                      <tr>
-                        <td colSpan={11} className="py-12 text-center text-xs text-slate-400 font-sans">
-                          No matches scored yet for this tournament.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <StandingsTable
+              rows={standings.map((s) => ({
+                teamId: s.teamId,
+                teamName: s.teamName,
+                tag: s.tag,
+                logoUrl: s.logoUrl ?? null,
+                slug: null,
+                rank: s.rank,
+                matchesPlayed: s.matchesPlayed,
+                wwcd: s.wwcd,
+                placementPoints: s.placementPoints,
+                eliminationPoints: s.eliminationPoints,
+                totalPoints: s.totalPoints,
+              }))}
+              title="Cumulative Overall Standings"
+              subtitle={`${standings.length} teams · Ranked by total points`}
+              qualifyZone={tournament.teams.length >= 16 ? 16 : undefined}
+            />
           </div>
         )}
 
