@@ -43,7 +43,15 @@ interface TournamentSidebarInfoProps {
     currency: string;
     usdRate?: number | null;
     game: { name: string; slug: string };
-    venues?: Array<{ venue: { name: string; city?: string | null; country?: string | null; address?: string | null } }>;
+    venues?: Array<{
+      stageName?: string | null;
+      venue: {
+        name: string;
+        city?: string | null;
+        country?: string | null;
+        address?: string | null;
+      };
+    }>;
     organizers?: Array<{ organizer: { name: string; logoUrl?: string | null; website?: string | null }; role?: string | null }>;
     sponsors?: Array<{ sponsor: { name: string; logoUrl?: string | null; website?: string | null }; tier?: string | null }>;
     socialLinks?: any;
@@ -292,23 +300,34 @@ export function TournamentSidebarInfo({
       )}
 
       {/* ═══ 4. VENUE & LOCATION CARD ═══ */}
-      {tournament.venues && tournament.venues.length > 0 && tournament.venues[0]?.venue && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-2">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-[#0A5FC4]" /> Venue / Location
+      {tournament.venues && tournament.venues.length > 0 && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-3">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
+            <MapPin className="w-3.5 h-3.5 text-[#0A5FC4]" /> Venue &amp; Physical Locations ({tournament.venues.length})
           </span>
 
-          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
-            {tournament.venues[0].venue.name}
-          </h4>
-          <p className="text-xs text-slate-500">
-            {[
-              tournament.venues[0].venue.city,
-              tournament.venues[0].venue.country || tournament.region,
-            ]
-              .filter(Boolean)
-              .join(', ')}
-          </p>
+          <div className="space-y-2.5">
+            {tournament.venues.map((tv, idx) => (
+              <div
+                key={idx}
+                className="p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#080d17] space-y-1"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">
+                    {tv.venue.name}
+                  </span>
+                  {tv.stageName && (
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400">
+                      {tv.stageName}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {[tv.venue.city, tv.venue.country || tournament.region].filter(Boolean).join(', ')}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

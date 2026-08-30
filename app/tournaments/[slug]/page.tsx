@@ -383,7 +383,9 @@ export default async function TournamentDetailPage({
                   <span>·</span>
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-white/50" />
-                    {tournament.venues?.[0]?.venue?.name
+                    {tournament.venues && tournament.venues.length > 1
+                      ? `${tournament.venues.map((v) => v.venue.city || v.venue.name).join(' & ')} (${tournament.venues.length} Venues)`
+                      : tournament.venues?.[0]?.venue?.name
                       ? `${tournament.venues[0].venue.name}, ${tournament.venues[0].venue.city || tournament.region || 'India'}`
                       : tournament.region || 'South Asia'}
                   </span>

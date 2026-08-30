@@ -173,19 +173,35 @@ export function TournamentBentoHero({
           </div>
         </div>
 
-        {/* Venue Information (if present) */}
-        {tournament.venues && tournament.venues.length > 0 && tournament.venues[0]?.venue ? (
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#080d17] border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <div className="min-w-0">
-              <span className="text-[10px] text-slate-400 block font-medium">Venue / Location</span>
-              <span className="font-bold text-slate-900 dark:text-white truncate block">
-                {tournament.venues[0].venue.name}
+        {/* Venue Information (renders all configured venues with stage badges) */}
+        {tournament.venues && tournament.venues.length > 0 ? (
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#080d17] border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-1.5">
+              <span className="text-[10px] text-slate-400 font-medium">
+                Venue &amp; Physical Locations ({tournament.venues.length})
               </span>
-              <span className="text-[11px] text-slate-500 truncate block">
-                {[tournament.venues[0].venue.city, tournament.venues[0].venue.country || tournament.region].filter(Boolean).join(', ')}
-              </span>
+              <MapPin className="w-3.5 h-3.5 text-[#0A5FC4] shrink-0" />
             </div>
-            <MapPin className="w-4 h-4 text-[#0A5FC4] shrink-0" />
+
+            <div className="space-y-2">
+              {tournament.venues.map((tv: any, idx: number) => (
+                <div key={idx} className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="font-bold text-slate-900 dark:text-white truncate block text-[11px]">
+                      {tv.venue.name}
+                    </span>
+                    <span className="text-[10px] text-slate-500 truncate block">
+                      {[tv.venue.city, tv.venue.country || tournament.region].filter(Boolean).join(', ')}
+                    </span>
+                  </div>
+                  {tv.stageName && (
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400 shrink-0">
+                      {tv.stageName}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#080d17] border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
