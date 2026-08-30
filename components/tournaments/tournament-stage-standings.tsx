@@ -61,7 +61,7 @@ export function TournamentStageStandings({
   singleStageOnly = false,
   initialStageName,
 }: TournamentStageStandingsProps) {
-  // Default to initialStageName, or Grand Finals or latest active stage
+  // Default to initialStageName, or the stage containing the most recent match
   const defaultStage = React.useMemo(() => {
     if (initialStageName && (stagesData.some((s) => s.stageName.toLowerCase() === initialStageName.toLowerCase()) || initialStageName === 'OVERALL')) {
       const match = stagesData.find((s) => s.stageName.toLowerCase() === initialStageName.toLowerCase());
@@ -69,9 +69,36 @@ export function TournamentStageStandings({
       if (initialStageName === 'OVERALL') return 'OVERALL';
     }
     if (stagesData.length === 0) return 'OVERALL';
+
+    // Find the stage containing the most recent match by timestamp
+    let latestMatchTime = -1;
+    let latestStageName = '';
+
+    for (const stg of stagesData) {
+      for (const m of stg.matches) {
+        let t = 0;
+        if (m.scheduledAt) {
+          const d = new Date(m.scheduledAt);
+          if (!isNaN(d.getTime())) t = d.getTime();
+        }
+        if (m.matchTime && typeof m.matchTime === 'string' && m.matchTime.includes(':')) {
+          const parts = m.matchTime.split(':');
+          const d = new Date(t);
+          d.setHours(parseInt(parts[0], 10) || 0, parseInt(parts[1], 10) || 0, 0, 0);
+          t = d.getTime();
+        }
+        if (t > latestMatchTime) {
+          latestMatchTime = t;
+          latestStageName = stg.stageName;
+        }
+      }
+    }
+
+    if (latestStageName) return latestStageName;
+
     const grandFinals = stagesData.find((s) => s.stageName.toLowerCase().includes('final'));
     if (grandFinals) return grandFinals.stageName;
-    return stagesData[0]?.stageName || 'OVERALL';
+    return stagesData[stagesData.length - 1]?.stageName || stagesData[0]?.stageName || 'OVERALL';
   }, [stagesData, initialStageName]);
 
   const [activeStageName, setActiveStageName] = React.useState<string>(defaultStage);
