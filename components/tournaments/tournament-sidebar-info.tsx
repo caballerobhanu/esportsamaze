@@ -292,7 +292,7 @@ export function TournamentSidebarInfo({
       {tournament.venues && tournament.venues.length > 0 && tournament.venues[0]?.venue && (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-2">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-[#0A5FC4]" /> Official LAN Stadium
+            <MapPin className="w-3.5 h-3.5 text-[#0A5FC4]" /> Venue / Location
           </span>
 
           <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
