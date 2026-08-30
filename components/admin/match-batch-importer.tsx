@@ -34,6 +34,15 @@ interface PlayerOption {
   currentTeam?: { tag?: string | null } | null;
 }
 
+export interface ExistingMatchOption {
+  id: string;
+  format: string;
+  matchNumber?: number | null;
+  mapName?: string | null;
+  teamResults: any[];
+  playerStats: any[];
+}
+
 interface MatchBatchImporterProps {
   matchId: string;
   matchGameId: string;
@@ -45,6 +54,7 @@ interface MatchBatchImporterProps {
   importPlayerStatsAction: (formData: FormData) => Promise<void>;
   existingTeamResults?: any[];
   existingPlayerStats?: any[];
+  otherMatches?: ExistingMatchOption[];
 }
 
 export function MatchBatchImporter({
@@ -58,6 +68,7 @@ export function MatchBatchImporter({
   importPlayerStatsAction,
   existingTeamResults = [],
   existingPlayerStats = [],
+  otherMatches = [],
 }: MatchBatchImporterProps) {
   const [activeTab, setActiveTab] = React.useState<'teams' | 'players'>('teams');
   const [pasteMode, setPasteMode] = React.useState<'excel' | 'json'>('excel');
@@ -66,6 +77,8 @@ export function MatchBatchImporter({
   const [copiedTemplate, setCopiedTemplate] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [selectedCloneMatchId, setSelectedCloneMatchId] = React.useState<string>('');
+  const [cloneMode, setCloneMode] = React.useState<'reset' | 'exact'>('reset');
 
   // Parsed rows state
   const [parsedTeamRows, setParsedTeamRows] = React.useState<any[]>([]);
@@ -234,8 +247,6 @@ export function MatchBatchImporter({
       const rows = dataLines.map((line, idx) => {
         const tokens = line.split(delimiter).map((t) => t.trim());
 
-        // Default standard positional mapping if no recognized headers:
-        // Col 0: Rank, Col 1: Team Name, Col 2: Place Pts, Col 3: Elims, Col 4: Total Pts, Col 5: Damage...
         let rank = idx + 1;
         let rawTeam = '';
         let placePts: number | null = null;
@@ -270,7 +281,6 @@ export function MatchBatchImporter({
           if (colRescues !== -1 && !isNaN(Number(tokens[colRescues]))) rescues = Number(tokens[colRescues]);
         } else {
           // Positional fallback:
-          // Check if first token is a rank number
           let offset = 0;
           if (!isNaN(Number(tokens[0])) && Number(tokens[0]) <= 32) {
             rank = Number(tokens[0]);
@@ -333,7 +343,7 @@ export function MatchBatchImporter({
   );
 
   // -------------------------------------------------------------
-  // Parse Excel / TSV / CSV / JSON for Player Stats
+  // Parse Excel / TSV / CSV / JSON for Player Stats (With ALL 5 extra stats)
   // -------------------------------------------------------------
   const parsePlayerData = React.useCallback(
     (text: string) => {
@@ -351,7 +361,9 @@ export function MatchBatchImporter({
             const rawPlayer = item.player || item.ign || item.playerName || '';
             const rawTeam = item.team || item.teamName || item.tag || '';
             const matchedPlayer = findMatchingPlayer(rawPlayer);
-            const matchedTeam = findMatchingTeam(rawTeam) || (matchedPlayer?.currentTeamId ? allTeams.find(t => t.id === matchedPlayer.currentTeamId) : undefined);
+            const matchedTeam =
+              findMatchingTeam(rawTeam) ||
+              (matchedPlayer?.currentTeamId ? allTeams.find((t) => t.id === matchedPlayer.currentTeamId) : undefined);
 
             const elims = Number(item.playerElims || item.elims || item.kills || 0);
             const damage = Number(item.damage || 0);
@@ -361,6 +373,20 @@ export function MatchBatchImporter({
             const longestElim = Number(item.longestElim || 0);
             const isMvp = item.isMvp === true || item.mvp === true;
             const powerplay = Number(item.playerPowerplay || item.powerplay || 0);
+
+            // 5 elements
+            let survivalTime = 0;
+            if (typeof item.survivalTime === 'string' && item.survivalTime.includes(':')) {
+              const [m, s] = item.survivalTime.split(':').map(Number);
+              survivalTime = (m || 0) * 60 + (s || 0);
+            } else {
+              survivalTime = Number(item.survivalTime || item.survival || item.time || 0);
+            }
+
+            const healing = Number(item.healing || item.heal || 0);
+            const damageReceived = Number(item.damageReceived || item.dmgReceived || item.damageTaken || item.dmgRec || 0);
+            const vehicleElims = Number(item.vehicleElims || item.vehicleKills || item.vehElims || item.vehicle || 0);
+            const grenadeElims = Number(item.grenadeElims || item.grenadeKills || item.nadeElims || item.grenade || 0);
 
             return {
               rawPlayer,
@@ -379,6 +405,11 @@ export function MatchBatchImporter({
               longestElim,
               isMvp,
               playerPowerplay: powerplay,
+              survivalTime,
+              healing,
+              damageReceived,
+              vehicleElims,
+              grenadeElims,
               isPlayerMatched: Boolean(matchedPlayer),
               isTeamMatched: Boolean(matchedTeam),
             };
@@ -423,19 +454,30 @@ export function MatchBatchImporter({
       let colPowerplay = -1;
       let colLongElim = -1;
       let colMvp = -1;
+      // 5 extra elements
+      let colSurvival = -1;
+      let colHealing = -1;
+      let colDmgRec = -1;
+      let colVehElims = -1;
+      let colGrenadeElims = -1;
 
       if (hasHeader) {
         firstLineTokens.forEach((t, idx) => {
           if (t.includes('player') || t === 'ign' || t === 'name') colPlayer = idx;
           else if (t.includes('team') || t.includes('clan') || t === 'tag') colTeam = idx;
           else if (t.includes('elim') || t.includes('kill') || t === 'kp' || t === 'finishes') colElims = idx;
-          else if (t.includes('dmg') || t.includes('damage')) colDamage = idx;
+          else if (t === 'damage' || t === 'dmg') colDamage = idx;
           else if (t.includes('head') || t === 'hs') colHeadshots = idx;
           else if (t.includes('assist') || t === 'ast') colAssists = idx;
           else if (t.includes('knock') || t.includes('dbno')) colKnocks = idx;
           else if (t.includes('power') || t.includes('zone1')) colPowerplay = idx;
           else if (t.includes('long') || t.includes('dist')) colLongElim = idx;
           else if (t.includes('mvp') || t.includes('star')) colMvp = idx;
+          else if (t.includes('surv') || t === 'time') colSurvival = idx;
+          else if (t.includes('heal')) colHealing = idx;
+          else if (t.includes('dmgrec') || t.includes('received') || t.includes('taken')) colDmgRec = idx;
+          else if (t.includes('veh') || t.includes('driveby') || t.includes('roadkill')) colVehElims = idx;
+          else if (t.includes('grenade') || t.includes('nade')) colGrenadeElims = idx;
         });
       }
 
@@ -453,6 +495,11 @@ export function MatchBatchImporter({
         let powerplay = 0;
         let longestElim = 0;
         let isMvp = false;
+        let survivalTime = 0;
+        let healing = 0;
+        let damageReceived = 0;
+        let vehicleElims = 0;
+        let grenadeElims = 0;
 
         if (hasHeader && colPlayer !== -1) {
           rawPlayer = tokens[colPlayer] || '';
@@ -468,9 +515,21 @@ export function MatchBatchImporter({
             const mvpVal = (tokens[colMvp] || '').toLowerCase();
             isMvp = mvpVal === 'yes' || mvpVal === 'true' || mvpVal === '1' || mvpVal === 'mvp' || mvpVal === '⭐';
           }
+          if (colSurvival !== -1) {
+            const rawS = tokens[colSurvival];
+            if (rawS?.includes(':')) {
+              const [m, s] = rawS.split(':').map(Number);
+              survivalTime = (m || 0) * 60 + (s || 0);
+            } else if (!isNaN(Number(rawS))) {
+              survivalTime = Number(rawS);
+            }
+          }
+          if (colHealing !== -1 && !isNaN(Number(tokens[colHealing]))) healing = Number(tokens[colHealing]);
+          if (colDmgRec !== -1 && !isNaN(Number(tokens[colDmgRec]))) damageReceived = Number(tokens[colDmgRec]);
+          if (colVehElims !== -1 && !isNaN(Number(tokens[colVehElims]))) vehicleElims = Number(tokens[colVehElims]);
+          if (colGrenadeElims !== -1 && !isNaN(Number(tokens[colGrenadeElims]))) grenadeElims = Number(tokens[colGrenadeElims]);
         } else {
-          // Positional fallback:
-          // Col 0: Player IGN, Col 1: Team, Col 2: Elims, Col 3: Damage, Col 4: Headshots, Col 5: Knockouts...
+          // Positional fallback
           rawPlayer = tokens[0] || '';
           rawTeam = tokens[1] || '';
           let offset = 2;
@@ -503,6 +562,11 @@ export function MatchBatchImporter({
           longestElim,
           isMvp,
           playerPowerplay: powerplay,
+          survivalTime,
+          healing,
+          damageReceived,
+          vehicleElims,
+          grenadeElims,
           isPlayerMatched: Boolean(matchedPlayer),
           isTeamMatched: Boolean(matchedTeam),
         };
@@ -523,6 +587,93 @@ export function MatchBatchImporter({
   }, [rawText, activeTab, pasteMode, parseTeamData, parsePlayerData]);
 
   // -------------------------------------------------------------
+  // Duplicate / Clone from Existing Match
+  // -------------------------------------------------------------
+  const handleCloneFromMatch = () => {
+    if (!selectedCloneMatchId) return;
+    const sourceMatch = otherMatches.find((m) => m.id === selectedCloneMatchId);
+    if (!sourceMatch) return;
+
+    if (activeTab === 'teams') {
+      if (!sourceMatch.teamResults || sourceMatch.teamResults.length === 0) {
+        setErrorMsg('Selected match does not contain any team standings to copy.');
+        return;
+      }
+
+      const cloned = sourceMatch.teamResults.map((tr: any, idx: number) => {
+        const rank = tr.rank || idx + 1;
+        const placePoints = cloneMode === 'reset' ? getPlacementPoints(rank, pointsMatrix) : tr.placePoints;
+        const elimsPoints = cloneMode === 'reset' ? 0 : tr.elimsPoints;
+        const totalPoints = cloneMode === 'reset' ? placePoints : tr.totalPoints;
+
+        return {
+          rank,
+          team: tr.team?.name || tr.teamId,
+          tag: tr.shortCode || tr.team?.tag || '',
+          placePoints,
+          elimsPoints,
+          totalPoints,
+          damage: cloneMode === 'reset' ? 0 : tr.damage,
+          wwcd: cloneMode === 'reset' ? rank === 1 : tr.wwcd,
+          survivalTime: cloneMode === 'reset' ? 1680 : tr.survivalTime,
+          healing: cloneMode === 'reset' ? 0 : tr.healing,
+          damageReceived: cloneMode === 'reset' ? 0 : tr.damageReceived,
+          headshots: cloneMode === 'reset' ? 0 : tr.headshots,
+          assists: cloneMode === 'reset' ? 0 : tr.assists,
+          knockouts: cloneMode === 'reset' ? 0 : tr.knockouts,
+          longestElim: cloneMode === 'reset' ? 0 : tr.longestElim,
+          vehicleElims: cloneMode === 'reset' ? 0 : tr.vehicleElims,
+          grenadeElims: cloneMode === 'reset' ? 0 : tr.grenadeElims,
+          smokesUsed: cloneMode === 'reset' ? 0 : tr.smokesUsed,
+          grenadesUsed: cloneMode === 'reset' ? 0 : tr.grenadesUsed,
+          molotovsUsed: cloneMode === 'reset' ? 0 : tr.molotovsUsed,
+          rescues: cloneMode === 'reset' ? 0 : tr.rescues,
+        };
+      });
+
+      setPasteMode('json');
+      setRawText(JSON.stringify(cloned, null, 2));
+      setErrorMsg(null);
+    } else {
+      if (!sourceMatch.playerStats || sourceMatch.playerStats.length === 0) {
+        setErrorMsg('Selected match does not contain any player stats to copy.');
+        return;
+      }
+
+      const cloned = sourceMatch.playerStats.map((ps: any) => ({
+        player: ps.player?.ign || ps.playerId,
+        team: ps.team?.name || ps.teamId,
+        elims: cloneMode === 'reset' ? 0 : ps.playerElims,
+        damage: cloneMode === 'reset' ? 0 : ps.damage,
+        headshots: cloneMode === 'reset' ? 0 : ps.headshots,
+        assists: cloneMode === 'reset' ? 0 : ps.assists,
+        knockouts: cloneMode === 'reset' ? 0 : ps.knockouts,
+        longestElim: cloneMode === 'reset' ? 0 : ps.longestElim,
+        isMvp: false,
+        powerplay: cloneMode === 'reset' ? 0 : ps.playerPowerplay,
+        survivalTime: cloneMode === 'reset' ? 0 : ps.survivalTime,
+        healing: cloneMode === 'reset' ? 0 : ps.healing,
+        damageReceived: cloneMode === 'reset' ? 0 : ps.damageReceived,
+        vehicleElims: cloneMode === 'reset' ? 0 : ps.vehicleElims,
+        grenadeElims: cloneMode === 'reset' ? 0 : ps.grenadeElims,
+      }));
+
+      setPasteMode('json');
+      setRawText(JSON.stringify(cloned, null, 2));
+      setErrorMsg(null);
+    }
+  };
+
+  // Trigger parsing whenever text or tab changes
+  React.useEffect(() => {
+    if (activeTab === 'teams') {
+      parseTeamData(rawText);
+    } else {
+      parsePlayerData(rawText);
+    }
+  }, [rawText, activeTab, pasteMode, parseTeamData, parsePlayerData]);
+
+  // -------------------------------------------------------------
   // Copy Templates & Sample Data
   // -------------------------------------------------------------
   const copyExcelTemplate = () => {
@@ -530,7 +681,8 @@ export function MatchBatchImporter({
     if (activeTab === 'teams') {
       headers = 'Rank\tTeam\tPlace Pts\tElims\tTotal Pts\tDamage\tSurvival\tSmokes\tGrenades\tRescues';
     } else {
-      headers = 'Player\tTeam\tElims\tDamage\tHeadshots\tAssists\tKnockouts\tPowerplay\tLongest Elim\tMVP';
+      headers =
+        'Player\tTeam\tElims\tDamage\tHeadshots\tAssists\tKnockouts\tPowerplay\tLongest Elim\tMVP\tSurvival\tHealing\tDmgReceived\tVehicleElims\tGrenadeElims';
     }
     navigator.clipboard.writeText(headers);
     setCopiedTemplate(true);
@@ -541,10 +693,10 @@ export function MatchBatchImporter({
     if (activeTab === 'teams') {
       if (pasteMode === 'json') {
         const sampleJson = [
-          { rank: 1, team: allTeams[0]?.name || 'Team Soul', elims: 12, damage: 2450, wwcd: true, smokesUsed: 8 },
-          { rank: 2, team: allTeams[1]?.name || 'GodLike Esports', elims: 8, damage: 1820, wwcd: false, smokesUsed: 6 },
-          { rank: 3, team: allTeams[2]?.name || 'Entity Gaming', elims: 6, damage: 1400, wwcd: false, smokesUsed: 5 },
-          { rank: 4, team: allTeams[3]?.name || 'Team XSpark', elims: 5, damage: 1250, wwcd: false, smokesUsed: 4 },
+          { rank: 1, team: allTeams[0]?.name || 'Team Soul', elims: 12, damage: 2450, wwcd: true, smokesUsed: 8, survivalTime: 1680, healing: 450 },
+          { rank: 2, team: allTeams[1]?.name || 'GodLike Esports', elims: 8, damage: 1820, wwcd: false, smokesUsed: 6, survivalTime: 1620, healing: 380 },
+          { rank: 3, team: allTeams[2]?.name || 'Entity Gaming', elims: 6, damage: 1400, wwcd: false, smokesUsed: 5, survivalTime: 1480, healing: 290 },
+          { rank: 4, team: allTeams[3]?.name || 'Team XSpark', elims: 5, damage: 1250, wwcd: false, smokesUsed: 4, survivalTime: 1350, healing: 220 },
         ];
         setRawText(JSON.stringify(sampleJson, null, 2));
       } else {
@@ -559,9 +711,48 @@ export function MatchBatchImporter({
     } else {
       if (pasteMode === 'json') {
         const sampleJson = [
-          { player: allPlayers[0]?.ign || 'Mortal', team: allTeams[0]?.name || 'Team Soul', elims: 5, damage: 1120, headshots: 3, knockouts: 4, isMvp: true },
-          { player: allPlayers[1]?.ign || 'Jonathan', team: allTeams[1]?.name || 'GodLike Esports', elims: 4, damage: 980, headshots: 2, knockouts: 3, isMvp: false },
-          { player: allPlayers[2]?.ign || 'SprayGod', team: allTeams[3]?.name || 'Team XSpark', elims: 3, damage: 720, headshots: 1, knockouts: 2, isMvp: false },
+          {
+            player: allPlayers[0]?.ign || 'Mortal',
+            team: allTeams[0]?.name || 'Team Soul',
+            elims: 5,
+            damage: 1120,
+            headshots: 3,
+            knockouts: 4,
+            isMvp: true,
+            survivalTime: 1680,
+            healing: 350,
+            damageReceived: 420,
+            vehicleElims: 1,
+            grenadeElims: 2,
+          },
+          {
+            player: allPlayers[1]?.ign || 'Jonathan',
+            team: allTeams[1]?.name || 'GodLike Esports',
+            elims: 4,
+            damage: 980,
+            headshots: 2,
+            knockouts: 3,
+            isMvp: false,
+            survivalTime: 1620,
+            healing: 280,
+            damageReceived: 510,
+            vehicleElims: 0,
+            grenadeElims: 1,
+          },
+          {
+            player: allPlayers[2]?.ign || 'SprayGod',
+            team: allTeams[3]?.name || 'Team XSpark',
+            elims: 3,
+            damage: 720,
+            headshots: 1,
+            knockouts: 2,
+            isMvp: false,
+            survivalTime: 1350,
+            healing: 190,
+            damageReceived: 380,
+            vehicleElims: 0,
+            grenadeElims: 0,
+          },
         ];
         setRawText(JSON.stringify(sampleJson, null, 2));
       } else {
@@ -572,7 +763,7 @@ export function MatchBatchImporter({
         const t1 = allTeams[0]?.name || 'Team Soul';
         const t2 = allTeams[1]?.name || 'GodLike Esports';
         const t3 = allTeams[3]?.name || 'Team XSpark';
-        const sample = `Player\tTeam\tElims\tDamage\tHeadshots\tAssists\tKnockouts\tPowerplay\tLongest Elim\tMVP\n${p1}\t${t1}\t5\t1120\t3\t2\t4\t2\t245.5\tYes\n${p2}\t${t2}\t4\t980\t2\t3\t3\t1\t180.2\tNo\n${p3}\t${t3}\t3\t720\t1\t1\t2\t0\t150.0\tNo\n${p4}\t${t3}\t2\t590\t1\t2\t2\t1\t120.4\tNo`;
+        const sample = `Player\tTeam\tElims\tDamage\tHeadshots\tAssists\tKnockouts\tPowerplay\tLongest Elim\tMVP\tSurvival\tHealing\tDmgReceived\tVehicleElims\tGrenadeElims\n${p1}\t${t1}\t5\t1120\t3\t2\t4\t2\t245.5\tYes\t28:00\t350\t420\t1\t2\n${p2}\t${t2}\t4\t980\t2\t3\t3\t1\t180.2\tNo\t27:00\t280\t510\t0\t1\n${p3}\t${t3}\t3\t720\t1\t1\t2\t0\t150.0\tNo\t22:30\t190\t380\t0\t0\n${p4}\t${t3}\t2\t590\t1\t2\t2\t1\t120.4\tNo\t19:40\t120\t310\t0\t1`;
         setRawText(sample);
       }
     }
@@ -608,6 +799,11 @@ export function MatchBatchImporter({
         longestElim: ps.longestElim,
         isMvp: ps.isMvp,
         powerplay: ps.playerPowerplay,
+        survivalTime: ps.survivalTime,
+        healing: ps.healing,
+        damageReceived: ps.damageReceived,
+        vehicleElims: ps.vehicleElims,
+        grenadeElims: ps.grenadeElims,
       }));
       setPasteMode('json');
       setRawText(JSON.stringify(data, null, 2));
@@ -684,7 +880,6 @@ export function MatchBatchImporter({
           throw new Error('Please paste or enter at least 1 team result row.');
         }
 
-        // Validate that all rows have a valid teamId (or warn)
         const unmapped = parsedTeamRows.filter((r) => !r.teamId);
         if (unmapped.length > 0) {
           throw new Error(
@@ -740,7 +935,7 @@ export function MatchBatchImporter({
                 Fast Excel Table &amp; JSON Batch Importer
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Copy and paste entire scoresheets directly from Excel or Google Sheets in 1 click.
+                Copy and paste scoresheets directly from Excel / Google Sheets or duplicate standings from another match.
               </p>
             </div>
           </div>
@@ -780,6 +975,64 @@ export function MatchBatchImporter({
           </button>
         </div>
       </div>
+
+      {/* ═══ REUSE / DUPLICATE STANDINGS FROM ANOTHER MATCH ═══ */}
+      {otherMatches && otherMatches.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-purple-950/20 border border-blue-200/60 dark:border-blue-800/40 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-[#0A5FC4] text-white">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </span>
+            <div>
+              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span>Duplicate Standings from Previous Match</span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 font-extrabold uppercase">
+                  Time Saver
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                Reuse the 16 participating teams and rosters from another match in 1 click.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedCloneMatchId}
+              onChange={(e) => setSelectedCloneMatchId(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 cursor-pointer min-w-[200px]"
+            >
+              <option value="">Select source match…</option>
+              {otherMatches
+                .filter((m) => m.id !== matchId)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.format} ({m.teamResults?.length || 0} teams)
+                  </option>
+                ))}
+            </select>
+
+            <select
+              value={cloneMode}
+              onChange={(e) => setCloneMode(e.target.value as any)}
+              className="px-2 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 cursor-pointer"
+            >
+              <option value="reset">Clean Roster (Reset Stats &amp; Points)</option>
+              <option value="exact">Exact Clone (Keep All Stats)</option>
+            </select>
+
+            <button
+              type="button"
+              disabled={!selectedCloneMatchId}
+              onClick={handleCloneFromMatch}
+              className="px-3 py-1.5 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Copy {activeTab === 'teams' ? 'Teams' : 'Players'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Format Switcher & Quick Helper Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800/80 text-xs">
@@ -866,8 +1119,8 @@ export function MatchBatchImporter({
                 ? `Paste Excel columns directly here (e.g. Rank \\t Team \\t PlacePts \\t Elims \\t Damage...)\nExample:\n1\tTeam Soul\t10\t12\t22\t2450\n2\tGodLike\t6\t8\t14\t1820`
                 : `[\n  { "rank": 1, "team": "Team Soul", "placePoints": 10, "elimsPoints": 12, "damage": 2450, "wwcd": true },\n  { "rank": 2, "team": "GodLike", "placePoints": 6, "elimsPoints": 8, "damage": 1820 }\n]`
               : pasteMode === 'excel'
-              ? `Paste Excel columns directly here (e.g. Player \\t Team \\t Elims \\t Damage \\t Headshots...)\nExample:\nMortal\tTeam Soul\t5\t1120\t3\t2\t4\nJonathan\tGodLike\t4\t980\t2\t3\t3`
-              : `[\n  { "player": "Mortal", "team": "Team Soul", "elims": 5, "damage": 1120, "headshots": 3, "isMvp": true },\n  { "player": "Jonathan", "team": "GodLike", "elims": 4, "damage": 980, "headshots": 2 }\n]`
+              ? `Paste Excel columns directly here (e.g. Player \\t Team \\t Elims \\t Damage \\t Headshots \\t Assists \\t Knocks \\t Powerplay \\t LongestElim \\t MVP \\t Survival \\t Healing \\t DmgReceived \\t VehicleElims \\t GrenadeElims)\nExample:\nMortal\tTeam Soul\t5\t1120\t3\t2\t4\t2\t245.5\tYes\t28:00\t350\t420\t1\t2`
+              : `[\n  { "player": "Mortal", "team": "Team Soul", "elims": 5, "damage": 1120, "headshots": 3, "survivalTime": 1680, "healing": 350, "damageReceived": 420, "vehicleElims": 1, "grenadeElims": 2, "isMvp": true }\n]`
           }
           className="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] focus:bg-white dark:focus:bg-slate-900 transition-all"
         />
@@ -881,7 +1134,7 @@ export function MatchBatchImporter({
         </div>
       )}
 
-      {/* ═══ LIVE PREVIEW TABLE ═══ */}
+      {/* ═══ LIVE PREVIEW TABLE FOR TEAMS ═══ */}
       {activeTab === 'teams' && parsedTeamRows.length > 0 && (
         <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
           <div className="flex items-center justify-between">
@@ -968,7 +1221,7 @@ export function MatchBatchImporter({
         </div>
       )}
 
-      {/* ═══ LIVE PREVIEW TABLE FOR PLAYERS ═══ */}
+      {/* ═══ LIVE PREVIEW TABLE FOR PLAYERS (WITH ALL 5 EXTRA STATS) ═══ */}
       {activeTab === 'players' && parsedPlayerRows.length > 0 && (
         <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
           <div className="flex items-center justify-between">
@@ -980,8 +1233,8 @@ export function MatchBatchImporter({
             </span>
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-xs min-w-[720px]">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden overflow-x-auto max-h-80 overflow-y-auto">
+            <table className="w-full text-xs min-w-[1050px]">
               <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-[9px] font-bold uppercase text-slate-500 border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="py-2 px-3 text-left">Pasted IGN</th>
@@ -989,6 +1242,11 @@ export function MatchBatchImporter({
                   <th className="py-2 px-3 text-left">Assigned Team</th>
                   <th className="py-2 px-2 text-center font-bold text-rose-500">Elims</th>
                   <th className="py-2 px-2 text-center">Damage</th>
+                  <th className="py-2 px-2 text-center">Survival</th>
+                  <th className="py-2 px-2 text-center">Healing</th>
+                  <th className="py-2 px-2 text-center">Dmg Rec</th>
+                  <th className="py-2 px-2 text-center">Veh Kills</th>
+                  <th className="py-2 px-2 text-center">Nade Kills</th>
                   <th className="py-2 px-2 text-center">Headshots</th>
                   <th className="py-2 px-2 text-center">Assists</th>
                   <th className="py-2 px-2 text-center">Knocks</th>
@@ -1043,6 +1301,21 @@ export function MatchBatchImporter({
                       {r.playerElims}
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-600 dark:text-slate-300">{r.damage}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-500">
+                      {Math.floor(r.survivalTime / 60)}:{(r.survivalTime % 60).toString().padStart(2, '0')}
+                    </td>
+                    <td className="py-1.5 px-2 text-center font-mono text-emerald-600 dark:text-emerald-400">
+                      {r.healing}
+                    </td>
+                    <td className="py-1.5 px-2 text-center font-mono text-amber-600 dark:text-amber-400">
+                      {r.damageReceived}
+                    </td>
+                    <td className="py-1.5 px-2 text-center font-mono text-purple-600 dark:text-purple-400">
+                      {r.vehicleElims}
+                    </td>
+                    <td className="py-1.5 px-2 text-center font-mono text-orange-600 dark:text-orange-400">
+                      {r.grenadeElims}
+                    </td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.headshots}</td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.assists}</td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.knockouts}</td>

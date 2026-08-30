@@ -42,3 +42,7 @@ next-env.d.ts
 
 # uploaded media
 /uploads
+
+# editor/agent artifacts
+.codebuddy/
+.freebuff/
