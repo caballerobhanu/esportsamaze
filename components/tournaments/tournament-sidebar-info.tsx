@@ -3,28 +3,11 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  Trophy,
   Flame,
-  Swords,
-  MapPin,
-  Calendar,
-  Shield,
-  Clock,
-  Tv,
-  Globe,
-  Camera,
-  AtSign,
-  PlaySquare,
-  MessageCircle,
-  Award,
-  Zap,
-  Smartphone,
-  Gamepad2,
   ExternalLink,
-  ChevronRight,
+  Shield,
+  Award,
 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
-import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 
 interface TournamentSidebarInfoProps {
   tournament: {
@@ -60,36 +43,20 @@ interface TournamentSidebarInfoProps {
   topFraggers: Array<{
     playerId: string;
     ign: string;
+    avatarUrl?: string | null;
     teamName: string;
     teamTag?: string | null;
-    avatarUrl?: string | null;
     elims: number;
     damage: number;
-    mvps: number;
   }>;
-  upcomingMatches: Array<{
-    id: string;
-    matchNumber: number | null;
-    format: string;
-    mapName?: string | null;
-    scheduledAt: Date | string;
-    matchTime?: string | null;
-    streamUrl?: string | null;
-    status: string;
-  }>;
-  prizeTopRanks?: Array<{
-    rank: string;
-    prize: number;
-    percentage?: number;
-    qualifications?: string[];
-  }>;
+  upcomingMatches: any[];
+  prizeTopRanks?: Array<{ rank: string; prize: number; teamName?: string }>;
 }
 
 export function TournamentSidebarInfo({
   tournament,
   topFraggers,
-  upcomingMatches,
-  prizeTopRanks,
+  prizeTopRanks = [],
 }: TournamentSidebarInfoProps) {
   const rawSocials = (tournament.socialLinks ?? {}) as Record<string, unknown>;
   const socials: Record<string, string> = {};
@@ -100,84 +67,19 @@ export function TournamentSidebarInfo({
   }
 
   const maxElims = Math.max(...topFraggers.map((f) => f.elims), 1);
-  const cleanTier = (tournament.tier || '').replace(/\s*tier\s*$/i, '');
 
   return (
     <div className="space-y-4">
-      {/* ═══ 1. TOURNAMENT KEY FACTS CARD ═══ */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-          <span className="text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-1.5">
-            <Shield className="w-3.5 h-3.5" /> Event Information
-          </span>
-          {cleanTier && (
-            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              {cleanTier} Tier
-            </span>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5 text-xs">
-          <div>
-            <span className="text-[10px] text-slate-400 block font-medium">Game Title</span>
-            <span className="font-bold text-slate-900 dark:text-white truncate block">
-              {tournament.game.name}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] text-slate-400 block font-medium">Competition Mode</span>
-            <span className="font-bold text-slate-900 dark:text-white truncate block">
-              {tournament.gameMode || 'Squads TPP'}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] text-slate-400 block font-medium">Environment</span>
-            <span className="font-bold text-slate-900 dark:text-white truncate block">
-              {tournament.eventType || 'LAN'}
-            </span>
-          </div>
-
-          <div>
-            <span className="text-[10px] text-slate-400 block font-medium">Platform</span>
-            <span className="font-bold text-slate-900 dark:text-white truncate block">
-              {tournament.platform || 'Mobile'}
-            </span>
-          </div>
-
-          {tournament.device && tournament.device.trim() && (
-            <div className="col-span-2">
-              <span className="text-[10px] text-slate-400 block font-medium">Tournament Device</span>
-              <span className="font-bold text-[#0A5FC4] dark:text-blue-400 truncate block">
-                {tournament.device}
-              </span>
-            </div>
-          )}
-
-          <div className="col-span-2 pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
-            <span className="text-slate-400">Total Prize Pool</span>
-            <span className="font-mono font-black text-slate-900 dark:text-white">
-              <PrizePoolBadge
-                amount={tournament.prizePool}
-                currency={tournament.currency}
-                usdRate={tournament.usdRate}
-              />
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ 2. TOP FRAGGER MVP RACE (TOP 5) ═══ */}
+      {/* ═══ 1. TOP FRAGGER MVP RACE (TOP 5) ═══ */}
       {topFraggers.length > 0 && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-3">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5" /> MVP Fragger Race
+            <span className="text-xs font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+              <Flame className="w-4 h-4" /> MVP Fragger Race
             </span>
             <Link
               href={`/tournaments/${tournament.slug}?tab=fraggers`}
-              className="text-[10px] font-bold text-[#0A5FC4] hover:underline flex items-center"
+              className="text-[11px] font-bold text-[#0A5FC4] hover:underline flex items-center"
             >
               All Stats →
             </Link>
@@ -240,102 +142,11 @@ export function TournamentSidebarInfo({
         </div>
       )}
 
-      {/* ═══ 3. UPCOMING / NEXT MATCH TICKER ═══ */}
-      {upcomingMatches.length > 0 && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Swords className="w-3.5 h-3.5 text-[#0A5FC4]" /> Upcoming Schedule
-            </span>
-            <Link
-              href={`/tournaments/${tournament.slug}?tab=matches`}
-              className="text-[10px] font-bold text-[#0A5FC4] hover:underline"
-            >
-              Full Schedule →
-            </Link>
-          </div>
-
-          <div className="space-y-2">
-            {upcomingMatches.slice(0, 3).map((m) => (
-              <div
-                key={m.id}
-                className="p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#080d17] flex items-center justify-between gap-2"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-black text-xs text-[#0A5FC4]">
-                      #{m.matchNumber ?? 1}
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                      {m.mapName}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 truncate block mt-0.5">
-                    {m.matchTime ||
-                      (typeof m.scheduledAt === 'string'
-                        ? m.scheduledAt.slice(0, 16)
-                        : m.scheduledAt.toISOString().slice(0, 16))}
-                  </span>
-                </div>
-
-                {m.streamUrl ? (
-                  <a
-                    href={m.streamUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-1.5 rounded-md bg-rose-500/10 text-rose-600 hover:bg-rose-500 hover:text-white transition-colors shrink-0"
-                    title="Watch Broadcast"
-                  >
-                    <Tv className="w-3.5 h-3.5" />
-                  </a>
-                ) : (
-                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    Next
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ═══ 4. VENUE & LOCATION CARD ═══ */}
-      {tournament.venues && tournament.venues.length > 0 && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-3">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
-            <MapPin className="w-3.5 h-3.5 text-[#0A5FC4]" /> Venue &amp; Physical Locations ({tournament.venues.length})
-          </span>
-
-          <div className="space-y-2.5">
-            {tournament.venues.map((tv, idx) => (
-              <div
-                key={idx}
-                className="p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#080d17] space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">
-                    {tv.venue.name}
-                  </span>
-                  {tv.stageName && (
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.2 rounded bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400">
-                      {tv.stageName}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  {[tv.venue.city, tv.venue.country || tournament.region].filter(Boolean).join(', ')}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ═══ 5. ORGANIZERS & OFFICIAL SPONSORS ═══ */}
+      {/* ═══ 2. ORGANIZERS & OFFICIAL SPONSORS ═══ */}
       {((tournament.organizers && tournament.organizers.length > 0) ||
         (tournament.sponsors && tournament.sponsors.length > 0)) && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-3">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-sm space-y-3">
+          <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
             Organizers &amp; Partners
           </span>
 
@@ -394,10 +205,10 @@ export function TournamentSidebarInfo({
         </div>
       )}
 
-      {/* ═══ 6. OFFICIAL CHANNELS & COMMUNITY ═══ */}
+      {/* ═══ 3. OFFICIAL CHANNELS & COMMUNITY ═══ */}
       {Object.keys(socials).length > 0 && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-2xs space-y-2.5">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-sm space-y-2.5">
+          <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
             Official Broadcast &amp; Community
           </span>
           <div className="flex flex-wrap gap-1.5">

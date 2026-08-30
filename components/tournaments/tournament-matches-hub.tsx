@@ -97,7 +97,12 @@ const MAP_THEMES: Record<string, string> = {
   Rondo: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20',
 };
 
+import { useSearchParams } from 'next/navigation';
+
 export function TournamentMatchesHub({ matches, tournamentName }: TournamentMatchesHubProps) {
+  const searchParams = useSearchParams();
+  const targetMatchId = searchParams ? searchParams.get('matchId') || searchParams.get('openMatch') : null;
+
   // Extract distinct stages
   const distinctStages = React.useMemo(() => {
     const set = new Set<string>();
@@ -116,6 +121,20 @@ export function TournamentMatchesHub({ matches, tournamentName }: TournamentMatc
   const [selectedStatus, setSelectedStatus] = React.useState<string>('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [expandedMatches, setExpandedMatches] = React.useState<Record<string, boolean>>({});
+
+  // Auto-expand & scroll to target match if specified in URL query
+  React.useEffect(() => {
+    if (targetMatchId) {
+      setExpandedMatches((prev) => ({ ...prev, [targetMatchId]: true }));
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`match-${targetMatchId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [targetMatchId]);
 
   const toggleExpand = (matchId: string) => {
     setExpandedMatches((prev) => ({ ...prev, [matchId]: !prev[matchId] }));
@@ -270,7 +289,12 @@ export function TournamentMatchesHub({ matches, tournamentName }: TournamentMatc
                   return (
                     <div
                       key={m.id}
-                      className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] overflow-hidden shadow-2xs transition-all"
+                      id={`match-${m.id}`}
+                      className={`rounded-xl border transition-all ${
+                        targetMatchId === m.id
+                          ? 'border-[#0A5FC4] ring-2 ring-[#0A5FC4]/30 shadow-md bg-blue-50/20 dark:bg-blue-950/20'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] shadow-2xs'
+                      } overflow-hidden`}
                     >
                       {/* Main Match Bar */}
                       <div className="p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">

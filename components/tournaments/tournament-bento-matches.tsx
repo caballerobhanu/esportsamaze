@@ -214,7 +214,7 @@ export function TournamentCompletedMatchesBento({
                 </span>
 
                 <Link
-                  href={`/tournaments/${tournamentSlug}?tab=matches`}
+                  href={`/tournaments/${tournamentSlug}?tab=matches&matchId=${m.id}#match-${m.id}`}
                   className="font-bold text-[#0A5FC4] hover:underline flex items-center gap-0.5"
                 >
                   <span>Scorecard</span>

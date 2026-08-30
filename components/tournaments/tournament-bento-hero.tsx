@@ -32,6 +32,7 @@ interface BentoHeroProps {
     usdRate?: number | null;
     game: { name: string };
     venues?: Array<{ venue: { name: string; city?: string | null; country?: string | null }; stageName?: string | null }>;
+    organizers?: Array<{ organizer: { name: string; logoUrl?: string | null }; role?: string | null }>;
     stages?: Array<{ name: string; sequence?: number }>;
   };
   activeStageName: string;
@@ -42,6 +43,11 @@ export function TournamentBentoHero({
   activeStageName,
 }: BentoHeroProps) {
   const cleanTier = (tournament.tier || '').replace(/\s*tier\s*$/i, '');
+
+  const primaryOrganizer = tournament.organizers?.find((o) =>
+    o.role?.toLowerCase().includes('primary') || o.role?.toLowerCase().includes('host')
+  ) || tournament.organizers?.[0];
+  const organizerName = primaryOrganizer?.organizer?.name || 'Official Esports';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
@@ -75,11 +81,27 @@ export function TournamentBentoHero({
             </div>
           </div>
 
-          {/* Championship Title & Mode Grid */}
-          <div className="py-6 space-y-3">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Tournament Championship
-            </span>
+          {/* Organizer Header & Tournament Title */}
+          <div className="py-6 space-y-2.5">
+            <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400">
+              {primaryOrganizer?.organizer?.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={primaryOrganizer.organizer.logoUrl}
+                  alt=""
+                  className="w-4 h-4 object-contain rounded shrink-0"
+                />
+              ) : (
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span>{organizerName}</span>
+              {primaryOrganizer?.role && (
+                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 lowercase">
+                  · {primaryOrganizer.role}
+                </span>
+              )}
+            </div>
+
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
               {tournament.name}
             </h2>
