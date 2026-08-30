@@ -88,6 +88,16 @@ export const GAME_MODES = [
   '5v5 MOBA',
 ] as const;
 
+export const TOURNAMENT_PLATFORMS = [
+  'Mobile',
+  'PC',
+  'PlayStation 5',
+  'Xbox Series X/S',
+  'Nintendo Switch',
+  'Console',
+  'Cross-Platform',
+] as const;
+
 export const STAGE_TYPES = [
   'Battle Royale Points Table',
   'Round Robin',
@@ -97,18 +107,61 @@ export const STAGE_TYPES = [
   'Double Elimination',
 ] as const;
 
-export const CURRENCIES = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'SAR', symbol: '﷼', name: 'Saudi Riyal' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah' },
-  { code: 'THB', symbol: '฿', name: 'Thai Baht' },
-  { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-] as const;
+export interface CurrencyInfo {
+  code: string;
+  symbol: string;
+  name: string;
+  usdRate: number;
+}
+
+export const CURRENCIES: CurrencyInfo[] = [
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee', usdRate: 0.0115 },
+  { code: 'USD', symbol: '$', name: 'US Dollar', usdRate: 1.0 },
+  { code: 'EUR', symbol: '€', name: 'Euro', usdRate: 1.08 },
+  { code: 'GBP', symbol: '£', name: 'British Pound', usdRate: 1.28 },
+  { code: 'SAR', symbol: '﷼', name: 'Saudi Riyal', usdRate: 0.266 },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham', usdRate: 0.272 },
+  { code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah', usdRate: 0.000062 },
+  { code: 'THB', symbol: '฿', name: 'Thai Baht', usdRate: 0.0285 },
+  { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit', usdRate: 0.225 },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar', usdRate: 0.75 },
+  { code: 'BRL', symbol: 'R$', name: 'Brazilian Real', usdRate: 0.17 },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen', usdRate: 0.0065 },
+  { code: 'KRW', symbol: '₩', name: 'South Korean Won', usdRate: 0.00072 },
+  { code: 'CNY', symbol: '¥', name: 'Chinese Yuan', usdRate: 0.138 },
+  { code: 'TRY', symbol: '₺', name: 'Turkish Lira', usdRate: 0.029 },
+  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar', usdRate: 0.72 },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar', usdRate: 0.65 },
+  { code: 'PHP', symbol: '₱', name: 'Philippine Peso', usdRate: 0.017 },
+  { code: 'VND', symbol: '₫', name: 'Vietnamese Dong', usdRate: 0.000039 },
+  { code: 'PKR', symbol: 'Rs', name: 'Pakistani Rupee', usdRate: 0.0036 },
+  { code: 'BDT', symbol: '৳', name: 'Bangladeshi Taka', usdRate: 0.0083 },
+  { code: 'NPR', symbol: 'Rs', name: 'Nepalese Rupee', usdRate: 0.0072 },
+  { code: 'RUB', symbol: '₽', name: 'Russian Ruble', usdRate: 0.011 },
+  { code: 'MXN', symbol: 'Mex$', name: 'Mexican Peso', usdRate: 0.051 },
+  { code: 'ZAR', symbol: 'R', name: 'South African Rand', usdRate: 0.055 },
+  { code: 'QAR', symbol: 'QR', name: 'Qatari Riyal', usdRate: 0.274 },
+  { code: 'KWD', symbol: 'KD', name: 'Kuwaiti Dinar', usdRate: 3.25 },
+  { code: 'BHD', symbol: 'BD', name: 'Bahraini Dinar', usdRate: 2.65 },
+  { code: 'OMR', symbol: 'OMR', name: 'Omani Rial', usdRate: 2.60 },
+  { code: 'EGP', symbol: 'E£', name: 'Egyptian Pound', usdRate: 0.021 },
+  { code: 'NZD', symbol: 'NZ$', name: 'New Zealand Dollar', usdRate: 0.59 },
+  { code: 'SEK', symbol: 'kr', name: 'Swedish Krona', usdRate: 0.095 },
+  { code: 'NOK', symbol: 'kr', name: 'Norwegian Krone', usdRate: 0.092 },
+  { code: 'DKK', symbol: 'kr', name: 'Danish Krone', usdRate: 0.145 },
+  { code: 'PLN', symbol: 'zł', name: 'Polish Zloty', usdRate: 0.25 },
+  { code: 'CHF', symbol: 'CHF', name: 'Swiss Franc', usdRate: 1.13 },
+  { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar', usdRate: 0.128 },
+  { code: 'TWD', symbol: 'NT$', name: 'New Taiwan Dollar', usdRate: 0.031 },
+  { code: 'KZT', symbol: '₸', name: 'Kazakhstani Tenge', usdRate: 0.0021 },
+  { code: 'MNT', symbol: '₮', name: 'Mongolian Tugrik', usdRate: 0.00029 },
+  { code: 'UZS', symbol: 'soʻm', name: 'Uzbekistani Som', usdRate: 0.000078 },
+];
+
+export function getCurrencyUsdRate(code: string): number {
+  const match = CURRENCIES.find((c) => c.code.toUpperCase() === code.toUpperCase());
+  return match ? match.usdRate : 1.0;
+}
 
 export const BGMI_PUBGM_MAPS = [
   'Erangel',
@@ -179,6 +232,58 @@ export function computeTotalPoints(data: {
   );
 }
 
+export interface PointsSystemPreset {
+  id: string;
+  name: string;
+  shortName: string;
+  description: string;
+  placementPoints: Record<number, number>;
+  killPoints: number;
+}
+
+export const POINTS_SYSTEM_PRESETS: PointsSystemPreset[] = [
+  {
+    id: 'BGIS_OFFICIAL_10',
+    name: 'Official 10-Point Matrix (BGIS / BMPS / PMGC 2023+)',
+    shortName: '10-Pt Official',
+    description: '1st=10, 2nd=6, 3rd=5, 4th=4, 5th=3, 6th=2, 7th-8th=1, 9th-16th=0 (1 pt/kill)',
+    placementPoints: { 1: 10, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2, 7: 1, 8: 1, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0 },
+    killPoints: 1,
+  },
+  {
+    id: 'LEGACY_15_POINT',
+    name: 'Legacy 15-Point Matrix (PMPL / PMWL / BGIS 2021)',
+    shortName: '15-Pt Legacy',
+    description: '1st=15, 2nd=12, 3rd=10, 4th=8, 5th=6, 6th=4, 7th=2, 8th-12th=1, 13th-16th=0 (1 pt/kill)',
+    placementPoints: { 1: 15, 2: 12, 3: 10, 4: 8, 5: 6, 6: 4, 7: 2, 8: 1, 9: 1, 10: 1, 11: 1, 12: 1, 13: 0, 14: 0, 15: 0, 16: 0 },
+    killPoints: 1,
+  },
+  {
+    id: 'LEGACY_20_POINT',
+    name: 'Legacy 20-Point Matrix (PMCO 2019-2020)',
+    shortName: '20-Pt Legacy',
+    description: '1st=20, 2nd=14, 3rd=10, 4th=8, 5th=7, 6th=6, 7th=5, 8th=4, 9th=3, 10th=2, 11th-16th=1',
+    placementPoints: { 1: 20, 2: 14, 3: 10, 4: 8, 5: 7, 6: 6, 7: 5, 8: 4, 9: 3, 10: 2, 11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 16: 1 },
+    killPoints: 1,
+  },
+  {
+    id: 'ALGS_12_POINT',
+    name: 'ALGS / Global 12-Point Matrix',
+    shortName: '12-Pt Global',
+    description: '1st=12, 2nd=9, 3rd=7, 4th=5, 5th=4, 6th=3, 7th=3, 8th=2, 9th=2, 10th=1, 11th-20th=0',
+    placementPoints: { 1: 12, 2: 9, 3: 7, 4: 5, 5: 4, 6: 3, 7: 3, 8: 2, 9: 2, 10: 1, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0 },
+    killPoints: 1,
+  },
+  {
+    id: 'CUSTOM',
+    name: 'Custom Points Matrix',
+    shortName: 'Custom',
+    description: 'User-configured placement scoring and custom kill points multiplier',
+    placementPoints: { 1: 10, 2: 6, 3: 5, 4: 4, 5: 3, 6: 2, 7: 1, 8: 1, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0 },
+    killPoints: 1,
+  },
+];
+
 /**
  * Standard Battle Royale Placement Points Table (e.g. Krafton Official 10-Pt Matrix)
  */
@@ -201,7 +306,18 @@ export const DEFAULT_BR_PLACEMENT_POINTS: Record<number, number> = {
   16: 0,
 };
 
-export function getPlacementPoints(rank: number): number {
+export function getPlacementPoints(
+  rank: number,
+  customMatrix?: Record<number, number> | number[] | null
+): number {
+  if (customMatrix) {
+    if (Array.isArray(customMatrix)) {
+      return customMatrix[rank - 1] ?? 0;
+    }
+    if (typeof customMatrix === 'object' && customMatrix[rank] !== undefined) {
+      return Number(customMatrix[rank]) || 0;
+    }
+  }
   return DEFAULT_BR_PLACEMENT_POINTS[rank] ?? 0;
 }
 

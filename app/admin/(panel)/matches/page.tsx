@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { Pencil, Trash2, Plus, Swords, Crosshair, Trophy, Shield, Users, Flame, Sparkles } from 'lucide-react';
+import { Pencil, Trash2, Plus, Swords, Crosshair, Trophy, Shield, Users, Flame, Sparkles, Save, Radio, Globe, MapPin, Tv } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum } from '@/lib/admin-forms';
@@ -14,6 +14,8 @@ import {
   computeTotalDistance,
   computeTotalPoints,
 } from '@/lib/tournament-math';
+import { MatchInfoInputs } from '@/components/admin/match-info-inputs';
+import { MatchBatchImporter } from '@/components/admin/match-batch-importer';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,26 +43,46 @@ async function saveMatch(formData: FormData) {
   const gameId = fStr(formData, 'gameId');
   const scheduledAt = fDate(formData, 'scheduledAt');
   const matchNumber = fNum(formData, 'matchNumber') ?? 1;
+  const overallMatchNumber = fNum(formData, 'overallMatchNumber');
   const mapName = fStr(formData, 'mapName') || 'Erangel';
-  const stageType = fStr(formData, 'stageType') || 'Grand Finals';
+  const stageName = fStr(formData, 'stageName') || 'Grand Finals';
+  const stageType = fOpt(formData, 'stageType');
   const groupName = fOpt(formData, 'groupName');
   const matchType = fStr(formData, 'matchType') || 'LAN';
-  const matchTime = fOpt(formData, 'matchTime');
+  const matchTime = fStr(formData, 'matchTime') || '17:30 IST';
 
   if (!tournamentId || !gameId || !scheduledAt) {
     redirect(`/admin/matches?error=required${id ? `&edit=${id}` : ''}`);
   }
 
-  const format = `Match ${matchNumber} - ${mapName}${groupName ? ` (${groupName})` : ''}`;
+  let vods: any = null;
+  const vodsRaw = fStr(formData, 'vodsJson');
+  if (vodsRaw) {
+    try {
+      vods = JSON.parse(vodsRaw);
+    } catch {
+      vods = null;
+    }
+  }
 
-  const data = {
-    tournamentId,
-    stageId: fOpt(formData, 'stageId'),
-    groupId: fOpt(formData, 'groupId'),
-    gameId,
+  // Determine primary streamUrl
+  let streamUrl = fOpt(formData, 'streamUrl');
+  if (!streamUrl && Array.isArray(vods) && vods.length > 0) {
+    const mainVod = vods.find((v: any) => v.type === 'MAIN') || vods[0];
+    if (mainVod?.url) streamUrl = mainVod.url;
+  }
+
+  const format = `Match ${matchNumber} (${mapName})${stageName ? ` · ${stageName}` : ''}${
+    overallMatchNumber ? ` · Overall #${overallMatchNumber}` : ''
+  }${groupName ? ` (${groupName})` : ''}`;
+
+  let matchId = id;
+
+  const baseData: Record<string, any> = {
     matchNumber,
-    stageType,
-    groupName,
+    overallMatchNumber: overallMatchNumber ?? null,
+    stageType: stageType || null,
+    groupName: groupName || null,
     mapName,
     matchType,
     format,
@@ -71,25 +93,46 @@ async function saveMatch(formData: FormData) {
       | 'POSTPONED',
     scheduledAt,
     matchTime,
-    streamUrl: fOpt(formData, 'streamUrl'),
+    streamUrl: streamUrl || null,
   };
 
-  let matchId = id;
-  if (id) {
-    await prisma.match.update({ where: { id }, data });
-  } else {
-    const created = await prisma.match.create({ data });
-    matchId = created.id;
+  // Only include vods if we have a parsed value (avoid sending undefined for Json? field)
+  if (vods !== null) {
+    baseData.vods = vods;
+  }
 
-    // Auto-create initial MatchGame sequence 1
-    await prisma.matchGame.create({
-      data: {
-        matchId: created.id,
-        sequence: 1,
-        mapName,
-        duration: 1680,
-      },
-    });
+  try {
+    if (id) {
+      // Prisma .update() requires relational nested writes for FK fields
+      await prisma.match.update({
+        where: { id },
+        data: {
+          ...baseData,
+          tournament: { connect: { id: tournamentId } },
+          game: { connect: { id: gameId } },
+        },
+      });
+    } else {
+      // Prisma .create() accepts scalar FK IDs directly
+      const created = await prisma.match.create({
+        data: { ...baseData, tournamentId, gameId } as any,
+      });
+      matchId = created.id;
+
+      // Auto-create initial MatchGame sequence 1
+      await prisma.matchGame.create({
+        data: {
+          matchId: created.id,
+          sequence: 1,
+          mapName,
+          duration: 1680,
+        },
+      });
+    }
+  } catch (err: any) {
+    console.error('[saveMatch] Prisma error:', err?.message || err);
+    console.error('[saveMatch] Data payload:', JSON.stringify(baseData, null, 2));
+    throw err;
   }
 
   revalidatePath('/admin/matches');
@@ -125,7 +168,17 @@ async function saveTeamResult(formData: FormData) {
 
   const rank = fNum(formData, 'rank') ?? 1;
   const isWwcd = formData.get('wwcd') === 'on' || rank === 1;
-  const placePoints = fNum(formData, 'placePoints') ?? getPlacementPoints(rank);
+
+  let tournamentPointsMatrix: any = null;
+  const matchGame = await prisma.matchGame.findUnique({
+    where: { id: matchGameId },
+    select: { match: { select: { tournament: { select: { formatDetails: true } } } } },
+  });
+  if (matchGame?.match?.tournament?.formatDetails && typeof matchGame.match.tournament.formatDetails === 'object') {
+    tournamentPointsMatrix = (matchGame.match.tournament.formatDetails as any).placementPoints;
+  }
+
+  const placePoints = fNum(formData, 'placePoints') ?? getPlacementPoints(rank, tournamentPointsMatrix);
   const elimsPoints = fNum(formData, 'elimsPoints') ?? 0;
   const bonusPoints = fNum(formData, 'bonusPoints') ?? 0;
   const totalPoints = computeTotalPoints({ placePoints, elimsPoints, bonusPoints });
@@ -299,6 +352,207 @@ async function deletePlayerStat(formData: FormData) {
   redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
 }
 
+async function importBatchTeamResultsAction(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+
+  const matchId = fStr(formData, 'matchId');
+  const matchGameId = fStr(formData, 'matchGameId');
+  const replaceExisting = fStr(formData, 'replaceExisting') === 'true';
+  const rowsJson = fStr(formData, 'rowsJson');
+
+  if (!matchGameId || !rowsJson) redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
+
+  let rows: any[] = [];
+  try {
+    rows = JSON.parse(rowsJson);
+  } catch {
+    rows = [];
+  }
+
+  if (rows.length > 0) {
+    if (replaceExisting) {
+      await prisma.matchTeamResult.deleteMany({ where: { matchGameId } });
+    }
+
+    for (const r of rows) {
+      if (!r.teamId) continue;
+      const rank = Number(r.rank || 1);
+      const isWwcd = r.wwcd === true || rank === 1;
+      const placePoints = Number(r.placePoints || 0);
+      const elimsPoints = Number(r.elimsPoints || 0);
+      const bonusPoints = Number(r.bonusPoints || 0);
+      const totalPoints = Number(r.totalPoints || (placePoints + elimsPoints + bonusPoints));
+
+      const smokesUsed = Number(r.smokesUsed || 0);
+      const grenadesUsed = Number(r.grenadesUsed || 0);
+      const molotovsUsed = Number(r.molotovsUsed || 0);
+      const flashUsed = Number(r.flashUsed || 0);
+      const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
+
+      const distDrove = Number(r.distDrove || 0);
+      const distWalk = Number(r.distWalk || 0);
+      const totalDist = computeTotalDistance({ distDrove, distWalk });
+
+      const payload = {
+        shortCode: r.shortCode || null,
+        mp: Number(r.mp || 1),
+        rank,
+        wwcd: isWwcd,
+        placePoints,
+        elimsPoints,
+        bonusPoints,
+        totalPoints,
+        damage: Number(r.damage || 0),
+        survivalTime: Number(r.survivalTime || 1680),
+        healing: Number(r.healing || 0),
+        damageReceived: Number(r.damageReceived || 0),
+        headshots: Number(r.headshots || 0),
+        assists: Number(r.assists || 0),
+        knockouts: Number(r.knockouts || 0),
+        longestElim: Number(r.longestElim || 0),
+        vehicleElims: Number(r.vehicleElims || 0),
+        grenadeElims: Number(r.grenadeElims || 0),
+        smokesUsed,
+        grenadesUsed,
+        molotovsUsed,
+        flashUsed,
+        utilitiesTotal,
+        airdrops: Number(r.airdrops || 0),
+        rescues: Number(r.rescues || 0),
+        distDrove,
+        distWalk,
+        totalDist,
+        won: isWwcd,
+        score: totalPoints,
+      };
+
+      if (!replaceExisting) {
+        const existing = await prisma.matchTeamResult.findFirst({
+          where: { matchGameId, teamId: r.teamId },
+          select: { id: true },
+        });
+        if (existing) {
+          await prisma.matchTeamResult.update({ where: { id: existing.id }, data: payload });
+          continue;
+        }
+      }
+
+      await prisma.matchTeamResult.create({
+        data: {
+          matchGameId,
+          teamId: r.teamId,
+          ...payload,
+        },
+      });
+    }
+  }
+
+  revalidatePath('/admin/matches');
+  revalidatePath('/tournaments');
+  redirect(matchId ? `/admin/matches?edit=${matchId}#team-results` : '/admin/matches');
+}
+
+async function importBatchPlayerStatsAction(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+
+  const matchId = fStr(formData, 'matchId');
+  const matchGameId = fStr(formData, 'matchGameId');
+  const replaceExisting = fStr(formData, 'replaceExisting') === 'true';
+  const rowsJson = fStr(formData, 'rowsJson');
+
+  if (!matchGameId || !rowsJson) redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
+
+  let rows: any[] = [];
+  try {
+    rows = JSON.parse(rowsJson);
+  } catch {
+    rows = [];
+  }
+
+  if (rows.length > 0) {
+    if (replaceExisting) {
+      await prisma.matchPlayerStat.deleteMany({ where: { matchGameId } });
+    }
+
+    for (const r of rows) {
+      if (!r.playerId) continue;
+      const playerElims = Number(r.playerElims || r.elims || 0);
+
+      const smokesUsed = Number(r.smokesUsed || 0);
+      const grenadesUsed = Number(r.grenadesUsed || 0);
+      const molotovsUsed = Number(r.molotovsUsed || 0);
+      const flashUsed = Number(r.flashUsed || 0);
+      const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
+
+      const distDrove = Number(r.distDrove || 0);
+      const distWalk = Number(r.distWalk || 0);
+      const totalDist = computeTotalDistance({ distDrove, distWalk });
+
+      const payload = {
+        teamId: r.teamId || null,
+        shortCode: r.shortCode || null,
+        role: r.role || null,
+        mp: Number(r.mp || 1),
+        playerElims,
+        teamRank: Number(r.teamRank || 0),
+        teamWwcd: r.teamWwcd === true,
+        teamPlacePoints: Number(r.teamPlacePoints || 0),
+        teamElimsPoints: Number(r.teamElimsPoints || 0),
+        teamBonusPoints: Number(r.teamBonusPoints || 0),
+        teamTotalPoints: Number(r.teamTotalPoints || 0),
+        damage: Number(r.damage || 0),
+        survivalTime: Number(r.survivalTime || 0),
+        healing: Number(r.healing || 0),
+        damageReceived: Number(r.damageReceived || 0),
+        headshots: Number(r.headshots || 0),
+        assists: Number(r.assists || 0),
+        knockouts: Number(r.knockouts || 0),
+        longestElim: Number(r.longestElim || 0),
+        vehicleElims: Number(r.vehicleElims || 0),
+        grenadeElims: Number(r.grenadeElims || 0),
+        smokesUsed,
+        grenadesUsed,
+        molotovsUsed,
+        flashUsed,
+        utilitiesTotal,
+        airdrops: Number(r.airdrops || 0),
+        rescues: Number(r.rescues || 0),
+        distDrove,
+        distWalk,
+        totalDist,
+        isMvp: r.isMvp === true,
+        playerPowerplay: Number(r.playerPowerplay || 0),
+        kills: playerElims,
+      };
+
+      if (!replaceExisting) {
+        const existing = await prisma.matchPlayerStat.findFirst({
+          where: { matchGameId, playerId: r.playerId },
+          select: { id: true },
+        });
+        if (existing) {
+          await prisma.matchPlayerStat.update({ where: { id: existing.id }, data: payload });
+          continue;
+        }
+      }
+
+      await prisma.matchPlayerStat.create({
+        data: {
+          matchGameId,
+          playerId: r.playerId,
+          ...payload,
+        },
+      });
+    }
+  }
+
+  revalidatePath('/admin/matches');
+  revalidatePath('/tournaments');
+  redirect(matchId ? `/admin/matches?edit=${matchId}#player-stats` : '/admin/matches');
+}
+
 // ---------------------------------------------------------------- page
 
 export default async function AdminMatchesPage({
@@ -315,10 +569,12 @@ export default async function AdminMatchesPage({
         id: true,
         name: true,
         slug: true,
+        gameId: true,
+        prizeDistribution: true,
         stages: { orderBy: { sequence: 'asc' }, select: { id: true, name: true } },
       },
     }),
-    prisma.game.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.game.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true } }),
     prisma.team.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, tag: true } }),
     prisma.player.findMany({
       orderBy: { ign: 'asc' },
@@ -330,8 +586,8 @@ export default async function AdminMatchesPage({
     ? await prisma.match.findUnique({
         where: { id: edit },
         include: {
-          tournament: { select: { name: true, slug: true } },
-          game: { select: { name: true } },
+          tournament: { select: { id: true, name: true, slug: true, gameId: true, prizeDistribution: true, formatDetails: true } },
+          game: { select: { id: true, name: true, slug: true } },
           stage: { select: { name: true } },
           group: { select: { name: true } },
           games: {
@@ -351,11 +607,15 @@ export default async function AdminMatchesPage({
       })
     : null;
 
-  const selectedTournament = editing
-    ? tournaments.find((t) => t.id === editing.tournamentId)
-    : null;
-
   const activeMatchGame = editing?.games[0];
+
+  let tournamentPointsMatrix: any = undefined;
+  let tournamentKillMultiplier = 1;
+  if (editing?.tournament?.formatDetails && typeof editing.tournament.formatDetails === 'object') {
+    const fd = editing.tournament.formatDetails as any;
+    if (fd.placementPoints) tournamentPointsMatrix = fd.placementPoints;
+    if (fd.killPointsMultiplier != null) tournamentKillMultiplier = Number(fd.killPointsMultiplier) || 1;
+  }
 
   const matchList = await prisma.match.findMany({
     orderBy: { scheduledAt: 'desc' },
@@ -366,9 +626,6 @@ export default async function AdminMatchesPage({
       _count: { select: { games: true } },
     },
   });
-
-  const toLocalInput = (d: Date) =>
-    new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 
   return (
     <div className="space-y-6">
@@ -398,7 +655,12 @@ export default async function AdminMatchesPage({
       )}
 
       {/* Match Form */}
-      <details open={Boolean(editing)}>
+      <details
+        id="match-editor"
+        key={editing?.id || 'new-match-panel'}
+        open={Boolean(editing)}
+        className="group scroll-mt-6"
+      >
         <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
           <Plus className="w-4 h-4" />
           {editing ? `Editing: ${editing.format} · ${editing.tournament.name}` : 'Create New Match'}
@@ -406,148 +668,81 @@ export default async function AdminMatchesPage({
 
         {/* 1. Match Information Form */}
         <form
+          key={editing?.id || 'new-form'}
           action={saveMatch}
-          className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-6 space-y-4"
+          className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-6 space-y-6"
         >
           {editing && <input type="hidden" name="id" value={editing.id} />}
 
-          <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-1.5">
-            <Trophy className="w-4 h-4" /> 1. Match Information
-          </h2>
+          <MatchInfoInputs
+            allGames={games}
+            allTournaments={tournaments as any}
+            initialGameId={editing?.gameId}
+            initialTournamentId={editing?.tournamentId}
+            initialStageName={editing?.stage?.name || (editing?.format ? editing.format.split(' · ')[1]?.split(' (')[0] : 'Grand Finals')}
+            initialStageType={editing?.stageType ?? ''}
+            initialGroupName={editing?.groupName || ''}
+            initialMatchNumber={editing?.matchNumber || 1}
+            initialOverallMatchNumber={editing?.overallMatchNumber || undefined}
+            initialMapName={editing?.mapName || 'Erangel'}
+            initialMatchType={editing?.matchType || 'LAN'}
+            initialScheduledAt={editing?.scheduledAt?.toISOString()}
+            initialMatchTime={editing?.matchTime || ''}
+            initialVods={editing?.vods as any}
+            initialStatus={editing?.status || 'SCHEDULED'}
+          />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className={labelCls}>Tournament *</label>
-              <select name="tournamentId" required defaultValue={editing?.tournamentId ?? ''} className={inputCls}>
-                <option value="">Select Tournament…</option>
-                {tournaments.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+          {/* Floating Sticky Save Dock for Match Info */}
+          <div className="sticky bottom-4 z-40 p-3 rounded-2xl bg-white/95 dark:bg-[#0b101c]/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800/90 shadow-2xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="truncate">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                  {editing ? `Editing Match: ${editing.format}` : 'New Match Draft'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {editing ? 'Save match info or enter team standings below' : 'Click save to initialize scorecard'}
+                </span>
+              </div>
             </div>
-            <div>
-              <label className={labelCls}>Stage</label>
-              <select name="stageId" defaultValue={editing?.stageId ?? ''} className={inputCls}>
-                <option value="">General Stage / Finals</option>
-                {(selectedTournament?.stages ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Stage Type</label>
-              <select name="stageType" defaultValue={editing?.stageType ?? 'Grand Finals'} className={inputCls}>
-                {STAGE_TYPES.map((st) => (
-                  <option key={st} value={st}>
-                    {st}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Group / Battle Code</label>
-              <input
-                name="groupName"
-                defaultValue={editing?.groupName ?? ''}
-                placeholder="e.g. Group A vs Group B"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Match Number</label>
-              <input
-                type="number"
-                name="matchNumber"
-                defaultValue={editing?.matchNumber ?? 1}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Map *</label>
-              <select name="mapName" defaultValue={editing?.mapName ?? 'Erangel'} className={inputCls}>
-                {BGMI_PUBGM_MAPS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Match Type</label>
-              <select name="matchType" defaultValue={editing?.matchType ?? 'LAN'} className={inputCls}>
-                {EVENT_TYPES.map((et) => (
-                  <option key={et} value={et}>
-                    {et}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Game *</label>
-              <select name="gameId" required defaultValue={editing?.gameId ?? ''} className={inputCls}>
-                <option value="">Select Game…</option>
-                {games.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Date &amp; Time (UTC/ISO) *</label>
-              <input
-                type="datetime-local"
-                name="scheduledAt"
-                required
-                defaultValue={editing ? toLocalInput(editing.scheduledAt) : ''}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Display Time (Local)</label>
-              <input
-                name="matchTime"
-                defaultValue={editing?.matchTime ?? '14:30 IST'}
-                placeholder="14:30 IST / 18:00 UTC"
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Status</label>
-              <select name="status" defaultValue={editing?.status ?? 'SCHEDULED'} className={inputCls}>
-                {MATCH_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Broadcast Stream URL</label>
-              <input
-                name="streamUrl"
-                defaultValue={editing?.streamUrl ?? ''}
-                placeholder="https://youtube.com/…"
-                className={inputCls}
-              />
+
+            <div className="flex items-center gap-2 shrink-0">
+              {editing && (
+                <Link
+                  href="/admin/matches"
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </Link>
+              )}
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-[#0A5FC4]/25 flex items-center gap-2 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>{editing ? 'Update Match Info' : 'Create Match & Scorecard'}</span>
+              </button>
             </div>
           </div>
-
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
-          >
-            {editing ? 'Update Match Info' : 'Create Match & Enter Scorecard'}
-          </button>
         </form>
 
         {/* 2. Team & Player Match Scorecard Entry (Only for active editing match) */}
         {editing && activeMatchGame && (
           <div className="mt-6 space-y-6">
+            {/* Batch Table / Excel / JSON Importer */}
+            <MatchBatchImporter
+              matchId={editing.id}
+              matchGameId={activeMatchGame.id}
+              allTeams={teams}
+              allPlayers={players}
+              pointsMatrix={tournamentPointsMatrix}
+              killMultiplier={tournamentKillMultiplier}
+              importTeamResultsAction={importBatchTeamResultsAction}
+              importPlayerStatsAction={importBatchPlayerStatsAction}
+              existingTeamResults={activeMatchGame.teamResults}
+              existingPlayerStats={activeMatchGame.playerStats}
+            />
+
             {/* 2.1 Team Results Section */}
             <div id="team-results" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -934,56 +1129,87 @@ export default async function AdminMatchesPage({
         <table className="w-full text-sm min-w-[760px]">
           <thead>
             <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50 dark:bg-[#080d17]">
-              <th className="py-3 px-3 text-left">Match</th>
-              <th className="py-3 px-3 text-left hidden md:table-cell">Tournament</th>
-              <th className="py-3 px-3 text-left hidden sm:table-cell">Type &amp; Time</th>
+              <th className="py-3 px-3 text-left">Match &amp; Format</th>
+              <th className="py-3 px-3 text-left hidden md:table-cell">Tournament &amp; Game</th>
+              <th className="py-3 px-3 text-left hidden sm:table-cell">Schedule &amp; Environment</th>
               <th className="py-3 px-3 text-center">Status</th>
               <th className="py-3 px-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-            {matchList.map((m) => (
-              <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
-                <td className="py-3 px-3">
-                  <span className="font-bold block max-w-[240px] truncate">{m.format}</span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {m.game.name} · {m.stageType || 'Match'}
-                  </span>
-                </td>
-                <td className="py-3 px-3 text-slate-500 hidden md:table-cell max-w-[240px] truncate">
-                  {m.tournament.name}
-                </td>
-                <td className="py-3 px-3 text-slate-500 text-xs hidden sm:table-cell">
-                  {m.matchType} · {m.matchTime || m.scheduledAt.toISOString().slice(0, 16)}
-                </td>
-                <td className="py-3 px-3 text-center">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${STATUS_STYLES[m.status] ?? ''}`}>
-                    {m.status}
-                  </span>
-                </td>
-                <td className="py-3 px-3 text-right">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Link
-                      href={`/admin/matches?edit=${m.id}`}
-                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
-                      title="Edit Match & Scorecard"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Link>
-                    <form action={deleteMatch}>
-                      <input type="hidden" name="id" value={m.id} />
-                      <button
-                        type="submit"
-                        className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors"
-                        title="Delete Match"
+            {matchList.map((m) => {
+              const vodCount = Array.isArray(m.vods) ? m.vods.length : m.streamUrl ? 1 : 0;
+
+              return (
+                <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
+                  <td className="py-3 px-3">
+                    <span className="font-bold block max-w-[260px] truncate text-slate-900 dark:text-white">
+                      {m.format}
+                    </span>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5 font-mono">
+                      <span>🗺️ {m.mapName}</span>
+                      <span>·</span>
+                      <span>{m.stageType || 'Match'}</span>
+                      {m.overallMatchNumber && (
+                        <>
+                          <span>·</span>
+                          <span className="text-[#0A5FC4] dark:text-blue-400 font-bold">Overall #{m.overallMatchNumber}</span>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-slate-500 hidden md:table-cell max-w-[220px]">
+                    <span className="font-medium text-xs text-slate-800 dark:text-slate-200 block truncate">
+                      {m.tournament.name}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      🎮 {m.game.name}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-slate-500 text-xs hidden sm:table-cell">
+                    <div className="font-mono text-xs text-slate-700 dark:text-slate-300">
+                      {m.matchTime || m.scheduledAt.toISOString().slice(0, 16)}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {m.matchType === 'Online' ? '🌐 Online' : '🏟️ Offline LAN'}
+                      </span>
+                      {vodCount > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                          <Tv className="w-3 h-3" /> {vodCount} Stream{vodCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-center">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${STATUS_STYLES[m.status] ?? ''}`}>
+                      {m.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Link
+                        href={`/admin/matches?edit=${m.id}#match-editor`}
+                        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
+                        title="Edit Match & Scorecard"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
-                  </span>
-                </td>
-              </tr>
-            ))}
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Link>
+                      <form action={deleteMatch}>
+                        <input type="hidden" name="id" value={m.id} />
+                        <button
+                          type="submit"
+                          className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Delete Match"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </form>
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
             {matchList.length === 0 && (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-xs text-slate-400">

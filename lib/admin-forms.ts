@@ -23,7 +23,18 @@ export function fNum(fd: FormData, key: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
-const SOCIAL_KEYS = ['instagram', 'twitter', 'youtube', 'discord', 'facebook', 'website'] as const;
+const SOCIAL_KEYS = [
+  'instagram',
+  'twitter',
+  'youtube',
+  'discord',
+  'facebook',
+  'website',
+  'kick',
+  'twitch',
+  'tiktok',
+  'threads',
+] as const;
 
 export function fSocials(
   fd: FormData

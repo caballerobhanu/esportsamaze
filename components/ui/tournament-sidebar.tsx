@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Gamepad2,
   Monitor,
+  Smartphone,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +38,7 @@ interface Tab {
 interface Meta {
   eventType?: string | null;
   gameMode?: string | null;
+  platform?: string | null;
   device?: string | null;
   teamsCount: number;
   matchesCount: number;
@@ -164,10 +166,18 @@ export function TournamentSidebar({ slug, activeTab, tabs, meta }: TournamentSid
               <span>{meta.gameMode}</span>
             </div>
           )}
-          {meta.device && (
+          {meta.platform && (
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <Monitor className="w-3 h-3 shrink-0" />
-              <span>{meta.device}</span>
+              <span>{meta.platform}</span>
+            </div>
+          )}
+          {meta.device && (
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <Smartphone className="w-3 h-3 shrink-0 text-emerald-500" />
+              <span className="truncate" title={`Official Device: ${meta.device}`}>
+                {meta.device}
+              </span>
             </div>
           )}
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">

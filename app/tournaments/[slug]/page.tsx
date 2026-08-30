@@ -23,11 +23,13 @@ import {
   Zap,
   Target,
   ChevronRight,
+  User,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { formatDate, formatPrizePool } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Navbar } from '@/components/navbar';
+import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { Footer } from '@/components/footer';
 import {
   calculateTournamentStandings,
@@ -165,9 +167,48 @@ export default async function TournamentDetailPage({
   const tournament = await getTournamentData(slug);
   if (!tournament) notFound();
 
-  const socials = (tournament.socialLinks ?? {}) as SocialMap;
-  const prizeDist = Array.isArray(tournament.prizeDistribution)
-    ? (tournament.prizeDistribution as Array<{ rank: string; percentage?: number; prize: number }>)
+  const rawSocials = (tournament.socialLinks ?? {}) as Record<string, unknown>;
+  const socials: SocialMap = {};
+  for (const [k, v] of Object.entries(rawSocials)) {
+    if (typeof v === 'string' && v.trim().length > 0) {
+      socials[k] = v.trim();
+    }
+  }
+  const officialEventUrl = tournament.liquipedia || socials.website;
+
+  const rawPrizeDist = tournament.prizeDistribution as any;
+  const isMultiStage = Boolean(rawPrizeDist && rawPrizeDist.stages && Array.isArray(rawPrizeDist.stages));
+  const prizeStages: Array<{
+    stageName: string;
+    allocatedPrize?: number;
+    percentage?: number;
+    ranks: Array<{
+      rank: string;
+      percentage?: number;
+      prize: number;
+      rewardType?: 'MONEY' | 'ITEM' | 'TITLE';
+      customReward?: string;
+      recipientType?: 'TEAM' | 'PLAYER';
+      teamName?: string;
+      playerName?: string;
+      qualifications?: string[];
+    }>;
+  }> = isMultiStage
+    ? rawPrizeDist.stages
+    : [
+        {
+          stageName: 'Grand Finals',
+          allocatedPrize: tournament.prizePool ?? 0,
+          ranks: Array.isArray(tournament.prizeDistribution)
+            ? (tournament.prizeDistribution as any)
+            : [],
+        },
+      ];
+
+  const prizeDist = prizeStages.flatMap((s) => s.ranks);
+
+  const qualificationsList = Array.isArray((tournament as any).qualifications)
+    ? ((tournament as any).qualifications as Array<{ place: string; events: string[]; description?: string }>)
     : [];
 
   const formatRules = (tournament.formatDetails ?? {}) as {
@@ -288,9 +329,12 @@ export default async function TournamentDetailPage({
 
               {/* Quick meta strip */}
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/60">
-                <span className="inline-flex items-center gap-1.5 font-black text-amber-400 text-lg">
-                  {formatPrizePool(tournament.prizePool ?? 0, tournament.currency, tournament.usdRate)}
-                </span>
+                <PrizePoolBadge
+                  amount={tournament.prizePool}
+                  currency={tournament.currency}
+                  usdRate={tournament.usdRate}
+                  className="font-black text-amber-400 text-lg"
+                />
                 <span className="w-px h-4 bg-white/20 hidden sm:block" />
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-white/40" />
@@ -317,24 +361,37 @@ export default async function TournamentDetailPage({
               </div>
             </div>
 
-            {/* Social links — right aligned on desktop */}
-            {Object.keys(socials).length > 0 && (
-              <div className="flex items-center gap-2 shrink-0">
-                {Object.entries(socials).map(([key, val]) => {
-                  const Icon = SOCIAL_ICONS[key] ?? Globe;
-                  return (
-                    <a
-                      key={key}
-                      href={String(val)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white/60 hover:text-white transition-colors"
-                      title={key}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                    </a>
-                  );
-                })}
+            {/* Actions & Social Links — right aligned on desktop */}
+            {(officialEventUrl || Object.keys(socials).length > 0) && (
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {officialEventUrl && (
+                  <a
+                    href={officialEventUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-sm text-xs font-bold text-white transition-colors shadow-sm"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Official Event Page ↗</span>
+                  </a>
+                )}
+                {Object.entries(socials)
+                  .filter(([k]) => k !== 'website')
+                  .map(([key, val]) => {
+                    const Icon = SOCIAL_ICONS[key] ?? Globe;
+                    return (
+                      <a
+                        key={key}
+                        href={String(val)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white/60 hover:text-white transition-colors"
+                        title={key}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                      </a>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -353,6 +410,7 @@ export default async function TournamentDetailPage({
           meta={{
             eventType: tournament.eventType,
             gameMode: tournament.gameMode,
+            platform: tournament.platform,
             device: tournament.device,
             teamsCount: tournament.teams.length,
             matchesCount: tournament.matches.length,
@@ -715,25 +773,24 @@ export default async function TournamentDetailPage({
                 <div className="px-6 pt-8 pb-6 bg-gradient-to-br from-amber-500/8 via-transparent to-transparent dark:from-amber-500/12">
                   <div className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">Total Prize Pool</div>
                   <div className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight font-mono">
-                    {formatPrizePool(tournament.prizePool ?? 0, tournament.currency, tournament.usdRate)}
+                    <PrizePoolBadge
+                      amount={tournament.prizePool}
+                      currency={tournament.currency}
+                      usdRate={tournament.usdRate}
+                    />
                   </div>
-                  {tournament.usdRate && tournament.currency !== 'USD' && (
-                    <div className="text-sm text-slate-400 mt-1">
-                      ≈ ${Math.round((tournament.prizePool ?? 0) * tournament.usdRate).toLocaleString()} USD
-                    </div>
-                  )}
                 </div>
 
-                {/* Distribution bars */}
+                {/* Overall Top Distribution bars */}
                 {prizeDist.length > 0 && (
                   <div className="px-6 pb-6">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Distribution</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Overall Distribution Overview</div>
                     <div className="space-y-2">
                       {prizeDist.slice(0, 6).map((p, idx) => {
                         const pct = p.percentage || ((p.prize / (tournament.prizePool ?? 1)) * 100);
                         return (
                           <div key={idx} className="flex items-center gap-3">
-                            <span className="text-xs font-bold w-20 shrink-0 text-slate-600 dark:text-slate-300">
+                            <span className="text-xs font-bold w-28 shrink-0 text-slate-600 dark:text-slate-300 truncate">
                               {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '  '} {p.rank}
                             </span>
                             <div className="flex-1 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -753,36 +810,183 @@ export default async function TournamentDetailPage({
                 )}
               </div>
 
-              {/* Full table */}
-              {prizeDist.length > 0 && (
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-[#080d17]">
-                    <h3 className="text-sm font-black uppercase tracking-wider">Full Breakdown</h3>
+              {/* Multi-Event Qualification Seeds Section with Direct Links */}
+              {qualificationsList.length > 0 && (
+                <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-[#0A5FC4]/5 via-transparent to-transparent dark:from-[#0A5FC4]/10 bg-white dark:bg-[#0b101c] p-6 shadow-sm">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-4 flex items-center gap-2">
+                    <Trophy className="w-4 h-4" /> Qualified Events &amp; Tournament Seeds
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {qualificationsList.map((q, qIdx) => (
+                      <div
+                        key={qIdx}
+                        className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-sm space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black text-xs">
+                            {q.place}
+                          </span>
+                          {q.description && (
+                            <span className="text-[10px] text-slate-400 font-medium">{q.description}</span>
+                          )}
+                        </div>
+                        <div className="space-y-1.5 pt-1">
+                          {q.events.map((ev: any, evIdx: number) => {
+                            const evName = typeof ev === 'string' ? ev : ev.name;
+                            const evSlug = typeof ev === 'object' ? ev.tournamentSlug : undefined;
+
+                            if (evSlug) {
+                              return (
+                                <Link
+                                  key={evIdx}
+                                  href={`/tournaments/${evSlug}`}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A5FC4] dark:text-blue-400 hover:underline"
+                                >
+                                  <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                  <span>{evName}</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">(View Event →)</span>
+                                </Link>
+                              );
+                            }
+
+                            return (
+                              <div
+                                key={evIdx}
+                                className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100"
+                              >
+                                <Zap className="w-3.5 h-3.5 text-[#0A5FC4] shrink-0" />
+                                <span>{evName}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stage-Wise Full Breakdown Tables */}
+              {prizeStages.map((stage, sIdx) => (
+                <div
+                  key={sIdx}
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] overflow-hidden shadow-sm"
+                >
+                  <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-[#080d17] flex items-center justify-between flex-wrap gap-2">
+                    <h3 className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-[#0A5FC4]" /> {stage.stageName} Breakdown
+                    </h3>
+                    {stage.allocatedPrize != null && stage.allocatedPrize > 0 && (
+                      <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                        Allocated: {tournament.currency} {stage.allocatedPrize.toLocaleString()}
+                        {stage.percentage ? ` (${stage.percentage}%)` : ''}
+                      </span>
+                    )}
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs min-w-[500px]">
+                    <table className="w-full text-xs min-w-[560px]">
                       <thead>
                         <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-[#0a0f1d]">
-                          <th className="py-3 px-4 text-left">Placement</th>
+                          <th className="py-3 px-4 text-left">Placement / Award</th>
+                          <th className="py-3 px-3 text-left">Winner (Team / Player)</th>
                           <th className="py-3 px-3 text-center">Share</th>
                           <th className="py-3 px-3 text-right">Prize ({tournament.currency})</th>
                           <th className="py-3 px-4 text-right">USD Approx</th>
+                          <th className="py-3 px-4 text-left">Seeds &amp; Qualifications</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                        {prizeDist.map((p, idx) => (
-                          <tr key={idx} className={cn('hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors', idx === 0 && 'bg-amber-500/5 dark:bg-amber-500/10')}>
+                        {stage.ranks.map((p: any, idx) => (
+                          <tr
+                            key={idx}
+                            className={cn(
+                              'hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors',
+                              idx === 0 && 'bg-amber-500/5 dark:bg-amber-500/10'
+                            )}
+                          >
                             <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
                               {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🎖️'} {p.rank}
                             </td>
+                            <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">
+                              {p.playerName ? (
+                                <span className="inline-flex items-center gap-1.5 text-purple-600 dark:text-purple-300">
+                                  <User className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{p.playerName}</span>
+                                  {p.teamName && (
+                                    <span className="text-[10px] text-slate-400 font-normal">({p.teamName})</span>
+                                  )}
+                                </span>
+                              ) : p.teamName ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Shield className="w-3.5 h-3.5 text-[#0A5FC4] shrink-0" />
+                                  <span>{p.teamName}</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-normal italic">TBA / Unassigned</span>
+                              )}
+                            </td>
                             <td className="py-3 px-3 text-center font-mono text-slate-400">
-                              {p.percentage ? `${p.percentage}%` : '—'}
+                              {p.rewardType === 'TITLE' ? '—' : p.percentage ? `${p.percentage}%` : '—'}
                             </td>
                             <td className="py-3 px-3 text-right font-mono font-black text-slate-900 dark:text-white">
-                              {tournament.currency} {p.prize.toLocaleString()}
+                              {p.rewardType === 'TITLE' ? (
+                                <span className="text-xs text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                  👑 Title &amp; Trophy
+                                </span>
+                              ) : p.rewardType === 'ITEM' || p.customReward ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-xs text-purple-600 dark:text-purple-300 font-bold bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                                    🎁 {p.customReward || 'Physical Reward'}
+                                  </span>
+                                  {p.prize > 0 && (
+                                    <span className="text-[10px] text-slate-400 font-normal">
+                                      + {tournament.currency} {Number(p.prize).toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span>
+                                  {tournament.currency} {Number(p.prize || 0).toLocaleString()}
+                                </span>
+                              )}
                             </td>
                             <td className="py-3 px-4 text-right font-mono text-slate-400">
-                              {tournament.usdRate ? `$${Math.round(p.prize * tournament.usdRate).toLocaleString()}` : '—'}
+                              {p.rewardType === 'TITLE' || (p.rewardType === 'ITEM' && (!p.prize || p.prize <= 0))
+                                ? '—'
+                                : tournament.usdRate
+                                ? `$${Math.round(Number(p.prize || 0) * tournament.usdRate).toLocaleString()}`
+                                : '—'}
+                            </td>
+                            <td className="py-3 px-4">
+                              {Array.isArray(p.qualifications) && p.qualifications.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {p.qualifications.map((q: any, qIdx: number) => {
+                                    const qName = typeof q === 'string' ? q : q.name;
+                                    const qSlug = typeof q === 'object' ? q.tournamentSlug : undefined;
+                                    if (qSlug) {
+                                      return (
+                                        <Link
+                                          key={qIdx}
+                                          href={`/tournaments/${qSlug}`}
+                                          className="px-2 py-0.5 rounded bg-blue-500/10 text-[#0A5FC4] dark:text-blue-300 font-bold text-[10px] hover:underline"
+                                        >
+                                          {qName} ↗
+                                        </Link>
+                                      );
+                                    }
+                                    return (
+                                      <span
+                                        key={qIdx}
+                                        className="px-2 py-0.5 rounded bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300 font-bold text-[10px]"
+                                      >
+                                        {qName}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">—</span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -790,7 +994,7 @@ export default async function TournamentDetailPage({
                     </table>
                   </div>
                 </div>
-              )}
+              ))}
 
               {prizeDist.length === 0 && (
                 <p className="py-12 text-center text-sm text-slate-400">

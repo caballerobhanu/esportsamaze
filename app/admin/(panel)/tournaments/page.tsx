@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe } from 'lucide-react';
+import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug } from '@/lib/admin-forms';
@@ -10,10 +10,25 @@ import {
   TOURNAMENT_TIERS,
   EVENT_TYPES,
   GAME_MODES,
+  TOURNAMENT_PLATFORMS,
   CURRENCIES,
+  getCurrencyUsdRate,
   deriveTournamentStatus,
   calculateTournamentStandings,
 } from '@/lib/tournament-math';
+
+import {
+  TournamentVenuesInput,
+  TournamentRegionInput,
+  TournamentCountriesInput,
+} from '@/components/admin/tournament-venue-region-inputs';
+import { TournamentOrganizersInput } from '@/components/admin/tournament-organizers-input';
+import { TournamentSponsorsInput } from '@/components/admin/tournament-sponsors-input';
+import { TournamentQualificationsInput } from '@/components/admin/tournament-qualifications-input';
+import { TournamentPrizeDistributionInput } from '@/components/admin/tournament-prize-distribution-input';
+import { TournamentFinalRankingsInput } from '@/components/admin/tournament-final-rankings-input';
+import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
+import { getLiveExchangeRates, resolveCurrencyUsdRate } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +79,7 @@ async function saveTournament(formData: FormData) {
     ? countriesInput.split(',').map((c) => c.trim()).filter(Boolean)
     : [];
 
-  // Prize pool distribution JSON
+  // Prize pool distribution JSON (multi-stage or flat)
   let prizeDistribution: any = null;
   const prizeDistRaw = fStr(formData, 'prizeDistribution');
   if (prizeDistRaw) {
@@ -75,9 +90,34 @@ async function saveTournament(formData: FormData) {
     }
   }
 
-  // Format details JSON
+  // Qualifications / Seeded Events JSON
+  let qualifications: any = null;
+  const qualsRaw = fStr(formData, 'qualificationsJson');
+  if (qualsRaw) {
+    try {
+      qualifications = JSON.parse(qualsRaw);
+    } catch {
+      qualifications = null;
+    }
+  }
+
+  // Team Final Rankings JSON
+  let teamRankingsList: Array<{
+    teamId: string;
+    rank: number;
+    prizeWon?: number;
+    qualifications?: string[];
+  }> = [];
+  const teamRankingsRaw = fStr(formData, 'teamRankingsJson');
+  if (teamRankingsRaw) {
+    try {
+      teamRankingsList = JSON.parse(teamRankingsRaw);
+    } catch {}
+  }
+
+  // Format details JSON (points system, placement points, kill points multiplier)
   let formatDetails: any = null;
-  const formatDetailsRaw = fStr(formData, 'formatDetails');
+  const formatDetailsRaw = fStr(formData, 'formatDetailsJson') || fStr(formData, 'formatDetails');
   if (formatDetailsRaw) {
     try {
       formatDetails = JSON.parse(formatDetailsRaw);
@@ -86,15 +126,251 @@ async function saveTournament(formData: FormData) {
     }
   }
 
-  // Selected Organizers, Sponsors, Venues
-  const selectedOrganizers = formData.getAll('organizerIds').map(String).filter(Boolean);
-  const selectedSponsors = formData.getAll('sponsorIds').map(String).filter(Boolean);
-  const selectedVenues = formData.getAll('venueIds').map(String).filter(Boolean);
+  // Parse Sponsors from sponsorsJson (with typeahead and customizable tier labels)
+  let sponsorLinks: Array<{ sponsorId: string; tier: string | null }> = [];
+  const sponsorsJsonRaw = fStr(formData, 'sponsorsJson');
+  if (sponsorsJsonRaw) {
+    try {
+      const parsedSponsors = JSON.parse(sponsorsJsonRaw) as Array<{
+        id?: string;
+        name: string;
+        tier?: string;
+      }>;
 
-  const data = {
+      const seenSponsorIds = new Set<string>();
+
+      for (const sp of parsedSponsors) {
+        if (!sp.name || !sp.name.trim()) continue;
+        const spName = sp.name.trim();
+        const tierLabel = sp.tier?.trim() || 'Associate Sponsor';
+
+        // Check if sponsor already exists by id or matching name (case-insensitive)
+        let existingSponsor = sp.id
+          ? await prisma.sponsor.findUnique({ where: { id: sp.id } })
+          : null;
+
+        if (!existingSponsor) {
+          existingSponsor = await prisma.sponsor.findFirst({
+            where: { name: { equals: spName, mode: 'insensitive' } },
+          });
+        }
+
+        let targetSponsorId = existingSponsor?.id;
+
+        if (!targetSponsorId) {
+          // Auto-create new sponsor
+          const spSlug = await uniqueSlug(spName, async (s) => {
+            const clash = await prisma.sponsor.findFirst({
+              where: { slug: s },
+              select: { id: true },
+            });
+            return Boolean(clash);
+          });
+
+          const createdSponsor = await prisma.sponsor.create({
+            data: {
+              name: spName,
+              slug: spSlug,
+              category: tierLabel,
+            },
+          });
+          targetSponsorId = createdSponsor.id;
+        }
+
+        if (targetSponsorId && !seenSponsorIds.has(targetSponsorId)) {
+          seenSponsorIds.add(targetSponsorId);
+          sponsorLinks.push({
+            sponsorId: targetSponsorId,
+            tier: tierLabel,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing sponsorsJson:', err);
+    }
+  }
+
+  // Fallback to legacy sponsorIds checkboxes if sponsorsJson was empty
+  if (sponsorLinks.length === 0) {
+    const legacySpIds = formData.getAll('sponsorIds').map(String).filter(Boolean);
+    sponsorLinks = legacySpIds.map((spId) => ({ sponsorId: spId, tier: 'Associate Sponsor' }));
+  }
+
+  // Parse Organizers from organizersJson (with typeahead and custom role labels)
+  let organizerLinks: Array<{ organizerId: string; role: string | null }> = [];
+  const organizersJsonRaw = fStr(formData, 'organizersJson');
+  if (organizersJsonRaw) {
+    try {
+      const parsedOrganizers = JSON.parse(organizersJsonRaw) as Array<{
+        id?: string;
+        name: string;
+        role?: string;
+      }>;
+
+      const seenOrgIds = new Set<string>();
+
+      for (const org of parsedOrganizers) {
+        if (!org.name || !org.name.trim()) continue;
+        const orgName = org.name.trim();
+        const roleLabel = org.role?.trim() || 'Primary Organizer';
+
+        // Check if organizer already exists by id or matching name (case-insensitive)
+        let existingOrg = org.id
+          ? await prisma.organizer.findUnique({ where: { id: org.id } })
+          : null;
+
+        if (!existingOrg) {
+          existingOrg = await prisma.organizer.findFirst({
+            where: { name: { equals: orgName, mode: 'insensitive' } },
+          });
+        }
+
+        let targetOrgId = existingOrg?.id;
+
+        if (!targetOrgId) {
+          // Auto-create new organizer
+          const orgSlug = await uniqueSlug(orgName, async (s) => {
+            const clash = await prisma.organizer.findFirst({
+              where: { slug: s },
+              select: { id: true },
+            });
+            return Boolean(clash);
+          });
+
+          const createdOrg = await prisma.organizer.create({
+            data: {
+              name: orgName,
+              slug: orgSlug,
+              type: roleLabel,
+            },
+          });
+          targetOrgId = createdOrg.id;
+        }
+
+        if (targetOrgId && !seenOrgIds.has(targetOrgId)) {
+          seenOrgIds.add(targetOrgId);
+          organizerLinks.push({
+            organizerId: targetOrgId,
+            role: roleLabel,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing organizersJson:', err);
+    }
+  }
+
+  // Fallback to legacy organizerIds checkboxes if organizersJson was empty
+  if (organizerLinks.length === 0) {
+    const legacyOrgIds = formData.getAll('organizerIds').map(String).filter(Boolean);
+    organizerLinks = legacyOrgIds.map((oId) => ({ organizerId: oId, role: 'Primary Organizer' }));
+  }
+
+  // Parse venues from venuesJson (dynamic list with stadium, city, country, stage identifier)
+  let venueLinks: Array<{ venueId: string; stageName: string | null }> = [];
+  const venuesJsonRaw = fStr(formData, 'venuesJson');
+  if (venuesJsonRaw) {
+    try {
+      const parsedVenues = JSON.parse(venuesJsonRaw) as Array<{
+        id?: string;
+        stageName?: string;
+        name: string;
+        city?: string;
+        country?: string;
+      }>;
+
+      const seenVenueIds = new Set<string>();
+
+      for (const v of parsedVenues) {
+        if (!v.name || !v.name.trim()) continue;
+        const venueName = v.name.trim();
+
+        // Check if venue already exists by id or matching name (case-insensitive)
+        let existingVenue = v.id
+          ? await prisma.venue.findUnique({ where: { id: v.id } })
+          : null;
+
+        if (!existingVenue) {
+          existingVenue = await prisma.venue.findFirst({
+            where: { name: { equals: venueName, mode: 'insensitive' } },
+          });
+        }
+
+        let targetVenueId = existingVenue?.id;
+
+        if (!targetVenueId) {
+          // Auto-create new venue
+          const venueSlug = await uniqueSlug(venueName, async (s) => {
+            const clash = await prisma.venue.findFirst({
+              where: { slug: s },
+              select: { id: true },
+            });
+            return Boolean(clash);
+          });
+
+          const createdVenue = await prisma.venue.create({
+            data: {
+              name: venueName,
+              slug: venueSlug,
+              city: v.city?.trim() || null,
+              country: v.country?.trim() || null,
+            },
+          });
+          targetVenueId = createdVenue.id;
+        } else if (v.city || v.country) {
+          // Update city or country if provided
+          await prisma.venue.update({
+            where: { id: targetVenueId },
+            data: {
+              ...(v.city ? { city: v.city.trim() } : {}),
+              ...(v.country ? { country: v.country.trim() } : {}),
+            },
+          });
+        }
+
+        if (targetVenueId && !seenVenueIds.has(targetVenueId)) {
+          seenVenueIds.add(targetVenueId);
+          venueLinks.push({
+            venueId: targetVenueId,
+            stageName: v.stageName?.trim() || null,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing venuesJson:', err);
+    }
+  }
+
+  // Fallback to legacy checkboxes if venuesJson was empty
+  if (venueLinks.length === 0) {
+    const legacyVenueIds = formData.getAll('venueIds').map(String).filter(Boolean);
+    venueLinks = legacyVenueIds.map((vId) => ({ venueId: vId, stageName: null }));
+  }
+
+  const currency = fStr(formData, 'currency') || 'INR';
+  const liveRates = await getLiveExchangeRates();
+  const usdRate = resolveCurrencyUsdRate(currency, liveRates);
+
+  const rank1 = teamRankingsList.find((r) => r.rank === 1);
+  const rank2 = teamRankingsList.find((r) => r.rank === 2);
+
+  let winnerTeamId = fOpt(formData, 'winnerTeamId') || rank1?.teamId || null;
+  let runnerUpTeamId = fOpt(formData, 'runnerUpTeamId') || rank2?.teamId || null;
+  let winner = fOpt(formData, 'winner');
+  let runnerUp = fOpt(formData, 'runnerUp');
+
+  if (winnerTeamId && !winner) {
+    const wTeam = await prisma.team.findUnique({ where: { id: winnerTeamId } });
+    winner = wTeam?.name || null;
+  }
+  if (runnerUpTeamId && !runnerUp) {
+    const ruTeam = await prisma.team.findUnique({ where: { id: runnerUpTeamId } });
+    runnerUp = ruTeam?.name || null;
+  }
+
+  const commonData = {
     name,
     slug,
-    gameId,
     series: fOpt(formData, 'series'),
     season: fOpt(formData, 'season'),
     seriesValue: fNum(formData, 'seriesValue'),
@@ -102,19 +378,19 @@ async function saveTournament(formData: FormData) {
     status,
     eventType: fStr(formData, 'eventType') || 'LAN',
     gameMode: fStr(formData, 'gameMode') || 'Squads TPP',
+    platform: fStr(formData, 'platform') || 'Mobile',
     device: fOpt(formData, 'device'),
     region: fOpt(formData, 'region'),
     countries,
     prizePool: fNum(formData, 'prizePool'),
-    currency: fStr(formData, 'currency') || 'INR',
-    usdRate: fNum(formData, 'usdRate'),
+    currency,
+    usdRate,
     prizeDistribution,
+    qualifications,
     startDate,
     endDate,
-    winnerTeamId: fOpt(formData, 'winnerTeamId'),
-    winner: fOpt(formData, 'winner'),
-    runnerUpTeamId: fOpt(formData, 'runnerUpTeamId'),
-    runnerUp: fOpt(formData, 'runnerUp'),
+    winner,
+    runnerUp,
     liquipedia: fOpt(formData, 'liquipedia'),
     socialLinks: fSocials(formData),
     formatDetails,
@@ -131,7 +407,10 @@ async function saveTournament(formData: FormData) {
     await prisma.tournament.update({
       where: { id },
       data: {
-        ...data,
+        ...commonData,
+        game: { connect: { id: gameId } },
+        winnerTeam: winnerTeamId ? { connect: { id: winnerTeamId } } : { disconnect: true },
+        runnerUpTeam: runnerUpTeamId ? { connect: { id: runnerUpTeamId } } : { disconnect: true },
         imageUrl: imageUpload ?? fOpt(formData, 'imageUrl') ?? existing?.imageUrl ?? null,
         imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl') ?? existing?.imageDarkUrl ?? null,
         bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
@@ -140,44 +419,91 @@ async function saveTournament(formData: FormData) {
 
     // Update relations
     await prisma.tournamentOrganizer.deleteMany({ where: { tournamentId: id } });
-    if (selectedOrganizers.length > 0) {
+    if (organizerLinks.length > 0) {
       await prisma.tournamentOrganizer.createMany({
-        data: selectedOrganizers.map((orgId) => ({ tournamentId: id, organizerId: orgId })),
+        data: organizerLinks.map((ol) => ({
+          tournamentId: id,
+          organizerId: ol.organizerId,
+          role: ol.role,
+        })),
       });
     }
 
     await prisma.tournamentSponsor.deleteMany({ where: { tournamentId: id } });
-    if (selectedSponsors.length > 0) {
+    if (sponsorLinks.length > 0) {
       await prisma.tournamentSponsor.createMany({
-        data: selectedSponsors.map((spId) => ({ tournamentId: id, sponsorId: spId })),
+        data: sponsorLinks.map((sl) => ({
+          tournamentId: id,
+          sponsorId: sl.sponsorId,
+          tier: sl.tier,
+        })),
       });
     }
 
     await prisma.tournamentVenue.deleteMany({ where: { tournamentId: id } });
-    if (selectedVenues.length > 0) {
+    if (venueLinks.length > 0) {
       await prisma.tournamentVenue.createMany({
-        data: selectedVenues.map((vId) => ({ tournamentId: id, venueId: vId })),
+        data: venueLinks.map((vl) => ({
+          tournamentId: id,
+          venueId: vl.venueId,
+          stageName: vl.stageName,
+        })),
       });
     }
   } else {
     const created = await prisma.tournament.create({
       data: {
-        ...data,
+        ...commonData,
+        game: { connect: { id: gameId } },
+        ...(winnerTeamId ? { winnerTeam: { connect: { id: winnerTeamId } } } : {}),
+        ...(runnerUpTeamId ? { runnerUpTeam: { connect: { id: runnerUpTeamId } } } : {}),
         imageUrl: imageUpload ?? fOpt(formData, 'imageUrl'),
         imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl'),
         bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
         organizers: {
-          create: selectedOrganizers.map((orgId) => ({ organizerId: orgId })),
+          create: organizerLinks.map((ol) => ({
+            organizerId: ol.organizerId,
+            role: ol.role,
+          })),
         },
         sponsors: {
-          create: selectedSponsors.map((spId) => ({ sponsorId: spId })),
+          create: sponsorLinks.map((sl) => ({
+            sponsorId: sl.sponsorId,
+            tier: sl.tier,
+          })),
         },
         venues: {
-          create: selectedVenues.map((vId) => ({ venueId: vId })),
+          create: venueLinks.map((vl) => ({ venueId: vl.venueId, stageName: vl.stageName })),
         },
       },
     });
     tournamentId = created.id;
+  }
+
+  // Update or insert TournamentTeam records for final event rankings
+  if (teamRankingsList.length > 0 && tournamentId) {
+    for (const r of teamRankingsList) {
+      if (!r.teamId) continue;
+      const existingTT = await prisma.tournamentTeam.findFirst({
+        where: { tournamentId, teamId: r.teamId },
+      });
+      if (existingTT) {
+        await prisma.tournamentTeam.update({
+          where: { id: existingTT.id },
+          data: { finalRank: r.rank, prizeWon: r.prizeWon || 0 },
+        });
+      } else {
+        await prisma.tournamentTeam.create({
+          data: {
+            tournamentId,
+            teamId: r.teamId,
+            finalRank: r.rank,
+            prizeWon: r.prizeWon || 0,
+            rosterJson: [],
+          },
+        });
+      }
+    }
   }
 
   revalidatePath('/admin/tournaments');
@@ -204,7 +530,7 @@ export default async function AdminTournamentsPage({
 }) {
   const { edit, error } = await searchParams;
 
-  const [games, organizers, sponsors, venues, teams, tournaments] = await Promise.all([
+  const [games, organizers, sponsors, venues, teams, tournaments, players] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
     prisma.organizer.findMany({ orderBy: { name: 'asc' } }),
     prisma.sponsor.findMany({ orderBy: { name: 'asc' } }),
@@ -230,15 +556,27 @@ export default async function AdminTournamentsPage({
         },
       },
     }),
+    prisma.player.findMany({
+      orderBy: { ign: 'asc' },
+      select: {
+        id: true,
+        ign: true,
+        firstName: true,
+        lastName: true,
+        avatarUrl: true,
+        currentTeam: { select: { id: true, name: true, tag: true } },
+      },
+    }),
   ]);
 
   const editing = edit
     ? await prisma.tournament.findUnique({
         where: { id: edit },
         include: {
-          organizers: true,
-          sponsors: true,
-          venues: true,
+          organizers: { include: { organizer: true } },
+          sponsors: { include: { sponsor: true } },
+          venues: { include: { venue: true } },
+          teams: { include: { team: true }, orderBy: { finalRank: 'asc' } },
           matches: {
             include: {
               games: {
@@ -254,19 +592,93 @@ export default async function AdminTournamentsPage({
       })
     : null;
 
-  // Auto-calculated Standings for Winner and Runner Up
+  const initialOrganizers =
+    editing?.organizers.map((to) => ({
+      id: to.organizer.id,
+      name: to.organizer.name,
+      role: to.role || 'Primary Organizer',
+    })) || [];
+
+  const initialSponsors =
+    editing?.sponsors.map((ts) => ({
+      id: ts.sponsor.id,
+      name: ts.sponsor.name,
+      tier: ts.tier || 'Associate Sponsor',
+    })) || [];
+
+  const initialVenues =
+    editing?.venues.map((tv) => ({
+      id: tv.venue.id,
+      stageName: tv.stageName || 'Grand Finals',
+      name: tv.venue.name,
+      city: tv.venue.city || '',
+      country: tv.venue.country || 'India',
+    })) || [];
+
+  const initialRankings =
+    editing?.teams
+      .filter((tt) => tt.finalRank != null)
+      .map((tt) => ({
+        teamId: tt.team.id,
+        teamName: tt.team.name,
+        tag: tt.team.tag || undefined,
+        logoUrl: tt.team.logoUrl,
+        rank: tt.finalRank || 1,
+        prizeWon: tt.prizeWon || 0,
+        qualifications: [],
+      })) || [];
+
+  const existingRegions = Array.from(
+    new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
+  );
+
+  // Group matches by stage and compute Stage-Aware Standings
+  const stageStandingsMap: Record<
+    string,
+    Array<{ teamId: string; teamName: string; tag?: string; rank: number; points: number }>
+  > = {};
+
   let autoWinner = editing?.winner || '';
   let autoRunnerUp = editing?.runnerUp || '';
+
   if (editing && editing.matches.length > 0) {
-    const allResults = editing.matches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
-    const standings = calculateTournamentStandings(allResults);
-    if (standings.length > 0) autoWinner = standings[0].teamName;
-    if (standings.length > 1) autoRunnerUp = standings[1].teamName;
+    const matchesByStage: Record<string, typeof editing.matches> = {};
+
+    for (const match of editing.matches) {
+      const stName = (match as any).stage?.name || match.stageType || 'Grand Finals';
+      if (!matchesByStage[stName]) matchesByStage[stName] = [];
+      matchesByStage[stName].push(match);
+    }
+
+    for (const [stName, stMatches] of Object.entries(matchesByStage)) {
+      const stResults = stMatches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
+      if (stResults.length > 0) {
+        const standings = calculateTournamentStandings(stResults);
+        stageStandingsMap[stName] = standings.map((s, idx) => ({
+          teamId: s.teamId,
+          teamName: s.teamName,
+          tag: s.tag,
+          rank: idx + 1,
+          points: s.totalPoints,
+        }));
+      }
+    }
+
+    // Auto winner / runner up from finals stage if available, else first stage
+    const finalsKey =
+      Object.keys(stageStandingsMap).find((k) => k.toLowerCase().includes('final')) ||
+      Object.keys(stageStandingsMap)[0];
+
+    if (finalsKey && stageStandingsMap[finalsKey]?.length > 0) {
+      autoWinner = stageStandingsMap[finalsKey][0].teamName;
+      if (stageStandingsMap[finalsKey].length > 1) {
+        autoRunnerUp = stageStandingsMap[finalsKey][1].teamName;
+      }
+    }
   }
 
   const selectedOrgIds = new Set(editing?.organizers.map((o) => o.organizerId) ?? []);
   const selectedSpIds = new Set(editing?.sponsors.map((s) => s.sponsorId) ?? []);
-  const selectedVenueIds = new Set(editing?.venues.map((v) => v.venueId) ?? []);
 
   return (
     <div className="space-y-6">
@@ -296,13 +708,19 @@ export default async function AdminTournamentsPage({
       )}
 
       {/* Create / Edit form */}
-      <details open={Boolean(editing)}>
+      <details
+        id="tournament-editor"
+        key={editing?.id || 'collapsed-mode'}
+        open={Boolean(editing)}
+        className="group scroll-mt-6"
+      >
         <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
           <Plus className="w-4 h-4" />
           {editing ? `Editing: ${editing.name}` : 'Create New Tournament'}
         </summary>
 
         <form
+          key={editing?.id || 'new'}
           action={saveTournament}
           className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-6 space-y-6"
         >
@@ -402,21 +820,29 @@ export default async function AdminTournamentsPage({
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Device Platform</label>
+                <label className={labelCls}>Platform</label>
+                <select name="platform" defaultValue={editing?.platform ?? 'Mobile'} className={inputCls}>
+                  {TOURNAMENT_PLATFORMS.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Official / Sponsored Device</label>
                 <input
                   name="device"
                   defaultValue={editing?.device ?? ''}
-                  placeholder="e.g. Realme GT 7 Pro / Mobile / PC"
+                  placeholder="e.g. Realme GT 7 Pro, Infinix GT 20 Pro"
                   className={inputCls}
                 />
               </div>
               <div>
                 <label className={labelCls}>Region</label>
-                <input
-                  name="region"
-                  defaultValue={editing?.region ?? ''}
-                  placeholder="e.g. India / Global / APAC"
-                  className={inputCls}
+                <TournamentRegionInput
+                  initialValue={editing?.region ?? ''}
+                  existingRegions={existingRegions}
                 />
               </div>
               <div>
@@ -437,104 +863,50 @@ export default async function AdminTournamentsPage({
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
               <Globe className="w-4 h-4" /> 2. Venues, Countries, Organizers &amp; Sponsors
             </h2>
+
+            {/* Stadiums & Venues with Dynamic Stages & Autocomplete */}
+            <div className="mb-5">
+              <label className={labelCls + ' mb-2'}>
+                Physical Stadiums &amp; LAN Venues (with Stage / Identifier Label)
+              </label>
+              <TournamentVenuesInput
+                initialVenues={initialVenues}
+                existingVenues={venues}
+              />
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="sm:col-span-3">
-                <label className={labelCls}>List of Countries (comma separated)</label>
-                <input
-                  name="countries"
-                  defaultValue={
-                    Array.isArray(editing?.countries)
-                      ? (editing?.countries as string[]).join(', ')
-                      : 'India'
+                <label className={labelCls}>Participating Countries</label>
+                <TournamentCountriesInput
+                  initialCountries={
+                    Array.isArray(editing?.countries) && (editing?.countries as string[]).length > 0
+                      ? (editing?.countries as string[])
+                      : ['India']
                   }
-                  placeholder="India, Saudi Arabia, Indonesia"
-                  className={inputCls}
                 />
               </div>
 
-              {/* Venues Multi-Select */}
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-900/50">
-                <label className={labelCls + ' mb-2'}>Stadiums / Venues</label>
-                <div className="max-h-36 overflow-y-auto space-y-1 text-xs">
-                  {venues.map((v) => (
-                    <label key={v.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="venueIds"
-                        value={v.id}
-                        defaultChecked={selectedVenueIds.has(v.id)}
-                        className="rounded text-[#0A5FC4]"
-                      />
-                      <span>
-                        {v.name} {v.city ? `(${v.city})` : ''}
-                      </span>
-                    </label>
-                  ))}
-                  {venues.length === 0 && (
-                    <p className="text-[11px] text-slate-400">
-                      No venues yet.{' '}
-                      <Link href="/admin/venues" className="text-blue-500 underline">
-                        Add one
-                      </Link>
-                    </p>
-                  )}
-                </div>
+              {/* Organizers & Broadcasters with Customizable Roles & Typeahead */}
+              <div className="sm:col-span-2 rounded-lg border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+                <label className={labelCls + ' mb-2'}>
+                  Organizers &amp; Broadcasters (Type, comma-separate, and set custom role for each)
+                </label>
+                <TournamentOrganizersInput
+                  initialOrganizers={initialOrganizers}
+                  existingOrganizers={organizers}
+                />
               </div>
 
-              {/* Organizers Multi-Select */}
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-900/50">
-                <label className={labelCls + ' mb-2'}>Organizers &amp; Broadcasters</label>
-                <div className="max-h-36 overflow-y-auto space-y-1 text-xs">
-                  {organizers.map((o) => (
-                    <label key={o.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="organizerIds"
-                        value={o.id}
-                        defaultChecked={selectedOrgIds.has(o.id)}
-                        className="rounded text-[#0A5FC4]"
-                      />
-                      <span>
-                        {o.name} <span className="text-slate-400 text-[10px]">({o.type})</span>
-                      </span>
-                    </label>
-                  ))}
-                  {organizers.length === 0 && (
-                    <p className="text-[11px] text-slate-400">
-                      No organizers yet.{' '}
-                      <Link href="/admin/organizers" className="text-blue-500 underline">
-                        Add one
-                      </Link>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Sponsors Multi-Select */}
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-900/50">
-                <label className={labelCls + ' mb-2'}>Sponsors &amp; Partners</label>
-                <div className="max-h-36 overflow-y-auto space-y-1 text-xs">
-                  {sponsors.map((s) => (
-                    <label key={s.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        name="sponsorIds"
-                        value={s.id}
-                        defaultChecked={selectedSpIds.has(s.id)}
-                        className="rounded text-[#0A5FC4]"
-                      />
-                      <span>{s.name}</span>
-                    </label>
-                  ))}
-                  {sponsors.length === 0 && (
-                    <p className="text-[11px] text-slate-400">
-                      No sponsors yet.{' '}
-                      <Link href="/admin/sponsors" className="text-blue-500 underline">
-                        Add one
-                      </Link>
-                    </p>
-                  )}
-                </div>
+              {/* Sponsors & Partners with Customizable Labels & Typeahead */}
+              <div className="sm:col-span-3 rounded-lg border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+                <label className={labelCls + ' mb-2'}>
+                  Sponsors &amp; Partners (Type, comma-separate, and set custom label/tier for each)
+                </label>
+                <TournamentSponsorsInput
+                  initialSponsors={initialSponsors}
+                  existingSponsors={sponsors}
+                />
               </div>
             </div>
           </div>
@@ -552,28 +924,18 @@ export default async function AdminTournamentsPage({
                   name="prizePool"
                   defaultValue={editing?.prizePool ?? 40000000}
                   className={inputCls}
+                  placeholder="e.g. 40000000"
                 />
               </div>
               <div>
-                <label className={labelCls}>Currency</label>
+                <label className={labelCls}>Currency (All World Currencies)</label>
                 <select name="currency" defaultValue={editing?.currency ?? 'INR'} className={inputCls}>
                   {CURRENCIES.map((c) => (
                     <option key={c.code} value={c.code}>
-                      {c.symbol} {c.code} - {c.name}
+                      {c.symbol} {c.code} — {c.name}
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className={labelCls}>USD Conversion Rate</label>
-                <input
-                  type="number"
-                  step="any"
-                  name="usdRate"
-                  defaultValue={editing?.usdRate ?? 0.01104}
-                  placeholder="0.01104"
-                  className={inputCls}
-                />
               </div>
               <div>
                 <label className={labelCls}>Start Date *</label>
@@ -636,47 +998,79 @@ export default async function AdminTournamentsPage({
                 />
               </div>
               <div>
-                <label className={labelCls}>Liquipedia URL</label>
+                <label className={labelCls}>Official Event Page URL (Optional)</label>
                 <input
                   name="liquipedia"
                   defaultValue={editing?.liquipedia ?? ''}
-                  placeholder="https://liquipedia.net/…"
+                  placeholder="https://kraftonindiaesports.com/bgis-2026"
                   className={inputCls}
                 />
               </div>
             </div>
 
-            {/* Prize Distribution JSON */}
-            <div className="mt-3">
-              <label className={labelCls}>
-                Prize Distribution Matrix (JSON breakdown)
+            {/* Stage-Wise & Category Prize Distribution */}
+            <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <label className={labelCls + ' mb-2'}>
+                Stage-Wise Prize Distribution (Grand Finals, Semis, MVP &amp; Special Awards)
               </label>
-              <textarea
-                name="prizeDistribution"
-                rows={3}
-                defaultValue={
-                  editing?.prizeDistribution
-                    ? JSON.stringify(editing.prizeDistribution, null, 2)
-                    : JSON.stringify(
-                        [
-                          { rank: '1st', percentage: 37.5, prize: 15000000 },
-                          { rank: '2nd', percentage: 18.75, prize: 7500000 },
-                          { rank: '3rd', percentage: 11.25, prize: 4500000 },
-                          { rank: '4th', percentage: 7.5, prize: 3000000 },
-                        ],
-                        null,
-                        2
-                      )
+              <TournamentPrizeDistributionInput
+                initialDistribution={editing?.prizeDistribution}
+                totalPrizePool={editing?.prizePool ?? 40000000}
+                currency={editing?.currency ?? 'INR'}
+                allTeams={teams}
+                allPlayers={players}
+              />
+            </div>
+
+            {/* Multi-Event Qualification Seeds */}
+            <div className="mt-4 rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <label className={labelCls + ' mb-2'}>
+                Tournament Seeds &amp; Qualification Slots (Direct DB Link &amp; Multi-Event Seeding)
+              </label>
+              <TournamentQualificationsInput
+                initialQualifications={
+                  Array.isArray(editing?.qualifications)
+                    ? (editing?.qualifications as any)
+                    : undefined
                 }
-                className={inputCls + ' font-mono text-xs'}
+                allTournaments={tournaments.map((t) => ({ id: t.id, name: t.name, slug: t.slug, tier: t.tier }))}
               />
             </div>
           </div>
 
-          {/* Section 4: Dual Logos & Banners */}
+          {/* Section 4: Event Points & Scoring System */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
-              🖼️ 4. Branding, Logos &amp; Header Banner
+              🎯 4. Event-Wide Points &amp; Scoring Matrix
+            </h2>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <TournamentPointsSystemInput
+                initialFormatDetails={editing?.formatDetails}
+              />
+            </div>
+          </div>
+
+          {/* Section 5: Final Team Rankings */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+              🏆 5. Final Event Team Rankings (Winner, Runner-Up &amp; Placements)
+            </h2>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <TournamentFinalRankingsInput
+                initialRankings={initialRankings}
+                allTeams={teams}
+                stageStandingsMap={stageStandingsMap}
+                prizeDistribution={editing?.prizeDistribution}
+                totalPrizePool={editing?.prizePool ?? 40000000}
+                currency={editing?.currency ?? 'INR'}
+              />
+            </div>
+          </div>
+
+          {/* Section 5: Dual Logos & Banners */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+              🖼️ 5. Branding, Logos &amp; Header Banner
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
@@ -719,27 +1113,30 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
-          {/* Section 5: All Social Media Channels */}
+          {/* Section 6: All Social Media Channels */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
-              🔗 5. Social Media &amp; Broadcast Channels
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-1 flex items-center gap-1.5">
+              🔗 6. Official Event Website &amp; Social Channels
             </h2>
+            <p className="text-[11px] text-slate-500 mb-3">
+              Only channels with valid URLs will display icons on the public tournament page. Unused channels will remain hidden.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                'website',
-                'instagram',
-                'facebook',
-                'twitter',
-                'youtube',
-                'kick',
-                'twitch',
-                'discord',
-              ].map((key) => (
+                { key: 'website', label: 'Official Event Website', placeholder: 'https://kraftonindiaesports.com/bgis' },
+                { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/…' },
+                { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/…' },
+                { key: 'twitter', label: 'X / Twitter', placeholder: 'https://twitter.com/…' },
+                { key: 'youtube', label: 'YouTube Broadcast', placeholder: 'https://youtube.com/@…' },
+                { key: 'kick', label: 'Kick Stream', placeholder: 'https://kick.com/…' },
+                { key: 'twitch', label: 'Twitch Stream', placeholder: 'https://twitch.tv/…' },
+                { key: 'discord', label: 'Discord Community', placeholder: 'https://discord.gg/…' },
+              ].map(({ key, label, placeholder }) => (
                 <div key={key}>
-                  <label className={labelCls}>{key}</label>
+                  <label className={labelCls}>{label}</label>
                   <input
                     name={key}
-                    placeholder={`https://${key}.com/…`}
+                    placeholder={placeholder}
                     defaultValue={
                       editing &&
                       typeof editing.socialLinks === 'object' &&
@@ -754,12 +1151,38 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="px-5 py-2.5 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors shadow-sm"
-          >
-            {editing ? 'Update Tournament' : 'Create Tournament'}
-          </button>
+          {/* Floating Sticky Action Dock */}
+          <div className="sticky bottom-4 z-40 p-3 rounded-2xl bg-white/95 dark:bg-[#0b101c]/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800/90 shadow-2xl flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="truncate">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                  {editing ? `Editing: ${editing.name}` : 'New Tournament Draft'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Click save anytime without scrolling
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {editing && (
+                <Link
+                  href="/admin/tournaments"
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </Link>
+              )}
+              <button
+                type="submit"
+                className="px-6 py-2.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-[#0A5FC4]/25 flex items-center gap-2 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>{editing ? 'Update Tournament' : 'Create Tournament'}</span>
+              </button>
+            </div>
+          </div>
         </form>
       </details>
 
@@ -825,7 +1248,7 @@ export default async function AdminTournamentsPage({
                       ↗
                     </Link>
                     <Link
-                      href={`/admin/tournaments?edit=${t.id}`}
+                      href={`/admin/tournaments?edit=${t.id}#tournament-editor`}
                       className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
                       title="Edit Tournament"
                     >

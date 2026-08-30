@@ -196,13 +196,15 @@ model Tournament {
   status            TournamentStatus      @default(UPCOMING)
   eventType         String?               @default("LAN") // Online, LAN, Hybrid
   gameMode          String?               @default("Squads TPP") // TPP Squad, FPP Squad, Duo, Solo
-  device            String?               // Mobile, PC, Realme GT 7 Pro, etc.
+  platform          String?               @default("Mobile") // Mobile, PC, PlayStation, Xbox, Nintendo Switch, Cross-Platform
+  device            String?               // Official / Sponsored Tournament Device (e.g. Realme GT 7 Pro, Infinix GT 20 Pro)
   region            String?
   countries         Json?                 // List of country names / codes
   prizePool         Float?
   currency          String                @default("USD")
   usdRate           Float?
-  prizeDistribution Json?                 // [{ rank: '1st', prize: 1000000, percentage: 40 }, ...]
+  prizeDistribution Json?                 // Multi-stage or flat [{ rank: '1st', prize: 1000000, percentage: 40, qualifications: [...] }, ...]
+  qualifications    Json?                 // [{ place: "1st", events: ["PMGC 2025", "EWC 2025"] }, ...]
   startDate         DateTime
   endDate           DateTime
   winnerTeamId      String?
@@ -314,17 +316,19 @@ model Match {
   group        TournamentGroup? @relation(fields: [groupId], references: [id])
   gameId       String
   game         Game             @relation(fields: [gameId], references: [id])
-  matchNumber  Int?             @default(1)
-  stageType    String?          // "Round Robin", "Groups Wise", "Grand Finals"
-  groupName    String?          // "Group A vs Group B"
-  mapName      String?          // "Erangel", "Miramar", "Sanhok", "Vikendi", "Rondo"
-  matchType    String?          @default("LAN") // "LAN", "Online", "Offline"
-  format       String           // Match title / label e.g. "Match 1 (Erangel)"
-  status       MatchStatus      @default(SCHEDULED)
-  scheduledAt  DateTime
-  matchTime    String?          // e.g. "16:30 IST"
-  streamUrl    String?
-  games        MatchGame[]
+  matchNumber        Int?             @default(1)
+  overallMatchNumber Int?
+  stageType          String?          // "Round Robin", "Groups Wise", "Grand Finals"
+  groupName          String?          // "Group A vs Group B"
+  mapName            String?          // "Erangel", "Miramar", "Sanhok", "Vikendi", "Rondo"
+  matchType          String?          @default("LAN") // "Online", "Offline", "LAN"
+  format             String           // Match title / label e.g. "Match 1 (Erangel)"
+  status             MatchStatus      @default(SCHEDULED)
+  scheduledAt        DateTime
+  matchTime          String?          // e.g. "17:30 IST"
+  streamUrl          String?
+  vods               Json?            // Array of { title, type, language, platform, url }
+  games              MatchGame[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @default(now()) @updatedAt
 }
