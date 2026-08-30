@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import {
+  LayoutDashboard,
   Trophy,
   Swords,
   Layers,
@@ -10,7 +11,6 @@ import {
   DollarSign,
   Flame,
   Camera,
-  LayoutGrid,
 } from 'lucide-react';
 
 interface TabItem {
@@ -34,6 +34,7 @@ export function TournamentSubnav({
   teamsCount,
 }: TournamentSubnavProps) {
   const tabs: TabItem[] = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'standings', label: 'Standings', icon: Trophy },
     { id: 'matches', label: 'Matches', icon: Swords, count: matchesCount },
     { id: 'format', label: 'Format & Rules', icon: Layers },

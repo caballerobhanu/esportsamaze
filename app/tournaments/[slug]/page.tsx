@@ -27,6 +27,7 @@ import {
   CheckCircle2,
   Award,
   ExternalLink,
+  LayoutDashboard,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { formatDate, formatPrizePool } from '@/lib/utils';
@@ -39,10 +40,12 @@ import {
   calculateTournamentFraggers,
 } from '@/lib/tournament-math';
 import { TournamentSubnav } from '@/components/tournaments/tournament-subnav';
+import { TournamentOverviewHub } from '@/components/tournaments/tournament-overview-hub';
 import { TournamentStageStandings, StageMatchData } from '@/components/tournaments/tournament-stage-standings';
 import { TournamentMatchesHub } from '@/components/tournaments/tournament-matches-hub';
 import { TournamentFormatHub } from '@/components/tournaments/tournament-format-hub';
 import { TournamentGalleryHub } from '@/components/tournaments/tournament-gallery-hub';
+import { TournamentSidebarInfo } from '@/components/tournaments/tournament-sidebar-info';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,7 +164,7 @@ export default async function TournamentDetailPage({
 }) {
   const { slug } = await params;
   const { tab } = await searchParams;
-  const activeTab = tab || 'standings';
+  const activeTab = tab || 'overview';
 
   const tournament = await getTournamentData(slug);
   if (!tournament) notFound();
@@ -289,10 +292,7 @@ export default async function TournamentDetailPage({
       }
     : null;
 
-  const countriesList = Array.isArray(tournament.countries)
-    ? (tournament.countries as string[])
-    : [];
-
+  const upcomingMatches = tournament.matches.filter((m) => m.status !== 'COMPLETED');
   const statusCfg = STATUS_CONFIG[tournament.status] ?? STATUS_CONFIG.COMPLETED;
 
   return (
@@ -442,7 +442,7 @@ export default async function TournamentDetailPage({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          STICKY TOP SUB-NAVIGATION (No clunky left sidebar!)
+          STICKY TOP SUB-NAVIGATION
       ═══════════════════════════════════════════════════════════ */}
       <TournamentSubnav
         slug={slug}
@@ -455,17 +455,42 @@ export default async function TournamentDetailPage({
           MAIN CONTENT VIEWPORT
       ═══════════════════════════════════════════════════════════ */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* ═══ TAB: STANDINGS ═══ */}
-        {activeTab === 'standings' && (
-          <TournamentStageStandings
+        {/* ═══ TAB: OVERVIEW (COMMAND CENTER) ═══ */}
+        {activeTab === 'overview' && (
+          <TournamentOverviewHub
+            tournament={tournament}
             stagesData={stagesData}
             overallStandings={overallStandings}
             overallTopFragger={overallTopFragger}
-            tournamentName={tournament.name}
+            overallFraggers={overallFraggers}
             pointsMatrix={formatRules.pointsMatrix}
             killMultiplier={formatRules.killPointsPerElim || 1}
-            qualifyCount={16}
           />
+        )}
+
+        {/* ═══ TAB: STANDINGS ═══ */}
+        {activeTab === 'standings' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8">
+              <TournamentStageStandings
+                stagesData={stagesData}
+                overallStandings={overallStandings}
+                overallTopFragger={overallTopFragger}
+                tournamentName={tournament.name}
+                pointsMatrix={formatRules.pointsMatrix}
+                killMultiplier={formatRules.killPointsPerElim || 1}
+                qualifyCount={16}
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <TournamentSidebarInfo
+                tournament={tournament}
+                topFraggers={overallFraggers}
+                upcomingMatches={upcomingMatches}
+                prizeTopRanks={prizeDist.slice(0, 3)}
+              />
+            </div>
+          </div>
         )}
 
         {/* ═══ TAB: MATCHES & SCHEDULE ═══ */}
@@ -478,17 +503,29 @@ export default async function TournamentDetailPage({
 
         {/* ═══ TAB: FORMAT & RULES ═══ */}
         {activeTab === 'format' && (
-          <TournamentFormatHub
-            stages={tournament.stages as any}
-            formatDetails={tournament.formatDetails}
-            pointsMatrix={formatRules.pointsMatrix}
-            killMultiplier={formatRules.killPointsPerElim || 1}
-            gameMode={tournament.gameMode}
-            eventType={tournament.eventType}
-            device={tournament.device}
-            streamUrl={tournament.matches.find((m) => m.streamUrl)?.streamUrl}
-            vods={tournament.matches.find((m) => m.vods)?.vods}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8">
+              <TournamentFormatHub
+                stages={tournament.stages as any}
+                formatDetails={tournament.formatDetails}
+                pointsMatrix={formatRules.pointsMatrix}
+                killMultiplier={formatRules.killPointsPerElim || 1}
+                gameMode={tournament.gameMode}
+                eventType={tournament.eventType}
+                device={tournament.device}
+                streamUrl={tournament.matches.find((m) => m.streamUrl)?.streamUrl}
+                vods={tournament.matches.find((m) => m.vods)?.vods}
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <TournamentSidebarInfo
+                tournament={tournament}
+                topFraggers={overallFraggers}
+                upcomingMatches={upcomingMatches}
+                prizeTopRanks={prizeDist.slice(0, 3)}
+              />
+            </div>
+          </div>
         )}
 
         {/* ═══ TAB: TEAMS & ROSTERS ═══ */}
@@ -706,85 +743,96 @@ export default async function TournamentDetailPage({
 
         {/* ═══ TAB: FRAGGERS & INDIVIDUAL STATS ═══ */}
         {activeTab === 'fraggers' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
-                  Individual Fragger Leaderboard
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Top performing battle royale combatants ranked by total finishes and combat damage.
-                </p>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                    Individual Fragger Leaderboard
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Top performing battle royale combatants ranked by total finishes and combat damage.
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                  {overallFraggers.length} Fraggers
+                </span>
               </div>
-              <span className="text-xs font-mono font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                {overallFraggers.length} Fraggers
-              </span>
+
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] overflow-hidden shadow-2xs">
+                {overallFraggers.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400">
+                    No individual player stats recorded yet.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs min-w-[640px]">
+                      <thead>
+                        <tr className="text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 dark:bg-[#080d17] border-b border-slate-200 dark:border-slate-800">
+                          <th className="py-2.5 px-3 text-left w-12">#</th>
+                          <th className="py-2.5 px-3 text-left">Player (IGN)</th>
+                          <th className="py-2.5 px-3 text-left">Team</th>
+                          <th className="py-2.5 px-2 text-center">MP</th>
+                          <th className="py-2.5 px-2 text-center font-bold text-rose-600 dark:text-rose-400">
+                            Elims
+                          </th>
+                          <th className="py-2.5 px-2 text-center">Damage</th>
+                          <th className="py-2.5 px-2 text-center">Headshots</th>
+                          <th className="py-2.5 px-2 text-center">Knockouts</th>
+                          <th className="py-2.5 px-3 text-right">MVPs</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                        {overallFraggers.map((f) => (
+                          <tr key={f.playerId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                            <td className="py-2 px-3 font-mono font-bold text-slate-500">
+                              #{f.rank}
+                            </td>
+                            <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">
+                              <div className="flex items-center gap-1.5">
+                                <span>{f.ign}</span>
+                                {f.mvps > 0 && (
+                                  <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500 text-white font-bold">
+                                    MVP
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-slate-500">{f.teamName}</td>
+                            <td className="py-2 px-2 text-center font-mono text-slate-400">
+                              {f.matchesPlayed}
+                            </td>
+                            <td className="py-2 px-2 text-center font-mono font-black text-rose-600 dark:text-rose-400">
+                              {f.elims}
+                            </td>
+                            <td className="py-2 px-2 text-center font-mono text-slate-600 dark:text-slate-300">
+                              {f.damage.toLocaleString()}
+                            </td>
+                            <td className="py-2 px-2 text-center font-mono text-slate-500">
+                              {f.headshots}
+                            </td>
+                            <td className="py-2 px-2 text-center font-mono text-slate-500">
+                              {f.knockouts}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400">
+                              {f.mvps > 0 ? `${f.mvps}` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] overflow-hidden shadow-2xs">
-              {overallFraggers.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-400">
-                  No individual player stats recorded yet.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs min-w-[640px]">
-                    <thead>
-                      <tr className="text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 dark:bg-[#080d17] border-b border-slate-200 dark:border-slate-800">
-                        <th className="py-2.5 px-3 text-left w-12">#</th>
-                        <th className="py-2.5 px-3 text-left">Player (IGN)</th>
-                        <th className="py-2.5 px-3 text-left">Team</th>
-                        <th className="py-2.5 px-2 text-center">MP</th>
-                        <th className="py-2.5 px-2 text-center font-bold text-rose-600 dark:text-rose-400">
-                          Elims
-                        </th>
-                        <th className="py-2.5 px-2 text-center">Damage</th>
-                        <th className="py-2.5 px-2 text-center">Headshots</th>
-                        <th className="py-2.5 px-2 text-center">Knockouts</th>
-                        <th className="py-2.5 px-3 text-right">MVPs</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                      {overallFraggers.map((f) => (
-                        <tr key={f.playerId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          <td className="py-2 px-3 font-mono font-bold text-slate-500">
-                            #{f.rank}
-                          </td>
-                          <td className="py-2 px-3 font-bold text-slate-900 dark:text-white">
-                            <div className="flex items-center gap-1.5">
-                              <span>{f.ign}</span>
-                              {f.mvps > 0 && (
-                                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500 text-white font-bold">
-                                  MVP
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2 px-3 text-slate-500">{f.teamName}</td>
-                          <td className="py-2 px-2 text-center font-mono text-slate-400">
-                            {f.matchesPlayed}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono font-black text-rose-600 dark:text-rose-400">
-                            {f.elims}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono text-slate-600 dark:text-slate-300">
-                            {f.damage.toLocaleString()}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono text-slate-500">
-                            {f.headshots}
-                          </td>
-                          <td className="py-2 px-2 text-center font-mono text-slate-500">
-                            {f.knockouts}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-amber-600 dark:text-amber-400">
-                            {f.mvps > 0 ? `${f.mvps}` : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            <div className="lg:col-span-4">
+              <TournamentSidebarInfo
+                tournament={tournament}
+                topFraggers={overallFraggers}
+                upcomingMatches={upcomingMatches}
+                prizeTopRanks={prizeDist.slice(0, 3)}
+              />
             </div>
           </div>
         )}
