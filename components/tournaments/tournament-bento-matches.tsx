@@ -13,9 +13,10 @@ import {
   Calendar,
 } from 'lucide-react';
 
-interface BentoMatchItem {
+export interface BentoMatchItem {
   id: string;
   matchNumber: number | null;
+  overallMatchNumber?: number | null;
   format: string;
   mapName?: string | null;
   stageType?: string | null;
@@ -48,18 +49,55 @@ interface TournamentMatchesProps {
 }
 
 /**
- * Renders completed matches in REVERSE chronological order (most recently concluded match first)
+ * Calculates complete millisecond timestamp from scheduledAt date and matchTime string (e.g. "14:30")
+ */
+function parseMatchDateTime(m: BentoMatchItem): number {
+  if (!m.scheduledAt) return 0;
+  const d = new Date(m.scheduledAt);
+  if (isNaN(d.getTime())) return 0;
+
+  if (m.matchTime && typeof m.matchTime === 'string' && m.matchTime.includes(':')) {
+    const parts = m.matchTime.split(':');
+    const hours = parseInt(parts[0], 10);
+    const mins = parseInt(parts[1], 10);
+    if (!isNaN(hours) && !isNaN(mins)) {
+      d.setHours(hours, mins, 0, 0);
+    }
+  }
+
+  return d.getTime();
+}
+
+function formatMatchDate(scheduledAt: Date | string): string {
+  if (!scheduledAt) return '';
+  const d = new Date(scheduledAt);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Renders completed matches in REVERSE chronological order (most recently concluded match date & time first)
  */
 export function TournamentCompletedMatchesBento({
   matches,
   tournamentSlug,
   limit = 6,
 }: TournamentMatchesProps) {
-  // Only completed matches, reversed (highest match number / latest match first)
+  // Only completed matches, sorted by full date & time descending (latest completed match first)
   const completedMatches = React.useMemo(() => {
     return matches
       .filter((m) => m.status === 'COMPLETED')
-      .sort((a, b) => (b.matchNumber ?? 0) - (a.matchNumber ?? 0))
+      .sort((a, b) => {
+        const dtA = parseMatchDateTime(a);
+        const dtB = parseMatchDateTime(b);
+        if (dtA !== dtB) {
+          return dtB - dtA; // Latest date + time first
+        }
+        // Fallback to match numbers
+        const numA = a.overallMatchNumber ?? a.matchNumber ?? 0;
+        const numB = b.overallMatchNumber ?? b.matchNumber ?? 0;
+        return numB - numA;
+      })
       .slice(0, limit);
   }, [matches, limit]);
 
@@ -88,13 +126,14 @@ export function TournamentCompletedMatchesBento({
           const game = m.games?.[0];
           const winner = game?.teamResults?.find((tr) => tr.rank === 1 || tr.wwcd);
           const second = game?.teamResults?.find((tr) => tr.rank === 2);
+          const dateStr = formatMatchDate(m.scheduledAt);
 
           return (
             <div
               key={m.id}
               className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 group"
             >
-              {/* Top Bar: Match #, Map & Time */}
+              {/* Top Bar: Match #, Map & Full Date + Time */}
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
                 <div className="flex items-center gap-1.5">
                   <span className="px-2 py-0.5 rounded-md bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400 font-mono font-bold text-xs">
@@ -107,7 +146,7 @@ export function TournamentCompletedMatchesBento({
 
                 <div className="text-right">
                   <span className="text-xs font-mono font-bold text-slate-900 dark:text-white">
-                    {m.matchTime || 'Concluded'}
+                    {dateStr ? `${dateStr} · ` : ''}{m.matchTime || 'Done'}
                   </span>
                   <span className="text-[10px] text-slate-400 block -mt-0.5">
                     {m.stage?.name || m.stageType || 'Finals'}
@@ -198,10 +237,20 @@ export function TournamentUpcomingMatchesBento({
   tournamentSlug,
   limit = 3,
 }: TournamentMatchesProps) {
+  // Sorted by full date & time ascending (earliest scheduled match first)
   const upcoming = React.useMemo(() => {
     return matches
       .filter((m) => m.status !== 'COMPLETED')
-      .sort((a, b) => (a.matchNumber ?? 0) - (b.matchNumber ?? 0))
+      .sort((a, b) => {
+        const dtA = parseMatchDateTime(a);
+        const dtB = parseMatchDateTime(b);
+        if (dtA !== dtB) {
+          return dtA - dtB; // Earliest upcoming first
+        }
+        const numA = a.overallMatchNumber ?? a.matchNumber ?? 0;
+        const numB = b.overallMatchNumber ?? b.matchNumber ?? 0;
+        return numA - numB;
+      })
       .slice(0, limit);
   }, [matches, limit]);
 
@@ -226,59 +275,60 @@ export function TournamentUpcomingMatchesBento({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {upcoming.map((m) => (
-          <div
-            key={m.id}
-            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-sm flex flex-col justify-between space-y-3"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
-              <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-mono font-bold text-xs">
-                  #{m.matchNumber ?? 1}
-                </span>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {m.mapName || 'Erangel'}
+        {upcoming.map((m) => {
+          const dateStr = formatMatchDate(m.scheduledAt);
+
+          return (
+            <div
+              key={m.id}
+              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] p-4 shadow-sm flex flex-col justify-between space-y-3"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-mono font-bold text-xs">
+                    #{m.matchNumber ?? 1}
+                  </span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {m.mapName || 'Erangel'}
+                  </span>
+                </div>
+
+                <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] uppercase">
+                  {m.status === 'LIVE' ? '🔴 Live' : 'Scheduled'}
                 </span>
               </div>
 
-              <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] uppercase">
-                {m.status === 'LIVE' ? '🔴 Live' : 'Scheduled'}
-              </span>
-            </div>
+              <div className="py-2">
+                <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  {m.format}
+                </h4>
+                <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 font-mono">
+                  <Clock className="w-3 h-3 text-slate-400" />
+                  {dateStr ? `${dateStr} · ` : ''}{m.matchTime || 'Scheduled'}
+                </span>
+              </div>
 
-            <div className="py-2">
-              <h4 className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                {m.format}
-              </h4>
-              <span className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 font-mono">
-                <Clock className="w-3 h-3 text-slate-400" />
-                {m.matchTime ||
-                  (typeof m.scheduledAt === 'string'
-                    ? m.scheduledAt.slice(0, 16)
-                    : m.scheduledAt.toISOString().slice(0, 16))}
-              </span>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-400 text-[11px]">
+                  {m.stage?.name || m.stageType || 'Finals'}
+                </span>
+                {m.streamUrl ? (
+                  <a
+                    href={m.streamUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-rose-600 hover:underline flex items-center gap-1"
+                  >
+                    <Tv className="w-3 h-3" />
+                    <span>Stream</span>
+                  </a>
+                ) : (
+                  <span className="text-slate-400 font-medium">TBA</span>
+                )}
+              </div>
             </div>
-
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-slate-400 text-[11px]">
-                {m.stage?.name || m.stageType || 'Finals'}
-              </span>
-              {m.streamUrl ? (
-                <a
-                  href={m.streamUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-bold text-rose-600 hover:underline flex items-center gap-1"
-                >
-                  <Tv className="w-3 h-3" />
-                  <span>Stream</span>
-                </a>
-              ) : (
-                <span className="text-slate-400 font-medium">TBA</span>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
