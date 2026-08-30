@@ -41,11 +41,11 @@ export function TournamentOverviewHub({
   pointsMatrix,
   killMultiplier = 1,
 }: TournamentOverviewHubProps) {
-  // Determine the most recent stage (admin-picked venue stage identifier, or stage with the latest match timestamp)
+  // Determine the featured stage (explicit admin setting in formatDetails, or auto-detected most recent stage by match timestamp)
   const mostRecentStage = React.useMemo(() => {
-    const venueStage = tournament.venues?.[0]?.stageName?.trim();
-    if (venueStage && stagesData.some((s) => s.stageName.toLowerCase() === venueStage.toLowerCase())) {
-      const match = stagesData.find((s) => s.stageName.toLowerCase() === venueStage.toLowerCase());
+    const explicitStage = tournament.formatDetails?.featuredStage?.trim();
+    if (explicitStage && stagesData.some((s) => s.stageName.toLowerCase() === explicitStage.toLowerCase())) {
+      const match = stagesData.find((s) => s.stageName.toLowerCase() === explicitStage.toLowerCase());
       if (match) return match.stageName;
     }
 

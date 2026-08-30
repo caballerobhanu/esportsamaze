@@ -115,7 +115,7 @@ async function saveTournament(formData: FormData) {
     } catch {}
   }
 
-  // Format details JSON (points system, placement points, kill points multiplier)
+  // Format details JSON (points system, placement points, kill points multiplier, featured stage)
   let formatDetails: any = null;
   const formatDetailsRaw = fStr(formData, 'formatDetailsJson') || fStr(formData, 'formatDetails');
   if (formatDetailsRaw) {
@@ -124,6 +124,14 @@ async function saveTournament(formData: FormData) {
     } catch {
       formatDetails = { description: formatDetailsRaw };
     }
+  }
+
+  const featuredStage = fStr(formData, 'featuredStage')?.trim() || null;
+  if (featuredStage || formatDetails) {
+    formatDetails = {
+      ...(formatDetails || {}),
+      featuredStage,
+    };
   }
 
   // Parse Sponsors from sponsorsJson (with typeahead and customizable tier labels)
@@ -844,6 +852,18 @@ export default async function AdminTournamentsPage({
                   initialValue={editing?.region ?? ''}
                   existingRegions={existingRegions}
                 />
+              </div>
+              <div>
+                <label className={labelCls}>Featured Stage on Overview</label>
+                <input
+                  name="featuredStage"
+                  defaultValue={(editing?.formatDetails as any)?.featuredStage ?? ''}
+                  placeholder="Auto (Most recent stage) or e.g. Grand Finals"
+                  className={inputCls}
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Leave blank to auto-display the most recent stage by match date.
+                </p>
               </div>
               <div>
                 <label className={labelCls}>Status</label>
