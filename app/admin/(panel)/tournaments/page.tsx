@@ -609,7 +609,7 @@ export default async function AdminTournamentsPage({
   const initialVenues =
     editing?.venues.map((tv) => ({
       id: tv.venue.id,
-      stageName: tv.stageName || 'Grand Finals',
+      stageName: tv.stageName ?? '',
       name: tv.venue.name,
       city: tv.venue.city || '',
       country: tv.venue.country || 'India',
