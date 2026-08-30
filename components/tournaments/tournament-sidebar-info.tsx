@@ -92,6 +92,7 @@ export function TournamentSidebarInfo({
   }
 
   const maxElims = Math.max(...topFraggers.map((f) => f.elims), 1);
+  const cleanTier = (tournament.tier || '').replace(/\s*tier\s*$/i, '');
 
   return (
     <div className="space-y-4">
@@ -101,9 +102,11 @@ export function TournamentSidebarInfo({
           <span className="text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5" /> Event Information
           </span>
-          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-            {tournament.tier} Tier
-          </span>
+          {cleanTier && (
+            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {cleanTier} Tier
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 text-xs">
@@ -124,7 +127,7 @@ export function TournamentSidebarInfo({
           <div>
             <span className="text-[10px] text-slate-400 block font-medium">Environment</span>
             <span className="font-bold text-slate-900 dark:text-white truncate block">
-              {tournament.eventType === 'LAN' ? '🏟️ Offline LAN' : '🌐 Online'}
+              {tournament.eventType || 'LAN'}
             </span>
           </div>
 
@@ -135,7 +138,7 @@ export function TournamentSidebarInfo({
             </span>
           </div>
 
-          {tournament.device && (
+          {tournament.device && tournament.device.trim() && (
             <div className="col-span-2">
               <span className="text-[10px] text-slate-400 block font-medium">Tournament Device</span>
               <span className="font-bold text-[#0A5FC4] dark:text-blue-400 truncate block">

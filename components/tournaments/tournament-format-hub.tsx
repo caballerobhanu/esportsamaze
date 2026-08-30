@@ -108,26 +108,28 @@ export function TournamentFormatHub({
         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] shadow-2xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Environment</span>
           <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-1 block">
-            {eventType === 'LAN' ? '🏟️ Offline LAN Arena' : '🌐 Online Championship'}
+            {eventType || 'LAN'}
           </span>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">Dedicated Server Protocol</span>
+          <span className="text-[10px] text-slate-500 mt-0.5 block">Tournament Format</span>
         </div>
 
         <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] shadow-2xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Scoring System</span>
           <span className="text-sm font-extrabold text-[#0A5FC4] dark:text-blue-400 mt-1 block">
-            Official 10-Pt BR Matrix
+            10-Pt BR Matrix
           </span>
           <span className="text-[10px] text-slate-500 mt-0.5 block">10 Place Pts + 1 Pt / Frag</span>
         </div>
 
-        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tournament Device</span>
-          <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-1 block truncate">
-            {device || 'Official Esports Flagship'}
-          </span>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">90 / 120 FPS Optimized</span>
-        </div>
+        {device && device.trim() && (
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c101d] shadow-2xs">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Tournament Device</span>
+            <span className="text-sm font-extrabold text-[#0A5FC4] dark:text-blue-400 mt-1 block truncate">
+              {device}
+            </span>
+            <span className="text-[10px] text-slate-500 mt-0.5 block">Official Device</span>
+          </div>
+        )}
       </div>
 
       {/* ═══ TOURNAMENT PROGRESSION ROADMAP ═══ */}

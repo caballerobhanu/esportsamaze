@@ -14,7 +14,10 @@ import {
   Tv,
 } from 'lucide-react';
 import { TournamentBentoHero } from './tournament-bento-hero';
-import { TournamentBentoMatches } from './tournament-bento-matches';
+import {
+  TournamentCompletedMatchesBento,
+  TournamentUpcomingMatchesBento,
+} from './tournament-bento-matches';
 import { TournamentStageStandings, StageMatchData } from './tournament-stage-standings';
 import { TournamentSidebarInfo } from './tournament-sidebar-info';
 import { AggregatedTeamStanding } from '@/lib/tournament-math';
@@ -38,11 +41,16 @@ export function TournamentOverviewHub({
   pointsMatrix,
   killMultiplier = 1,
 }: TournamentOverviewHubProps) {
-  // Find the most recently completed match
-  const completedMatches = tournament.matches.filter((m: any) => m.status === 'COMPLETED');
-  const latestCompletedMatch = completedMatches[completedMatches.length - 1] || tournament.matches[0] || null;
+  // Determine admin-picked stage (venue stage identifier or latest finals stage)
+  const adminPickedStage = React.useMemo(() => {
+    const venueStage = tournament.venues?.[0]?.stageName?.trim();
+    if (venueStage) return venueStage;
+    const grandFinals = stagesData.find((s) => s.stageName.toLowerCase().includes('final'));
+    if (grandFinals) return grandFinals.stageName;
+    return stagesData[0]?.stageName || 'Grand Finals';
+  }, [tournament, stagesData]);
 
-  // Find upcoming scheduled matches
+  // Upcoming scheduled matches
   const upcomingMatches = tournament.matches.filter((m: any) => m.status !== 'COMPLETED');
 
   // Top Prize ranks for sidebar
@@ -56,43 +64,49 @@ export function TournamentOverviewHub({
   return (
     <div className="space-y-6">
       {/* ═══════════════════════════════════════════════════════════
-          1. TOP BENTO HERO SHOWCASE ROW
+          1. TOP BENTO HERO OVERVIEW (NO LAST MATCH RESULT)
       ═══════════════════════════════════════════════════════════ */}
       <TournamentBentoHero
         tournament={tournament}
-        latestMatch={latestCompletedMatch}
-        topFragger={overallTopFragger}
+        activeStageName={adminPickedStage}
       />
 
       {/* ═══════════════════════════════════════════════════════════
-          2. MIDDLE MODULAR BENTO MATCH CARDS ROW
+          2. UPCOMING MATCHES DEDICATED BENTO SECTION (IF ANY)
       ═══════════════════════════════════════════════════════════ */}
-      {tournament.matches.length > 0 && (
-        <TournamentBentoMatches
-          matches={tournament.matches}
-          tournamentSlug={tournament.slug}
-          limit={6}
-        />
-      )}
+      <TournamentUpcomingMatchesBento
+        matches={tournament.matches}
+        tournamentSlug={tournament.slug}
+        limit={3}
+      />
 
       {/* ═══════════════════════════════════════════════════════════
-          3. BOTTOM BENTO ROW (STANDINGS SCOREBOARD + SIDEBAR STATS)
+          3. RECENT COMPLETED MATCHES (IN REVERSE CHRONOLOGICAL ORDER)
+      ═══════════════════════════════════════════════════════════ */}
+      <TournamentCompletedMatchesBento
+        matches={tournament.matches}
+        tournamentSlug={tournament.slug}
+        limit={6}
+      />
+
+      {/* ═══════════════════════════════════════════════════════════
+          4. BOTTOM BENTO ROW (SINGLE ADMIN-PICKED STAGE STANDINGS + SIDEBAR)
       ═══════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left 8 Cols: Interactive Stage Standings Bento Card */}
+        {/* Left 8 Cols: Single Admin-Picked Stage Standings Bento Card */}
         <div className="lg:col-span-8 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Trophy className="w-4 h-4 text-[#0A5FC4]" />
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
-                Championship Stage Standings
+                {adminPickedStage} Standings
               </h3>
             </div>
             <Link
               href={`/tournaments/${tournament.slug}?tab=standings`}
               className="text-xs font-bold text-[#0A5FC4] hover:underline flex items-center gap-0.5"
             >
-              <span>Full Standings View</span>
+              <span>Explore All Stages</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -105,10 +119,12 @@ export function TournamentOverviewHub({
             pointsMatrix={pointsMatrix}
             killMultiplier={killMultiplier}
             qualifyCount={16}
+            singleStageOnly={true}
+            initialStageName={adminPickedStage}
           />
         </div>
 
-        {/* Right 4 Cols: Event Facts, MVP Race, Venue & Community Sidebar */}
+        {/* Right 4 Cols: MVP Fragger Race, Venue & Community Sidebar */}
         <div className="lg:col-span-4">
           <TournamentSidebarInfo
             tournament={tournament}

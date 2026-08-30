@@ -43,6 +43,8 @@ interface TournamentStageStandingsProps {
   pointsMatrix?: Record<string, number>;
   killMultiplier?: number;
   qualifyCount?: number;
+  singleStageOnly?: boolean;
+  initialStageName?: string;
 }
 
 type SortKey = 'rank' | 'matchesPlayed' | 'wwcd' | 'placementPoints' | 'eliminationPoints' | 'totalPoints';
@@ -56,14 +58,21 @@ export function TournamentStageStandings({
   pointsMatrix,
   killMultiplier = 1,
   qualifyCount,
+  singleStageOnly = false,
+  initialStageName,
 }: TournamentStageStandingsProps) {
-  // Default to Grand Finals or the latest active stage, else 'ALL'
+  // Default to initialStageName, or Grand Finals or latest active stage
   const defaultStage = React.useMemo(() => {
+    if (initialStageName && (stagesData.some((s) => s.stageName.toLowerCase() === initialStageName.toLowerCase()) || initialStageName === 'OVERALL')) {
+      const match = stagesData.find((s) => s.stageName.toLowerCase() === initialStageName.toLowerCase());
+      if (match) return match.stageName;
+      if (initialStageName === 'OVERALL') return 'OVERALL';
+    }
     if (stagesData.length === 0) return 'OVERALL';
     const grandFinals = stagesData.find((s) => s.stageName.toLowerCase().includes('final'));
     if (grandFinals) return grandFinals.stageName;
     return stagesData[0]?.stageName || 'OVERALL';
-  }, [stagesData]);
+  }, [stagesData, initialStageName]);
 
   const [activeStageName, setActiveStageName] = React.useState<string>(defaultStage);
   const [sortKey, setSortKey] = React.useState<SortKey>('rank');
@@ -101,7 +110,7 @@ export function TournamentStageStandings({
   return (
     <div className="space-y-4">
       {/* ═══ STAGE SELECTOR TABS ═══ */}
-      {stagesData.length > 1 && (
+      {!singleStageOnly && stagesData.length > 1 && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {stagesData.map((stage) => {
             const isActive = activeStageName === stage.stageName;
