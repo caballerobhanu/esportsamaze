@@ -44,7 +44,6 @@ import { TournamentOverviewHub } from '@/components/tournaments/tournament-overv
 import { TournamentStageStandings, StageMatchData } from '@/components/tournaments/tournament-stage-standings';
 import { TournamentMatchesHub } from '@/components/tournaments/tournament-matches-hub';
 import { TournamentFormatHub } from '@/components/tournaments/tournament-format-hub';
-import { TournamentGalleryHub } from '@/components/tournaments/tournament-gallery-hub';
 import { TournamentSidebarInfo } from '@/components/tournaments/tournament-sidebar-info';
 
 export const dynamic = 'force-dynamic';
@@ -835,15 +834,6 @@ export default async function TournamentDetailPage({
               />
             </div>
           </div>
-        )}
-
-        {/* ═══ TAB: MEDIA & GALLERY ═══ */}
-        {activeTab === 'gallery' && (
-          <TournamentGalleryHub
-            tournamentName={tournament.name}
-            bannerUrl={tournament.bannerUrl}
-            imageUrl={tournament.imageDarkUrl || tournament.imageUrl}
-          />
         )}
       </main>
 

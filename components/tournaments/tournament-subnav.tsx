@@ -10,7 +10,6 @@ import {
   Users,
   DollarSign,
   Flame,
-  Camera,
 } from 'lucide-react';
 
 interface TabItem {
@@ -41,7 +40,6 @@ export function TournamentSubnav({
     { id: 'teams', label: 'Teams & Rosters', icon: Users, count: teamsCount },
     { id: 'prizepool', label: 'Prize & Awards', icon: DollarSign },
     { id: 'fraggers', label: 'Top Fraggers', icon: Flame },
-    { id: 'gallery', label: 'Media Gallery', icon: Camera },
   ];
 
   return (
