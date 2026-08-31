@@ -11,6 +11,7 @@ interface PrizePoolBadgeProps {
   currency?: string | null;
   usdRate?: number | null;
   className?: string;
+  secondaryClassName?: string;
   showIcon?: boolean;
   inline?: boolean;
 }
@@ -20,6 +21,7 @@ export function PrizePoolBadge({
   currency = 'USD',
   usdRate,
   className = '',
+  secondaryClassName = '',
   showIcon = false,
   inline = false,
 }: PrizePoolBadgeProps) {
@@ -62,7 +64,9 @@ export function PrizePoolBadge({
         {showIcon && <DollarSign className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
         <span>{primaryFormatted}</span>
         {secondaryFormatted && (
-          <span className="text-xs font-normal text-slate-400">({secondaryFormatted})</span>
+          <span className={`text-xs font-normal ${secondaryClassName || 'text-slate-500 dark:text-slate-400'}`}>
+            ({secondaryFormatted})
+          </span>
         )}
       </span>
     );
@@ -77,7 +81,9 @@ export function PrizePoolBadge({
 
       {secondaryFormatted && (
         <span
-          className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-normal block mt-0.5"
+          className={`text-xs font-semibold tracking-normal block mt-0.5 ${
+            secondaryClassName || 'text-slate-500 dark:text-slate-400'
+          }`}
           suppressHydrationWarning
         >
           {secondaryFormatted}

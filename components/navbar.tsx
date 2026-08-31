@@ -214,7 +214,7 @@ export function Navbar() {
               </Link>
 
               {/* Desktop navigation items */}
-              <nav className="hidden md:flex items-center gap-6 lg:gap-9 ml-8 lg:ml-14 min-w-0">
+              <nav className="hidden md:flex items-center gap-5 lg:gap-6 xl:gap-9 ml-6 lg:ml-8 xl:ml-14 min-w-0">
                 {NAV_ITEMS.map((item) => (
                   <a
                     key={item.label}
@@ -237,8 +237,8 @@ export function Navbar() {
                 title="Search (Ctrl+K)"
               >
                 <Search className="w-3.5 h-3.5 text-white/70 group-hover:text-white transition-colors" />
-                <span>Search wiki...</span>
-                <kbd className="hidden lg:inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/20 text-white/70 border border-white/10">
+                <span className="hidden lg:inline">Search wiki...</span>
+                <kbd className="hidden xl:inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/20 text-white/70 border border-white/10">
                   <span className="text-[9px]">⌘</span>K
                 </kbd>
               </button>

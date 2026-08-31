@@ -224,3 +224,16 @@ export const POPULAR_REGIONS = [
   'China',
   'Brazil',
 ];
+
+export function countryCodeFor(region?: string | null): string | null {
+  const value = region?.trim();
+  if (!value) return null;
+  const byName = COUNTRIES.find((c) => c.name.toLowerCase() === value.toLowerCase());
+  if (byName) return byName.code;
+  const byCode = COUNTRIES.find((c) => c.code.toLowerCase() === value.toLowerCase());
+  return byCode?.code ?? null;
+}
+
+export function flagUrlFor(code: string): string {
+  return `https://flagcdn.com/20x15/${code.toLowerCase()}.png`;
+}

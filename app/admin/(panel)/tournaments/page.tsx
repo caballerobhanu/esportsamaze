@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save } from 'lucide-react';
+import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save, Copy } from 'lucide-react';
 import prisma from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
@@ -28,6 +29,9 @@ import { TournamentQualificationsInput } from '@/components/admin/tournament-qua
 import { TournamentPrizeDistributionInput } from '@/components/admin/tournament-prize-distribution-input';
 import { TournamentFinalRankingsInput } from '@/components/admin/tournament-final-rankings-input';
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
+import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
+import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
+import { matchStageLabel } from '@/lib/standings-config';
 import { getLiveExchangeRates, resolveCurrencyUsdRate } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
@@ -132,6 +136,39 @@ async function saveTournament(formData: FormData) {
       ...(formatDetails || {}),
       featuredStage,
     };
+  }
+
+  // Standings display configuration (logo mode, overall tab, filters, columns, zones, per-stage)
+  let standingsConfig: any = null;
+  const standingsConfigRaw = fStr(formData, 'standingsConfigJson');
+  if (standingsConfigRaw) {
+    try {
+      standingsConfig = JSON.parse(standingsConfigRaw);
+    } catch {
+      standingsConfig = null;
+    }
+  }
+
+  // Participating squads (seeds, rosters, event logo overrides)
+  let squadsSubmitted = false;
+  let squadsList: Array<{
+    teamId: string;
+    seed?: number | null;
+    roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean }>;
+    eventLogoUrl?: string | null;
+    eventLogoDarkUrl?: string | null;
+    shortName?: string | null;
+    displayName?: string | null;
+    country?: string | null;
+  }> = [];
+  const squadsRaw = fStr(formData, 'squadsJson');
+  if (squadsRaw) {
+    squadsSubmitted = true;
+    try {
+      squadsList = JSON.parse(squadsRaw);
+    } catch {
+      squadsList = [];
+    }
   }
 
   // Parse Sponsors from sponsorsJson (with typeahead and customizable tier labels)
@@ -359,19 +396,16 @@ async function saveTournament(formData: FormData) {
   const liveRates = await getLiveExchangeRates();
   const usdRate = resolveCurrencyUsdRate(currency, liveRates);
 
-  const rank1 = teamRankingsList.find((r) => r.rank === 1);
-  const rank2 = teamRankingsList.find((r) => r.rank === 2);
+  const winnerTeamId = fOpt(formData, 'winnerTeamId');
+  const runnerUpTeamId = fOpt(formData, 'runnerUpTeamId');
+  let winner: string | null = null;
+  let runnerUp: string | null = null;
 
-  let winnerTeamId = fOpt(formData, 'winnerTeamId') || rank1?.teamId || null;
-  let runnerUpTeamId = fOpt(formData, 'runnerUpTeamId') || rank2?.teamId || null;
-  let winner = fOpt(formData, 'winner');
-  let runnerUp = fOpt(formData, 'runnerUp');
-
-  if (winnerTeamId && !winner) {
+  if (winnerTeamId) {
     const wTeam = await prisma.team.findUnique({ where: { id: winnerTeamId } });
     winner = wTeam?.name || null;
   }
-  if (runnerUpTeamId && !runnerUp) {
+  if (runnerUpTeamId) {
     const ruTeam = await prisma.team.findUnique({ where: { id: runnerUpTeamId } });
     runnerUp = ruTeam?.name || null;
   }
@@ -402,6 +436,7 @@ async function saveTournament(formData: FormData) {
     liquipedia: fOpt(formData, 'liquipedia'),
     socialLinks: fSocials(formData),
     formatDetails,
+    standingsConfig,
   };
 
   let tournamentId = id;
@@ -488,6 +523,50 @@ async function saveTournament(formData: FormData) {
     tournamentId = created.id;
   }
 
+  // Participating squads: seeds, rosters and event logo overrides (runs before rankings
+  // so the rankings block can still attach finalRank/prizeWon to the same rows)
+  if (squadsSubmitted && tournamentId) {
+    for (let i = 0; i < squadsList.length; i++) {
+      const squad = squadsList[i];
+      if (!squad?.teamId) continue;
+      const [logoLight, logoDark] = await Promise.all([
+        saveUploadedFile(formData.get(`squadLogoLight${i}`), 'squad-logo-light'),
+        saveUploadedFile(formData.get(`squadLogoDark${i}`), 'squad-logo-dark'),
+      ]);
+      const data = {
+        seed: squad.seed ?? null,
+        rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p) => ({
+          playerId: p.playerId ?? null,
+          ign: String(p.ign ?? ''),
+          role: p.role ?? null,
+          captain: !!p.captain,
+        })),
+        logoUrl: logoLight ?? (squad.eventLogoUrl || null),
+        logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
+        shortName: squad.shortName ?? null,
+        displayName: squad.displayName ?? null,
+        country: squad.country ?? null,
+      };
+      const existing = await prisma.tournamentTeam.findFirst({
+        where: { tournamentId, teamId: squad.teamId },
+      });
+      if (existing) {
+        await prisma.tournamentTeam.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.tournamentTeam.create({
+          data: { tournamentId, teamId: squad.teamId, finalRank: null, prizeWon: null, ...data },
+        });
+      }
+    }
+    const protectedIds = [
+      ...squadsList.map((s) => s.teamId).filter(Boolean),
+      ...teamRankingsList.map((r) => r.teamId).filter(Boolean),
+    ];
+    await prisma.tournamentTeam.deleteMany({
+      where: { tournamentId, teamId: { notIn: protectedIds } },
+    });
+  }
+
   // Update or insert TournamentTeam records for final event rankings
   if (teamRankingsList.length > 0 && tournamentId) {
     for (const r of teamRankingsList) {
@@ -529,6 +608,91 @@ async function deleteTournament(formData: FormData) {
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
   redirect('/admin/tournaments');
+}
+
+async function duplicateTournament(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const id = fStr(formData, 'id');
+  if (!id) redirect('/admin/tournaments');
+
+  const source = await prisma.tournament.findUnique({
+    where: { id },
+    include: {
+      organizers: true,
+      sponsors: true,
+      venues: true,
+      stages: { include: { groups: true } },
+      teams: true,
+    },
+  });
+  if (!source) redirect('/admin/tournaments');
+
+  const slug = await uniqueSlug(`${source.slug}-copy`, async (s) => {
+    const clash = await prisma.tournament.findFirst({ where: { slug: s }, select: { id: true } });
+    return Boolean(clash);
+  });
+
+  const created = await prisma.tournament.create({
+    data: {
+      gameId: source.gameId,
+      name: `${source.name} (Copy)`,
+      slug,
+      series: source.series,
+      season: source.season,
+      seriesValue: source.seriesValue,
+      tier: source.tier,
+      status: 'UPCOMING',
+      eventType: source.eventType,
+      gameMode: source.gameMode,
+      platform: source.platform,
+      device: source.device,
+      region: source.region,
+      countries: source.countries ?? undefined,
+      prizePool: source.prizePool,
+      currency: source.currency,
+      usdRate: source.usdRate,
+      prizeDistribution: source.prizeDistribution ?? undefined,
+      qualifications: source.qualifications ?? undefined,
+      startDate: source.startDate,
+      endDate: source.endDate,
+      imageUrl: source.imageUrl,
+      imageDarkUrl: source.imageDarkUrl,
+      bannerUrl: source.bannerUrl,
+      liquipedia: source.liquipedia,
+      socialLinks: source.socialLinks ?? undefined,
+      formatDetails: source.formatDetails ?? undefined,
+      standingsConfig: source.standingsConfig ?? undefined,
+      organizers: { create: source.organizers.map((o) => ({ organizerId: o.organizerId, role: o.role })) },
+      sponsors: { create: source.sponsors.map((s) => ({ sponsorId: s.sponsorId, tier: s.tier })) },
+      venues: { create: source.venues.map((v) => ({ venueId: v.venueId, stageName: v.stageName })) },
+      stages: {
+        create: source.stages.map((s) => ({
+          name: s.name,
+          sequence: s.sequence,
+          formatType: s.formatType,
+          stageType: s.stageType,
+          groups: { create: s.groups.map((g) => ({ name: g.name })) },
+        })),
+      },
+      teams: {
+        create: source.teams.map((tt) => ({
+          team: { connect: { id: tt.teamId } },
+          seed: tt.seed,
+          rosterJson: tt.rosterJson as Prisma.InputJsonValue,
+          logoUrl: tt.logoUrl,
+          logoDarkUrl: tt.logoDarkUrl,
+          shortName: tt.shortName,
+          displayName: tt.displayName,
+          country: tt.country,
+        })),
+      },
+    },
+  });
+
+  revalidatePath('/admin/tournaments');
+  revalidatePath('/tournaments');
+  redirect(`/admin/tournaments?edit=${created.id}#tournament-editor`);
 }
 
 export default async function AdminTournamentsPage({
@@ -636,6 +800,31 @@ export default async function AdminTournamentsPage({
         qualifications: [],
       })) || [];
 
+  const initialSquads: SquadRow[] =
+    editing?.teams.map((tt) => ({
+      teamId: tt.teamId,
+      teamName: tt.team.name,
+      tag: tt.team.tag,
+      seed: tt.seed,
+      roster: (Array.isArray(tt.rosterJson) ? (tt.rosterJson as unknown[]) : []).map((entry) =>
+        typeof entry === 'string'
+          ? { ign: entry }
+          : {
+              playerId: (entry as { playerId?: string | null }).playerId ?? null,
+              ign: String((entry as { ign?: string }).ign ?? ''),
+              role: (entry as { role?: string | null }).role ?? null,
+              captain: !!((entry as { captain?: boolean }).captain ?? false),
+            }
+      ),
+      eventLogoUrl: tt.logoUrl,
+      eventLogoDarkUrl: tt.logoDarkUrl,
+      shortName: tt.shortName,
+      displayName: tt.displayName,
+      country: tt.country,
+    })) || [];
+
+  const stageNames = editing ? [...new Set(editing.matches.map((m) => matchStageLabel(m)))] : [];
+
   const existingRegions = Array.from(
     new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
   );
@@ -646,14 +835,11 @@ export default async function AdminTournamentsPage({
     Array<{ teamId: string; teamName: string; tag?: string; rank: number; points: number }>
   > = {};
 
-  let autoWinner = editing?.winner || '';
-  let autoRunnerUp = editing?.runnerUp || '';
-
   if (editing && editing.matches.length > 0) {
     const matchesByStage: Record<string, typeof editing.matches> = {};
 
     for (const match of editing.matches) {
-      const stName = (match as any).stage?.name || match.stageType || 'Grand Finals';
+      const stName = matchStageLabel(match);
       if (!matchesByStage[stName]) matchesByStage[stName] = [];
       matchesByStage[stName].push(match);
     }
@@ -669,18 +855,6 @@ export default async function AdminTournamentsPage({
           rank: idx + 1,
           points: s.totalPoints,
         }));
-      }
-    }
-
-    // Auto winner / runner up from finals stage if available, else first stage
-    const finalsKey =
-      Object.keys(stageStandingsMap).find((k) => k.toLowerCase().includes('final')) ||
-      Object.keys(stageStandingsMap)[0];
-
-    if (finalsKey && stageStandingsMap[finalsKey]?.length > 0) {
-      autoWinner = stageStandingsMap[finalsKey][0].teamName;
-      if (stageStandingsMap[finalsKey].length > 1) {
-        autoRunnerUp = stageStandingsMap[finalsKey][1].teamName;
       }
     }
   }
@@ -978,44 +1152,30 @@ export default async function AdminTournamentsPage({
                 />
               </div>
               <div>
-                <label className={labelCls}>
-                  Winner Team {autoWinner && `(Auto: ${autoWinner})`}
-                </label>
+                <label className={labelCls}>Winner Team (Champion)</label>
                 <select name="winnerTeamId" defaultValue={editing?.winnerTeamId ?? ''} className={inputCls}>
-                  <option value="">Select Champion…</option>
+                  <option value="">— tournament not decided yet —</option>
                   {teams.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
                 </select>
-                <input
-                  type="hidden"
-                  name="winner"
-                  value={editing?.winner || autoWinner}
-                />
               </div>
               <div>
-                <label className={labelCls}>
-                  Runner-Up Team {autoRunnerUp && `(Auto: ${autoRunnerUp})`}
-                </label>
+                <label className={labelCls}>Runner-Up Team</label>
                 <select
                   name="runnerUpTeamId"
                   defaultValue={editing?.runnerUpTeamId ?? ''}
                   className={inputCls}
                 >
-                  <option value="">Select Runner-Up…</option>
+                  <option value="">— tournament not decided yet —</option>
                   {teams.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
                 </select>
-                <input
-                  type="hidden"
-                  name="runnerUp"
-                  value={editing?.runnerUp || autoRunnerUp}
-                />
               </div>
               <div>
                 <label className={labelCls}>Official Event Page URL (Optional)</label>
@@ -1070,10 +1230,24 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
-          {/* Section 5: Final Team Rankings */}
+          {/* Section 5: Participating Squads & Rosters */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
-              🏆 5. Final Event Team Rankings (Winner, Runner-Up &amp; Placements)
+              👥 5. Participating Squads &amp; Rosters (Seeds, Event Logos, Players)
+            </h2>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <TournamentSquadsInput
+                initialSquads={initialSquads}
+                allTeams={teams}
+                allPlayers={players}
+              />
+            </div>
+          </div>
+
+          {/* Section 6: Final Team Rankings */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+              🏆 6. Final Event Team Rankings (Winner, Runner-Up &amp; Placements)
             </h2>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
               <TournamentFinalRankingsInput
@@ -1087,10 +1261,23 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
-          {/* Section 5: Dual Logos & Banners */}
+          {/* Section 7: Standings Display & Filters */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
-              🖼️ 5. Branding, Logos &amp; Header Banner
+              📊 7. Standings Display, Filters &amp; Qualification Zones
+            </h2>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <TournamentStandingsConfigInput
+                initialConfig={editing?.standingsConfig}
+                stageNames={stageNames}
+              />
+            </div>
+          </div>
+
+          {/* Section 8: Dual Logos & Banners */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+              🖼️ 8. Branding, Logos &amp; Header Banner
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div>
@@ -1133,10 +1320,10 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
-          {/* Section 6: All Social Media Channels */}
+          {/* Section 9: All Social Media Channels */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-1 flex items-center gap-1.5">
-              🔗 6. Official Event Website &amp; Social Channels
+              🔗 9. Official Event Website &amp; Social Channels
             </h2>
             <p className="text-[11px] text-slate-500 mb-3">
               Only channels with valid URLs will display icons on the public tournament page. Unused channels will remain hidden.
@@ -1274,6 +1461,16 @@ export default async function AdminTournamentsPage({
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Link>
+                    <form action={duplicateTournament}>
+                      <input type="hidden" name="id" value={t.id} />
+                      <button
+                        type="submit"
+                        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-500 transition-colors"
+                        title="Duplicate Tournament"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
                     <form action={deleteTournament}>
                       <input type="hidden" name="id" value={t.id} />
                       <button

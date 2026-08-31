@@ -219,6 +219,7 @@ model Tournament {
   liquipedia        String?
   socialLinks       Json?                 // { website, instagram, twitter, facebook, youtube, kick, twitch, discord }
   formatDetails     Json?                 // Detailed format rules & points distribution system
+  standingsConfig   Json?                 // Standings display config: logoMode, showOverall, filters[], columns[], zones[], stages{}
   // Legacy database columns mapped to keep backwards-compatibility without dropping columns
   legacyOrganizer   String?               @map("organizer")
   legacySponsors    String?               @map("sponsors")
@@ -303,6 +304,11 @@ model TournamentTeam {
   seed         Int?
   finalRank    Int?
   prizeWon     Float?
+  logoUrl      String?    // Event-specific team logo override (light)
+  logoDarkUrl  String?    // Event-specific team logo override (dark)
+  shortName    String?    // Event-specific short name / tag override
+  displayName  String?    // Event-specific display name override (e.g. sponsor name)
+  country      String?    // Event-specific country override (name or ISO code)
   rosterJson   Json       // Array of player IGNs, roles, captain flag
 }
 

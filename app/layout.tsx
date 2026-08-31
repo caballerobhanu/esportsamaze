@@ -24,7 +24,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className={`${jakarta.variable} font-sans antialiased min-h-screen bg-white dark:bg-[#060813] text-slate-900 dark:text-slate-100 transition-colors`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >

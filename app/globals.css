@@ -152,3 +152,121 @@ body {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(30, 41, 59, 0.8);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   BOXY & MODULAR DESIGN SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* Boxy panel: crisp 2px-4px radius, clean hairline border, tangible shadow */
+  .panel {
+    @apply overflow-hidden rounded-sm border border-slate-200 bg-white transition-all duration-200 dark:border-slate-800 dark:bg-[#0c111e];
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  }
+  .panel:hover {
+    box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+    @apply border-slate-300 dark:border-slate-700;
+  }
+  .panel-subtle {
+    @apply overflow-hidden rounded-sm border border-slate-200 bg-[#fbfaf7] dark:border-slate-800 dark:bg-[#090e18];
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  }
+  .panel-head {
+    @apply flex items-center justify-between gap-3 border-b border-slate-200 bg-[#faf9f7] px-4 py-2.5 dark:border-slate-800 dark:bg-[#090e18];
+  }
+  /* Section title — crisp bold sans */
+  .head-label {
+    @apply text-sm font-bold tracking-tight text-[#121722] dark:text-slate-100;
+  }
+  /* Clean sans micro label */
+  .micro-label {
+    @apply text-[11px] font-bold uppercase tracking-wider text-[#716b61] dark:text-slate-400;
+  }
+  /* Boxy Tab Navigation */
+  .capsule-tab {
+    @apply inline-flex items-center gap-2 rounded-xs px-3.5 py-1.5 text-xs font-semibold text-[#716b61] transition-all duration-150 hover:bg-black/5 hover:text-[#121722] dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white;
+  }
+  .capsule-tab-active {
+    @apply rounded-xs bg-[#0068f9] text-white shadow-xs hover:bg-[#0068f9] hover:text-white dark:bg-[#0068f9] dark:text-white;
+  }
+  /* Boxy chip / badge */
+  .pill-chip {
+    @apply inline-flex items-center gap-1.5 rounded-xs border border-slate-200 bg-[#fbfaf7] px-2.5 py-0.5 text-xs font-medium text-[#121722] transition-colors dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200;
+  }
+  /* Numerical data */
+  .num {
+    @apply tabular-nums font-semibold;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EDITORIAL DESIGN SYSTEM (tournament section)
+   Cool paper · slate ink · one confident blue · no shadows
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --ed-canvas: #f5f7fa;
+  --ed-surface: #ffffff;
+  --ed-sand: #eaeef4;
+  --ed-hair: #e0e6ee;
+  --ed-ink: #161a22;
+  --ed-stone: #64748b;
+  --ed-blue: #0061fe;
+  --ed-magenta: #cd2f7b;
+}
+
+.dark {
+  --ed-canvas: #0f1216;
+  --ed-surface: #161b22;
+  --ed-sand: #1d242e;
+  --ed-hair: #2a3441;
+  --ed-ink: #e9edf3;
+  --ed-stone: #94a3b8;
+  --ed-blue: #4c8dff;
+  --ed-magenta: #e0518f;
+}
+
+.font-display {
+  font-family: var(--font-display), var(--font-sans);
+}
+
+@layer components {
+  /* Flat card: hairline border, 12px radius, zero shadow */
+  .ed-card {
+    @apply overflow-hidden rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)];
+  }
+  .ed-card-head {
+    @apply flex items-center justify-between gap-3 border-b border-[var(--ed-hair)] px-4 py-3.5 sm:px-6;
+  }
+  /* Uppercase stone micro label */
+  .ed-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-[var(--ed-stone)];
+  }
+  /* 8px-radius hairline chip */
+  .ed-chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-2.5 py-1 text-xs font-medium text-[var(--ed-ink)];
+  }
+  /* Nav tab — blue underline marks the active state */
+  .ed-tab {
+    @apply inline-flex items-center gap-2 border-b-2 border-transparent px-0.5 py-3 text-sm font-medium whitespace-nowrap text-[var(--ed-stone)] transition-colors hover:text-[var(--ed-ink)];
+  }
+  .ed-tab-active {
+    @apply border-[var(--ed-blue)] text-[var(--ed-blue)] hover:text-[var(--ed-blue)];
+  }
+  /* Text input */
+  .ed-input {
+    @apply w-full rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-3.5 py-2.5 text-sm text-[var(--ed-ink)] placeholder:text-[var(--ed-stone)] focus:border-[var(--ed-blue)] focus:outline-none;
+  }
+  /* The one solid-blue action button (16px radius) */
+  .ed-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--ed-blue)] px-6 py-3 text-sm font-medium text-white transition-colors hover:brightness-110;
+  }
+  /* Table header cell */
+  .ed-th {
+    @apply px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--ed-stone)];
+  }
+  /* Hairline-divided row list */
+  .ed-rows {
+    @apply divide-y divide-[var(--ed-hair)];
+  }
+}
