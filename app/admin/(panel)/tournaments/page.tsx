@@ -32,7 +32,7 @@ import { TournamentPointsSystemInput } from '@/components/admin/tournament-point
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
 import { matchStageLabel } from '@/lib/standings-config';
-import { getLiveExchangeRates, resolveCurrencyUsdRate } from '@/lib/currency';
+import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +154,8 @@ async function saveTournament(formData: FormData) {
   let squadsList: Array<{
     teamId: string;
     seed?: number | null;
+    seedLabel?: string | null;
+    seedTournamentId?: string | null;
     roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean }>;
     eventLogoUrl?: string | null;
     eventLogoDarkUrl?: string | null;
@@ -393,8 +395,8 @@ async function saveTournament(formData: FormData) {
   }
 
   const currency = fStr(formData, 'currency') || 'INR';
-  const liveRates = await getLiveExchangeRates();
-  const usdRate = resolveCurrencyUsdRate(currency, liveRates);
+  const rates = await getExchangeRatesForDate(startDate);
+  const usdRate = resolveCurrencyUsdRate(currency, rates);
 
   const winnerTeamId = fOpt(formData, 'winnerTeamId');
   const runnerUpTeamId = fOpt(formData, 'runnerUpTeamId');
@@ -535,6 +537,8 @@ async function saveTournament(formData: FormData) {
       ]);
       const data = {
         seed: squad.seed ?? null,
+        seedLabel: squad.seedLabel ?? null,
+        seedTournamentId: squad.seedTournamentId ?? null,
         rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p) => ({
           playerId: p.playerId ?? null,
           ign: String(p.ign ?? ''),
@@ -745,12 +749,17 @@ export default async function AdminTournamentsPage({
     ? await prisma.tournament.findUnique({
         where: { id: edit },
         include: {
+          stages: { orderBy: { sequence: 'asc' } },
           organizers: { include: { organizer: true } },
           sponsors: { include: { sponsor: true } },
           venues: { include: { venue: true } },
-          teams: { include: { team: true }, orderBy: { finalRank: 'asc' } },
+          teams: {
+            include: { team: true, seedTournament: { select: { id: true, name: true, slug: true } } },
+            orderBy: { finalRank: 'asc' },
+          },
           matches: {
             include: {
+              stage: true,
               games: {
                 include: {
                   teamResults: {
@@ -806,6 +815,8 @@ export default async function AdminTournamentsPage({
       teamName: tt.team.name,
       tag: tt.team.tag,
       seed: tt.seed,
+      seedLabel: tt.seedLabel,
+      seedTournamentId: tt.seedTournamentId,
       roster: (Array.isArray(tt.rosterJson) ? (tt.rosterJson as unknown[]) : []).map((entry) =>
         typeof entry === 'string'
           ? { ign: entry }
@@ -823,7 +834,26 @@ export default async function AdminTournamentsPage({
       country: tt.country,
     })) || [];
 
-  const stageNames = editing ? [...new Set(editing.matches.map((m) => matchStageLabel(m)))] : [];
+  const stagesFromDb = editing?.stages?.map((s) => s.name.trim()) || [];
+  const stagesFromMatches = editing?.matches?.map((m) => matchStageLabel(m)) || [];
+  const stageNames = Array.from(new Set([...stagesFromDb, ...stagesFromMatches].filter(Boolean)));
+
+  const stagesInfo = stageNames.map((sName) => {
+    const matchingMatches = (editing?.matches || []).filter(
+      (m) => matchStageLabel(m).toLowerCase() === sName.toLowerCase()
+    );
+    return {
+      name: sName,
+      matchCount: matchingMatches.length,
+      matches: matchingMatches.map((m) => ({
+        id: m.id,
+        matchNumber: m.matchNumber,
+        overallMatchNumber: m.overallMatchNumber,
+        mapName: m.mapName || 'Erangel',
+        format: m.format,
+      })),
+    };
+  });
 
   const existingRegions = Array.from(
     new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
@@ -1240,6 +1270,7 @@ export default async function AdminTournamentsPage({
                 initialSquads={initialSquads}
                 allTeams={teams}
                 allPlayers={players}
+                allTournaments={tournaments.map((t) => ({ id: t.id, name: t.name, slug: t.slug }))}
               />
             </div>
           </div>
@@ -1270,6 +1301,7 @@ export default async function AdminTournamentsPage({
               <TournamentStandingsConfigInput
                 initialConfig={editing?.standingsConfig}
                 stageNames={stageNames}
+                stagesInfo={stagesInfo}
               />
             </div>
           </div>

@@ -523,10 +523,19 @@ export function MatchGroupedList({
                                   {/* Schedule */}
                                   <td className="py-1.5 px-3">
                                     <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300">
-                                      {m.matchTime ||
-                                        (typeof m.scheduledAt === 'string'
+                                      {(() => {
+                                        if (m.matchTime) {
+                                          const s = m.matchTime.trim();
+                                          const match4 = s.match(/^(\d{2})(\d{2})(\s+.*)?$/);
+                                          if (match4) {
+                                            return `${match4[1]}:${match4[2]}${match4[3] || ''}`;
+                                          }
+                                          return s;
+                                        }
+                                        return typeof m.scheduledAt === 'string'
                                           ? m.scheduledAt.slice(0, 16)
-                                          : m.scheduledAt.toISOString().slice(0, 16))}
+                                          : m.scheduledAt.toISOString().slice(0, 16);
+                                      })()}
                                     </div>
                                     <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
                                       <span>{m.matchType === 'Online' ? '🌐 Online' : '🏟️ LAN'}</span>

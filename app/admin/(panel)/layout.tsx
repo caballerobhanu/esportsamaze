@@ -10,6 +10,7 @@ import {
   ArrowLeftRight,
   Swords,
   BarChart3,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { isAdmin, revokeAdminSession } from '@/lib/admin-auth';
 
@@ -33,6 +34,7 @@ export default async function AdminPanelLayout({
     { href: '/admin/games', label: 'Games', icon: Gamepad2 },
     { href: '/admin/tournaments', label: 'Tournaments', icon: Trophy },
     { href: '/admin/matches', label: 'Matches', icon: Swords },
+    { href: '/admin/matches/matrix', label: 'Score Matrix', icon: FileSpreadsheet },
     { href: '/admin/teams', label: 'Teams', icon: Shield },
     { href: '/admin/players', label: 'Players', icon: Users },
     { href: '/admin/organizers', label: 'Organizers', icon: LayoutDashboard },

@@ -1,39 +1,39 @@
 import { getCurrencyUsdRate as getFallbackUsdRate } from '@/lib/tournament-math';
 
-// In-memory / daily revalidated exchange rates
-let cachedRates: Record<string, number> | null = null;
-let lastFetchTime = 0;
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// In-memory cache for live rates (revalidated every 24 hours)
+let cachedLiveRates: Record<string, number> | null = null;
+let lastLiveFetchTime = 0;
+const LIVE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// In-memory cache for historical dates (immutable, permanent in-memory cache)
+const historicalRatesCache = new Map<string, Record<string, number>>();
 
 /**
- * Fetches real-time exchange rates against USD from an open free Forex API.
- * Automatically cached for 24 hours with immediate fallback if offline.
+ * Fetches real-time exchange rates against USD from open Forex API.
+ * Cached in memory and via Next.js cache.
  */
 export async function getLiveExchangeRates(): Promise<Record<string, number>> {
   const now = Date.now();
-  if (cachedRates && now - lastFetchTime < CACHE_TTL_MS) {
-    return cachedRates;
+  if (cachedLiveRates && now - lastLiveFetchTime < LIVE_CACHE_TTL_MS) {
+    return cachedLiveRates;
   }
 
   try {
-    // Open Exchange Rate API (Free, no API key required, reliable)
     const res = await fetch('https://open.er-api.com/v6/latest/USD', {
-      next: { revalidate: 86400 }, // 24h Next.js cache
+      next: { revalidate: 86400 },
     });
 
     if (res.ok) {
       const data = await res.json();
       if (data && data.rates) {
-        // data.rates gives 1 USD in foreign currency (e.g. INR: 86.8).
-        // We convert to 1 foreign currency in USD (e.g. 1/86.8 ≈ 0.0115).
         const usdRates: Record<string, number> = { USD: 1.0 };
         for (const [code, rateAgainstUsd] of Object.entries(data.rates as Record<string, number>)) {
           if (rateAgainstUsd > 0) {
             usdRates[code.toUpperCase()] = 1 / rateAgainstUsd;
           }
         }
-        cachedRates = usdRates;
-        lastFetchTime = now;
+        cachedLiveRates = usdRates;
+        lastLiveFetchTime = now;
         return usdRates;
       }
     }
@@ -41,22 +41,101 @@ export async function getLiveExchangeRates(): Promise<Record<string, number>> {
     console.warn('Could not fetch live currency rates, using fallback rates:', err);
   }
 
-  return cachedRates || {};
+  return cachedLiveRates || {};
 }
 
 /**
- * Gets the USD exchange rate for a given currency code.
- * Checks live cached rates first, with graceful static fallback.
+ * Fetches exchange rates as of a specific tournament start date (historical).
+ * - If the date is in the future, returns live exchange rates (fluctuating until start date).
+ * - If the date is in the past or today, fetches and locks historical exchange rate data for that exact date.
  */
-export function resolveCurrencyUsdRate(code: string, liveRates?: Record<string, number>): number {
+export async function getExchangeRatesForDate(date?: Date | string | null): Promise<Record<string, number>> {
+  if (!date) {
+    return getLiveExchangeRates();
+  }
+
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) {
+    return getLiveExchangeRates();
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const dateStr = d.toISOString().slice(0, 10);
+
+  // If the event is scheduled for the future, it can fluctuate until start date
+  if (dateStr > todayStr) {
+    return getLiveExchangeRates();
+  }
+
+  // Check cache for this historical date
+  if (historicalRatesCache.has(dateStr)) {
+    return historicalRatesCache.get(dateStr)!;
+  }
+
+  // 1. Primary Historical Provider: Frankfurter API
+  try {
+    const res = await fetch(`https://api.frankfurter.app/${dateStr}?from=USD`, {
+      next: { revalidate: 86400 * 30 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.rates) {
+        const usdRates: Record<string, number> = { USD: 1.0 };
+        for (const [code, rateAgainstUsd] of Object.entries(data.rates as Record<string, number>)) {
+          if (rateAgainstUsd > 0) {
+            usdRates[code.toUpperCase()] = 1 / rateAgainstUsd;
+          }
+        }
+        historicalRatesCache.set(dateStr, usdRates);
+        return usdRates;
+      }
+    }
+  } catch (err) {
+    console.warn(`Frankfurter historical rate lookup failed for ${dateStr}:`, err);
+  }
+
+  // 2. Secondary Historical Provider: Fawaz Ahmed Currency API
+  try {
+    const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${dateStr}/v1/currencies/usd.json`, {
+      next: { revalidate: 86400 * 30 },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.usd) {
+        const usdRates: Record<string, number> = { USD: 1.0 };
+        for (const [code, rateAgainstUsd] of Object.entries(data.usd as Record<string, number>)) {
+          if (rateAgainstUsd > 0) {
+            usdRates[code.toUpperCase()] = 1 / rateAgainstUsd;
+          }
+        }
+        historicalRatesCache.set(dateStr, usdRates);
+        return usdRates;
+      }
+    }
+  } catch (err) {
+    console.warn(`Fawaz Ahmed historical rate lookup failed for ${dateStr}:`, err);
+  }
+
+  // 3. Fallback to live rates if historical APIs are unavailable
+  return getLiveExchangeRates();
+}
+
+/**
+ * Gets the USD exchange rate (i.e. value of 1 foreign currency in USD)
+ * for a given currency code.
+ */
+export function resolveCurrencyUsdRate(
+  code: string,
+  rates?: Record<string, number>
+): number {
   const upper = (code || 'USD').toUpperCase();
   if (upper === 'USD') return 1.0;
 
-  if (liveRates && liveRates[upper]) {
-    return liveRates[upper];
+  if (rates && rates[upper]) {
+    return rates[upper];
   }
-  if (cachedRates && cachedRates[upper]) {
-    return cachedRates[upper];
+  if (cachedLiveRates && cachedLiveRates[upper]) {
+    return cachedLiveRates[upper];
   }
   return getFallbackUsdRate(upper);
 }

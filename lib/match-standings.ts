@@ -134,12 +134,15 @@ export async function computeTournamentStandings(
 
   const list = Array.from(teamMap.values());
 
-  // Tie-breaker: Total Points → WWCDs → Placement Points → Elim Points → Total Damage
+  // Tie-breaker: Total Points → WWCDs → Placement Points → Elim Points → Rank in Last Match → Total Damage
   list.sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd;
     if (b.placementPoints !== a.placementPoints) return b.placementPoints - a.placementPoints;
     if (b.eliminationPoints !== a.eliminationPoints) return b.eliminationPoints - a.eliminationPoints;
+    const lastMatchA = a.matchHistory[a.matchHistory.length - 1]?.rank ?? 999;
+    const lastMatchB = b.matchHistory[b.matchHistory.length - 1]?.rank ?? 999;
+    if (lastMatchA !== lastMatchB) return lastMatchA - lastMatchB;
     return b.totalDamage - a.totalDamage;
   });
 

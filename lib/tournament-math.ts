@@ -333,12 +333,25 @@ export interface AggregatedTeamStanding {
   eliminationPoints: number;
   bonusPoints: number;
   totalPoints: number;
+  lastMatchRank?: number;
   totalDamage: number;
+  totalHealing: number;
+  totalDamageReceived: number;
   longestElim: number;
   headshots: number;
+  assists: number;
+  knockouts: number;
+  vehicleElims: number;
   grenadeElims: number;
-  utilitiesTotal: number;
+  smokesUsed: number;
+  grenadesUsed: number;
+  molotovsUsed: number;
+  flashUsed: number;
+  airdrops: number;
   rescues: number;
+  distDrove: number;
+  distWalk: number;
+  utilitiesTotal: number;
 }
 
 /**
@@ -355,11 +368,23 @@ export function calculateTournamentStandings(
     bonusPoints?: number;
     totalPoints?: number;
     damage?: number;
+    healing?: number;
+    damageReceived?: number;
     headshots?: number;
+    assists?: number;
+    knockouts?: number;
     longestElim?: number;
+    vehicleElims?: number;
     grenadeElims?: number;
-    utilitiesTotal?: number;
+    smokesUsed?: number;
+    grenadesUsed?: number;
+    molotovsUsed?: number;
+    flashUsed?: number;
+    airdrops?: number;
     rescues?: number;
+    distDrove?: number;
+    distWalk?: number;
+    utilitiesTotal?: number;
   }[]
 ): AggregatedTeamStanding[] {
   const map = new Map<string, AggregatedTeamStanding>();
@@ -378,12 +403,25 @@ export function calculateTournamentStandings(
       eliminationPoints: 0,
       bonusPoints: 0,
       totalPoints: 0,
+      lastMatchRank: undefined,
       totalDamage: 0,
+      totalHealing: 0,
+      totalDamageReceived: 0,
       longestElim: 0,
       headshots: 0,
+      assists: 0,
+      knockouts: 0,
+      vehicleElims: 0,
       grenadeElims: 0,
-      utilitiesTotal: 0,
+      smokesUsed: 0,
+      grenadesUsed: 0,
+      molotovsUsed: 0,
+      flashUsed: 0,
+      airdrops: 0,
       rescues: 0,
+      distDrove: 0,
+      distWalk: 0,
+      utilitiesTotal: 0,
     };
 
     existing.matchesPlayed += 1;
@@ -392,24 +430,46 @@ export function calculateTournamentStandings(
     existing.eliminationPoints += Number(r.elimsPoints || 0);
     existing.bonusPoints += Number(r.bonusPoints || 0);
     existing.totalPoints += Number(r.totalPoints || 0);
+    if (r.rank != null) existing.lastMatchRank = Number(r.rank);
     existing.totalDamage += Number(r.damage || 0);
+    existing.totalHealing += Number(r.healing || 0);
+    existing.totalDamageReceived += Number(r.damageReceived || 0);
     existing.headshots += Number(r.headshots || 0);
+    existing.assists += Number(r.assists || 0);
+    existing.knockouts += Number(r.knockouts || 0);
     existing.longestElim = Math.max(existing.longestElim, Number(r.longestElim || 0));
+    existing.vehicleElims += Number(r.vehicleElims || 0);
     existing.grenadeElims += Number(r.grenadeElims || 0);
-    existing.utilitiesTotal += Number(r.utilitiesTotal || 0);
+    existing.smokesUsed += Number(r.smokesUsed || 0);
+    existing.grenadesUsed += Number(r.grenadesUsed || 0);
+    existing.molotovsUsed += Number(r.molotovsUsed || 0);
+    existing.flashUsed += Number(r.flashUsed || 0);
+    existing.airdrops += Number(r.airdrops || 0);
     existing.rescues += Number(r.rescues || 0);
+    existing.distDrove += Number(r.distDrove || 0);
+    existing.distWalk += Number(r.distWalk || 0);
+    existing.utilitiesTotal += Number(
+      r.utilitiesTotal ||
+        Number(r.smokesUsed || 0) +
+          Number(r.grenadesUsed || 0) +
+          Number(r.molotovsUsed || 0) +
+          Number(r.flashUsed || 0)
+    );
 
     map.set(key, existing);
   }
 
   const list = Array.from(map.values());
 
-  // Tie-breaker order: Total Points -> WWCDs -> Placement Points -> Elim Points -> Total Damage
+  // Tie-breaker order: Total Points -> WWCDs -> Placement Points -> Elim Points -> Rank in Last Match -> Total Damage
   list.sort((a, b) => {
     if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
     if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd;
     if (b.placementPoints !== a.placementPoints) return b.placementPoints - a.placementPoints;
     if (b.eliminationPoints !== a.eliminationPoints) return b.eliminationPoints - a.eliminationPoints;
+    const lastA = a.lastMatchRank ?? 999;
+    const lastB = b.lastMatchRank ?? 999;
+    if (lastA !== lastB) return lastA - lastB;
     return b.totalDamage - a.totalDamage;
   });
 

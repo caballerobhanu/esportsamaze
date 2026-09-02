@@ -766,7 +766,7 @@ export default async function AdminMatchesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
             <Swords className="w-5 h-5 text-[#0A5FC4]" /> Match &amp; Scorecard Engine
@@ -775,14 +775,23 @@ export default async function AdminMatchesPage({
             Record match metadata, team placement/finishes, and deep individual player battle royale statistics.
           </p>
         </div>
-        {editing && (
+        
+        <div className="flex items-center gap-2.5">
           <Link
-            href="/admin/matches"
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            href="/admin/matches/matrix"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-indigo-600/25"
           >
-            + New match instead
+            ⚡ Multi-Match Fast Matrix
           </Link>
-        )}
+          {editing && (
+            <Link
+              href="/admin/matches"
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-2"
+            >
+              + New match instead
+            </Link>
+          )}
+        </div>
       </div>
 
       {error === 'required' && (

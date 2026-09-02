@@ -233,6 +233,7 @@ model Tournament {
   venues            TournamentVenue[]
   stages            TournamentStage[]
   teams             TournamentTeam[]
+  seededTeams       TournamentTeam[]      @relation("TournamentTeamSeedEvent")
   matches           Match[]
   teamRankings      TeamRanking[]
   playerRankings    PlayerRanking[]
@@ -296,20 +297,23 @@ model TournamentGroup {
 }
 
 model TournamentTeam {
-  id           String     @id @default(cuid())
-  tournamentId String
-  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  teamId       String
-  team         Team       @relation(fields: [teamId], references: [id])
-  seed         Int?
-  finalRank    Int?
-  prizeWon     Float?
-  logoUrl      String?    // Event-specific team logo override (light)
-  logoDarkUrl  String?    // Event-specific team logo override (dark)
-  shortName    String?    // Event-specific short name / tag override
-  displayName  String?    // Event-specific display name override (e.g. sponsor name)
-  country      String?    // Event-specific country override (name or ISO code)
-  rosterJson   Json       // Array of player IGNs, roles, captain flag
+  id               String      @id @default(cuid())
+  tournamentId     String
+  tournament       Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamId           String
+  team             Team        @relation(fields: [teamId], references: [id])
+  seed             Int?
+  seedLabel        String?     // Custom seed / entry reason (e.g. "Direct Invite", "BGIS 2026 Champion", "Survival Stage Slot")
+  seedTournamentId String?     // Optional linked tournament ID if seeded from a prior event in DB
+  seedTournament   Tournament? @relation("TournamentTeamSeedEvent", fields: [seedTournamentId], references: [id])
+  finalRank        Int?
+  prizeWon         Float?
+  logoUrl          String?     // Event-specific team logo override (light)
+  logoDarkUrl      String?     // Event-specific team logo override (dark)
+  shortName        String?     // Event-specific short name / tag override
+  displayName      String?     // Event-specific display name override (e.g. sponsor name)
+  country          String?     // Event-specific country override (name or ISO code)
+  rosterJson       Json        // Array of player IGNs, roles, captain flag
 }
 
 model Match {

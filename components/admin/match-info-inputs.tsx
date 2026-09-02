@@ -300,12 +300,63 @@ export function MatchInfoInputs({
     initialMatchType === 'Online' ? 'Online' : 'LAN'
   );
 
+function parseTimeTo24h(timeStr?: string | null): string | null {
+  if (!timeStr) return null;
+  const s = timeStr.trim();
+
+  // 1. Check 12-hour format with AM/PM e.g. "04:20 PM" or "4:20pm" or "4 PM"
+  const ampmMatch = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2] ? parseInt(ampmMatch[2], 10) : 0;
+    const isPm = ampmMatch[3].toLowerCase() === 'pm';
+    if (isPm && hours < 12) hours += 12;
+    if (!isPm && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  // 2. Check 24-hour format with colon e.g. "16:20" or "16:20 IST"
+  const colonMatch = s.match(/(\d{1,2}):(\d{2})/);
+  if (colonMatch) {
+    const hours = parseInt(colonMatch[1], 10);
+    const minutes = parseInt(colonMatch[2], 10);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+  }
+
+  // 3. Check 4-digit military format e.g. "1620" or "1620 IST" or "0930"
+  const fourDigitMatch = s.match(/\b(\d{2})(\d{2})\b/);
+  if (fourDigitMatch) {
+    const hours = parseInt(fourDigitMatch[1], 10);
+    const minutes = parseInt(fourDigitMatch[2], 10);
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+  }
+
+  return null;
+}
+
+function parseTimezoneFromStr(timeStr?: string | null): string | null {
+  if (!timeStr) return null;
+  const upper = timeStr.toUpperCase();
+  const tzFound = WORLD_TIMEZONES.find((tz) => upper.includes(tz.code) || upper.includes(tz.value.toUpperCase()));
+  return tzFound ? tzFound.value : null;
+}
+
   // 5. Date, Time & Timezone Handling
+  const detectedTz = initialTimezone || parseTimezoneFromStr(initialMatchTime) || 'Asia/Kolkata';
+
   const parseInitialDate = () => {
     if (initialScheduledAt) {
       try {
         const d = new Date(initialScheduledAt);
         if (!isNaN(d.getTime())) {
+          const dateParts = d.toLocaleDateString('en-CA', { timeZone: detectedTz });
+          if (dateParts && dateParts.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            return dateParts;
+          }
           return d.toISOString().slice(0, 10);
         }
       } catch {}
@@ -314,16 +365,22 @@ export function MatchInfoInputs({
   };
 
   const parseInitialTime = () => {
-    if (initialMatchTime) {
-      const match = initialMatchTime.match(/(\d{1,2}):(\d{2})/);
-      if (match) {
-        return `${match[1].padStart(2, '0')}:${match[2]}`;
-      }
-    }
+    const fromMatchTime = parseTimeTo24h(initialMatchTime);
+    if (fromMatchTime) return fromMatchTime;
+
     if (initialScheduledAt) {
       try {
         const d = new Date(initialScheduledAt);
         if (!isNaN(d.getTime())) {
+          const timeStr = d.toLocaleTimeString('en-GB', {
+            timeZone: detectedTz,
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          if (timeStr && timeStr.match(/^\d{2}:\d{2}$/)) {
+            return timeStr;
+          }
           return d.toTimeString().slice(0, 5);
         }
       } catch {}
@@ -333,7 +390,7 @@ export function MatchInfoInputs({
 
   const [matchDate, setMatchDate] = React.useState(parseInitialDate);
   const [matchTime, setMatchTime] = React.useState(parseInitialTime);
-  const [timezone, setTimezone] = React.useState(initialTimezone || 'Asia/Kolkata');
+  const [timezone, setTimezone] = React.useState(detectedTz);
   const [tzSearch, setTzSearch] = React.useState('');
 
   const filteredTimezones = React.useMemo(() => {
