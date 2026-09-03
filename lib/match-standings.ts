@@ -1,4 +1,5 @@
 import prisma from './prisma';
+import { compareTeamStandings, compareFraggerStandings } from './tournament-math';
 
 export interface TeamStandingEntry {
   teamId: string;
@@ -137,17 +138,13 @@ export async function computeTournamentStandings(
 
   const list = Array.from(teamMap.values());
 
-  // Tie-breaker: Total Points → WWCDs → Placement Points → Elim Points → Rank in Last Match → Total Damage
-  list.sort((a, b) => {
-    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-    if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd;
-    if (b.placementPoints !== a.placementPoints) return b.placementPoints - a.placementPoints;
-    if (b.eliminationPoints !== a.eliminationPoints) return b.eliminationPoints - a.eliminationPoints;
-    const lastMatchA = a.matchHistory[a.matchHistory.length - 1]?.rank ?? 999;
-    const lastMatchB = b.matchHistory[b.matchHistory.length - 1]?.rank ?? 999;
-    if (lastMatchA !== lastMatchB) return lastMatchA - lastMatchB;
-    return b.totalDamage - a.totalDamage;
-  });
+  // Tie-break order shared with lib/tournament-math.ts (see compareTeamStandings)
+  list.sort((a, b) =>
+    compareTeamStandings(
+      { ...a, lastMatchRank: a.matchHistory[a.matchHistory.length - 1]?.rank },
+      { ...b, lastMatchRank: b.matchHistory[b.matchHistory.length - 1]?.rank }
+    )
+  );
 
   return list.map((item, index) => ({ ...item, rank: index + 1 }));
 }
@@ -253,12 +250,7 @@ export async function computeTournamentFraggers(
 
   const list = Array.from(playerMap.values());
 
-  // Sort: Elims → Damage → Headshots
-  list.sort((a, b) => {
-    if (b.elims !== a.elims) return b.elims - a.elims;
-    if (b.damage !== a.damage) return b.damage - a.damage;
-    return b.headshots - a.headshots;
-  });
+  list.sort((a, b) => compareFraggerStandings(a, b));
 
   return list.map((item, index) => ({ ...item, rank: index + 1 }));
 }

@@ -48,15 +48,17 @@ export interface RankedPlayer {
 // Points earned BEFORE `before` transfer to `new`.
 // Points earned AFTER stay with the old org (new roster signed).
 // Keys must be lowercase.
+//
+// Rules live in the RankingTransferRule DB table (admin > Rankings).
+// The former hardcoded defaults (K9 Esports → Divine Gaming,
+// True Rippers → Team Apex Gaming, cutoff 2026-04-30) were migrated
+// into the DB; this stays as the merge base for backwards compat.
 // =================================================================
-export const ROSTER_TRANSFERS: Record<string, Array<{ new: string; before: string }>> = {
-  'k9 esports': [{ new: 'Divine Gaming', before: '2026-04-30' }],
-  'true rippers': [{ new: 'Team Apex Gaming', before: '2026-04-30' }],
-};
+export const ROSTER_TRANSFERS: Record<string, Array<{ new: string; before: string }>> = {};
 
 export type RosterTransferRules = Record<string, Array<{ new: string; before: string }>>;
 
-/** DB-managed rules (admin panel) merged over the built-in defaults; same key overrides. */
+/** DB-managed rules (admin panel) layered over the (now empty) built-in base. */
 export function mergeTransferRules(dbRules?: RosterTransferRules): RosterTransferRules {
   return dbRules ? { ...ROSTER_TRANSFERS, ...dbRules } : ROSTER_TRANSFERS;
 }
@@ -86,10 +88,6 @@ function resolveActiveTeam(teamName: string, eventDateStr: string, rules: Roster
     }
   }
   return teamName;
-}
-
-export function getActiveTeamName(teamName: string, eventDateStr: string): string {
-  return resolveActiveTeam(teamName, eventDateStr, ROSTER_TRANSFERS);
 }
 
 const TEAM_BASE_TABLE: Record<string, number[]> = {

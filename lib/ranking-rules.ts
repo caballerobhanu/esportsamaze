@@ -2,8 +2,9 @@ import prisma from '@/lib/prisma';
 import { mergeTransferRules, type RosterTransferRules } from '@/lib/krafton-rankings';
 
 /**
- * Point-transfer rules from the admin panel (RankingTransferRule), merged over the
- * built-in ROSTER_TRANSFERS defaults. Falls back to defaults if the DB is unreachable.
+ * Point-transfer rules from the admin panel (RankingTransferRule table).
+ * Returns an empty rule set if the DB is unreachable — every rankings
+ * call site passes these rules explicitly into the ranking computations.
  */
 export async function loadTransferRules(): Promise<RosterTransferRules> {
   try {

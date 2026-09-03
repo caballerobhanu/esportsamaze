@@ -1,7 +1,4 @@
-import { Users, Banknote, ScrollText, Crosshair, Zap, Trophy, Star, CheckCircle2 } from 'lucide-react';
-import type { AggregatedPlayerStat } from '@/lib/tournament-math';
-import { countryCodeFor, flagUrlFor } from '@/lib/countries';
-import type { StandingsLogoMode } from '@/lib/standings-config';
+import { Banknote, ScrollText, Zap, Trophy, CheckCircle2 } from 'lucide-react';
 
 export { TournamentTeamsPanel } from './tournament-teams-panel';
 
@@ -218,70 +215,6 @@ export function TournamentFormatPanel({
             )}
           </div>
         </section>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════ FRAGGERS ═══════════ */
-
-export function TournamentFraggersPanel({ fraggers }: { fraggers: AggregatedPlayerStat[] }) {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display flex items-center gap-2.5 text-xl font-medium tracking-tight">
-          <Crosshair className="h-4.5 w-4.5 text-(--ed-magenta)" />
-          Overall Top Fraggers
-        </h2>
-        <span className="num text-sm text-(--ed-stone)">{fraggers.length} tracked players</span>
-      </div>
-
-      <div className="ed-card">
-        {fraggers.length === 0 ? (
-          <p className="px-6 py-20 text-center text-sm text-(--ed-stone)">No individual player statistics recorded yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
-              <thead>
-                <tr className="border-b border-(--ed-hair)">
-                  <th className="ed-th w-14 px-6 text-left">#</th>
-                  <th className="ed-th text-left">Player IGN</th>
-                  <th className="ed-th text-left">Team</th>
-                  <th className="ed-th text-center">Matches</th>
-                  <th className="ed-th text-center">Elims</th>
-                  <th className="ed-th text-center">Damage</th>
-                  <th className="ed-th text-center">Headshots</th>
-                  <th className="ed-th text-center">Knocks</th>
-                  <th className="ed-th px-6 text-right">MVPs</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-(--ed-hair)">
-                {fraggers.map((f) => (
-                  <tr key={f.playerId} className="transition-colors hover:bg-(--ed-canvas)">
-                    <td className="num px-6 py-3 text-(--ed-stone)">{String(f.rank).padStart(2, '0')}</td>
-                    <td className="py-3">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{f.ign}</span>
-                        {f.mvps > 0 && (
-                          <span className="flex items-center gap-0.5 rounded-md border border-amber-600/25 px-1 text-[10px] text-amber-700 dark:border-amber-400/25 dark:text-amber-400">
-                            <Star className="h-2.5 w-2.5" /> {f.mvps}
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    <td className="py-3 text-(--ed-stone)">{f.teamName || '—'}</td>
-                    <td className="num px-3 py-3 text-center text-(--ed-stone)">{f.matchesPlayed}</td>
-                    <td className="num px-3 py-3 text-center font-medium text-(--ed-magenta)">{f.elims}</td>
-                    <td className="num px-3 py-3 text-center text-(--ed-stone)">{f.damage.toLocaleString()}</td>
-                    <td className="num px-3 py-3 text-center text-(--ed-stone)">{f.headshots}</td>
-                    <td className="num px-3 py-3 text-center text-(--ed-stone)">{f.knockouts}</td>
-                    <td className="num px-6 py-3 text-right text-amber-700 dark:text-amber-400">{f.mvps > 0 ? f.mvps : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </div>
   );

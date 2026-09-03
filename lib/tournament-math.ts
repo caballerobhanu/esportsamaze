@@ -355,6 +355,49 @@ export interface AggregatedTeamStanding {
 }
 
 /**
+ * The single source of truth for BR standings tie-break order:
+ * Total Points → WWCDs → Placement Points → Elim Points → Rank in Last Match → Total Damage.
+ * Shared by every standings implementation (lib/match-standings.ts included).
+ */
+export function compareTeamStandings(
+  a: {
+    totalPoints: number;
+    wwcd: number;
+    placementPoints: number;
+    eliminationPoints: number;
+    lastMatchRank?: number | null;
+    totalDamage: number;
+  },
+  b: {
+    totalPoints: number;
+    wwcd: number;
+    placementPoints: number;
+    eliminationPoints: number;
+    lastMatchRank?: number | null;
+    totalDamage: number;
+  }
+): number {
+  if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+  if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd;
+  if (b.placementPoints !== a.placementPoints) return b.placementPoints - a.placementPoints;
+  if (b.eliminationPoints !== a.eliminationPoints) return b.eliminationPoints - a.eliminationPoints;
+  const lastA = a.lastMatchRank ?? 999;
+  const lastB = b.lastMatchRank ?? 999;
+  if (lastA !== lastB) return lastA - lastB;
+  return b.totalDamage - a.totalDamage;
+}
+
+/** Shared fraggers sort: Elims → Damage → Headshots. */
+export function compareFraggerStandings(
+  a: { elims: number; damage: number; headshots: number },
+  b: { elims: number; damage: number; headshots: number }
+): number {
+  if (b.elims !== a.elims) return b.elims - a.elims;
+  if (b.damage !== a.damage) return b.damage - a.damage;
+  return b.headshots - a.headshots;
+}
+
+/**
  * Aggregates all match team results into a cumulative tournament leaderboard.
  */
 export function calculateTournamentStandings(
@@ -461,17 +504,7 @@ export function calculateTournamentStandings(
 
   const list = Array.from(map.values());
 
-  // Tie-breaker order: Total Points -> WWCDs -> Placement Points -> Elim Points -> Rank in Last Match -> Total Damage
-  list.sort((a, b) => {
-    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
-    if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd;
-    if (b.placementPoints !== a.placementPoints) return b.placementPoints - a.placementPoints;
-    if (b.eliminationPoints !== a.eliminationPoints) return b.eliminationPoints - a.eliminationPoints;
-    const lastA = a.lastMatchRank ?? 999;
-    const lastB = b.lastMatchRank ?? 999;
-    if (lastA !== lastB) return lastA - lastB;
-    return b.totalDamage - a.totalDamage;
-  });
+  list.sort((a, b) => compareTeamStandings(a, b));
 
   return list.map((item, index) => ({
     ...item,
@@ -563,12 +596,7 @@ export function calculateTournamentFraggers(
 
   const list = Array.from(map.values());
 
-  // Sort by Elims -> Damage -> Headshots
-  list.sort((a, b) => {
-    if (b.elims !== a.elims) return b.elims - a.elims;
-    if (b.damage !== a.damage) return b.damage - a.damage;
-    return b.headshots - a.headshots;
-  });
+  list.sort((a, b) => compareFraggerStandings(a, b));
 
   return list.map((item, index) => ({
     ...item,
