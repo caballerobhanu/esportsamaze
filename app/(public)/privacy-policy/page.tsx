@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { fetchWikiHtml, WIKI_PAGES } from '@/lib/wiki';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 
 export const revalidate = 86_400;
 
@@ -16,7 +14,6 @@ export default async function PrivacyPolicyPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#07090e] text-slate-900 dark:text-slate-100 transition-colors">
-      <Navbar />
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         <Link
@@ -48,7 +45,6 @@ export default async function PrivacyPolicyPage() {
         )}
       </main>
 
-      <Footer />
     </div>
   );
 }

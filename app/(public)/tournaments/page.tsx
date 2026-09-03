@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 import { Trophy, Swords, Users, ArrowRight, Flame } from 'lucide-react';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
@@ -71,7 +69,6 @@ export default async function TournamentsPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <Navbar />
 
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-10 sm:px-6 sm:py-14">
         {/* Editorial masthead */}
@@ -162,7 +159,6 @@ export default async function TournamentsPage() {
         <TournamentsDirectoryExplorer tournaments={tournaments} games={games} />
       </main>
 
-      <Footer />
     </div>
   );
 }

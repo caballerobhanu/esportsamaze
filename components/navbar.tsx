@@ -189,7 +189,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-[#0A5FC4] dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10">
+      <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center justify-between h-14 sm:h-16 gap-4">
             {/* SET 1 (left aligned): Logo + spacing + nav items */}
@@ -323,7 +323,7 @@ export function Navbar() {
           {/* Drawer Content */}
           <div
             className={cn(
-              'relative w-72 max-w-[80vw] h-full shadow-2xl p-5 flex flex-col justify-between bg-[#0A5FC4] dark:bg-[#041129] text-white z-10 transition-transform duration-300 ease-out pointer-events-auto',
+              'relative w-72 max-w-[80vw] h-full shadow-2xl p-5 flex flex-col justify-between bg-(--ed-blue) dark:bg-[#041129] text-white z-10 transition-transform duration-300 ease-out pointer-events-auto',
               mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
             )}
           >
@@ -386,7 +386,7 @@ export function Navbar() {
             {/* Search Input Bar */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#070b14]/50">
               {isSearching ? (
-                <Loader2 className="w-5 h-5 shrink-0 text-[#0A5FC4] animate-spin" />
+                <Loader2 className="w-5 h-5 shrink-0 text-(--ed-blue) animate-spin" />
               ) : (
                 <Search className="w-5 h-5 shrink-0 text-slate-400" />
               )}
@@ -420,7 +420,7 @@ export function Navbar() {
               {/* Quick suggestions when empty */}
               {!searchQuery.trim() && (
                 <div className="py-6 px-4 text-center">
-                  <div className="w-10 h-10 rounded-full bg-[#0A5FC4]/10 text-[#0A5FC4] flex items-center justify-center mx-auto mb-3">
+                  <div className="w-10 h-10 rounded-full bg-(--ed-blue)/10 text-(--ed-blue) flex items-center justify-center mx-auto mb-3">
                     <Search className="w-5 h-5" />
                   </div>
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -434,7 +434,7 @@ export function Navbar() {
                       <button
                         key={tag}
                         onClick={() => setSearchQuery(tag)}
-                        className="text-xs px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-[#0A5FC4] hover:text-white transition"
+                        className="text-xs px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-(--ed-blue) hover:text-white transition"
                       >
                         {tag}
                       </button>
@@ -446,7 +446,7 @@ export function Navbar() {
               {/* Searching Indicator */}
               {isSearching && totalResults === 0 && (
                 <div className="py-12 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#0A5FC4]" /> Searching database...
+                  <Loader2 className="w-4 h-4 animate-spin text-(--ed-blue)" /> Searching database...
                 </div>
               )}
 
@@ -461,7 +461,7 @@ export function Navbar() {
               {searchResults.teams.length > 0 && (
                 <div className="py-2 first:pt-0">
                   <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-[#0A5FC4]" /> Teams ({searchResults.teams.length})
+                    <Users className="w-3.5 h-3.5 text-(--ed-blue)" /> Teams ({searchResults.teams.length})
                   </div>
                   <div className="space-y-1 mt-1">
                     {searchResults.teams.map((item) => {
@@ -475,7 +475,7 @@ export function Navbar() {
                           className={cn(
                             'w-full px-3 py-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 group',
                             isSelected
-                              ? 'bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 border border-[#0A5FC4]/30'
+                              ? 'bg-(--ed-blue)/10 dark:bg-(--ed-blue)/20 border border-(--ed-blue)/30'
                               : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent'
                           )}
                         >
@@ -490,7 +490,7 @@ export function Navbar() {
                             <div className="min-w-0">
                               <div className={cn(
                                 'text-sm font-bold truncate transition-colors',
-                                isSelected ? 'text-[#0A5FC4] dark:text-blue-400' : 'text-slate-900 dark:text-white'
+                                isSelected ? 'text-(--ed-blue)' : 'text-slate-900 dark:text-white'
                               )}>
                                 {item.title}
                               </div>
@@ -527,7 +527,7 @@ export function Navbar() {
                           className={cn(
                             'w-full px-3 py-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 group',
                             isSelected
-                              ? 'bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 border border-[#0A5FC4]/30'
+                              ? 'bg-(--ed-blue)/10 dark:bg-(--ed-blue)/20 border border-(--ed-blue)/30'
                               : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent'
                           )}
                         >
@@ -542,7 +542,7 @@ export function Navbar() {
                             <div className="min-w-0">
                               <div className={cn(
                                 'text-sm font-bold truncate transition-colors',
-                                isSelected ? 'text-[#0A5FC4] dark:text-blue-400' : 'text-slate-900 dark:text-white'
+                                isSelected ? 'text-(--ed-blue)' : 'text-slate-900 dark:text-white'
                               )}>
                                 {item.title}
                               </div>
@@ -579,7 +579,7 @@ export function Navbar() {
                           className={cn(
                             'w-full px-3 py-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 group',
                             isSelected
-                              ? 'bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 border border-[#0A5FC4]/30'
+                              ? 'bg-(--ed-blue)/10 dark:bg-(--ed-blue)/20 border border-(--ed-blue)/30'
                               : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent'
                           )}
                         >
@@ -594,7 +594,7 @@ export function Navbar() {
                             <div className="min-w-0">
                               <div className={cn(
                                 'text-sm font-bold truncate transition-colors',
-                                isSelected ? 'text-[#0A5FC4] dark:text-blue-400' : 'text-slate-900 dark:text-white'
+                                isSelected ? 'text-(--ed-blue)' : 'text-slate-900 dark:text-white'
                               )}>
                                 {item.title}
                               </div>
@@ -631,7 +631,7 @@ export function Navbar() {
                           className={cn(
                             'w-full px-3 py-2.5 rounded-xl text-left transition flex items-center justify-between gap-3 group',
                             isSelected
-                              ? 'bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 border border-[#0A5FC4]/30'
+                              ? 'bg-(--ed-blue)/10 dark:bg-(--ed-blue)/20 border border-(--ed-blue)/30'
                               : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 border border-transparent'
                           )}
                         >
@@ -642,7 +642,7 @@ export function Navbar() {
                             <div className="min-w-0">
                               <div className={cn(
                                 'text-sm font-bold truncate transition-colors',
-                                isSelected ? 'text-[#0A5FC4] dark:text-blue-400' : 'text-slate-900 dark:text-white'
+                                isSelected ? 'text-(--ed-blue)' : 'text-slate-900 dark:text-white'
                               )}>
                                 {item.title}
                               </div>

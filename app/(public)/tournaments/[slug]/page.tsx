@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import prisma from '@/lib/prisma';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 import {
   calculateTournamentStandings,
   calculateTournamentFraggers,
@@ -707,7 +705,6 @@ export default async function TournamentDetailPage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <Navbar />
 
       {/* Flat editorial canvas — centered 1200px column */}
       <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 sm:px-6">
@@ -807,7 +804,6 @@ export default async function TournamentDetailPage({
         </main>
       </div>
 
-      <Footer />
     </div>
   );
 }

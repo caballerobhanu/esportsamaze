@@ -118,10 +118,10 @@ const COLUMN_WIDTH: Record<StandingsColumnKey, number> = {
 
 const COLOR_MAP: Record<ZoneColor, { border: string; dot: string; text: string; bgSoft: string }> = {
   blue: {
-    border: 'border-[#0A5FC4]',
-    dot: 'bg-[#0A5FC4]',
-    text: 'text-[#0A5FC4]',
-    bgSoft: 'bg-[#0A5FC4]/10',
+    border: 'border-(--ed-blue)',
+    dot: 'bg-(--ed-blue)',
+    text: 'text-(--ed-blue)',
+    bgSoft: 'bg-(--ed-blue)/10',
   },
   green: {
     border: 'border-emerald-500',
@@ -884,7 +884,7 @@ export function TournamentStandingsPanel({
                                 entry.wwcd
                                   ? 'bg-emerald-500 text-white shadow-xs'
                                   : entry.rank <= 3
-                                  ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold'
+                                  ? 'bg-(--ed-blue)/15 text-(--ed-blue) font-bold'
                                   : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                               }`}
                             >
@@ -949,7 +949,7 @@ export function TournamentStandingsPanel({
                       key={c.key}
                       className={`num flex items-center justify-center px-2 py-3 text-sm whitespace-nowrap ${
                         isTotal
-                          ? 'font-black text-(--ed-blue) dark:text-blue-400'
+                          ? 'font-black text-(--ed-blue)'
                           : c.key === 'wwcd' && Number(val) > 0
                           ? 'font-bold text-emerald-600 dark:text-emerald-400'
                           : 'text-(--ed-ink)'
@@ -997,7 +997,7 @@ export function TournamentStandingsPanel({
           );
         })}
         {precedenceQualifications.size > 0 && (
-          <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-bold ml-auto">
+          <span className="flex items-center gap-1 text-xs text-(--ed-blue) font-bold ml-auto">
             <ShieldCheck className="w-3.5 h-3.5" /> {precedenceQualifications.size} teams already qualified via Super Weekends (Slots pass to next teams)
           </span>
         )}
@@ -1031,7 +1031,7 @@ export function TournamentStandingsPanel({
                   onClick={() => switchGroup(grp.id)}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                     isGroupActive
-                      ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-slate-700/60'
+                      ? 'bg-white dark:bg-slate-800 text-(--ed-blue) shadow-sm border border-slate-200/60 dark:border-slate-700/60'
                       : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1040,7 +1040,7 @@ export function TournamentStandingsPanel({
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                       isGroupActive
-                        ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400'
+                        ? 'bg-(--ed-blue)/10 text-(--ed-blue)'
                         : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                     }`}
                   >
@@ -1065,7 +1065,7 @@ export function TournamentStandingsPanel({
                     onClick={() => switchTabItem(item.id)}
                     className={`ed-tab whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                       isItemActive
-                        ? 'ed-tab-active font-black text-[#0A5FC4]'
+                        ? 'ed-tab-active font-black text-(--ed-blue)'
                         : 'text-slate-600 dark:text-slate-300'
                     }`}
                   >
@@ -1103,7 +1103,7 @@ export function TournamentStandingsPanel({
                 key={ct.id}
                 onClick={() => switchTabItem(ct.id)}
                 className={`ed-tab whitespace-nowrap flex items-center gap-1.5 ${
-                  isActive ? 'ed-tab-active font-black text-[#0A5FC4]' : 'text-slate-600 dark:text-slate-300'
+                  isActive ? 'ed-tab-active font-black text-(--ed-blue)' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -1131,7 +1131,7 @@ export function TournamentStandingsPanel({
         <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-md bg-[#0A5FC4] text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+              <span className="px-2 py-0.5 rounded-md bg-(--ed-blue) text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                 <Layers className="w-3 h-3" /> Cumulative Standings
               </span>
               <h3 className="text-sm font-black text-slate-900 dark:text-white">
@@ -1156,7 +1156,7 @@ export function TournamentStandingsPanel({
               onClick={() => setHidePrecedenceQualified((prev) => !prev)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                 hidePrecedenceQualified
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                  ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-xs'
                   : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-400'
               }`}
             >
@@ -1179,13 +1179,17 @@ export function TournamentStandingsPanel({
           if (f.key === 'group' && perGroup) return null;
           const value = f.key === 'day' ? day : f.key === 'map' ? map : group;
           const set = f.key === 'day' ? setDay : f.key === 'map' ? setMap : setGroup;
-          return renderFilterRow(
-            f.key,
-            f.label,
-            opts,
-            value,
-            set,
-            f.key === 'day' ? (o) => `Day ${o}` : (o) => o
+          return (
+            <React.Fragment key={f.key}>
+              {renderFilterRow(
+                f.key,
+                f.label,
+                opts,
+                value,
+                set,
+                f.key === 'day' ? (o) => `Day ${o}` : (o) => o
+              )}
+            </React.Fragment>
           );
         })}
         {isFiltered && (

@@ -19,8 +19,6 @@ import {
   Briefcase,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 import { loadTransferRules } from '@/lib/ranking-rules';
 import { computeTeamRankings } from '@/lib/krafton-rankings';
 
@@ -167,7 +165,6 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
-      <Navbar />
 
       {/* ============ HERO ============ */}
       <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
@@ -655,7 +652,6 @@ export default async function TeamPage({ params }: TeamPageProps) {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

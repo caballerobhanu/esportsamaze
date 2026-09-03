@@ -82,10 +82,10 @@ export function RecentFormChart({ points }: { points: RecentMatchPoint[] }) {
         ))}
 
         {/* eliminations line + dots */}
-        <path d={elimsPath} fill="none" className="stroke-[#0A5FC4] dark:stroke-blue-400" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={elimsPath} fill="none" className="stroke-(--ed-blue)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => (
           <g key={i}>
-            <circle cx={x(i)} cy={y(p.elims)} r={3.5} className="fill-[#0A5FC4] dark:fill-blue-400">
+            <circle cx={x(i)} cy={y(p.elims)} r={3.5} className="fill-(--ed-blue)">
               <title>{`${p.elims} elims — ${p.tournament}${p.map ? ` · ${p.map}` : ''} (${p.dateLabel})`}</title>
             </circle>
           </g>
@@ -108,7 +108,7 @@ export function RecentFormChart({ points }: { points: RecentMatchPoint[] }) {
 
       <div className="mt-2 flex items-center gap-4 text-[11px] font-bold text-slate-400">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-4 rounded bg-[#0A5FC4] dark:bg-blue-400" /> Eliminations
+          <span className="h-0.5 w-4 rounded bg-(--ed-blue)" /> Eliminations
         </span>
         {showRolling && (
           <span className="inline-flex items-center gap-1.5">

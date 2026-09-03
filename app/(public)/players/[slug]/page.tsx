@@ -23,8 +23,6 @@ import prisma from '@/lib/prisma';
 import { computePlayerRankings } from '@/lib/krafton-rankings';
 import { formatDate } from '@/lib/utils';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 import { EarningsAmount } from '@/components/players/earnings-amount';
 import { RecentFormChart } from '@/components/players/recent-form-chart';
 import { loadTransferRules } from '@/lib/ranking-rules';
@@ -485,7 +483,6 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white">
-      <Navbar />
       <main>
         {/* ============ HERO ============ */}
         <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
@@ -986,7 +983,6 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
           </div>
         </section>
       </main>
-      <Footer />
     </div>
   );
 }

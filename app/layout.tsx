@@ -26,7 +26,7 @@ export default function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning className={`${jakarta.variable} font-sans antialiased min-h-screen bg-white dark:bg-[#060813] text-slate-900 dark:text-slate-100 transition-colors`}>
+      <body suppressHydrationWarning className={`${jakarta.variable} font-sans antialiased min-h-screen transition-colors`}>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <ThemeProvider defaultTheme="light">{children}</ThemeProvider>
       </body>

@@ -6,54 +6,12 @@
   --font-sans: var(--font-jakarta);
 }
 
-:root {
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #6366f1;
-  --radius: 0.75rem;
-}
-
-.dark {
-  --background: #060813;
-  --foreground: #f8fafc;
-  --card: #0b1120;
-  --card-foreground: #f8fafc;
-  --popover: #0b1120;
-  --popover-foreground: #f8fafc;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #0f172a;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #818cf8;
-}
+/* Legacy shadcn-style tokens removed — everything below derives from the
+   Editorial Design System tokens (--ed-*), which adapt in .dark. */
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--ed-canvas);
+  color: var(--ed-ink);
   min-height: 100vh;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
@@ -74,10 +32,7 @@ body {
   font-weight: 800;
   margin: 1.6rem 0 0.6rem;
   padding-left: 0.65rem;
-  border-left: 3px solid #0a5fc4;
-}
-.dark .wiki-content h2 {
-  border-left-color: #f59e0b;
+  border-left: 3px solid var(--ed-blue);
 }
 .wiki-content p {
   margin: 0.8rem 0;
@@ -95,18 +50,16 @@ body {
   margin: 0.35rem 0;
 }
 .wiki-content a {
-  color: #0a5fc4;
+  color: var(--ed-blue);
   text-decoration: underline;
   text-underline-offset: 2px;
-}
-.dark .wiki-content a {
-  color: #fbbf24;
 }
 .wiki-content .mw-parser-output > div > h1:first-child {
   margin-top: 0;
 }
 
-/* Custom scrollbars */::-webkit-scrollbar {
+/* Custom scrollbars */
+::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
@@ -140,68 +93,10 @@ body {
   animation: live-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Glassmorphism helpers */
-.glass-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-}
-
-.dark .glass-card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(30, 41, 59, 0.8);
-}
-
 /* ═══════════════════════════════════════════════════════════
-   BOXY & MODULAR DESIGN SYSTEM
-   ═══════════════════════════════════════════════════════════ */
-
-@layer components {
-  /* Boxy panel: crisp 2px-4px radius, clean hairline border, tangible shadow */
-  .panel {
-    @apply overflow-hidden rounded-sm border border-slate-200 bg-white transition-all duration-200 dark:border-slate-800 dark:bg-[#0c111e];
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
-  }
-  .panel:hover {
-    box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
-    @apply border-slate-300 dark:border-slate-700;
-  }
-  .panel-subtle {
-    @apply overflow-hidden rounded-sm border border-slate-200 bg-[#fbfaf7] dark:border-slate-800 dark:bg-[#090e18];
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-  }
-  .panel-head {
-    @apply flex items-center justify-between gap-3 border-b border-slate-200 bg-[#faf9f7] px-4 py-2.5 dark:border-slate-800 dark:bg-[#090e18];
-  }
-  /* Section title — crisp bold sans */
-  .head-label {
-    @apply text-sm font-bold tracking-tight text-[#121722] dark:text-slate-100;
-  }
-  /* Clean sans micro label */
-  .micro-label {
-    @apply text-[11px] font-bold uppercase tracking-wider text-[#716b61] dark:text-slate-400;
-  }
-  /* Boxy Tab Navigation */
-  .capsule-tab {
-    @apply inline-flex items-center gap-2 rounded-xs px-3.5 py-1.5 text-xs font-semibold text-[#716b61] transition-all duration-150 hover:bg-black/5 hover:text-[#121722] dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white;
-  }
-  .capsule-tab-active {
-    @apply rounded-xs bg-[#0068f9] text-white shadow-xs hover:bg-[#0068f9] hover:text-white dark:bg-[#0068f9] dark:text-white;
-  }
-  /* Boxy chip / badge */
-  .pill-chip {
-    @apply inline-flex items-center gap-1.5 rounded-xs border border-slate-200 bg-[#fbfaf7] px-2.5 py-0.5 text-xs font-medium text-[#121722] transition-colors dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200;
-  }
-  /* Numerical data */
-  .num {
-    @apply tabular-nums font-semibold;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   EDITORIAL DESIGN SYSTEM (tournament section)
+   EDITORIAL DESIGN SYSTEM
    Cool paper · slate ink · one confident blue · no shadows
+   (reference: docs/design-dropbox.md)
    ═══════════════════════════════════════════════════════════ */
 
 :root {
@@ -268,5 +163,9 @@ body {
   /* Hairline-divided row list */
   .ed-rows {
     @apply divide-y divide-[var(--ed-hair)];
+  }
+  /* Numerical data (tabular, semibold) */
+  .num {
+    @apply tabular-nums font-semibold;
   }
 }

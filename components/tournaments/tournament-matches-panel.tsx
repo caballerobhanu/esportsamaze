@@ -229,7 +229,7 @@ function MatchScorecard({
         }`}
       >
         <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="num flex h-8 min-w-[2.5rem] px-2.5 items-center justify-center rounded-xl bg-[#0A5FC4] text-white text-xs font-black shadow-xs">
+          <span className="num flex h-8 min-w-[2.5rem] px-2.5 items-center justify-center rounded-xl bg-(--ed-blue) text-white text-xs font-black shadow-xs">
             {isAllStages
               ? match.overallMatchNumber
                 ? `Match ${match.overallMatchNumber}`
@@ -344,7 +344,7 @@ function MatchScorecard({
                           key={def.key}
                           className={`num py-3 px-3 ${
                             isTotal
-                              ? 'pl-3 pr-5 text-right font-black text-[#0A5FC4] dark:text-blue-400'
+                              ? 'pl-3 pr-5 text-right font-black text-(--ed-blue)'
                               : 'text-center'
                           }`}
                         >
@@ -364,7 +364,7 @@ function MatchScorecard({
                         key={r.id || r.team.id}
                         className={`transition-colors ${
                           isSelectedTeam
-                            ? 'bg-blue-500/15 dark:bg-blue-500/20 font-bold border-l-4 border-l-blue-600'
+                            ? 'bg-(--ed-blue)/15 font-bold border-l-4 border-l-(--ed-blue)'
                             : isWinner
                             ? 'bg-amber-500/5 dark:bg-amber-500/10 font-medium'
                             : 'hover:bg-(--ed-canvas)'
@@ -376,7 +376,7 @@ function MatchScorecard({
                               r.rank === 1
                                 ? 'bg-amber-500 text-white shadow-xs'
                                 : r.rank <= 3
-                                ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                                ? 'bg-(--ed-blue)/15 text-(--ed-blue)'
                                 : 'text-slate-500 bg-slate-100 dark:bg-slate-800'
                             }`}
                           >
@@ -428,7 +428,7 @@ function MatchScorecard({
                               key={colKey}
                               className={`num py-3 ${
                                 isTotal
-                                  ? 'pl-3 pr-5 text-right text-sm font-black text-[#0A5FC4] dark:text-blue-400'
+                                  ? 'pl-3 pr-5 text-right text-sm font-black text-(--ed-blue)'
                                   : 'px-3 text-center text-slate-600 dark:text-slate-300 font-semibold'
                               }`}
                             >
@@ -532,9 +532,9 @@ function SingleTeamMatchHistoryTable({
           <span className="num text-xl font-black text-amber-700 dark:text-amber-400">{wwcdCount}</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 shadow-2xs">
-          <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-400 block">Total Points</span>
-          <span className="num text-xl font-black text-blue-700 dark:text-blue-400">{totalPts}</span>
+        <div className="p-4 rounded-2xl bg-(--ed-blue)/10 border border-blue-500/20 shadow-2xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-(--ed-blue) block">Total Points</span>
+          <span className="num text-xl font-black text-(--ed-blue)">{totalPts}</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
@@ -575,7 +575,7 @@ function SingleTeamMatchHistoryTable({
                       key={def.key}
                       className={`num py-3 px-3 ${
                         isTotal
-                          ? 'text-right font-black text-[#0A5FC4] dark:text-blue-400 pr-5'
+                          ? 'text-right font-black text-(--ed-blue) pr-5'
                           : 'text-center'
                       }`}
                     >
@@ -594,13 +594,13 @@ function SingleTeamMatchHistoryTable({
                   <tr
                     key={m.id}
                     onClick={() => onSelectMatch(m.id)}
-                    className={`transition-colors cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-950/30 ${
+                    className={`transition-colors cursor-pointer hover:bg-(--ed-blue)/5 ${
                       isWinner ? 'bg-amber-500/5 dark:bg-amber-500/10 font-medium' : ''
                     }`}
                   >
                     <td className="py-3 pl-5 pr-2 font-black text-slate-900 dark:text-white">
                       <div className="flex items-center gap-1.5">
-                        <span className="num px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black">
+                        <span className="num px-2 py-0.5 rounded-md bg-(--ed-blue)/10 text-(--ed-blue) font-black">
                           {m.matchNumber ? `M${m.matchNumber}` : `#${m.overallMatchNumber || ''}`}
                         </span>
                         {m.mapName && <span className="text-[10px] text-slate-400 font-normal">({m.mapName})</span>}
@@ -616,7 +616,7 @@ function SingleTeamMatchHistoryTable({
                           r.rank === 1
                             ? 'bg-amber-500 text-white shadow-xs'
                             : r.rank <= 3
-                            ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                            ? 'bg-(--ed-blue)/15 text-(--ed-blue)'
                             : 'text-slate-500'
                         }`}
                       >
@@ -655,7 +655,7 @@ function SingleTeamMatchHistoryTable({
                           key={colKey}
                           className={`num py-3 px-3 ${
                             isTotal
-                              ? 'text-right text-sm font-black text-[#0A5FC4] dark:text-blue-400 pr-5'
+                              ? 'text-right text-sm font-black text-(--ed-blue) pr-5'
                               : 'text-center text-slate-600 dark:text-slate-300 font-semibold'
                           }`}
                         >
@@ -770,7 +770,7 @@ function MultiTeamCompareTable({
       {/* ── Head-to-Head Comparison Cards (2 to 4 Teams) ── */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <Scale className="w-4 h-4 text-[#0A5FC4]" />
+          <Scale className="w-4 h-4 text-(--ed-blue)" />
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
             Head-to-Head Overview ({teams.length} Teams Compared)
           </h3>
@@ -808,7 +808,7 @@ function MultiTeamCompareTable({
               <div className="grid grid-cols-2 gap-2 pt-3">
                 <div>
                   <span className="text-[10px] font-bold uppercase text-slate-400 block">Total Pts</span>
-                  <span className="num font-black text-lg text-[#0A5FC4] dark:text-blue-400">
+                  <span className="num font-black text-lg text-(--ed-blue)">
                     {agg.totalPts}
                   </span>
                 </div>
@@ -840,7 +840,7 @@ function MultiTeamCompareTable({
       <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-0">
         <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <TableIcon className="w-4 h-4 text-[#0A5FC4]" />
+            <TableIcon className="w-4 h-4 text-(--ed-blue)" />
             <div>
               <h3 className="text-sm font-black text-slate-900 dark:text-white">Match-by-Match Comparison</h3>
               <p className="text-[11px] text-slate-500">Compare scores and rankings per match (Latest match first)</p>
@@ -862,7 +862,7 @@ function MultiTeamCompareTable({
                       key={def.key}
                       className={`num py-3 px-3 ${
                         isTotal
-                          ? 'text-right font-black text-[#0A5FC4] dark:text-blue-400 pr-5'
+                          ? 'text-right font-black text-(--ed-blue) pr-5'
                           : 'text-center'
                       }`}
                     >
@@ -885,9 +885,9 @@ function MultiTeamCompareTable({
                     <tr
                       key={`${m.id}-${t.id}`}
                       onClick={() => onSelectMatch(m.id)}
-                      className={`transition-colors cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-950/30 ${
+                      className={`transition-colors cursor-pointer hover:bg-(--ed-blue)/5 ${
                         isTopInComparison
-                          ? 'bg-blue-500/5 dark:bg-blue-500/10'
+                          ? 'bg-blue-500/5 dark:bg-(--ed-blue)/10'
                           : isMatchWinner
                           ? 'bg-amber-500/5 dark:bg-amber-500/10'
                           : ''
@@ -898,7 +898,7 @@ function MultiTeamCompareTable({
                         {isFirstRowOfMatch ? (
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5">
-                              <span className="num px-2 py-0.5 rounded-md bg-[#0A5FC4] text-white font-black text-xs shadow-2xs">
+                              <span className="num px-2 py-0.5 rounded-md bg-(--ed-blue) text-white font-black text-xs shadow-2xs">
                                 {m.matchNumber ? `M${m.matchNumber}` : `#${m.overallMatchNumber || ''}`}
                               </span>
                               {m.mapName && <span className="text-[10px] text-slate-400 font-bold">({m.mapName})</span>}
@@ -923,7 +923,7 @@ function MultiTeamCompareTable({
                             </span>
                           )}
                           {isTopInComparison && !isMatchWinner && (
-                            <span className="rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 text-[9px] font-black uppercase">
+                            <span className="rounded-md bg-(--ed-blue)/15 text-(--ed-blue) px-1.5 py-0.5 text-[9px] font-black uppercase">
                               Leader
                             </span>
                           )}
@@ -937,7 +937,7 @@ function MultiTeamCompareTable({
                             r.rank === 1
                               ? 'bg-amber-500 text-white shadow-xs'
                               : r.rank <= 3
-                              ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                              ? 'bg-(--ed-blue)/15 text-(--ed-blue)'
                               : 'text-slate-500'
                           }`}
                         >
@@ -976,7 +976,7 @@ function MultiTeamCompareTable({
                             key={colKey}
                             className={`num py-3 px-3 ${
                               isTotal
-                                ? 'text-right text-sm font-black text-[#0A5FC4] dark:text-blue-400 pr-5'
+                                ? 'text-right text-sm font-black text-(--ed-blue) pr-5'
                                 : 'text-center text-slate-600 dark:text-slate-300 font-semibold'
                             }`}
                           >
@@ -1242,7 +1242,7 @@ export function TournamentMatchesPanel({
                   }}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                     isStageActive
-                      ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-slate-700/60'
+                      ? 'bg-white dark:bg-slate-800 text-(--ed-blue) shadow-sm border border-slate-200/60 dark:border-slate-700/60'
                       : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
@@ -1261,7 +1261,7 @@ export function TournamentMatchesPanel({
                 }}
                 className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeStage === 'ALL'
-                    ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-sm border border-slate-200/60 dark:border-slate-700/60'
+                    ? 'bg-white dark:bg-slate-800 text-(--ed-blue) shadow-sm border border-slate-200/60 dark:border-slate-700/60'
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -1297,7 +1297,7 @@ export function TournamentMatchesPanel({
         <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Swords className="w-4 h-4 text-[#0A5FC4]" />
+              <Swords className="w-4 h-4 text-(--ed-blue)" />
               <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
                 Select Matches
               </span>
@@ -1314,7 +1314,7 @@ export function TournamentMatchesPanel({
                 }
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border cursor-pointer flex items-center gap-1.5 ${
                   selectedMatchId === 'ALL'
-                    ? 'bg-[#0A5FC4] border-[#0A5FC4] text-white shadow-xs'
+                    ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-xs'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
                 }`}
               >
@@ -1344,8 +1344,8 @@ export function TournamentMatchesPanel({
                   onClick={() => setSelectedMatchId(m.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     isSelected
-                      ? 'bg-[#0A5FC4] border-[#0A5FC4] text-white shadow-md scale-105 z-10'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-blue-400'
+                      ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-md scale-105 z-10'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-(--ed-blue)'
                   }`}
                 >
                   <span>{label}</span>
@@ -1376,7 +1376,7 @@ export function TournamentMatchesPanel({
             onClick={() => setSelectedMap('ALL')}
             className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors border cursor-pointer ${
               selectedMap === 'ALL'
-                ? 'bg-[#0A5FC4] border-[#0A5FC4] text-white shadow-xs'
+                ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-xs'
                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-400'
             }`}
           >
@@ -1389,7 +1389,7 @@ export function TournamentMatchesPanel({
               onClick={() => setSelectedMap(selectedMap === mName ? 'ALL' : mName)}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors border cursor-pointer ${
                 selectedMap === mName
-                  ? 'bg-[#0A5FC4] border-[#0A5FC4] text-white shadow-xs'
+                  ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-xs'
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-400'
               }`}
             >
@@ -1407,12 +1407,12 @@ export function TournamentMatchesPanel({
           >
             {isAllCollapsed ? (
               <>
-                <ChevronsUpDown className="w-3.5 h-3.5 text-[#0A5FC4]" />
+                <ChevronsUpDown className="w-3.5 h-3.5 text-(--ed-blue)" />
                 <span>Expand All Scorecards</span>
               </>
             ) : (
               <>
-                <ChevronsDownUp className="w-3.5 h-3.5 text-[#0A5FC4]" />
+                <ChevronsDownUp className="w-3.5 h-3.5 text-(--ed-blue)" />
                 <span>Collapse All Scorecards</span>
               </>
             )}
@@ -1422,12 +1422,12 @@ export function TournamentMatchesPanel({
 
       {/* ── 4. Active Team Filter Banner with View Mode Selector ── */}
       {selectedTeams.length > 0 && (
-        <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 rounded-2xl bg-(--ed-blue)/10 border border-(--ed-blue)/30 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {selectedTeams.length === 1 ? (
               <TeamLogo team={selectedTeams[0]} size={28} />
             ) : (
-              <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
+              <div className="p-2 rounded-xl bg-(--ed-blue) text-white shadow-xs">
                 <Scale className="w-4 h-4" />
               </div>
             )}
@@ -1438,7 +1438,7 @@ export function TournamentMatchesPanel({
                     ? selectedTeams[0].name
                     : `Comparing ${selectedTeams.length} Teams`}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase">
+                <span className="px-2 py-0.5 rounded-full bg-(--ed-blue) text-white text-[10px] font-black uppercase">
                   {selectedTeams.length === 1 ? 'Team Filter' : 'Compare Mode'}
                 </span>
               </div>
@@ -1458,7 +1458,7 @@ export function TournamentMatchesPanel({
                 onClick={() => setTeamViewMode('team_summary')}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   teamViewMode === 'team_summary'
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-(--ed-blue) text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                 }`}
               >
@@ -1471,7 +1471,7 @@ export function TournamentMatchesPanel({
                 onClick={() => setTeamViewMode('full_cards')}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   teamViewMode === 'full_cards'
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-(--ed-blue) text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                 }`}
               >
@@ -1530,7 +1530,7 @@ export function TournamentMatchesPanel({
               }}
               className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-30 flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 shadow-2xs transition-colors"
             >
-              <ChevronLeft className="w-4 h-4 text-[#0A5FC4]" />
+              <ChevronLeft className="w-4 h-4 text-(--ed-blue)" />
               <span>{prevMatch ? prevMatchLabel : 'Start'}</span>
             </button>
 
@@ -1556,7 +1556,7 @@ export function TournamentMatchesPanel({
               className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-30 flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 shadow-2xs transition-colors"
             >
               <span>{nextMatch ? nextMatchLabel : 'End'}</span>
-              <ChevronRight className="w-4 h-4 text-[#0A5FC4]" />
+              <ChevronRight className="w-4 h-4 text-(--ed-blue)" />
             </button>
           </div>
 
@@ -1659,7 +1659,7 @@ export function TournamentMatchesPanel({
                 type="button"
                 onClick={() => setSelectedTeamIds([])}
                 className={`w-full p-2.5 rounded-xl flex items-center justify-between text-left hover:bg-slate-800/80 transition-colors cursor-pointer ${
-                  selectedTeamIds.length === 0 ? 'bg-blue-600/20 text-blue-400 font-bold' : 'text-slate-300'
+                  selectedTeamIds.length === 0 ? 'bg-(--ed-blue)/20 text-blue-400 font-bold' : 'text-slate-300'
                 }`}
               >
                 <span className="text-xs">Show All Teams (No Filter)</span>
@@ -1679,7 +1679,7 @@ export function TournamentMatchesPanel({
                         isMaxReached
                           ? 'opacity-40 cursor-not-allowed text-slate-500'
                           : isChecked
-                          ? 'bg-blue-600/20 text-blue-400 font-bold cursor-pointer'
+                          ? 'bg-(--ed-blue)/20 text-blue-400 font-bold cursor-pointer'
                           : 'text-slate-200 hover:bg-slate-800/80 cursor-pointer'
                       }`}
                     >
@@ -1689,7 +1689,7 @@ export function TournamentMatchesPanel({
                           checked={isChecked}
                           disabled={isMaxReached}
                           onChange={() => toggleTeamSelection(t.id)}
-                          className="rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                          className="rounded text-(--ed-blue) focus:ring-blue-500 disabled:opacity-50"
                         />
                         <TeamLogo team={t} size={20} />
                         <div>

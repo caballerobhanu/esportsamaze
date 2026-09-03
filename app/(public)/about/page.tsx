@@ -1,22 +1,19 @@
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { fetchWikiHtml, WIKI_PAGES } from '@/lib/wiki';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 
 export const revalidate = 86_400;
 
 export const metadata = {
-  title: 'Disclaimer — Esports Amaze',
-  description: 'General disclaimer for Esports Amaze content and data.',
+  title: 'About — Esports Amaze',
+  description: 'About the Esports Amaze project.',
 };
 
-export default async function DisclaimerPage() {
-  const html = await fetchWikiHtml(WIKI_PAGES.disclaimer);
+export default async function AboutPage() {
+  const html = await fetchWikiHtml(WIKI_PAGES.about);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] dark:bg-[#07090e] text-slate-900 dark:text-slate-100 transition-colors">
-      <Navbar />
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         <Link
@@ -37,7 +34,7 @@ export default async function DisclaimerPage() {
               This content is temporarily unavailable.
             </p>
             <a
-              href={`https://esportsamaze.in/${WIKI_PAGES.disclaimer}`}
+              href={`https://esportsamaze.in/${WIKI_PAGES.about}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A5FC4] dark:text-amber-400 hover:underline"
@@ -48,8 +45,6 @@ export default async function DisclaimerPage() {
         )}
       </main>
 
-      <Footer />
     </div>
   );
 }
-

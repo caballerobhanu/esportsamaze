@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
-import { Navbar } from '@/components/navbar';
-import { Footer } from '@/components/footer';
 import { loadTransferRules } from '@/lib/ranking-rules';
 import { computeTeamRankings, computePlayerRankings } from '@/lib/krafton-rankings';
 import { ArrowRight, BarChart3, Clock3, ShieldCheck, Swords, Trophy } from 'lucide-react';
@@ -113,7 +111,6 @@ export default async function RankingsPage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <Navbar />
 
       <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-10 sm:px-6 sm:py-14">
         {/* ── Masthead ── */}
@@ -426,7 +423,6 @@ export default async function RankingsPage({
         </div>
       </main>
 
-      <Footer />
     </div>
   );
 }

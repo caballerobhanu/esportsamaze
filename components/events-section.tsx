@@ -99,7 +99,7 @@ function EventLogo({ event }: { event: EventCardData }) {
   return (
     <div
       className={cn(
-        'w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br from-[#0A5FC4] via-indigo-600 to-slate-900'
+        'w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br from-(--ed-blue) via-indigo-600 to-slate-900'
       )}
     >
       <span className="text-base font-black text-white drop-shadow">

@@ -7,11 +7,9 @@ import {
   MapPin, 
   ArrowRight
 } from 'lucide-react';
-import { Navbar } from '@/components/navbar';
 import { EventsSection } from '@/components/events-section';
 import { NewsSection } from '@/components/news-section';
 import { KraftonRankings } from '@/components/krafton-rankings';
-import { Footer } from '@/components/footer';
 import { HomeMatchHighlight, type HighlightMatchData } from '@/components/home/home-match-highlight';
 import { HomeStandingsSection } from '@/components/home/home-standings-section';
 import prisma from '@/lib/prisma';
@@ -181,7 +179,6 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors selection:bg-[var(--ed-blue)] selection:text-white">
       {/* 1. Primary Top Navigation Bar */}
-      <Navbar />
 
       {/* 2. Live & Upcoming Events Strip */}
       <EventsSection />
@@ -394,7 +391,6 @@ export default async function HomePage() {
       </main>
 
       {/* Footer */}
-      <Footer />
     </div>
   );
 }
