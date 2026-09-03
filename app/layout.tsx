@@ -19,17 +19,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Runs before first paint: resolves stored/system theme and sets the class
+  // on <html> so dark-mode users never see a white flash. Keep the storage key
+  // and default in sync with components/theme-provider.tsx.
+  const themeInitScript = `(function(){try{var t=localStorage.getItem('theme')||'light';if(t==='system'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}var r=document.documentElement;r.classList.remove('light','dark');r.classList.add(t);r.style.colorScheme=t;}catch(e){}})();`;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning className={`${jakarta.variable} font-sans antialiased min-h-screen bg-white dark:bg-[#060813] text-slate-900 dark:text-slate-100 transition-colors`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <ThemeProvider defaultTheme="light">{children}</ThemeProvider>
       </body>
     </html>
   );

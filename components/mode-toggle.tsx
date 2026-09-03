@@ -33,9 +33,9 @@ export function ModeToggle() {
       aria-label="Toggle theme"
     >
       {isDark ? (
-        <Sun className="h-4 w-4 text-amber-400 transition-all animate-in rotate-0 scale-100" />
+        <Sun className="h-4 w-4 text-amber-400 transition-all" />
       ) : (
-        <Moon className="h-4 w-4 text-slate-700 transition-all animate-in rotate-0 scale-100" />
+        <Moon className="h-4 w-4 text-slate-700 transition-all" />
       )}
     </button>
   );

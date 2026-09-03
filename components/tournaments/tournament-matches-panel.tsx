@@ -97,24 +97,41 @@ export interface StageGroup {
 }
 
 /**
- * Formats match timestamp to user's local 12-hour time (e.g. "2:30 PM" or "Sep 1, 2:30 PM")
+ * Formats match timestamp to a 12-hour time (e.g. "2:30 PM" or "Sep 1, 2:30 PM").
+ * Pass a timeZone while server-rendering (see useIsClient) so SSR and the first
+ * client render agree; omit it after mount for the user's local zone.
  */
-function formatLocalMatchTime(scheduledAt: Date | string): { time: string; date: string } {
+function formatLocalMatchTime(scheduledAt: Date | string, timeZone?: string): { time: string; date: string } {
   const d = new Date(scheduledAt);
   if (isNaN(d.getTime())) return { time: '', date: '' };
 
-  const time = d.toLocaleTimeString([], {
+  const time = d.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    ...(timeZone ? { timeZone } : {}),
   });
 
-  const date = d.toLocaleDateString([], {
+  const date = d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
   });
 
   return { time, date };
+}
+
+/**
+ * True after hydration. Render timezone-dependent values with a pinned zone
+ * until this flips, so the server HTML and the first client render match.
+ */
+const noopSubscribe = () => () => {};
+function useIsClient(): boolean {
+  return React.useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false
+  );
 }
 
 function MapChip({ map }: { map?: string | null }) {
@@ -127,19 +144,31 @@ function MapChip({ map }: { map?: string | null }) {
 }
 
 function TeamLogo({ team, size = 20 }: { team: TournamentTeamInfo; size?: number }) {
+  const style = { width: size, height: size };
+  // Both variants: light logo on light background, dark logo in dark mode
+  if (team.logoUrl && team.imageDarkUrl) {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={team.logoUrl} alt="" className="shrink-0 object-contain dark:hidden" style={style} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={team.imageDarkUrl} alt="" className="shrink-0 object-contain hidden dark:block" style={style} />
+      </>
+    );
+  }
   const src = team.imageDarkUrl || team.logoUrl;
   if (!src) {
     return (
       <span
         className="num flex items-center justify-center rounded-lg border border-(--ed-hair) bg-(--ed-canvas) text-[9px] font-medium text-(--ed-stone)"
-        style={{ width: size, height: size }}
+        style={style}
       >
         {team.tag?.slice(0, 2) || '??'}
       </span>
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="" className="shrink-0 object-contain" style={{ width: size, height: size }} />;
+  return <img src={src} alt="" className="shrink-0 object-contain" style={style} />;
 }
 
 function MatchScorecard({
@@ -184,7 +213,8 @@ function MatchScorecard({
     .sort((a, b) => b.playerElims - a.playerElims || b.damage - a.damage)
     .slice(0, 4);
 
-  const localTime = formatLocalMatchTime(match.scheduledAt);
+  const isClient = useIsClient();
+  const localTime = formatLocalMatchTime(match.scheduledAt, isClient ? undefined : 'UTC');
 
   // Filter columns according to canonical MATCH_COLUMN_DEFS order (Bonus precedes Total)
   const activeCols = MATCH_COLUMN_DEFS.filter((d) => visibleColumns.includes(d.key));
@@ -374,9 +404,9 @@ function MatchScorecard({
                           if (colKey === 'place') val = r.placePoints;
                           else if (colKey === 'elims') val = r.elimsPoints;
                           else if (colKey === 'bonus') val = r.bonusPoints || 0;
-                          else if (colKey === 'damage') val = Math.round(r.damage).toLocaleString();
-                          else if (colKey === 'damageReceived') val = Math.round(r.damageReceived || 0).toLocaleString();
-                          else if (colKey === 'healing') val = Math.round(r.healing || 0).toLocaleString();
+                          else if (colKey === 'damage') val = Math.round(r.damage).toLocaleString('en-US');
+                          else if (colKey === 'damageReceived') val = Math.round(r.damageReceived || 0).toLocaleString('en-US');
+                          else if (colKey === 'healing') val = Math.round(r.healing || 0).toLocaleString('en-US');
                           else if (colKey === 'headshots') val = r.headshots || 0;
                           else if (colKey === 'assists') val = r.assists || 0;
                           else if (colKey === 'knockouts') val = r.knockouts || 0;
@@ -465,6 +495,7 @@ function SingleTeamMatchHistoryTable({
   visibleColumns?: MatchColumnKey[];
   onSelectMatch: (matchId: string) => void;
 }) {
+  const isClient = useIsClient();
   const teamMatches: {
     match: MatchLite & { stageName: string };
     result: TeamResultLite;
@@ -557,7 +588,7 @@ function SingleTeamMatchHistoryTable({
             <tbody className="divide-y divide-(--ed-hair)">
               {teamMatches.map(({ match: m, result: r }) => {
                 const isWinner = r.wwcd || r.rank === 1;
-                const local = formatLocalMatchTime(m.scheduledAt);
+                const local = formatLocalMatchTime(m.scheduledAt, isClient ? undefined : 'UTC');
 
                 return (
                   <tr
@@ -600,9 +631,9 @@ function SingleTeamMatchHistoryTable({
                       if (colKey === 'place') val = r.placePoints;
                       else if (colKey === 'elims') val = r.elimsPoints;
                       else if (colKey === 'bonus') val = r.bonusPoints || 0;
-                      else if (colKey === 'damage') val = Math.round(r.damage).toLocaleString();
-                      else if (colKey === 'damageReceived') val = Math.round(r.damageReceived || 0).toLocaleString();
-                      else if (colKey === 'healing') val = Math.round(r.healing || 0).toLocaleString();
+                      else if (colKey === 'damage') val = Math.round(r.damage).toLocaleString('en-US');
+                      else if (colKey === 'damageReceived') val = Math.round(r.damageReceived || 0).toLocaleString('en-US');
+                      else if (colKey === 'healing') val = Math.round(r.healing || 0).toLocaleString('en-US');
                       else if (colKey === 'headshots') val = r.headshots || 0;
                       else if (colKey === 'assists') val = r.assists || 0;
                       else if (colKey === 'knockouts') val = r.knockouts || 0;
@@ -657,6 +688,7 @@ function MultiTeamCompareTable({
   visibleColumns?: MatchColumnKey[];
   onSelectMatch: (matchId: string) => void;
 }) {
+  const isClient = useIsClient();
   const teamIds = new Set(teams.map((t) => t.id));
 
   // Compute aggregated stats for each team across the matches
@@ -842,7 +874,7 @@ function MultiTeamCompareTable({
             </thead>
             <tbody className="divide-y divide-(--ed-hair)">
               {matchComparisonRows.map(({ match: m, teamResults }) => {
-                const local = formatLocalMatchTime(m.scheduledAt);
+                const local = formatLocalMatchTime(m.scheduledAt, isClient ? undefined : 'UTC');
 
                 return teamResults.map(({ team: t, result: r }, idx) => {
                   const isMatchWinner = r.wwcd || r.rank === 1;
@@ -920,9 +952,9 @@ function MultiTeamCompareTable({
                         if (colKey === 'place') val = r.placePoints;
                         else if (colKey === 'elims') val = r.elimsPoints;
                         else if (colKey === 'bonus') val = r.bonusPoints || 0;
-                        else if (colKey === 'damage') val = Math.round(r.damage).toLocaleString();
-                        else if (colKey === 'damageReceived') val = Math.round(r.damageReceived || 0).toLocaleString();
-                        else if (colKey === 'healing') val = Math.round(r.healing || 0).toLocaleString();
+                        else if (colKey === 'damage') val = Math.round(r.damage).toLocaleString('en-US');
+                        else if (colKey === 'damageReceived') val = Math.round(r.damageReceived || 0).toLocaleString('en-US');
+                        else if (colKey === 'healing') val = Math.round(r.healing || 0).toLocaleString('en-US');
                         else if (colKey === 'headshots') val = r.headshots || 0;
                         else if (colKey === 'assists') val = r.assists || 0;
                         else if (colKey === 'knockouts') val = r.knockouts || 0;

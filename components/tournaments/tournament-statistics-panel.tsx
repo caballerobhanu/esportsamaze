@@ -1275,7 +1275,7 @@ export function TournamentStatisticsPanel({
                     )}
                     {visiblePlayerColumns.includes('damage') && (
                       <td className="num px-3 py-3 text-center text-(--ed-stone) whitespace-nowrap">
-                        {p.totalDamage.toLocaleString()}
+                        {p.totalDamage.toLocaleString('en-US')}
                       </td>
                     )}
                     {visiblePlayerColumns.includes('headshots') && (
@@ -1333,7 +1333,7 @@ export function TournamentStatisticsPanel({
                           {col.aggregator === 'avg'
                             ? val.toFixed(2)
                             : col.metric === 'damage' && col.aggregator === 'sum'
-                            ? Math.round(val).toLocaleString()
+                            ? Math.round(val).toLocaleString('en-US')
                             : val}
                         </td>
                       );

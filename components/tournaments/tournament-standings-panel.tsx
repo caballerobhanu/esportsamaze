@@ -908,11 +908,11 @@ export function TournamentStandingsPanel({
                       : c.key === 'bonus'
                       ? team.bonusPoints
                       : c.key === 'damage'
-                      ? Math.round(team.totalDamage).toLocaleString()
+                      ? Math.round(team.totalDamage).toLocaleString('en-US')
                       : c.key === 'damageReceived'
-                      ? Math.round(team.totalDamageReceived).toLocaleString()
+                      ? Math.round(team.totalDamageReceived).toLocaleString('en-US')
                       : c.key === 'healing'
-                      ? Math.round(team.totalHealing).toLocaleString()
+                      ? Math.round(team.totalHealing).toLocaleString('en-US')
                       : c.key === 'headshots'
                       ? team.headshots
                       : c.key === 'assists'

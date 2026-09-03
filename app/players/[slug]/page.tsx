@@ -245,7 +245,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   const socials = (player.socialLinks ?? {}) as SocialMap;
   const realName = [player.firstName, player.lastName].filter(Boolean).join(' ') || 'Name not disclosed';
   const age = calcAge(player.birthDate);
-  const avatar = player.avatarUrl || (player.slug === 'jonathan' ? '/images/players/jonathan.png' : null);
+  const avatar = player.avatarUrl;
 
   // ── Career totals across ALL recorded matches ──
   const games = allStats.length;

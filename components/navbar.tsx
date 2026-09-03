@@ -372,13 +372,13 @@ export function Navbar() {
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 pb-6">
           {/* Subtle blurred backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
+            className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity"
             onClick={closeSearch}
           />
 
           {/* Centered Modal Container */}
           <div
-            className="relative w-full max-w-2xl bg-white dark:bg-[#0b101c] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-10 flex flex-col max-h-[80vh] animate-in fade-in-0 zoom-in-95 duration-150"
+            className="relative w-full max-w-2xl bg-white dark:bg-[#0b101c] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-10 flex flex-col max-h-[80vh]"
             role="dialog"
             aria-modal="true"
             aria-label="Search Wiki"
@@ -416,7 +416,7 @@ export function Navbar() {
             </div>
 
             {/* Modal Body / Results */}
-            <div className="overflow-y-auto p-2 sm:p-3 divide-y divide-slate-100 dark:divide-slate-850">
+            <div className="overflow-y-auto p-2 sm:p-3 divide-y divide-slate-100 dark:divide-slate-800">
               {/* Quick suggestions when empty */}
               {!searchQuery.trim() && (
                 <div className="py-6 px-4 text-center">

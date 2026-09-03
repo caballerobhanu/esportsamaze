@@ -99,7 +99,15 @@ export default async function RankingsPage({
 
   const podium = tab === 'teams' ? teams.slice(0, 3) : players.slice(0, 3);
   const tableRows = tab === 'teams' ? teams : players;
-  const yearKeys = ['2024', '2025', '2026'];
+  // Year columns follow whatever events actually exist in the DB
+  const yearKeys =
+    teamRows.length + playerRows.length > 0
+      ? Array.from(
+          new Set(
+            [...teamRows, ...playerRows].map((r) => String(r.endDate.getUTCFullYear()))
+          )
+        ).sort()
+      : [String(new Date().getUTCFullYear())];
 
   const teamLogoFor = (name: string) => teamLogos.get(name.toLowerCase());
 

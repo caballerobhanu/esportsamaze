@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
         .filter(Boolean)
         .join(' • '),
       href: `/players/${player.slug || player.ign.toLowerCase()}`,
-      imageUrl: player.avatarUrl || '/images/players/jonathan.png',
+      imageUrl: player.avatarUrl,
       badge: player.role || 'Pro Player',
     }));
 

@@ -80,5 +80,8 @@ export function formatDate(date: string | Date): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    // Pinned so server and browser render identical strings (no hydration mismatch);
+    // date-only values are stored as UTC midnight, so UTC shows the intended calendar day.
+    timeZone: 'UTC',
   }).format(new Date(date));
 }

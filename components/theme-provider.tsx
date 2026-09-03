@@ -14,15 +14,12 @@ const ThemeContext = React.createContext<ThemeContextType | undefined>(undefined
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'dark',
+  defaultTheme = 'light',
   storageKey = 'theme',
 }: {
   children: React.ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  attribute?: string;
-  enableSystem?: boolean;
-  disableTransitionOnChange?: boolean;
 }) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -34,7 +31,12 @@ export function ThemeProvider({
     return defaultTheme;
   });
 
-  const [resolvedTheme, setResolvedTheme] = React.useState<'light' | 'dark'>('dark');
+  // The pre-hydration script in app/layout.tsx has already set the class on
+  // <html>; read it so the first client render matches what's on screen.
+  const [resolvedTheme, setResolvedTheme] = React.useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return defaultTheme === 'dark' ? 'dark' : 'light';
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  });
 
   // Apply theme to document element
   const applyTheme = React.useCallback(
