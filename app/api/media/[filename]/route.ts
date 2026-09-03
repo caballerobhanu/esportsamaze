@@ -32,12 +32,18 @@ export async function GET(
 
   try {
     const file = await readFile(path.join(UPLOAD_DIR, filename));
-    return new NextResponse(new Uint8Array(file), {
-      headers: {
-        'Content-Type': mime,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': mime,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+    };
+    if (ext === 'svg') {
+      // SVG can carry scripts: force download on direct navigation (embedded
+      // <img> usage is unaffected) and sandbox the document if ever rendered.
+      headers['Content-Disposition'] = `attachment; filename="${filename}"`;
+      headers['Content-Security-Policy'] = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
+    }
+    return new NextResponse(new Uint8Array(file), { headers });
   } catch {
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
   }

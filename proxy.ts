@@ -6,12 +6,14 @@ import type { NextRequest } from 'next/server';
  * requests get a real 307 instead of a streamed page with a client-side
  * redirect (layout-level redirects alone leak the page's RSC payload).
  *
- * Keep the token derivation in sync with lib/admin-auth.ts `tokenFor`.
+ * Keep the token derivation in sync with lib/admin-auth.ts `tokenFor`
+ * (ADMIN_SESSION_SECRET || ADMIN_PASSWORD || 'changeme').
  */
 const COOKIE_NAME = 'ea_admin';
 
 async function expectedToken(): Promise<string> {
-  const secret = process.env.ADMIN_PASSWORD || 'changeme';
+  const secret =
+    process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || 'changeme';
   const digest = await crypto.subtle.digest(
     'SHA-256',
     new TextEncoder().encode(`${secret}::esportsamaze-admin`)

@@ -1,16 +1,29 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogIn, AlertCircle } from 'lucide-react';
-import { grantAdminSession, verifyPassword } from '@/lib/admin-auth';
+import {
+  grantAdminSession,
+  verifyPassword,
+  clientIp,
+  isLoginBlocked,
+  recordFailedLogin,
+  clearFailedLogins,
+} from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 async function login(formData: FormData) {
   'use server';
+  const ip = await clientIp();
+  if (isLoginBlocked(ip)) {
+    redirect('/admin/login?error=rate-limited');
+  }
   const password = String(formData.get('password') || '');
   if (!verifyPassword(password)) {
+    recordFailedLogin(ip);
     redirect('/admin/login?error=1');
   }
+  clearFailedLogins(ip);
   await grantAdminSession();
   redirect('/admin');
 }
@@ -30,7 +43,10 @@ export default async function AdminLoginPage({
 
         {error && (
           <p className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-            <AlertCircle className="w-3.5 h-3.5" /> Incorrect password.
+            <AlertCircle className="w-3.5 h-3.5" />{' '}
+            {error === 'rate-limited'
+              ? 'Too many failed attempts — try again in about 15 minutes.'
+              : 'Incorrect password.'}
           </p>
         )}
         {usingDefaultPassword && (
