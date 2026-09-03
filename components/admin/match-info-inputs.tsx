@@ -476,7 +476,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
   }`;
 
   const inputCls =
-    'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] transition-all';
+    'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue) transition-all';
   const labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5';
 
   return (
@@ -492,7 +492,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
 
       {/* ═══ SECTION 1: GAME & TOURNAMENT CASCADING SELECTOR ═══ */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 p-4 sm:p-5">
-        <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3.5 flex items-center gap-2">
+        <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3.5 flex items-center gap-2">
           <Gamepad2 className="w-4 h-4" /> 1. Select Game &amp; Tournament
         </h2>
 
@@ -551,7 +551,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
 
       {/* ═══ SECTION 2: STAGE & STAGE TYPE WITH TYPEAHEAD ═══ */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-4 sm:p-5 space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-2">
+        <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-2">
           <Layers className="w-4 h-4" /> 2. Stage &amp; Competition Format
         </h2>
 
@@ -596,7 +596,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
                   >
                     <span className="font-semibold">{stg}</span>
                     {stageName.toLowerCase() === stg.toLowerCase() && (
-                      <Check className="w-3.5 h-3.5 text-[#0A5FC4] dark:text-blue-400" />
+                      <Check className="w-3.5 h-3.5 text-(--ed-blue) dark:text-blue-400" />
                     )}
                   </button>
                 ))}
@@ -646,7 +646,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
                   >
                     <span>{st}</span>
                     {stageType.toLowerCase() === st.toLowerCase() && (
-                      <Check className="w-3.5 h-3.5 text-[#0A5FC4] dark:text-blue-400" />
+                      <Check className="w-3.5 h-3.5 text-(--ed-blue) dark:text-blue-400" />
                     )}
                   </button>
                 ))}
@@ -673,7 +673,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
 
       {/* ═══ SECTION 3: MATCH NUMBERS, MAP & ONLINE / OFFLINE ═══ */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-4 sm:p-5 space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-2">
+        <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-2">
           <Flame className="w-4 h-4" /> 3. Match Details &amp; Map
         </h2>
 
@@ -775,7 +775,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
 
       {/* ═══ SECTION 4: SEPARATE DATE, TIME & FULL WORLD TIMEZONE SELECTOR ═══ */}
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-4 sm:p-5 space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-2">
+        <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-2">
           <Clock className="w-4 h-4" /> 4. Schedule, Date &amp; Timezone
         </h2>
 
@@ -835,7 +835,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
                   value={tzSearch}
                   onChange={(e) => setTzSearch(e.target.value)}
                   placeholder="🔍 Search timezone by city, country, or code (e.g. Dubai, London, PST, CST)..."
-                  className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0A5FC4]"
+                  className="w-full px-2.5 py-1 text-[11px] rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
                 />
                 {tzSearch && (
                   <button
@@ -867,7 +867,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-2">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-2">
               <Tv className="w-4 h-4" /> 5. Multi-VODs &amp; Stream Broadcasts
             </h2>
             <p className="text-[11px] text-slate-400 mt-0.5">
@@ -879,7 +879,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
             <button
               type="button"
               onClick={() => addVod('MAIN')}
-              className="px-3 py-1.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" /> Add Stream / VOD
             </button>
@@ -914,7 +914,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
             <button
               type="button"
               onClick={() => addVod('MAIN')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" /> Add Main Broadcast VOD
             </button>
@@ -1029,7 +1029,7 @@ function parseTimezoneFromStr(timeStr?: string | null): string | null {
                           href={vod.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-[#0A5FC4] transition-colors"
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-(--ed-blue) transition-colors"
                           title="Open Stream URL in new tab"
                         >
                           <ExternalLink className="w-4 h-4" />

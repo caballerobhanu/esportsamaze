@@ -349,7 +349,7 @@ export function TournamentFinalRankingsInput({
       <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/80 space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-            <Layers className="w-4 h-4 text-[#0A5FC4]" /> Stage-by-Stage Standings &amp; Prize Auto-Fill
+            <Layers className="w-4 h-4 text-(--ed-blue)" /> Stage-by-Stage Standings &amp; Prize Auto-Fill
           </div>
 
           <div className="flex items-center gap-2">
@@ -379,7 +379,7 @@ export function TournamentFinalRankingsInput({
             <select
               value={selectedStage}
               onChange={(e) => setSelectedStage(e.target.value)}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-[#0A5FC4] min-w-[200px]"
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-(--ed-blue) min-w-[200px]"
             >
               {availableStages.map((st) => (
                 <option key={st} value={st}>
@@ -391,7 +391,7 @@ export function TournamentFinalRankingsInput({
             <button
               type="button"
               onClick={() => importStageAsPrimary(selectedStage)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0A5FC4] text-white hover:bg-[#0850a3] text-xs font-bold transition-colors shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--ed-blue) text-white hover:bg-(--ed-blue) text-xs font-bold transition-colors shadow-xs"
             >
               <Sparkles className="w-3.5 h-3.5" /> Set as Finals (#1–#{stageStandingsMap[selectedStage]?.length || 16})
             </button>
@@ -508,7 +508,7 @@ export function TournamentFinalRankingsInput({
         <select
           value={selectedTeamId}
           onChange={(e) => addTeam(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+          className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
         >
           <option value="">+ Manually add a team to rankings…</option>
           {allTeams.map((t) => (

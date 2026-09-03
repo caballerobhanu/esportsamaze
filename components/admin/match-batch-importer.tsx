@@ -927,7 +927,7 @@ export function MatchBatchImporter({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400">
+            <span className="p-1.5 rounded-lg bg-(--ed-blue)/10 text-(--ed-blue) dark:text-blue-400">
               <FileSpreadsheet className="w-5 h-5" />
             </span>
             <div>
@@ -951,7 +951,7 @@ export function MatchBatchImporter({
             }}
             className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'teams'
-                ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-sm font-black'
+                ? 'bg-white dark:bg-slate-800 text-(--ed-blue) dark:text-blue-400 shadow-sm font-black'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
@@ -966,7 +966,7 @@ export function MatchBatchImporter({
             }}
             className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'players'
-                ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-sm font-black'
+                ? 'bg-white dark:bg-slate-800 text-(--ed-blue) dark:text-blue-400 shadow-sm font-black'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
@@ -980,7 +980,7 @@ export function MatchBatchImporter({
       {otherMatches && otherMatches.length > 0 && (
         <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-purple-950/20 border border-blue-200/60 dark:border-blue-800/40 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="p-1.5 rounded-lg bg-[#0A5FC4] text-white">
+            <span className="p-1.5 rounded-lg bg-(--ed-blue) text-white">
               <RefreshCw className="w-3.5 h-3.5" />
             </span>
             <div>
@@ -1025,7 +1025,7 @@ export function MatchBatchImporter({
               type="button"
               disabled={!selectedCloneMatchId}
               onClick={handleCloneFromMatch}
-              className="px-3 py-1.5 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg bg-(--ed-blue) hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
             >
               <Copy className="w-3.5 h-3.5" />
               <span>Copy {activeTab === 'teams' ? 'Teams' : 'Players'}</span>
@@ -1043,7 +1043,7 @@ export function MatchBatchImporter({
             onClick={() => setPasteMode('excel')}
             className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
               pasteMode === 'excel'
-                ? 'bg-[#0A5FC4] text-white shadow-sm'
+                ? 'bg-(--ed-blue) text-white shadow-sm'
                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
             }`}
           >
@@ -1055,7 +1055,7 @@ export function MatchBatchImporter({
             onClick={() => setPasteMode('json')}
             className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
               pasteMode === 'json'
-                ? 'bg-[#0A5FC4] text-white shadow-sm'
+                ? 'bg-(--ed-blue) text-white shadow-sm'
                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
             }`}
           >
@@ -1069,7 +1069,7 @@ export function MatchBatchImporter({
           <button
             type="button"
             onClick={copyExcelTemplate}
-            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-[#0A5FC4] transition-colors font-medium flex items-center gap-1 text-[11px]"
+            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-(--ed-blue) transition-colors font-medium flex items-center gap-1 text-[11px]"
             title="Copy column header row for Excel"
           >
             {copiedTemplate ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
@@ -1122,7 +1122,7 @@ export function MatchBatchImporter({
               ? `Paste Excel columns directly here (e.g. Player \\t Team \\t Elims \\t Damage \\t Headshots \\t Assists \\t Knocks \\t Powerplay \\t LongestElim \\t MVP \\t Survival \\t Healing \\t DmgReceived \\t VehicleElims \\t GrenadeElims)\nExample:\nMortal\tTeam Soul\t5\t1120\t3\t2\t4\t2\t245.5\tYes\t28:00\t350\t420\t1\t2`
               : `[\n  { "player": "Mortal", "team": "Team Soul", "elims": 5, "damage": 1120, "headshots": 3, "survivalTime": 1680, "healing": 350, "damageReceived": 420, "vehicleElims": 1, "grenadeElims": 2, "isMvp": true }\n]`
           }
-          className="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] focus:bg-white dark:focus:bg-slate-900 transition-all"
+          className="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-(--ed-blue) focus:bg-white dark:focus:bg-slate-900 transition-all"
         />
       </div>
 
@@ -1139,7 +1139,7 @@ export function MatchBatchImporter({
         <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Table className="w-4 h-4 text-[#0A5FC4]" /> Live Team Results Preview ({parsedTeamRows.length} Teams)
+              <Table className="w-4 h-4 text-(--ed-blue)" /> Live Team Results Preview ({parsedTeamRows.length} Teams)
             </h3>
             <span className="text-[10px] text-slate-400">
               {parsedTeamRows.filter((r) => r.isMatched).length} / {parsedTeamRows.length} teams auto-matched
@@ -1155,7 +1155,7 @@ export function MatchBatchImporter({
                   <th className="py-2 px-3 text-left">Matched Team in Database</th>
                   <th className="py-2 px-2 text-center">Place Pts</th>
                   <th className="py-2 px-2 text-center">Elims</th>
-                  <th className="py-2 px-2 text-center font-bold text-[#0A5FC4]">Total</th>
+                  <th className="py-2 px-2 text-center font-bold text-(--ed-blue)">Total</th>
                   <th className="py-2 px-2 text-center">Damage</th>
                   <th className="py-2 px-2 text-center">Survival</th>
                   <th className="py-2 px-2 text-center">Smokes</th>
@@ -1196,7 +1196,7 @@ export function MatchBatchImporter({
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono">{r.placePoints}</td>
                     <td className="py-1.5 px-2 text-center font-mono">{r.elimsPoints}</td>
-                    <td className="py-1.5 px-2 text-center font-mono font-black text-[#0A5FC4] dark:text-blue-400">
+                    <td className="py-1.5 px-2 text-center font-mono font-black text-(--ed-blue) dark:text-blue-400">
                       {r.totalPoints}
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-500">{r.damage}</td>
@@ -1226,7 +1226,7 @@ export function MatchBatchImporter({
         <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-[#0A5FC4]" /> Live Player Stats Preview ({parsedPlayerRows.length} Players)
+              <Users className="w-4 h-4 text-(--ed-blue)" /> Live Player Stats Preview ({parsedPlayerRows.length} Players)
             </h3>
             <span className="text-[10px] text-slate-400">
               {parsedPlayerRows.filter((r) => r.isPlayerMatched).length} / {parsedPlayerRows.length} players auto-matched
@@ -1344,7 +1344,7 @@ export function MatchBatchImporter({
             type="checkbox"
             checked={replaceExisting}
             onChange={(e) => setReplaceExisting(e.target.checked)}
-            className="rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+            className="rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
           />
           <span>
             Replace &amp; overwrite all existing {activeTab === 'teams' ? 'team results' : 'player stats'} for this match
@@ -1358,7 +1358,7 @@ export function MatchBatchImporter({
             (activeTab === 'teams' ? parsedTeamRows.length === 0 : parsedPlayerRows.length === 0)
           }
           onClick={handleBatchSubmit}
-          className="px-6 py-2.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-[#0A5FC4]/25 flex items-center justify-center gap-2 cursor-pointer"
+          className="px-6 py-2.5 rounded-xl bg-(--ed-blue) hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-(--ed-blue)/25 flex items-center justify-center gap-2 cursor-pointer"
         >
           {isSubmitting ? (
             <>

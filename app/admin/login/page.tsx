@@ -66,11 +66,11 @@ export default async function AdminLoginPage({
             placeholder="Password"
             required
             autoFocus
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+            className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
           />
           <button
             type="submit"
-            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-sm font-bold transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-sm font-bold transition-colors"
           >
             <LogIn className="w-4 h-4" /> Sign in
           </button>

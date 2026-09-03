@@ -17,7 +17,7 @@ import { Combobox } from '@/components/admin/combobox';
 export const dynamic = 'force-dynamic';
 
 const inputCls =
-  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 const TIERS = ['Publisher', 'Tier 1', 'Tier 2', 'Tier 3', 'Qualifier'];
@@ -552,7 +552,7 @@ export default async function AdminRankingsPage({
                   <td className="py-2 px-3 font-mono text-xs text-slate-400">{t.rank}</td>
                   <td className="py-2 px-3 font-bold">{t.name}</td>
                   <td className="py-2 px-3 text-center text-slate-500">{t.events}</td>
-                  <td className="py-2 px-3 text-right font-black text-[#0A5FC4] dark:text-blue-300">{t.points.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-right font-black text-(--ed-blue) dark:text-blue-300">{t.points.toFixed(2)}</td>
                 </tr>
               ))}
               {teamPreview.length === 0 && (
@@ -585,7 +585,7 @@ export default async function AdminRankingsPage({
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{p.team || 'Free Agent'}</span>
                   </td>
                   <td className="py-2 px-3 text-center text-slate-500">{p.totalFinishes}</td>
-                  <td className="py-2 px-3 text-right font-black text-[#0A5FC4] dark:text-blue-300">{p.points.toFixed(2)}</td>
+                  <td className="py-2 px-3 text-right font-black text-(--ed-blue) dark:text-blue-300">{p.points.toFixed(2)}</td>
                 </tr>
               ))}
               {playerPreview.length === 0 && (
@@ -605,7 +605,7 @@ export default async function AdminRankingsPage({
             className={
               'px-4 py-2 text-xs font-black uppercase tracking-widest border-b-2 transition-colors ' +
               (tab === t
-                ? 'border-[#0A5FC4] text-[#0A5FC4]'
+                ? 'border-(--ed-blue) text-(--ed-blue)'
                 : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200')
             }
           >
@@ -618,7 +618,7 @@ export default async function AdminRankingsPage({
         <>
           {/* Team add/edit form */}
           <details open={Boolean(source)}>
-            <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
+            <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
               <Plus className="w-3.5 h-3.5" />
               {source ? `Editing: ${editTeamRow?.team.name} — ${editTeamRow?.tournament?.name ?? 'manual'}` : 'Add Team Ranking Entry'}
             </summary>
@@ -650,7 +650,7 @@ export default async function AdminRankingsPage({
                   <input type="number" name="rank" min={1} required defaultValue={editTeamRow?.rank ?? ''} className={inputCls} />
                 </div>
               </div>
-              <button type="submit" className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors">
+              <button type="submit" className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors">
                 {isEditing ? 'Update Entry' : 'Create Entry'}
               </button>
             </form>
@@ -668,7 +668,7 @@ export default async function AdminRankingsPage({
                 <code className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">tournament | tier | end_date | team | rank</code>
               </p>
               <textarea name="bulkText" rows={6} className={`${inputCls} font-mono text-xs`} placeholder={'BGIS 2026 | Tier 1 | 2026-05-10 | Team Soul | 1\nBMPS 2026 | Tier 1 | 2026-06-15 | Team Soul | 2'} />
-              <button type="submit" className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors">
+              <button type="submit" className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors">
                 Import Rows
               </button>
             </form>
@@ -703,15 +703,15 @@ export default async function AdminRankingsPage({
                     <td className="py-2.5 px-3"><span className="ed-chip px-1.5 py-0.5 text-[10px]">{r.tier}</span></td>
                     <td className="py-2.5 px-3 text-slate-500 hidden md:table-cell">{r.endDate.toISOString().slice(0, 10)}</td>
                     <td className="py-2.5 px-3 text-center font-mono">#{r.rank}</td>
-                    <td className="py-2.5 px-3 text-center font-mono font-bold text-[#0A5FC4] dark:text-blue-300">
+                    <td className="py-2.5 px-3 text-center font-mono font-bold text-(--ed-blue) dark:text-blue-300">
                       {getTeamBasePoints(r.tier, r.rank) || '—'}
                     </td>
                     <td className="py-2.5 px-3">
                       <span className="flex items-center justify-end gap-1.5">
-                        <Link href={`/admin/rankings?tab=team&edit=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors" aria-label="Edit entry">
+                        <Link href={`/admin/rankings?tab=team&edit=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors" aria-label="Edit entry">
                           <Pencil className="w-3.5 h-3.5" />
                         </Link>
-                        <Link href={`/admin/rankings?tab=team&copy=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors" aria-label="Duplicate entry">
+                        <Link href={`/admin/rankings?tab=team&copy=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors" aria-label="Duplicate entry">
                           <Copy className="w-3.5 h-3.5" />
                         </Link>
                         <form action={deleteTeamRanking}>
@@ -735,7 +735,7 @@ export default async function AdminRankingsPage({
         <>
           {/* Player add/edit form */}
           <details open={Boolean(source)}>
-            <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
+            <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
               <Plus className="w-3.5 h-3.5" />
               {source ? `Editing: ${editPlayerRow?.player.ign}` : 'Add Player Ranking Entry'}
             </summary>
@@ -780,14 +780,14 @@ export default async function AdminRankingsPage({
                         type="checkbox"
                         name={key}
                         defaultChecked={editPlayerRow ? editPlayerRow[key] > 0 : false}
-                        className="h-4 w-4 rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+                        className="h-4 w-4 rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
                       />
                       {label}
                     </label>
                   ))}
                 </div>
               </fieldset>
-              <button type="submit" className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors">
+              <button type="submit" className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors">
                 {isEditing ? 'Update Entry' : 'Create Entry'}
               </button>
             </form>
@@ -806,7 +806,7 @@ export default async function AdminRankingsPage({
                 — flags are 1 or 0, unknown teams become Free Agent.
               </p>
               <textarea name="bulkText" rows={6} className={`${inputCls} font-mono text-xs`} placeholder={'BGIS 2026 | Tier 1 | 2026-05-10 | Jonathan | GodLike | 68 | 1 | 0 | 0 | 0 | 0'} />
-              <button type="submit" className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors">
+              <button type="submit" className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors">
                 Import Rows
               </button>
             </form>
@@ -860,13 +860,13 @@ export default async function AdminRankingsPage({
                           {AWARD_CHIPS.every(({ key }) => r[key] === 0) && <span className="text-slate-400 text-xs">—</span>}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-center font-mono font-bold text-[#0A5FC4] dark:text-blue-300">{base || '—'}</td>
+                      <td className="py-2.5 px-3 text-center font-mono font-bold text-(--ed-blue) dark:text-blue-300">{base || '—'}</td>
                       <td className="py-2.5 px-3">
                         <span className="flex items-center justify-end gap-1.5">
-                          <Link href={`/admin/rankings?tab=player&edit=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors" aria-label="Edit entry">
+                          <Link href={`/admin/rankings?tab=player&edit=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors" aria-label="Edit entry">
                             <Pencil className="w-3.5 h-3.5" />
                           </Link>
-                          <Link href={`/admin/rankings?tab=player&copy=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors" aria-label="Duplicate entry">
+                          <Link href={`/admin/rankings?tab=player&copy=${r.id}`} className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors" aria-label="Duplicate entry">
                             <Copy className="w-3.5 h-3.5" />
                           </Link>
                           <form action={deletePlayerRanking}>
@@ -892,7 +892,7 @@ export default async function AdminRankingsPage({
       {/* ── Generate from tournament ── */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-5">
         <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1 flex items-center gap-2">
-          <Wand2 className="w-4 h-4 text-[#0A5FC4]" /> Generate from Tournament
+          <Wand2 className="w-4 h-4 text-(--ed-blue)" /> Generate from Tournament
         </h2>
         <p className="text-[11px] text-slate-500 mb-3">
           Creates team rows from the event&rsquo;s final rankings and player rows from match-stats finishes + MVP/IGL/Survivor/Emerging award winners.
@@ -907,7 +907,7 @@ export default async function AdminRankingsPage({
             <label className={labelCls}>Ranking Tier</label>
             <Combobox name="tier" options={tierOptions} defaultValue="Tier 1" freeText ariaLabel="Ranking tier" />
           </div>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors h-[38px]">
+          <button type="submit" className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors h-[38px]">
             Generate
           </button>
         </form>
@@ -916,7 +916,7 @@ export default async function AdminRankingsPage({
       {/* ── Point transfer rules ── */}
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-5">
         <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1 flex items-center gap-2">
-          <ArrowLeftRight className="w-4 h-4 text-[#0A5FC4]" /> Point Transfer Rules (Roster Acquisitions)
+          <ArrowLeftRight className="w-4 h-4 text-(--ed-blue)" /> Point Transfer Rules (Roster Acquisitions)
         </h2>
         <p className="text-[11px] text-slate-500 mb-3">
           Points the old org earned <strong>on or before</strong> the cutoff date are attributed to the acquiring org. Earlier events resolve recursively
@@ -941,8 +941,8 @@ export default async function AdminRankingsPage({
                     <td className="py-2 px-3">
                       <span className="inline-flex items-center gap-2 text-xs font-bold">
                         <span>{rule.oldTeam.name}</span>
-                        <ArrowLeftRight className="w-3 h-3 text-[#0A5FC4]" />
-                        <span className="text-[#0A5FC4] dark:text-blue-300">{rule.newTeam.name}</span>
+                        <ArrowLeftRight className="w-3 h-3 text-(--ed-blue)" />
+                        <span className="text-(--ed-blue) dark:text-blue-300">{rule.newTeam.name}</span>
                       </span>
                     </td>
                     <td className="py-2 px-3 text-slate-500">{rule.oldTeam.name}</td>
@@ -976,7 +976,7 @@ export default async function AdminRankingsPage({
             <label className={labelCls}>Cutoff Date *</label>
             <input type="date" name="before" required className={inputCls} />
           </div>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors h-[38px]">
+          <button type="submit" className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors h-[38px]">
             Add Rule
           </button>
         </form>

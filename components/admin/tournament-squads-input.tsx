@@ -30,7 +30,7 @@ const ROLES = ['Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
 const STAFF_ROLES = ['Head Coach', 'Coach', 'Assistant Coach', 'Analyst', 'Manager', 'Content Creator'];
 
 const inputCls =
-  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 export function TournamentSquadsInput({
@@ -482,7 +482,7 @@ export function TournamentSquadsInput({
       <button
         type="button"
         onClick={addSquad}
-        className="px-4 py-2 rounded-lg bg-[#0A5FC4] text-white text-xs font-bold hover:bg-[#094ea3] cursor-pointer"
+        className="px-4 py-2 rounded-lg bg-(--ed-blue) text-white text-xs font-bold hover:bg-[#094ea3] cursor-pointer"
       >
         + Add squad
       </button>

@@ -250,7 +250,7 @@ export function MatchGroupedList({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
             <div className="flex items-center gap-1.5 shrink-0 font-black text-xs uppercase tracking-tight text-slate-800 dark:text-slate-200">
-              <Trophy className="w-4 h-4 text-[#0A5FC4]" />
+              <Trophy className="w-4 h-4 text-(--ed-blue)" />
               <span>Event:</span>
             </div>
 
@@ -261,7 +261,7 @@ export function MatchGroupedList({
                 setSelectedTourneyId(e.target.value);
                 setSelectedStageFilter('ALL');
               }}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] cursor-pointer max-w-[280px] sm:max-w-[360px] truncate"
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-(--ed-blue) cursor-pointer max-w-[280px] sm:max-w-[360px] truncate"
             >
               <option value="ALL">🌐 All Tournaments ({matches.length} matches)</option>
               {allTournaments.map((t) => {
@@ -279,7 +279,7 @@ export function MatchGroupedList({
               <select
                 value={selectedStageFilter}
                 onChange={(e) => setSelectedStageFilter(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] cursor-pointer max-w-[200px] truncate"
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-(--ed-blue) cursor-pointer max-w-[200px] truncate"
               >
                 <option value="ALL">All Stages ({tournamentStages.length})</option>
                 {tournamentStages.map((s) => (
@@ -299,7 +299,7 @@ export function MatchGroupedList({
                   onClick={() => setStatusFilter(st)}
                   className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
                     statusFilter === st
-                      ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-xs'
+                      ? 'bg-white dark:bg-slate-800 text-(--ed-blue) dark:text-blue-400 shadow-xs'
                       : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
@@ -318,7 +318,7 @@ export function MatchGroupedList({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter matches…"
-                className="w-full pl-7 pr-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-[#0A5FC4]"
+                className="w-full pl-7 pr-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
               />
               {searchQuery && (
                 <button
@@ -340,7 +340,7 @@ export function MatchGroupedList({
                     }&openNew=1#match-editor`
                   : `/admin/matches?openNew=1#match-editor`
               }
-              className="px-3 py-1 text-xs rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+              className="px-3 py-1 text-xs rounded-lg bg-(--ed-blue) hover:brightness-110 text-white font-bold transition-all shadow-xs flex items-center gap-1.5 shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Match</span>
@@ -414,7 +414,7 @@ export function MatchGroupedList({
                   </div>
                   <Link
                     href={`/admin/matches?tournamentId=${tourney.tournamentId}&openNew=1#match-editor`}
-                    className="text-[11px] font-bold text-[#0A5FC4] hover:underline flex items-center gap-0.5 shrink-0"
+                    className="text-[11px] font-bold text-(--ed-blue) hover:underline flex items-center gap-0.5 shrink-0"
                   >
                     <Plus className="w-3 h-3" /> Add to Tournament
                   </Link>
@@ -493,7 +493,7 @@ export function MatchGroupedList({
                                 >
                                   {/* Match Number */}
                                   <td className="py-1.5 px-3">
-                                    <span className="font-mono font-black text-[#0A5FC4] dark:text-blue-400 text-xs">
+                                    <span className="font-mono font-black text-(--ed-blue) dark:text-blue-400 text-xs">
                                       #{m.matchNumber ?? 1}
                                     </span>
                                     {m.overallMatchNumber && (
@@ -606,7 +606,7 @@ export function MatchGroupedList({
                                       {/* Edit */}
                                       <Link
                                         href={`/admin/matches?edit=${m.id}#match-editor`}
-                                        className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
+                                        className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
                                         title="Edit Match & Scorecard"
                                       >
                                         <Pencil className="w-3.5 h-3.5" />

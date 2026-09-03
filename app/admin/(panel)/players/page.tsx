@@ -12,7 +12,7 @@ import { Combobox } from '@/components/admin/combobox';
 export const dynamic = 'force-dynamic';
 
 const inputCls =
-  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 const STAFF_ROLES = ['Head Coach', 'Coach', 'Assistant Coach', 'Analyst', 'Manager', 'Content Creator'];
@@ -159,7 +159,7 @@ export default async function AdminPlayersPage({
 
       {/* Create / Edit form */}
       <details open={Boolean(editing)}>
-        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
+        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
           <Plus className="w-3.5 h-3.5" />
           {editing ? `Editing: ${editing.ign}` : 'Add New Player'}
         </summary>
@@ -261,7 +261,7 @@ export default async function AdminPlayersPage({
                 type="checkbox"
                 name="isPlayer"
                 defaultChecked={editing?.isPlayer ?? true}
-                className="h-4 w-4 rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+                className="h-4 w-4 rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
               />
               Playing roster member
             </label>
@@ -310,7 +310,7 @@ export default async function AdminPlayersPage({
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors"
+            className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors"
           >
             {editing ? 'Update Player' : 'Create Player'}
           </button>
@@ -356,7 +356,7 @@ export default async function AdminPlayersPage({
                   <span className="flex items-center justify-end gap-1.5">
                     <Link
                       href={`/admin/players?edit=${p.id}`}
-                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
+                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
                       aria-label={`Edit ${p.ign}`}
                     >
                       <Pencil className="w-3.5 h-3.5" />

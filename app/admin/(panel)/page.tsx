@@ -58,7 +58,7 @@ export default async function AdminDashboardPage() {
             <li key={t.slug} className="px-4 py-2.5 flex items-center justify-between">
               <Link
                 href={`/tournaments/${t.slug}`}
-                className="font-semibold hover:text-[#0A5FC4] dark:hover:text-amber-400 transition-colors"
+                className="font-semibold hover:text-(--ed-blue) dark:hover:text-amber-400 transition-colors"
               >
                 {t.name}
               </Link>

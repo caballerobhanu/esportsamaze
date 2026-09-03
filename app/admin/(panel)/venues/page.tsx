@@ -9,7 +9,7 @@ import { fStr, fOpt, fNum, uniqueSlug } from '@/lib/admin-forms';
 export const dynamic = 'force-dynamic';
 
 const inputCls =
-  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 async function saveVenue(formData: FormData) {
@@ -107,7 +107,7 @@ export default async function AdminVenuesPage({
 
       {/* Form */}
       <details open={Boolean(editing)}>
-        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
+        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-3 py-2 transition-colors">
           <Plus className="w-3.5 h-3.5" />
           {editing ? `Editing: ${editing.name}` : 'Add New Venue'}
         </summary>
@@ -147,7 +147,7 @@ export default async function AdminVenuesPage({
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider transition-colors"
+            className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors"
           >
             {editing ? 'Update Venue' : 'Create Venue'}
           </button>
@@ -181,7 +181,7 @@ export default async function AdminVenuesPage({
                   <span className="inline-flex items-center gap-1.5">
                     <Link
                       href={`/admin/venues?edit=${v.id}`}
-                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
+                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Link>

@@ -55,11 +55,11 @@ export interface AdminStageDetail {
 }
 
 const inputCls =
-  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 const ZONE_COLORS: { key: ZoneColor; label: string; bg: string }[] = [
-  { key: 'blue', label: 'Blue', bg: 'bg-[#0A5FC4]' },
+  { key: 'blue', label: 'Blue', bg: 'bg-(--ed-blue)' },
   { key: 'green', label: 'Green', bg: 'bg-emerald-500' },
   { key: 'yellow', label: 'Yellow', bg: 'bg-yellow-400' },
   { key: 'orange', label: 'Orange', bg: 'bg-amber-500' },
@@ -294,7 +294,7 @@ function TabGroupsEditor({
           <button
             type="button"
             onClick={addSubDivision}
-            className="px-4 py-2 rounded-xl bg-[#0A5FC4] text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 mx-auto hover:bg-[#0850a3] transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-(--ed-blue) text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 mx-auto hover:bg-(--ed-blue) transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Create First Sub-Division
           </button>
@@ -309,7 +309,7 @@ function TabGroupsEditor({
               {/* ── Sub-Division Header & Ordering ── */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-                  <span className="px-2 py-0.5 rounded bg-[#0A5FC4] text-white text-[10px] font-black uppercase">
+                  <span className="px-2 py-0.5 rounded bg-(--ed-blue) text-white text-[10px] font-black uppercase">
                     Tab Group #{gIdx + 1}
                   </span>
                   <input
@@ -762,7 +762,7 @@ export function TournamentStandingsConfigInput({
             const catCols = STANDINGS_COLUMN_DEFS.filter((c) => c.category === cat);
             return (
               <div key={cat} className="space-y-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] block pb-1 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-black uppercase tracking-wider text-(--ed-blue) block pb-1 border-b border-slate-100 dark:border-slate-800">
                   {cat === 'Scoring' ? '🏆 Scoring & Core' : cat === 'Combat' ? '⚔️ Combat & Damage' : cat === 'Utility' ? '💣 Utilities & Support' : '🏃 Distance & Movement'}
                 </span>
                 <div className="space-y-1.5 pt-1">
@@ -848,7 +848,7 @@ export function TournamentStandingsConfigInput({
             const curCols = config.matchColumns || DEFAULT_MATCH_COLUMNS;
             return (
               <div key={cat} className="space-y-2 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] block pb-1 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-black uppercase tracking-wider text-(--ed-blue) block pb-1 border-b border-slate-100 dark:border-slate-800">
                   {cat === 'Scoring' ? '🏆 Scoring' : cat === 'Combat' ? '⚔️ Combat Stats' : '💣 Utilities & Support'}
                 </span>
                 <div className="space-y-1.5 pt-1">
@@ -896,7 +896,7 @@ export function TournamentStandingsConfigInput({
       <div className="p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-[#0A5FC4]" />
+            <Flame className="w-5 h-5 text-(--ed-blue)" />
             <div>
               <h4 className="text-sm font-black uppercase text-slate-900 dark:text-white">
                 Standings Sub-Divisions &amp; Tab Groups

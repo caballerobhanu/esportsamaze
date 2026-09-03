@@ -37,7 +37,7 @@ import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency'
 export const dynamic = 'force-dynamic';
 
 const inputCls =
-  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 async function saveTournament(formData: FormData) {
@@ -904,7 +904,7 @@ export default async function AdminTournamentsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-[#0A5FC4]" /> Tournament Management
+            <Trophy className="w-5 h-5 text-(--ed-blue)" /> Tournament Management
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Configure tournament metadata, series weights, tiers, multi-venues, sponsors, and prize pools.
@@ -938,7 +938,7 @@ export default async function AdminTournamentsPage({
         open={Boolean(editing)}
         className="group scroll-mt-6"
       >
-        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
+        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
           <Plus className="w-4 h-4" />
           {editing ? `Editing: ${editing.name}` : 'Create New Tournament'}
         </summary>
@@ -952,7 +952,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 1: Basic Tournament Identity */}
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               <Award className="w-4 h-4" /> 1. Tournament Identity &amp; Game
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1029,7 +1029,7 @@ export default async function AdminTournamentsPage({
                     type="checkbox"
                     name="rankingIncluded"
                     defaultChecked={editing?.rankingIncluded ?? true}
-                    className="h-4 w-4 rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+                    className="h-4 w-4 rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
                   />
                   Counts toward KRAFTON rankings
                 </label>
@@ -1107,7 +1107,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 2: Venues, Countries, Organizers & Sponsors */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               <Globe className="w-4 h-4" /> 2. Venues, Countries, Organizers &amp; Sponsors
             </h2>
 
@@ -1160,7 +1160,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 3: Prize Pool, Currency & Dates */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               <DollarSign className="w-4 h-4" /> 3. Prize Pool, Currency &amp; Schedule
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1273,7 +1273,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 4: Event Points & Scoring System */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               🎯 4. Event-Wide Points &amp; Scoring Matrix
             </h2>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
@@ -1285,7 +1285,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 5: Participating Squads & Rosters */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               👥 5. Participating Squads &amp; Rosters (Seeds, Event Logos, Players)
             </h2>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
@@ -1300,7 +1300,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 6: Final Team Rankings */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               🏆 6. Final Event Team Rankings (Winner, Runner-Up &amp; Placements)
             </h2>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
@@ -1317,7 +1317,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 7: Standings Display & Filters */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               📊 7. Standings Display, Filters &amp; Qualification Zones
             </h2>
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
@@ -1331,7 +1331,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 8: Dual Logos & Banners */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-3 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               🖼️ 8. Branding, Logos &amp; Header Banner
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1377,7 +1377,7 @@ export default async function AdminTournamentsPage({
 
           {/* Section 9: All Social Media Channels */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 mb-1 flex items-center gap-1.5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-1 flex items-center gap-1.5">
               🔗 9. Official Event Website &amp; Social Channels
             </h2>
             <p className="text-[11px] text-slate-500 mb-3">
@@ -1438,7 +1438,7 @@ export default async function AdminTournamentsPage({
               )}
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-[#0A5FC4]/25 flex items-center gap-2 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-(--ed-blue) hover:brightness-110 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-(--ed-blue)/25 flex items-center gap-2 cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>{editing ? 'Update Tournament' : 'Create Tournament'}</span>
@@ -1511,7 +1511,7 @@ export default async function AdminTournamentsPage({
                     </Link>
                     <Link
                       href={`/admin/tournaments?edit=${t.id}#tournament-editor`}
-                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[#0A5FC4] transition-colors"
+                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
                       title="Edit Tournament"
                     >
                       <Pencil className="w-3.5 h-3.5" />

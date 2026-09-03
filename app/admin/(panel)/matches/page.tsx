@@ -21,7 +21,7 @@ import { MatchGroupedList } from '@/components/admin/match-grouped-list';
 export const dynamic = 'force-dynamic';
 
 const inputCls =
-  'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
+  'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
 const MATCH_STATUSES = ['SCHEDULED', 'LIVE', 'COMPLETED', 'POSTPONED'];
@@ -789,7 +789,7 @@ export default async function AdminMatchesPage({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-            <Swords className="w-5 h-5 text-[#0A5FC4]" /> Match &amp; Scorecard Engine
+            <Swords className="w-5 h-5 text-(--ed-blue)" /> Match &amp; Scorecard Engine
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Record match metadata, team placement/finishes, and deep individual player battle royale statistics.
@@ -832,7 +832,7 @@ export default async function AdminMatchesPage({
         open={Boolean(editing || openNew || tournamentId)}
         className="group scroll-mt-6"
       >
-        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
+        <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
           <Plus className="w-4 h-4" />
           {editing
             ? `Editing: ${editing.format} · ${editing.tournament.name}`
@@ -895,7 +895,7 @@ export default async function AdminMatchesPage({
               )}
               <button
                 type="submit"
-                className="px-6 py-2.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-[#0A5FC4]/25 flex items-center gap-2 cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-(--ed-blue) hover:brightness-110 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-(--ed-blue)/25 flex items-center gap-2 cursor-pointer"
               >
                 <Save className="w-4 h-4" />
                 <span>{editing ? 'Update Match Info' : 'Create Match & Scorecard'}</span>
@@ -925,7 +925,7 @@ export default async function AdminMatchesPage({
             {/* 2.1 Team Results Section */}
             <div id="team-results" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-1.5">
+                <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-1.5">
                   <Shield className="w-4 h-4" /> 2. Team Match Results ({activeMatchGame.teamResults.length} recorded)
                 </h2>
               </div>
@@ -940,7 +940,7 @@ export default async function AdminMatchesPage({
                         <th className="py-2 px-3 text-left">Team</th>
                         <th className="py-2 px-2 text-center">Place Pts</th>
                         <th className="py-2 px-2 text-center">Elims Pts</th>
-                        <th className="py-2 px-2 text-center font-bold text-[#0A5FC4]">Total</th>
+                        <th className="py-2 px-2 text-center font-bold text-(--ed-blue)">Total</th>
                         <th className="py-2 px-2 text-center">Damage</th>
                         <th className="py-2 px-2 text-center">Smokes</th>
                         <th className="py-2 px-2 text-center">Rescues</th>
@@ -958,7 +958,7 @@ export default async function AdminMatchesPage({
                           </td>
                           <td className="py-1.5 px-2 text-center font-mono">{tr.placePoints}</td>
                           <td className="py-1.5 px-2 text-center font-mono">{tr.elimsPoints}</td>
-                          <td className="py-1.5 px-2 text-center font-mono font-bold text-[#0A5FC4] dark:text-blue-400">
+                          <td className="py-1.5 px-2 text-center font-mono font-bold text-(--ed-blue) dark:text-blue-400">
                             {tr.totalPoints}
                           </td>
                           <td className="py-1.5 px-2 text-center font-mono">{tr.damage}</td>
@@ -987,7 +987,7 @@ export default async function AdminMatchesPage({
             {/* 2.2 Player Stats Section */}
             <div id="player-stats" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400 flex items-center gap-1.5">
+                <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-1.5">
                   <Users className="w-4 h-4" /> 3. Individual Player Stats ({activeMatchGame.playerStats.length} recorded)
                 </h2>
               </div>
@@ -1100,7 +1100,7 @@ export default async function AdminMatchesPage({
                   <div>
                     <label className={labelCls}>MVP?</label>
                     <label className="flex items-center gap-1.5 mt-2 cursor-pointer text-xs">
-                      <input type="checkbox" name="isMvp" className="rounded text-[#0A5FC4]" />
+                      <input type="checkbox" name="isMvp" className="rounded text-(--ed-blue)" />
                       <span>Best Player ⭐</span>
                     </label>
                   </div>
@@ -1183,7 +1183,7 @@ export default async function AdminMatchesPage({
                 <div className="flex justify-end pt-2">
                   <button
                     type="submit"
-                    className="px-6 py-2 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold uppercase transition-colors shadow-sm"
+                    className="px-6 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase transition-colors shadow-sm"
                   >
                     Save Player Performance
                   </button>

@@ -161,7 +161,7 @@ export function TournamentOrganizersInput({
             }
           }}
           placeholder="Type organizer name (e.g. Krafton, Nodwin Gaming, ESL) — comma separated to add multiple…"
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
         />
 
         {showSuggs && suggestions.length > 0 && (
@@ -177,7 +177,7 @@ export function TournamentOrganizersInput({
                 className="w-full text-left px-3 py-2 text-xs hover:bg-slate-100 dark:hover:bg-slate-700/80 text-slate-800 dark:text-slate-200 flex items-center justify-between"
               >
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-3.5 h-3.5 text-[#0A5FC4]" />
+                  <Building2 className="w-3.5 h-3.5 text-(--ed-blue)" />
                   <span className="font-bold">{o.name}</span>
                 </div>
                 {o.type && (
@@ -215,13 +215,13 @@ function OrganizerCard({
     <div
       className={`p-2.5 rounded-xl border flex flex-col justify-between gap-2 transition-all shadow-sm ${
         isPrimary
-          ? 'bg-[#0A5FC4]/8 border-[#0A5FC4]/30 dark:bg-[#0A5FC4]/10'
+          ? 'bg-(--ed-blue)/8 border-(--ed-blue)/30 dark:bg-(--ed-blue)/10'
           : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Building2 className={`w-3.5 h-3.5 shrink-0 ${isPrimary ? 'text-[#0A5FC4]' : 'text-slate-500'}`} />
+          <Building2 className={`w-3.5 h-3.5 shrink-0 ${isPrimary ? 'text-(--ed-blue)' : 'text-slate-500'}`} />
           <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
             {organizer.name}
           </span>
@@ -243,9 +243,9 @@ function OrganizerCard({
           value={organizer.role}
           onChange={(e) => onRoleChange(e.target.value)}
           placeholder="e.g. Primary Organizer"
-          className={`w-full px-2 py-1 rounded-md text-[11px] font-bold border focus:outline-none focus:ring-1 focus:ring-[#0A5FC4] ${
+          className={`w-full px-2 py-1 rounded-md text-[11px] font-bold border focus:outline-none focus:ring-1 focus:ring-(--ed-blue) ${
             isPrimary
-              ? 'bg-[#0A5FC4]/10 border-[#0A5FC4]/30 text-[#0A5FC4] dark:text-blue-300'
+              ? 'bg-(--ed-blue)/10 border-(--ed-blue)/30 text-(--ed-blue) dark:text-blue-300'
               : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
           }`}
         />

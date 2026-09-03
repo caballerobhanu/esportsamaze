@@ -754,7 +754,7 @@ export function MultiMatchMatrixGrid({
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white dark:bg-[#0b101c] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-400 text-[11px] font-black uppercase tracking-wider">
+            <span className="px-2.5 py-0.5 rounded-full bg-(--ed-blue)/10 text-(--ed-blue) dark:text-blue-400 text-[11px] font-black uppercase tracking-wider">
               ⚡ Multi-Match Bulk Editor
             </span>
             <span className="text-xs text-slate-500 font-medium">Fast Spreadsheet Matrix</span>
@@ -795,7 +795,7 @@ export function MultiMatchMatrixGrid({
             disabled={isSaving || !hasUnsavedChanges}
             className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-md cursor-pointer ${
               hasUnsavedChanges
-                ? 'bg-[#0A5FC4] hover:bg-[#0850a3] text-white shadow-[#0A5FC4]/25 animate-pulse'
+                ? 'bg-(--ed-blue) hover:brightness-110 text-white shadow-(--ed-blue)/25 animate-pulse'
                 : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
             }`}
           >
@@ -842,7 +842,7 @@ export function MultiMatchMatrixGrid({
                 setSelectedStage('ALL');
                 setSelectedGroup('ALL');
               }}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
             >
               {tournaments.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -861,7 +861,7 @@ export function MultiMatchMatrixGrid({
               <select
                 value={selectedStage}
                 onChange={(e) => setSelectedStage(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
               >
                 <option value="ALL">All Stages ({filteredMatches.length} Matches)</option>
                 {availableStages.map((s) => (
@@ -882,7 +882,7 @@ export function MultiMatchMatrixGrid({
               <select
                 value={selectedGroup}
                 onChange={(e) => setSelectedGroup(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
               >
                 <option value="ALL">All Groups</option>
                 {availableGroups.map((g) => (
@@ -914,7 +914,7 @@ export function MultiMatchMatrixGrid({
               placeholder="Filter teams…"
               value={teamSearch}
               onChange={(e) => setTeamSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
             />
           </div>
         </div>
@@ -931,7 +931,7 @@ export function MultiMatchMatrixGrid({
           </p>
           <Link
             href={`/admin/matches?tournamentId=${selectedTourney?.id}`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0A5FC4] text-white text-xs font-bold hover:bg-[#0850a3]"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-(--ed-blue) text-white text-xs font-bold hover:bg-(--ed-blue)"
           >
             <Plus className="w-3.5 h-3.5" /> Create Match
           </Link>
@@ -977,7 +977,7 @@ export function MultiMatchMatrixGrid({
                               type="button"
                               onClick={() => handleAutoFillRanks(m.id)}
                               title="Auto-fill default ranks 1-16 for this match"
-                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200/70 hover:bg-[#0A5FC4] hover:text-white dark:bg-slate-800 dark:hover:bg-[#0A5FC4] text-slate-600 dark:text-slate-400 transition-colors"
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200/70 hover:bg-(--ed-blue) hover:text-white dark:bg-slate-800 dark:hover:bg-(--ed-blue) text-slate-600 dark:text-slate-400 transition-colors"
                             >
                               Auto 1-16
                             </button>
@@ -1019,7 +1019,7 @@ export function MultiMatchMatrixGrid({
                   {/* Summary Leaderboard Header */}
                   <th className="py-3 px-4 min-w-[170px] bg-slate-200/50 dark:bg-slate-900/80 text-right">
                     <div className="text-right space-y-0.5">
-                      <span className="text-[10px] uppercase font-black tracking-wider text-[#0A5FC4] dark:text-blue-400 block">
+                      <span className="text-[10px] uppercase font-black tracking-wider text-(--ed-blue) dark:text-blue-400 block">
                         Live Standings
                       </span>
                       <span className="text-[9px] text-slate-400 font-medium">MP · WWCD · Kills · Pts</span>
@@ -1099,7 +1099,7 @@ export function MultiMatchMatrixGrid({
                                     const val = e.target.value === '' ? '' : Number(e.target.value);
                                     handleCellChange(m.id, team.id, 'rank', val);
                                   }}
-                                  className={`w-full px-1.5 py-1 text-center font-bold text-xs rounded-md border focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] ${
+                                  className={`w-full px-1.5 py-1 text-center font-bold text-xs rounded-md border focus:outline-none focus:ring-2 focus:ring-(--ed-blue) ${
                                     cell.rank === 1
                                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200'
@@ -1125,7 +1125,7 @@ export function MultiMatchMatrixGrid({
                                     const val = e.target.value === '' ? '' : Number(e.target.value);
                                     handleCellChange(m.id, team.id, 'elims', val);
                                   }}
-                                  className="w-full px-1.5 py-1 text-center font-semibold text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+                                  className="w-full px-1.5 py-1 text-center font-semibold text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
                                 />
                               </div>
 
@@ -1142,7 +1142,7 @@ export function MultiMatchMatrixGrid({
                                     })
                                   }
                                   title={`Total: ${points.totalPoints} pts (${points.placePoints} place + ${points.elimsPoints} elims). Click for details.`}
-                                  className="px-1.5 py-0.5 rounded text-[10px] font-black bg-slate-100 hover:bg-[#0A5FC4] hover:text-white dark:bg-slate-800 dark:hover:bg-[#0A5FC4] text-[#0A5FC4] dark:text-blue-400 transition-colors shrink-0"
+                                  className="px-1.5 py-0.5 rounded text-[10px] font-black bg-slate-100 hover:bg-(--ed-blue) hover:text-white dark:bg-slate-800 dark:hover:bg-(--ed-blue) text-(--ed-blue) dark:text-blue-400 transition-colors shrink-0"
                                 >
                                   {points.totalPoints}p
                                 </button>
@@ -1166,7 +1166,7 @@ export function MultiMatchMatrixGrid({
                           <span className="text-[11px] text-slate-500 dark:text-slate-400">
                             {agg.elimsPoints}k
                           </span>
-                          <span className="text-xs font-black text-[#0A5FC4] dark:text-blue-400 min-w-[35px] text-right">
+                          <span className="text-xs font-black text-(--ed-blue) dark:text-blue-400 min-w-[35px] text-right">
                             {agg.totalPoints} pts
                           </span>
                         </div>
@@ -1204,7 +1204,7 @@ export function MultiMatchMatrixGrid({
                 type="button"
                 onClick={handleSaveAll}
                 disabled={isSaving || !hasUnsavedChanges}
-                className="px-4 py-2 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
+                className="px-4 py-2 rounded-xl bg-(--ed-blue) hover:brightness-110 disabled:bg-slate-300 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold text-xs uppercase tracking-wider transition-all"
               >
                 {isSaving ? 'Saving…' : 'Save Changes'}
               </button>
@@ -1246,7 +1246,7 @@ export function MultiMatchMatrixGrid({
                 <select
                   value={pasteTargetMatchId}
                   onChange={(e) => setPasteTargetMatchId(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b101c] text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b101c] text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
                 >
                   {filteredMatches.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -1277,7 +1277,7 @@ export function MultiMatchMatrixGrid({
                 placeholder={`1\tTeam Soul\t9\t1420\n2\tGodLike Esports\t6\t1100\n3\tTeam XSpark\t4\t890\n4\tReckoning Esports\t3\t620`}
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
-                className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+                className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
               />
             </div>
 
@@ -1350,7 +1350,7 @@ export function MultiMatchMatrixGrid({
                 type="button"
                 onClick={handleApplyPasteToMatch}
                 disabled={parsedPreviewRows.length === 0}
-                className="px-6 py-2.5 rounded-xl bg-[#0A5FC4] hover:bg-[#0850a3] disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center gap-2"
+                className="px-6 py-2.5 rounded-xl bg-(--ed-blue) hover:brightness-110 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center gap-2"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Apply {parsedPreviewRows.length} Teams to Match</span>
@@ -1369,7 +1369,7 @@ export function MultiMatchMatrixGrid({
                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
                   Advanced Team Stats
                 </h3>
-                <p className="text-xs text-[#0A5FC4] font-bold mt-0.5">
+                <p className="text-xs text-(--ed-blue) font-bold mt-0.5">
                   {activeCellDetail.teamName} · {activeCellDetail.matchLabel}
                 </p>
               </div>
@@ -1555,7 +1555,7 @@ export function MultiMatchMatrixGrid({
               <button
                 type="button"
                 onClick={() => setActiveCellDetail(null)}
-                className="px-5 py-2 rounded-xl bg-[#0A5FC4] text-white text-xs font-bold uppercase tracking-wider"
+                className="px-5 py-2 rounded-xl bg-(--ed-blue) text-white text-xs font-bold uppercase tracking-wider"
               >
                 Done
               </button>

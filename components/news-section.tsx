@@ -54,35 +54,75 @@ function extractImage(post: WpPost): string | null {
   );
 }
 
+// Session cache + fetch timeout: the WordPress API is slow/hang-prone, and
+// refetching on every mount made the homepage news flash skeletons repeatedly.
+const CACHE_KEY = 'ea-news-cache-v1';
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const FETCH_TIMEOUT_MS = 8000;
+
+interface CachedNews {
+  at: number;
+  posts: NewsItem[];
+}
+
+function readCache(): NewsItem[] | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedNews;
+    if (Date.now() - parsed.at > CACHE_TTL_MS || !Array.isArray(parsed.posts)) return null;
+    return parsed.posts;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(posts: NewsItem[]): void {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), posts } satisfies CachedNews));
+  } catch {
+    // Ignore quota errors
+  }
+}
+
 export function NewsSection() {
-  const [posts, setPosts] = React.useState<NewsItem[] | null>(null);
+  // Hydrate straight from the session cache so repeat visits never flash skeletons
+  const [posts, setPosts] = React.useState<NewsItem[] | null>(() => readCache());
   const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
+    if (readCache()) return; // cache is fresh — no refetch
     let cancelled = false;
-    fetch(`${WP_API}?per_page=6&_embed`)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    fetch(`${WP_API}?per_page=6&_embed`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then((json: WpPost[]) => {
+        clearTimeout(timeout);
         if (cancelled || !Array.isArray(json)) return;
-        setPosts(
-          json.map((p) => ({
-            id: p.id,
-            title: cleanHtml(p.title.rendered),
-            excerpt: cleanHtml(p.excerpt.rendered),
-            link: p.link,
-            date: p.date,
-            image: extractImage(p),
-          }))
-        );
+        const items = json.map((p) => ({
+          id: p.id,
+          title: cleanHtml(p.title.rendered),
+          excerpt: cleanHtml(p.excerpt.rendered),
+          link: p.link,
+          date: p.date,
+          image: extractImage(p),
+        }));
+        setPosts(items);
+        writeCache(items);
       })
       .catch(() => {
+        clearTimeout(timeout);
         if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
+      controller.abort();
+      clearTimeout(timeout);
     };
   }, []);
 

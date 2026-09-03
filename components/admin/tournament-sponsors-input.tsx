@@ -164,7 +164,7 @@ export function TournamentSponsorsInput({
             }
           }}
           placeholder="Type sponsor name (e.g. iQOO, Monster Energy, AMD) — comma separated to add multiple…"
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
         />
 
         {showSuggs && suggestions.length > 0 && (
@@ -224,7 +224,7 @@ function SponsorCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Tag className={`w-3.5 h-3.5 shrink-0 ${isTitle ? 'text-amber-500' : 'text-[#0A5FC4]'}`} />
+          <Tag className={`w-3.5 h-3.5 shrink-0 ${isTitle ? 'text-amber-500' : 'text-(--ed-blue)'}`} />
           <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
             {sponsor.name}
           </span>
@@ -246,7 +246,7 @@ function SponsorCard({
           value={sponsor.tier}
           onChange={(e) => onTierChange(e.target.value)}
           placeholder="e.g. Title Sponsor"
-          className={`w-full px-2 py-1 rounded-md text-[11px] font-bold border focus:outline-none focus:ring-1 focus:ring-[#0A5FC4] ${
+          className={`w-full px-2 py-1 rounded-md text-[11px] font-bold border focus:outline-none focus:ring-1 focus:ring-(--ed-blue) ${
             isTitle
               ? 'bg-amber-500/15 border-amber-500/40 text-amber-900 dark:text-amber-300'
               : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'

@@ -76,7 +76,7 @@ export function TournamentPointsSystemInput({
           <select
             value={selectedSystem}
             onChange={(e) => handleSystemChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] cursor-pointer"
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-(--ed-blue) cursor-pointer"
           >
             {POINTS_SYSTEM_PRESETS.map((p) => (
               <option key={p.id} value={p.id}>
@@ -100,7 +100,7 @@ export function TournamentPointsSystemInput({
               step={0.5}
               value={killPoints}
               onChange={(e) => setKillPoints(parseFloat(e.target.value) || 0)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
             />
             <span className="text-xs text-slate-500 font-bold shrink-0">pt / kill</span>
           </div>
@@ -111,7 +111,7 @@ export function TournamentPointsSystemInput({
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-3.5 space-y-2.5">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-[#0A5FC4]" /> Placement Points Breakdown (Rank 1 – 16)
+            <Sliders className="w-3.5 h-3.5 text-(--ed-blue)" /> Placement Points Breakdown (Rank 1 – 16)
           </span>
           <span className="text-[10px] text-slate-400 font-mono">
             {selectedSystem === 'CUSTOM' ? '⚙️ Custom Adjusted' : '🔒 Standard Preset'}
@@ -141,7 +141,7 @@ export function TournamentPointsSystemInput({
                 max={100}
                 value={customPlacement[rank] ?? 0}
                 onChange={(e) => handlePlacementChange(rank, parseInt(e.target.value) || 0)}
-                className="w-full text-center text-xs font-mono font-black bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-[#0A5FC4] rounded"
+                className="w-full text-center text-xs font-mono font-black bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-(--ed-blue) rounded"
               />
             </div>
           ))}

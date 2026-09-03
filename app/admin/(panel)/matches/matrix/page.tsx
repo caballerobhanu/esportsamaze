@@ -137,7 +137,7 @@ export default async function AdminMatchMatrixPage({
             href="/admin/matches/matrix?view=json"
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
               activeView === 'json'
-                ? 'bg-[#0A5FC4] text-white shadow-md shadow-[#0A5FC4]/25'
+                ? 'bg-(--ed-blue) text-white shadow-md shadow-(--ed-blue)/25'
                 : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-800'
             }`}
           >
@@ -147,7 +147,7 @@ export default async function AdminMatchMatrixPage({
             href="/admin/matches/matrix?view=matrix"
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
               activeView === 'matrix'
-                ? 'bg-[#0A5FC4] text-white shadow-md shadow-[#0A5FC4]/25'
+                ? 'bg-(--ed-blue) text-white shadow-md shadow-(--ed-blue)/25'
                 : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/60 dark:hover:bg-slate-800'
             }`}
           >

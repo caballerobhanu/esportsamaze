@@ -79,7 +79,7 @@ export function TournamentVenuesInput({
           <button
             type="button"
             onClick={addVenue}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0A5FC4] hover:bg-[#0850a3] text-white text-xs font-bold transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold transition-colors"
           >
             <Plus className="w-3.5 h-3.5" /> Add Stadium / Venue Entry
           </button>
@@ -102,7 +102,7 @@ export function TournamentVenuesInput({
         <button
           type="button"
           onClick={addVenue}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#0A5FC4] text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-[#0A5FC4] transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-(--ed-blue) text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-(--ed-blue) transition-colors"
         >
           <Plus className="w-3.5 h-3.5" /> + Add Another Stadium / Stage Venue
         </button>
@@ -185,7 +185,7 @@ function VenueRow({
             value={venue.stageName}
             onChange={(e) => onChange('stageName', e.target.value)}
             placeholder="Optional (e.g. Grand Finals / Playoffs)"
-            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
           />
         </div>
 
@@ -205,7 +205,7 @@ function VenueRow({
             onFocus={() => setShowVenueSuggs(true)}
             onBlur={() => setTimeout(() => setShowVenueSuggs(false), 200)}
             placeholder="e.g. Yashobhoomi Convention Centre"
-            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
           />
 
           {showVenueSuggs && venueSuggs.length > 0 && (
@@ -257,7 +257,7 @@ function VenueRow({
             onFocus={() => setShowCitySuggs(true)}
             onBlur={() => setTimeout(() => setShowCitySuggs(false), 200)}
             placeholder="e.g. New Delhi / Hyderabad"
-            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
           />
 
           {showCitySuggs && citySuggs.length > 0 && (
@@ -288,7 +288,7 @@ function VenueRow({
           <select
             value={venue.country || 'India'}
             onChange={(e) => onChange('country', e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+            className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
           >
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.name}>
@@ -347,7 +347,7 @@ export function TournamentRegionInput({
         onFocus={() => setShowSuggs(true)}
         onBlur={() => setTimeout(() => setShowSuggs(false), 200)}
         placeholder="e.g. India / APAC / Global"
-        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]"
+        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
       />
 
       {showSuggs && suggestions.length > 0 && (
@@ -421,7 +421,7 @@ export function TournamentCountriesInput({
         {selected.map((c) => (
           <span
             key={c}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 text-[#0A5FC4] dark:text-blue-400 text-xs font-bold"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-(--ed-blue)/10 dark:bg-(--ed-blue)/20 text-(--ed-blue) dark:text-blue-400 text-xs font-bold"
           >
             <Globe className="w-3 h-3" />
             {c}
