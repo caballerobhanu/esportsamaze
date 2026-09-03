@@ -32,11 +32,11 @@ function RankBadge({ rank }: { rank: number }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black shrink-0',
-        rank === 1 && 'bg-amber-500 text-slate-950',
-        rank === 2 && 'bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-white',
-        rank === 3 && 'bg-amber-700/30 text-amber-700 dark:text-amber-400',
-        rank > 3 && 'bg-slate-100 dark:bg-[#111726] text-slate-500 dark:text-slate-400'
+        'inline-flex items-center justify-center w-5 h-5 rounded text-xs num font-bold shrink-0',
+        rank === 1 && 'bg-amber-400 text-slate-950 font-bold',
+        rank === 2 && 'bg-slate-300 dark:bg-slate-700 text-[var(--ed-ink)] font-bold',
+        rank === 3 && 'bg-amber-700/20 text-amber-700 dark:text-amber-400 font-bold',
+        rank > 3 && 'bg-[var(--ed-sand)] text-[var(--ed-stone)]'
       )}
     >
       {rank}
@@ -63,7 +63,7 @@ function TeamLogo({ name, logos }: { name: string; logos: RankingsResponse['logo
     .map((w) => w[0]?.toUpperCase())
     .join('');
   return (
-    <span className="w-5 h-5 rounded bg-gradient-to-br from-[#0A5FC4]/70 to-indigo-700/70 text-white text-[9px] font-black flex items-center justify-center shrink-0">
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-[var(--ed-sand)] text-[10px] font-bold text-[var(--ed-stone)] shrink-0">
       {initials}
     </span>
   );
@@ -80,9 +80,10 @@ export function KraftonRankings() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((json) => {
-        if (cancelled || !json?.data) return;
-        setData(json.data);
+      .then((json: { data?: RankingsResponse } & RankingsResponse) => {
+        if (!cancelled && json) {
+          setData(json.data ?? json);
+        }
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -96,65 +97,72 @@ export function KraftonRankings() {
 
   return (
     <section id="krafton-rankings" className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-[#0A5FC4] dark:text-amber-400" />
-          <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
+          <Shield className="w-5 h-5 text-[var(--ed-blue)]" />
+          <h2 className="font-display text-xl font-medium tracking-tight text-[var(--ed-ink)]">
             KRAFTON Rankings
           </h2>
         </div>
-        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-          Decay-Adjusted Rolling Points
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="ed-chip text-[var(--ed-stone)]">
+            Decay-Adjusted Rolling Points
+          </span>
+          <Link
+            href="/rankings"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ed-blue)] hover:underline"
+          >
+            Full rankings →
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Teams column */}
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#080d17] flex items-center justify-between">
-            <span className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+        <div className="ed-card">
+          <div className="ed-card-head">
+            <span className="font-semibold text-xs uppercase tracking-wider text-[var(--ed-ink)]">
               Teams
             </span>
-            <span className="text-[10px] font-semibold text-slate-400 uppercase">Top 10</span>
+            <span className="ed-chip text-[var(--ed-stone)]">Top 10</span>
           </div>
 
           {loading ? (
             <RankSkeleton rowsWithSub={false} />
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-xs text-left">
               <thead>
-                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80">
-                  <th className="py-2 pl-3 w-10 text-center">#</th>
-                  <th className="py-2 text-left">Team</th>
-                  <th className="py-2 pr-2 text-center w-14">Events</th>
-                  <th className="py-2 pr-3 text-right w-20">Points</th>
+                <tr className="bg-[var(--ed-sand)]/50 border-b border-[var(--ed-hair)]">
+                  <th className="ed-th text-center w-10">#</th>
+                  <th className="ed-th">Team</th>
+                  <th className="ed-th text-center w-14">Events</th>
+                  <th className="ed-th text-right w-20">Points</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="ed-rows font-medium">
                 {(data?.teams ?? []).map((team) => (
                   <tr
                     key={team.name}
-                    className={cn(
-                      'hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors',
-                      team.rank === 1 && 'bg-amber-500/5',
-                      team.rank <= 3 && team.rank !== 1 && 'bg-slate-50/50 dark:bg-white/[0.02]'
-                    )}
+                    className="hover:bg-[var(--ed-sand)]/30 transition-colors"
                   >
-                    <td className="py-2.5 pl-3 text-center">
+                    <td className="py-2.5 px-2 text-center">
                       <RankBadge rank={team.rank} />
                     </td>
-                    <td className="py-2.5">
+                    <td className="py-2.5 px-3">
                       <span className="flex items-center gap-2 min-w-0">
                         <TeamLogo name={team.name} logos={data?.logos ?? {}} />
-                        <span className="font-bold text-slate-900 dark:text-white truncate">
+                        <Link
+                          href={`/teams/${encodeURIComponent(team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                          className="font-semibold text-[var(--ed-ink)] truncate hover:text-[var(--ed-blue)] transition-colors"
+                        >
                           {team.name}
-                        </span>
+                        </Link>
                       </span>
                     </td>
-                    <td className="py-2.5 pr-2 text-center font-mono text-xs text-slate-500 dark:text-slate-400">
+                    <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
                       {team.events}
                     </td>
-                    <td className="py-2.5 pr-3 text-right font-mono font-black text-sm text-slate-900 dark:text-white">
+                    <td className="py-2.5 px-3 text-right num font-bold text-[var(--ed-ink)]">
                       {team.points.toFixed(1)}
                     </td>
                   </tr>
@@ -165,37 +173,33 @@ export function KraftonRankings() {
         </div>
 
         {/* Players column */}
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#080d17] flex items-center justify-between">
-            <span className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+        <div className="ed-card">
+          <div className="ed-card-head">
+            <span className="font-semibold text-xs uppercase tracking-wider text-[var(--ed-ink)]">
               Players
             </span>
-            <span className="text-[10px] font-semibold text-slate-400 uppercase">Top 10</span>
+            <span className="ed-chip text-[var(--ed-stone)]">Top 10</span>
           </div>
 
           {loading ? (
             <RankSkeleton rowsWithSub />
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-xs text-left">
               <thead>
-                <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80">
-                  <th className="py-2 pl-3 w-10 text-center">#</th>
-                  <th className="py-2 text-left">Player</th>
-                  <th className="py-2 pr-2 text-center w-14">Finishes</th>
-                  <th className="py-2 pr-3 text-right w-20">Points</th>
+                <tr className="bg-[var(--ed-sand)]/50 border-b border-[var(--ed-hair)]">
+                  <th className="ed-th text-center w-10">#</th>
+                  <th className="ed-th">Player</th>
+                  <th className="ed-th text-center w-14">Finishes</th>
+                  <th className="ed-th text-right w-20">Points</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              <tbody className="ed-rows font-medium">
                 {(data?.players ?? []).map((player) => (
                   <tr
                     key={player.name}
-                    className={cn(
-                      'hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors',
-                      player.rank === 1 && 'bg-amber-500/5',
-                      player.rank <= 3 && player.rank !== 1 && 'bg-slate-50/50 dark:bg-white/[0.02]'
-                    )}
+                    className="hover:bg-[var(--ed-sand)]/30 transition-colors"
                   >
-                    <td className="py-2.5 pl-3 text-center align-middle">
+                    <td className="py-2.5 px-2 text-center">
                       <RankBadge rank={player.rank} />
                     </td>
                     <td className="py-2.5">
@@ -208,12 +212,12 @@ export function KraftonRankings() {
                           {player.slug ? (
                             <Link
                               href={`/players/${player.slug}`}
-                              className="font-bold text-slate-900 dark:text-white truncate hover:text-[#0A5FC4] dark:hover:text-amber-400 transition-colors"
+                              className="font-semibold text-[var(--ed-ink)] truncate hover:text-[var(--ed-blue)] transition-colors"
                             >
                               {player.name}
                             </Link>
                           ) : (
-                            <span className="font-bold text-slate-900 dark:text-white truncate">
+                            <span className="font-semibold text-[var(--ed-ink)] truncate">
                               {player.name}
                             </span>
                           )}
@@ -221,15 +225,15 @@ export function KraftonRankings() {
                             className={cn(
                               'text-[10px] truncate',
                               player.team
-                                ? 'text-slate-400'
-                                : 'text-slate-400 italic opacity-70'
+                                ? 'text-[var(--ed-stone)]'
+                                : 'text-[var(--ed-stone)] italic opacity-70'
                             )}
                           >
                             {player.team ? (
                               player.teamSlug ? (
                                 <Link
                                   href={`/teams/${player.teamSlug}`}
-                                  className="hover:text-[#0A5FC4] dark:hover:text-amber-400 transition-colors"
+                                  className="hover:text-[var(--ed-blue)] transition-colors"
                                 >
                                   {player.team}
                                 </Link>
@@ -243,10 +247,10 @@ export function KraftonRankings() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-2.5 pr-2 text-center font-mono text-xs text-slate-500 dark:text-slate-400">
+                    <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
                       {player.totalFinishes}
                     </td>
-                    <td className="py-2.5 pr-3 text-right font-mono font-black text-sm text-slate-900 dark:text-white">
+                    <td className="py-2.5 px-3 text-right num font-bold text-[var(--ed-ink)]">
                       {player.points.toFixed(1)}
                     </td>
                   </tr>

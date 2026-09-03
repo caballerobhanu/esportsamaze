@@ -357,8 +357,10 @@ function TeamRowCard({
   onToggleExpand,
 }: TeamRowCardProps) {
   const roster = Array.isArray(tt.rosterJson)
-    ? (tt.rosterJson as Array<{ ign: string; role?: string; captain?: boolean } | string>)
+    ? (tt.rosterJson as Array<{ ign: string; role?: string; captain?: boolean; isStaff?: boolean } | string>)
     : [];
+  const playingRoster = roster.filter((p) => typeof p === 'string' || !p.isStaff);
+  const staffRoster = roster.filter((p) => typeof p !== 'string' && p.isStaff);
 
   const lightLogo = tt.logoUrl ?? tt.team.logoUrl;
   const darkLogo = tt.logoDarkUrl ?? tt.team.imageDarkUrl;
@@ -429,21 +431,16 @@ function TeamRowCard({
             )}
           </Link>
 
-          {/* 2. Team Name & Tag */}
-          <div className="min-w-0 flex-1 flex items-baseline gap-1.5 truncate">
+          {/* 2. Team Name */}
+          <div className="min-w-0 flex-1 truncate">
             <Link
               href={`/teams/${teamSlug}`}
               onClick={(e) => e.stopPropagation()}
-              className="font-bold text-xs sm:text-sm text-(--ed-ink) hover:text-(--ed-blue) transition-colors truncate"
+              className="font-bold text-xs sm:text-sm text-(--ed-ink) hover:text-(--ed-blue) transition-colors truncate block"
               title={`View ${teamDisplayName} Profile`}
             >
               {teamDisplayName}
             </Link>
-            {teamTag && (
-              <span className="text-[11px] font-mono font-medium text-slate-400 shrink-0">
-                [{teamTag}]
-              </span>
-            )}
           </div>
         </div>
 
@@ -487,9 +484,9 @@ function TeamRowCard({
       {/* ── Expandable Squad Roster (Space Efficient Inline View) ── */}
       {isExpanded && (
         <div className="border-t border-(--ed-hair) bg-(--ed-canvas)/50 p-3 sm:px-4 sm:py-3 space-y-2.5 animate-in fade-in duration-150">
-          {roster.length > 0 ? (
+          {playingRoster.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
-              {roster.map((p, i) => {
+              {playingRoster.map((p, i) => {
                 const ign = typeof p === 'string' ? p : p.ign;
                 const role = typeof p === 'string' ? '' : p.role;
                 const captain = typeof p === 'string' ? false : p.captain;
@@ -523,9 +520,38 @@ function TeamRowCard({
             <p className="text-xs text-(--ed-stone) italic">No registered roster for this tournament.</p>
           )}
 
+          {/* ── Coaching & Support Staff ── */}
+          {staffRoster.length > 0 && (
+            <div className="pt-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-(--ed-stone)">
+                Coaching &amp; Support Staff
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 mt-1.5">
+                {staffRoster.map((p, i) => {
+                  const ign = typeof p === 'string' ? p : p.ign;
+                  const role = typeof p === 'string' ? '' : p.role;
+                  return (
+                    <div
+                      key={`staff-${i}`}
+                      className="flex flex-col justify-center px-2.5 py-1.5 rounded-md bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/60 text-xs"
+                    >
+                      <span className="font-bold text-(--ed-ink) truncate">{ign}</span>
+                      {role && (
+                        <span className="text-[10px] text-(--ed-stone) capitalize truncate mt-0.5">{role}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Quick Team Link Footer */}
           <div className="flex items-center justify-between pt-1 border-t border-(--ed-hair)/40 text-[11px]">
-            <span className="text-slate-400">{roster.length} registered player{roster.length === 1 ? '' : 's'}</span>
+            <span className="text-slate-400">
+              {playingRoster.length} registered player{playingRoster.length === 1 ? '' : 's'}
+              {staffRoster.length > 0 && ` · ${staffRoster.length} staff`}
+            </span>
             <Link
               href={`/teams/${teamSlug}`}
               className="text-(--ed-blue) hover:underline font-semibold flex items-center gap-1"

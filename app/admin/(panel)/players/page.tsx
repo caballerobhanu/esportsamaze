@@ -6,12 +6,16 @@ import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
+import { COUNTRIES } from '@/lib/countries';
+import { Combobox } from '@/components/admin/combobox';
 
 export const dynamic = 'force-dynamic';
 
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
+
+const STAFF_ROLES = ['Head Coach', 'Coach', 'Assistant Coach', 'Analyst', 'Manager', 'Content Creator'];
 
 async function savePlayer(formData: FormData) {
   'use server';
@@ -43,6 +47,8 @@ async function savePlayer(formData: FormData) {
     nationality: fOpt(formData, 'nationality'),
     birthDate: fDate(formData, 'birthDate'),
     status: fStr(formData, 'status') || 'ACTIVE',
+    isPlayer: formData.get('isPlayer') === 'on',
+    staffRole: fOpt(formData, 'staffRole'),
     gameId: fOpt(formData, 'gameId'),
     currentTeamId: fOpt(formData, 'currentTeamId'),
     socialLinks: fSocials(formData),
@@ -106,6 +112,19 @@ export default async function AdminPlayersPage({
     ? await prisma.player.findUnique({ where: { id: edit } })
     : null;
 
+  const countryOptions = COUNTRIES.map((c) => ({
+    value: c.name,
+    label: c.name,
+    keywords: `${c.code} ${c.name}`,
+  }));
+  const gameOptions = games.map((g) => ({ value: g.id, label: g.name }));
+  const teamOptions = teams.map((t) => ({
+    value: t.id,
+    label: t.name + (t.tag ? ` [${t.tag}]` : ''),
+    keywords: `${t.name} ${t.tag ?? ''}`,
+  }));
+  const staffRoleOptions = STAFF_ROLES.map((r) => ({ value: r, label: r }));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -135,6 +154,7 @@ export default async function AdminPlayersPage({
 
         <form
           action={savePlayer}
+          key={editing?.id ?? 'new'}
           className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-5 space-y-4"
         >
           {editing && <input type="hidden" name="id" value={editing.id} />}
@@ -179,7 +199,14 @@ export default async function AdminPlayersPage({
             </div>
             <div>
               <label className={labelCls}>Nationality</label>
-              <input name="nationality" defaultValue={editing?.nationality ?? ''} className={inputCls} />
+              <Combobox
+                name="nationality"
+                options={countryOptions}
+                defaultValue={editing?.nationality ?? ''}
+                freeText
+                placeholder="Type a country…"
+                ariaLabel="Nationality"
+              />
             </div>
             <div>
               <label className={labelCls}>Avatar URL</label>
@@ -194,22 +221,57 @@ export default async function AdminPlayersPage({
             </div>
             <div>
               <label className={labelCls}>Game</label>
-              <select name="gameId" defaultValue={editing?.gameId ?? ''} className={inputCls}>
-                <option value="">—</option>
-                {games.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
+              <Combobox
+                name="gameId"
+                options={gameOptions}
+                defaultValue={editing?.gameId ?? ''}
+                emptyOptionLabel="—"
+                placeholder="Type a game…"
+                ariaLabel="Game"
+              />
             </div>
             <div>
               <label className={labelCls}>Current Team</label>
-              <select name="currentTeamId" defaultValue={editing?.currentTeamId ?? ''} className={inputCls}>
-                <option value="">Free Agent</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}{t.tag ? ` [${t.tag}]` : ''}</option>
-                ))}
-              </select>
+              <Combobox
+                name="currentTeamId"
+                options={teamOptions}
+                defaultValue={editing?.currentTeamId ?? ''}
+                emptyOptionLabel="Free Agent"
+                placeholder="Type a team name or tag…"
+                ariaLabel="Current Team"
+              />
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                name="isPlayer"
+                defaultChecked={editing?.isPlayer ?? true}
+                className="h-4 w-4 rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+              />
+              Playing roster member
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Support staff role
+              </span>
+              <div className="w-56">
+                <Combobox
+                  name="staffRole"
+                  options={staffRoleOptions}
+                  defaultValue={editing?.staffRole ?? ''}
+                  emptyOptionLabel="— Not staff —"
+                  freeText
+                  placeholder="Coach, Analyst…"
+                  ariaLabel="Support staff role"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              A person can be both: tick the checkbox and set a staff role to show them in both sections.
+            </p>
           </div>
 
           <fieldset className="border-t border-slate-100 dark:border-slate-800 pt-3">
@@ -259,7 +321,19 @@ export default async function AdminPlayersPage({
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
             {players.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
-                <td className="py-2.5 px-3 font-bold">{p.ign}</td>
+                <td className="py-2.5 px-3 font-bold">
+                  {p.ign}
+                  {p.staffRole && (
+                    <span className="ml-2 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-500">
+                      {p.staffRole}
+                    </span>
+                  )}
+                  {!p.isPlayer && (
+                    <span className="ml-1.5 rounded bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                      Staff only
+                    </span>
+                  )}
+                </td>
                 <td className="py-2.5 px-3 text-slate-500">{p.currentTeam?.name ?? '—'}</td>
                 <td className="py-2.5 px-3 text-slate-500 hidden sm:table-cell">{p.role ?? '—'}</td>
                 <td className="py-2.5 px-3 text-slate-500 hidden md:table-cell">{p.game?.name ?? '—'}</td>

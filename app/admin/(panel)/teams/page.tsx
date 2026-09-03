@@ -6,6 +6,8 @@ import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
+import { COUNTRIES } from '@/lib/countries';
+import { Combobox } from '@/components/admin/combobox';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,6 +114,13 @@ export default async function AdminTeamsPage({
     ? await prisma.team.findUnique({ where: { id: edit } })
     : null;
 
+  const countryOptions = COUNTRIES.map((c) => ({
+    value: c.name,
+    label: c.name,
+    keywords: `${c.code} ${c.name}`,
+  }));
+  const gameOptions = games.map((g) => ({ value: g.id, label: g.name }));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -141,6 +150,7 @@ export default async function AdminTeamsPage({
 
         <form
           action={saveTeam}
+          key={editing?.id ?? 'new'}
           className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-5 space-y-4"
         >
           {editing && <input type="hidden" name="id" value={editing.id} />}
@@ -172,7 +182,14 @@ export default async function AdminTeamsPage({
             </div>
             <div>
               <label className={labelCls}>Region / Country</label>
-              <input name="region" defaultValue={editing?.region ?? ''} className={inputCls} />
+              <Combobox
+                name="region"
+                options={countryOptions}
+                defaultValue={editing?.region ?? ''}
+                freeText
+                placeholder="Type a region or country…"
+                ariaLabel="Region / Country"
+              />
             </div>
             <div>
               <label className={labelCls}>Founded</label>
@@ -185,12 +202,14 @@ export default async function AdminTeamsPage({
             </div>
             <div>
               <label className={labelCls}>Game</label>
-              <select name="gameId" defaultValue={editing?.gameId ?? ''} className={inputCls}>
-                <option value="">—</option>
-                {games.map((g) => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
+              <Combobox
+                name="gameId"
+                options={gameOptions}
+                defaultValue={editing?.gameId ?? ''}
+                emptyOptionLabel="—"
+                placeholder="Type a game…"
+                ariaLabel="Game"
+              />
             </div>
             <div>
               <label className={labelCls}>Sponsors</label>

@@ -54,6 +54,13 @@ export const ROSTER_TRANSFERS: Record<string, Array<{ new: string; before: strin
   'true rippers': [{ new: 'Team Apex Gaming', before: '2026-04-30' }],
 };
 
+export type RosterTransferRules = Record<string, Array<{ new: string; before: string }>>;
+
+/** DB-managed rules (admin panel) merged over the built-in defaults; same key overrides. */
+export function mergeTransferRules(dbRules?: RosterTransferRules): RosterTransferRules {
+  return dbRules ? { ...ROSTER_TRANSFERS, ...dbRules } : ROSTER_TRANSFERS;
+}
+
 const DAY_SECONDS = 86_400;
 
 function timestamp(dateStr: string): number {
@@ -63,22 +70,26 @@ function timestamp(dateStr: string): number {
   return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) / 1000;
 }
 
-export function getActiveTeamName(teamName: string, eventDateStr: string): string {
+function resolveActiveTeam(teamName: string, eventDateStr: string, rules: RosterTransferRules): string {
   if (!teamName) return '';
   const tLower = teamName.toLowerCase();
-  const rules = ROSTER_TRANSFERS[tLower];
-  if (!rules) return teamName;
+  const teamRules = rules[tLower];
+  if (!teamRules) return teamName;
 
   const eventTs = timestamp(eventDateStr);
   if (!eventTs) return teamName;
 
-  for (const rule of rules) {
+  for (const rule of teamRules) {
     if (eventTs <= timestamp(rule.before)) {
       // Recursively resolve in case the new org was itself acquired later
-      return getActiveTeamName(rule.new, eventDateStr);
+      return resolveActiveTeam(rule.new, eventDateStr, rules);
     }
   }
   return teamName;
+}
+
+export function getActiveTeamName(teamName: string, eventDateStr: string): string {
+  return resolveActiveTeam(teamName, eventDateStr, ROSTER_TRANSFERS);
 }
 
 const TEAM_BASE_TABLE: Record<string, number[]> = {
@@ -132,6 +143,26 @@ export function getPlayerDecay(days: number): number {
   return 0;
 }
 
+/** Undecayed player points: finishes × tier multiplier + flat award bonuses. */
+export function getPlayerBasePoints(
+  finishes: number,
+  tier: string,
+  flags: { mvpTourney?: boolean; mvpFinals?: boolean; igl?: boolean; survivor?: boolean; emerging?: boolean }
+): number {
+  const t = (tier || '').toLowerCase();
+  let mult = 1;
+  if (t.includes('publisher')) mult = 2;
+  else if (t.includes('tier 1')) mult = 1.5;
+
+  let base = (finishes || 0) * mult;
+  if (flags.mvpTourney) base += 20;
+  if (flags.mvpFinals) base += 10;
+  if (flags.igl) base += 10;
+  if (flags.survivor) base += 10;
+  if (flags.emerging) base += 5;
+  return base;
+}
+
 interface AccTeam {
   name: string;
   latestTourney: string;
@@ -142,13 +173,14 @@ interface AccTeam {
 
 export function computeTeamRankings(
   rows: TeamRankingRow[],
-  asOf: Date = new Date()
+  asOf: Date = new Date(),
+  rules: RosterTransferRules = ROSTER_TRANSFERS
 ): RankedTeam[] {
   const targetTs = Math.floor(asOf.getTime() / 1000);
   const acc = new Map<string, AccTeam>();
 
   for (const r of rows) {
-    const team = getActiveTeamName(r.team, r.endDate);
+    const team = resolveActiveTeam(r.team, r.endDate, rules);
     const endTs = timestamp(r.endDate);
     if (!team || !endTs || endTs > targetTs) continue;
 
@@ -190,7 +222,8 @@ interface AccPlayer {
 
 export function computePlayerRankings(
   rows: PlayerRankingRow[],
-  asOf: Date = new Date()
+  asOf: Date = new Date(),
+  rules: RosterTransferRules = ROSTER_TRANSFERS
 ): RankedPlayer[] {
   const targetTs = Math.floor(asOf.getTime() / 1000);
   const acc = new Map<string, AccPlayer>();
@@ -199,7 +232,7 @@ export function computePlayerRankings(
     const endTs = timestamp(r.endDate);
     if (!r.player || !endTs || endTs > targetTs) continue;
 
-    const activeTeam = getActiveTeamName(r.team || '', r.endDate);
+    const activeTeam = resolveActiveTeam(r.team || '', r.endDate, rules);
 
     let d = acc.get(r.player);
     if (!d) {
@@ -218,17 +251,13 @@ export function computePlayerRankings(
 
     const days = Math.max(0, Math.floor((targetTs - endTs) / DAY_SECONDS));
 
-    const t = (r.tier || '').toLowerCase();
-    let mult = 1;
-    if (t.includes('publisher')) mult = 2;
-    else if (t.includes('tier 1')) mult = 1.5;
-
-    let base = (r.finishes || 0) * mult;
-    if (r.mvpTourney) base += 20;
-    if (r.mvpFinals) base += 10;
-    if (r.igl) base += 10;
-    if (r.survivor) base += 10;
-    if (r.emerging) base += 5;
+    const base = getPlayerBasePoints(r.finishes || 0, r.tier, {
+      mvpTourney: r.mvpTourney,
+      mvpFinals: r.mvpFinals,
+      igl: r.igl,
+      survivor: r.survivor,
+      emerging: r.emerging,
+    });
 
     const finalPts = base * getPlayerDecay(days);
     if (finalPts > 0) {

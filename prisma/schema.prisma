@@ -73,6 +73,8 @@ model Team {
   matchPlayerStats  MatchPlayerStat[]
   rankings          TeamRanking[]
   playerRankingSnapshots PlayerRanking[] @relation("PlayerRankingTeam")
+  rankingTransfersOut    RankingTransferRule[] @relation("RankingTransferOldTeam")
+  rankingTransfersIn     RankingTransferRule[] @relation("RankingTransferNewTeam")
   tournamentsWon    Tournament[]      @relation("TournamentWinner")
   tournamentsRunnerUp Tournament[]    @relation("TournamentRunnerUp")
   createdAt         DateTime          @default(now())
@@ -90,6 +92,8 @@ model Player {
   role            String?
   birthDate       DateTime?
   status          String            @default("ACTIVE")
+  isPlayer        Boolean           @default(true) // false = staff-only member (never appears in playing rosters)
+  staffRole       String?           // Set when the person also serves as support staff: "Head Coach", "Analyst", "Manager"…
   gameId          String?
   game            Game?             @relation(fields: [gameId], references: [id])
   socialLinks     Json?
@@ -109,6 +113,7 @@ model Transfer {
   teamId    String
   team      Team         @relation(fields: [teamId], references: [id])
   type      TransferType
+  staffRole String?      // Set when this move is a staff appointment: "Coach", "Analyst"…
   date      DateTime
   notes     String?
 }
@@ -193,6 +198,7 @@ model Tournament {
   season            String?               // Season / Series Label (e.g. "2026 Edition", "Season 3")
   seriesValue       Int?                  // Priority weight or series index
   tier              String                // S-Tier, A-Tier, B-Tier, C-Tier, Qualifier
+  rankingIncluded   Boolean               @default(true) // false = excluded from KRAFTON rankings (points rows for it are ignored)
   status            TournamentStatus      @default(UPCOMING)
   eventType         String?               @default("LAN") // Online, LAN, Hybrid
   gameMode          String?               @default("Squads TPP") // TPP Squad, FPP Squad, Duo, Solo
@@ -274,6 +280,18 @@ model PlayerRanking {
   createdAt    DateTime    @default(now())
 
   @@index([tier, endDate])
+}
+
+// Time-based point transfers: points a team earned on/before `before`
+// are attributed to the acquiring org (see lib/krafton-rankings.ts).
+model RankingTransferRule {
+  id        String   @id @default(cuid())
+  oldTeamId String
+  oldTeam   Team     @relation("RankingTransferOldTeam", fields: [oldTeamId], references: [id])
+  newTeamId String
+  newTeam   Team     @relation("RankingTransferNewTeam", fields: [newTeamId], references: [id])
+  before    DateTime
+  createdAt DateTime @default(now())
 }
 
 model TournamentStage {

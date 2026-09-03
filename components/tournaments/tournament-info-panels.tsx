@@ -111,6 +111,22 @@ export function TournamentPrizePanel({
 
 /* ═══════════ FORMAT ═══════════ */
 
+function formatStageType(type?: string | null): string | null {
+  if (!type) return null;
+  const labels: Record<string, string> = {
+    GROUPS_WISE: 'Group Stage',
+    GROUP_STAGE: 'Group Stage',
+    ROUND_ROBIN: 'Round Robin',
+    SWISS: 'Swiss Stage',
+    PLAYOFFS: 'Playoffs',
+    FINALS: 'Grand Finals',
+    SPECIAL_STAGE: 'Bounty Stage',
+    SUPER_WEEKEND: 'Super Weekend',
+    SINGLE_LOBBY: 'Single Lobby',
+  };
+  return labels[type] || type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function TournamentFormatPanel({
   stages,
   pointsMatrix,
@@ -193,7 +209,7 @@ export function TournamentFormatPanel({
                       <p className="truncate text-sm font-medium">{s.name}</p>
                       {s.formatType && <p className="text-xs text-(--ed-stone)">{s.formatType}</p>}
                     </div>
-                    {s.stageType && <span className="ed-chip text-[11px] text-(--ed-stone)">{s.stageType}</span>}
+                    {s.stageType && <span className="ed-chip text-[11px] text-(--ed-stone)">{formatStageType(s.stageType)}</span>}
                   </div>
                 ))}
               </div>

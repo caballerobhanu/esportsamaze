@@ -46,6 +46,7 @@ next-env.d.ts
 # editor/agent artifacts
 .codebuddy/
 .freebuff/
+.zcode/
 
 # tokens & private data
 *cline-tokens*

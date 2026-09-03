@@ -6,6 +6,7 @@ import {
   type TeamRankingRow,
   type PlayerRankingRow,
 } from '@/lib/krafton-rankings';
+import { loadTransferRules } from '@/lib/ranking-rules';
 
 const LIMIT = 10;
 
@@ -49,12 +50,12 @@ function toDateOnly(d: Date): string {
 
 export async function GET() {
   try {
-    const [teamRows, playerRows] = await Promise.all([
+    const [teamRows, playerRows, rules] = await Promise.all([
       prisma.teamRanking.findMany({
         orderBy: { endDate: 'desc' },
         include: {
           team: { select: { name: true, logoUrl: true, imageDarkUrl: true, slug: true } },
-          tournament: { select: { name: true } },
+          tournament: { select: { name: true, rankingIncluded: true } },
         },
       }),
       prisma.playerRanking.findMany({
@@ -62,10 +63,16 @@ export async function GET() {
         include: {
           player: { select: { ign: true, slug: true } },
           team: { select: { name: true, slug: true } },
-          tournament: { select: { name: true } },
+          tournament: { select: { name: true, rankingIncluded: true } },
         },
       }),
+      loadTransferRules(),
     ]);
+
+    // Events excluded from KRAFTON rankings never contribute points
+    // (rows without a tournament link are manual entries → included)
+    const eligibleTeamRows = teamRows.filter((r) => !r.tournamentId || r.tournament?.rankingIncluded !== false);
+    const eligiblePlayerRows = playerRows.filter((r) => !r.tournamentId || r.tournament?.rankingIncluded !== false);
 
     if (teamRows.length > 0 || playerRows.length > 0) {
       // Logo + slug lookup per team name (used by both tables)
@@ -88,17 +95,19 @@ export async function GET() {
       }
 
       const teams = computeTeamRankings(
-        teamRows.map((r) => ({
+        eligibleTeamRows.map((r) => ({
           tournament: r.tournament?.name ?? '',
           tier: r.tier,
           endDate: toDateOnly(r.endDate),
           team: r.team.name,
           rank: r.rank,
-        }))
+        })),
+        new Date(),
+        rules
       ).slice(0, LIMIT);
 
       const players = computePlayerRankings(
-        playerRows.map((r) => ({
+        eligiblePlayerRows.map((r) => ({
           tournament: r.tournament?.name ?? '',
           tier: r.tier,
           endDate: toDateOnly(r.endDate),
@@ -110,7 +119,9 @@ export async function GET() {
           igl: r.igl > 0,
           survivor: r.survivor > 0,
           emerging: r.emerging > 0,
-        }))
+        })),
+        new Date(),
+        rules
       )
         .slice(0, LIMIT)
         .map((p) => {

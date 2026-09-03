@@ -66,7 +66,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/#krafton-rankings"
+                  href="/rankings"
                   className="hover:text-white transition-colors"
                 >
                   KRAFTON Rankings

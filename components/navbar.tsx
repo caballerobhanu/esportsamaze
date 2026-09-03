@@ -34,11 +34,11 @@ export const OTHER_TITLES = [
 const SHOW_OTHER_GAMES = false;
 
 export const NAV_ITEMS = [
-  { label: 'Tournaments', href: '#tournaments' },
-  { label: 'Teams', href: '#teams' },
-  { label: 'News', href: '#news' },
-  { label: 'Rankings', href: '#rankings' },
-  { label: 'Support', href: '#support' },
+  { label: 'Tournaments', href: '/tournaments' },
+  { label: 'Teams', href: '/teams' },
+  { label: 'News', href: '/#news' },
+  { label: 'Rankings', href: '/rankings' },
+  { label: 'Support', href: '/about' },
 ];
 
 interface SearchResponseData {
@@ -216,13 +216,13 @@ export function Navbar() {
               {/* Desktop navigation items */}
               <nav className="hidden md:flex items-center gap-5 lg:gap-6 xl:gap-9 ml-6 lg:ml-8 xl:ml-14 min-w-0">
                 {NAV_ITEMS.map((item) => (
-                  <a
+                  <Link
                     key={item.label}
                     href={item.href}
                     className="whitespace-nowrap text-sm font-semibold text-white/85 hover:text-white transition-colors duration-150"
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 ))}
               </nav>
             </div>
@@ -345,14 +345,14 @@ export function Navbar() {
 
               <nav className="space-y-1.5">
                 {NAV_ITEMS.map((item) => (
-                  <a
+                  <Link
                     key={item.label}
                     href={item.href}
                     onClick={() => setMobileDrawerOpen(false)}
                     className="block px-3.5 py-2.5 rounded-xl font-bold text-sm text-white hover:bg-white/15 transition"
                   >
                     {item.label}
-                  </a>
+                  </Link>
                 ))}
               </nav>
             </div>

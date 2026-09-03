@@ -132,22 +132,22 @@ export function EventsSection() {
   const visible = events ? selectEvents(events, tab) : [];
 
   return (
-    <section className="border-b border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#080d17]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 space-y-3">
+    <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)]">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-3.5 space-y-3">
         {/* Header: label + tab toggle on the right */}
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+          <h2 className="ed-label">
             Events
           </h2>
 
-          <div className="flex items-center rounded-lg bg-slate-100 dark:bg-[#111726] border border-slate-200 dark:border-slate-800 p-0.5">
+          <div className="flex items-center rounded-lg bg-[var(--ed-sand)]/60 border border-[var(--ed-hair)] p-0.5">
             <button
               onClick={() => setTab('active')}
               className={cn(
-                'px-3 py-1 rounded-md text-xs font-bold transition-colors',
+                'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
                 tab === 'active'
-                  ? 'bg-white dark:bg-[#0A5FC4] text-[#0A5FC4] dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'bg-[var(--ed-surface)] text-[var(--ed-blue)] shadow-xs'
+                  : 'text-[var(--ed-stone)] hover:text-[var(--ed-ink)]'
               )}
               aria-pressed={tab === 'active'}
             >
@@ -156,10 +156,10 @@ export function EventsSection() {
             <button
               onClick={() => setTab('past')}
               className={cn(
-                'px-3 py-1 rounded-md text-xs font-bold transition-colors',
+                'px-3 py-1 rounded-md text-xs font-semibold transition-colors',
                 tab === 'past'
-                  ? 'bg-white dark:bg-[#0A5FC4] text-[#0A5FC4] dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  ? 'bg-[var(--ed-surface)] text-[var(--ed-blue)] shadow-xs'
+                  : 'text-[var(--ed-stone)] hover:text-[var(--ed-ink)]'
               )}
               aria-pressed={tab === 'past'}
             >
@@ -174,35 +174,35 @@ export function EventsSection() {
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="min-w-[150px] sm:min-w-[168px] h-[172px] rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0b101c] animate-pulse"
+                className="min-w-[150px] sm:min-w-[168px] h-[172px] ed-card animate-pulse bg-[var(--ed-sand)]/30"
               />
             ))}
           </div>
         ) : visible.length === 0 ? (
-          <p className="py-6 text-center text-xs text-slate-400">
-            No {tab === 'active' ? 'active' : 'past'} events right now.
+          <p className="py-6 text-center text-xs text-[var(--ed-stone)]">
+            No {tab === 'active' ? 'active or upcoming' : 'past'} events right now.
           </p>
         ) : (
           <div className="flex gap-3 overflow-x-auto snap-x pb-1 [scrollbar-width:thin]">
             {visible.map((event) => {
               const cardClasses =
-                'group min-w-[150px] sm:min-w-[168px] snap-start rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4 flex flex-col items-center text-center gap-2 cursor-pointer';
+                'group min-w-[150px] sm:min-w-[168px] snap-start ed-card p-4 flex flex-col items-center text-center gap-2 cursor-pointer hover:border-[var(--ed-blue)] transition-colors';
               const inner = (
                 <>
                   <EventLogo event={event} />
 
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 min-h-[2rem] group-hover:text-[#0A5FC4] dark:group-hover:text-amber-400 transition-colors">
+                  <h3 className="text-xs font-semibold text-[var(--ed-ink)] leading-snug line-clamp-2 min-h-[2rem] group-hover:text-[var(--ed-blue)] transition-colors">
                     {event.name}
                   </h3>
 
-                  <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 max-w-full">
+                  <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ed-stone)] max-w-full">
                     <span
                       className={cn(
                         'w-1.5 h-1.5 rounded-full shrink-0',
                         event.status === 'ONGOING' &&
                           'bg-rose-500 animate-pulse',
-                        event.status === 'UPCOMING' && 'bg-indigo-500',
-                        event.status === 'COMPLETED' && 'bg-slate-400'
+                        event.status === 'UPCOMING' && 'bg-[var(--ed-blue)]',
+                        event.status === 'COMPLETED' && 'bg-[var(--ed-stone)]'
                       )}
                     />
                     <span className="truncate">{event.stageName}</span>

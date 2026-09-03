@@ -156,7 +156,7 @@ async function saveTournament(formData: FormData) {
     seed?: number | null;
     seedLabel?: string | null;
     seedTournamentId?: string | null;
-    roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean }>;
+    roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean; isStaff?: boolean }>;
     eventLogoUrl?: string | null;
     eventLogoDarkUrl?: string | null;
     shortName?: string | null;
@@ -419,6 +419,7 @@ async function saveTournament(formData: FormData) {
     season: fOpt(formData, 'season'),
     seriesValue: fNum(formData, 'seriesValue'),
     tier: fStr(formData, 'tier') || 'A-Tier',
+    rankingIncluded: formData.get('rankingIncluded') === 'on',
     status,
     eventType: fStr(formData, 'eventType') || 'LAN',
     gameMode: fStr(formData, 'gameMode') || 'Squads TPP',
@@ -544,6 +545,7 @@ async function saveTournament(formData: FormData) {
           ign: String(p.ign ?? ''),
           role: p.role ?? null,
           captain: !!p.captain,
+          isStaff: !!p.isStaff,
         })),
         logoUrl: logoLight ?? (squad.eventLogoUrl || null),
         logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
@@ -825,6 +827,7 @@ export default async function AdminTournamentsPage({
               ign: String((entry as { ign?: string }).ign ?? ''),
               role: (entry as { role?: string | null }).role ?? null,
               captain: !!((entry as { captain?: boolean }).captain ?? false),
+              isStaff: !!((entry as { isStaff?: boolean }).isStaff ?? false),
             }
       ),
       eventLogoUrl: tt.logoUrl,
@@ -1010,6 +1013,17 @@ export default async function AdminTournamentsPage({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="flex items-end pb-1.5">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    name="rankingIncluded"
+                    defaultChecked={editing?.rankingIncluded ?? true}
+                    className="h-4 w-4 rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+                  />
+                  Counts toward KRAFTON rankings
+                </label>
               </div>
               <div>
                 <label className={labelCls}>Event Type</label>

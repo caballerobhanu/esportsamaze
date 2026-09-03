@@ -8,6 +8,7 @@ export interface SquadRosterEntry {
   ign: string;
   role?: string | null;
   captain?: boolean;
+  isStaff?: boolean; // true = coaching / support staff member, not a competing player
 }
 
 export interface SquadRow {
@@ -26,6 +27,7 @@ export interface SquadRow {
 }
 
 const ROLES = ['Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
+const STAFF_ROLES = ['Head Coach', 'Coach', 'Assistant Coach', 'Analyst', 'Manager', 'Content Creator'];
 
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]';
@@ -251,7 +253,12 @@ export function TournamentSquadsInput({
           {/* Roster Section */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
             <div className="flex items-center justify-between mb-2">
-              <label className={labelCls}>Verified Roster ({squad.roster.length} players)</label>
+              <label className={labelCls}>
+                Verified Roster ({squad.roster.filter((p) => !p.isStaff).length} players
+                {squad.roster.some((p) => p.isStaff)
+                  ? ` · ${squad.roster.filter((p) => p.isStaff).length} staff`
+                  : ''})
+              </label>
               <button
                 type="button"
                 onClick={() => setBulkPasteOpen(bulkPasteOpen === i ? null : i)}
@@ -294,7 +301,7 @@ export function TournamentSquadsInput({
             )}
 
             <div className="space-y-2">
-              {squad.roster.map((p, j) => {
+              {squad.roster.map((p, j) => ({ p, j })).filter(({ p }) => !p.isStaff).map(({ p, j }) => {
                 const isLinked = !!p.playerId;
                 return (
                   <div key={j} className="grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto_auto] gap-2 items-center">
@@ -383,6 +390,90 @@ export function TournamentSquadsInput({
               >
                 + Add player
               </button>
+
+              {/* ── Support Staff (Coaches / Analysts / Managers) ── */}
+              <div className="pt-2 mt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                <label className={labelCls + ' mb-2 block'}>
+                  Coaching &amp; Support Staff
+                </label>
+                {squad.roster.map((p, j) => ({ p, j })).filter(({ p }) => p.isStaff).map(({ p, j }) => {
+                  const isLinked = !!p.playerId;
+                  return (
+                    <div key={j} className="grid grid-cols-1 sm:grid-cols-[1fr_10rem_auto] gap-2 items-center mb-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select
+                          className={`${inputCls} ${isLinked ? 'border-emerald-300 dark:border-emerald-700' : ''}`}
+                          value={p.playerId ?? ''}
+                          onChange={(e) => {
+                            const player = allPlayers.find((pl) => pl.id === e.target.value);
+                            const roster = squad.roster.map((r, idx) =>
+                              idx === j ? { ...r, playerId: player?.id ?? null, ign: player?.ign ?? r.ign } : r
+                            );
+                            updateRoster(i, roster);
+                          }}
+                        >
+                          <option value="">— Unlinked IGN —</option>
+                          {allPlayers.map((pl) => (
+                            <option key={pl.id} value={pl.id}>
+                              {pl.ign} {pl.name && pl.name !== pl.ign ? `(${pl.name})` : ''}
+                              {pl.currentTeam ? ` — ${pl.currentTeam.name}` : ''}
+                            </option>
+                          ))}
+                        </select>
+
+                        <input
+                          className={inputCls}
+                          value={p.ign}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const clean = val.trim().toLowerCase();
+                            const match = allPlayers.find((pl) => pl.ign.trim().toLowerCase() === clean);
+                            const roster = squad.roster.map((r, idx) =>
+                              idx === j ? { ...r, ign: val, playerId: match?.id ?? r.playerId } : r
+                            );
+                            updateRoster(i, roster);
+                          }}
+                          placeholder="Staff name / IGN"
+                        />
+                      </div>
+
+                      <select
+                        className={inputCls}
+                        value={p.role ?? ''}
+                        onChange={(e) => {
+                          const roster = squad.roster.map((r, idx) => (idx === j ? { ...r, role: e.target.value || null } : r));
+                          updateRoster(i, roster);
+                        }}
+                      >
+                        <option value="">Staff Role</option>
+                        {STAFF_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => updateRoster(i, squad.roster.filter((_, idx) => idx !== j))}
+                        className="px-2 py-1.5 rounded-md text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateRoster(i, [...squad.roster, { playerId: null, ign: '', role: 'Coach', captain: false, isStaff: true }])
+                  }
+                  className="px-3 py-1.5 rounded-lg border border-indigo-300/60 dark:border-indigo-800 text-xs font-bold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 cursor-pointer"
+                >
+                  + Add staff member
+                </button>
+              </div>
             </div>
           </div>
         </div>
