@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 interface RankedTeam {
   rank: number;
   name: string;
+  slug?: string;
   events: number;
   points: number;
 }
@@ -152,7 +153,7 @@ export function KraftonRankings() {
                       <span className="flex items-center gap-2 min-w-0">
                         <TeamLogo name={team.name} logos={data?.logos ?? {}} />
                         <Link
-                          href={`/teams/${encodeURIComponent(team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                          href={`/teams/${encodeURIComponent(team.slug || team.name.toLowerCase().replace(/\s+/g, '-'))}`}
                           className="font-semibold text-[var(--ed-ink)] truncate hover:text-[var(--ed-blue)] transition-colors"
                         >
                           {team.name}

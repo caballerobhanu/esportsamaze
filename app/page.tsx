@@ -75,7 +75,7 @@ export default async function HomePage() {
       games: {
         include: {
           teamResults: {
-            include: { team: { select: { id: true, name: true, tag: true, logoUrl: true } } },
+            include: { team: { select: { id: true, name: true, slug: true, tag: true, logoUrl: true } } },
             orderBy: { rank: 'asc' },
           },
           playerStats: {
@@ -110,6 +110,7 @@ export default async function HomePage() {
       winner: topTeam
         ? {
             teamName: topTeam.team.name,
+            teamSlug: topTeam.team.slug,
             teamTag: topTeam.team.tag,
             placementPts: Number(topTeam.placePoints || 0),
             finishes: Number(topTeam.elimsPoints || 0),

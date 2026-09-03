@@ -104,7 +104,12 @@ export async function GET() {
         })),
         new Date(),
         rules
-      ).slice(0, LIMIT);
+      )
+        .slice(0, LIMIT)
+        .map((t) => ({
+          ...t,
+          slug: logos[t.name.toLowerCase()]?.slug,
+        }));
 
       const players = computePlayerRankings(
         eligiblePlayerRows.map((r) => ({

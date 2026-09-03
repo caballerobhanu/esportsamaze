@@ -31,6 +31,7 @@ async function main() {
     matchPlayerStats: await prisma.matchPlayerStat.findMany(),
     teamRankings: await prisma.teamRanking.findMany(),
     playerRankings: await prisma.playerRanking.findMany(),
+    rankingTransferRules: await prisma.rankingTransferRule.findMany(),
   };
 
   const counts: Record<string, number> = {};

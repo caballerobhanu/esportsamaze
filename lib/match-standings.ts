@@ -3,6 +3,7 @@ import prisma from './prisma';
 export interface TeamStandingEntry {
   teamId: string;
   teamName: string;
+  teamSlug: string | null;
   tag: string | null;
   logoUrl: string | null;
   rank: number;
@@ -52,7 +53,7 @@ export async function computeTournamentStandings(
   const teamResults = await prisma.matchTeamResult.findMany({
     where,
     include: {
-      team: { select: { id: true, name: true, tag: true, logoUrl: true } },
+      team: { select: { id: true, name: true, slug: true, tag: true, logoUrl: true } },
       matchGame: {
         select: {
           match: { select: { matchNumber: true, mapName: true, groupName: true } },
@@ -65,6 +66,7 @@ export async function computeTournamentStandings(
   const teamMap = new Map<string, {
     teamId: string;
     teamName: string;
+    teamSlug: string | null;
     tag: string | null;
     logoUrl: string | null;
     matchesPlayed: number;
@@ -87,6 +89,7 @@ export async function computeTournamentStandings(
     const existing = teamMap.get(key) ?? {
       teamId: r.teamId,
       teamName: r.team?.name ?? 'Unknown',
+      teamSlug: r.team?.slug ?? null,
       tag: r.team?.tag ?? null,
       logoUrl: r.team?.logoUrl ?? null,
       matchesPlayed: 0,
@@ -152,6 +155,7 @@ export async function computeTournamentStandings(
 export interface PlayerFraggerEntry {
   playerId: string;
   ign: string;
+  playerSlug: string | null;
   avatarUrl: string | null;
   role: string | null;
   teamName: string;
@@ -188,7 +192,7 @@ export async function computeTournamentFraggers(
   const playerStats = await prisma.matchPlayerStat.findMany({
     where,
     include: {
-      player: { select: { id: true, ign: true, avatarUrl: true } },
+      player: { select: { id: true, ign: true, slug: true, avatarUrl: true } },
       team: { select: { id: true, name: true, tag: true } },
     },
     orderBy: { matchGame: { match: { matchNumber: 'asc' } } },
@@ -197,6 +201,7 @@ export async function computeTournamentFraggers(
   const playerMap = new Map<string, {
     playerId: string;
     ign: string;
+    playerSlug: string | null;
     avatarUrl: string | null;
     role: string | null;
     teamName: string;
@@ -217,6 +222,7 @@ export async function computeTournamentFraggers(
     const existing = playerMap.get(key) ?? {
       playerId: s.playerId,
       ign: s.player?.ign ?? 'Unknown',
+      playerSlug: s.player?.slug ?? null,
       avatarUrl: s.player?.avatarUrl ?? null,
       role: s.role ?? null,
       teamName: s.team?.name ?? '',

@@ -86,7 +86,7 @@ export function HomeStandingsSection({
                         </td>
                         <td className="py-2.5 px-3 font-semibold text-[var(--ed-ink)]">
                           <Link
-                            href={`/teams/${encodeURIComponent(team.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
+                            href={`/teams/${encodeURIComponent(team.teamSlug || team.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
                             className="flex items-center gap-2 group"
                           >
                             {team.logoUrl ? (
@@ -187,7 +187,7 @@ export function HomeStandingsSection({
                       </span>
                       <div>
                         <Link
-                          href={`/players/${encodeURIComponent(player.ign.toLowerCase())}`}
+                          href={`/players/${encodeURIComponent(player.playerSlug || player.ign.toLowerCase())}`}
                           className="font-semibold text-sm text-[var(--ed-ink)] hover:text-[var(--ed-blue)] transition-colors"
                         >
                           {player.ign}

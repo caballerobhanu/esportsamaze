@@ -91,6 +91,7 @@ async function main() {
   await prisma.tournament.deleteMany({});
   await prisma.playerRanking.deleteMany({});
   await prisma.teamRanking.deleteMany({});
+  await prisma.rankingTransferRule.deleteMany({});
   await prisma.transfer.deleteMany({});
   await prisma.player.deleteMany({});
   await prisma.team.deleteMany({});
@@ -120,6 +121,7 @@ async function main() {
   await insertMany('Match Player Stats', snapshot.matchPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d as never }));
   await insertMany('Team Rankings', snapshot.teamRankings, (d) => prisma.teamRanking.createMany({ data: d as never }));
   await insertMany('Player Rankings', snapshot.playerRankings, (d) => prisma.playerRanking.createMany({ data: d as never }));
+  await insertMany('Ranking Transfer Rules', snapshot.rankingTransferRules, (d) => prisma.rankingTransferRule.createMany({ data: d as never }));
 
   console.log('🎉 Restore complete — database matches the snapshot exactly.');
 }

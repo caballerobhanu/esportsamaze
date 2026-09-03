@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       id: team.id,
       type: 'team',
       title: team.name,
-      subtitle: team.tag ? `[${team.tag}] • ${team.region || 'Global'}` : team.region || 'Team',
+      subtitle: team.region ? `${team.region} Region` : 'Esports Team',
       href: `/teams/${team.slug || team.tag || team.id}`,
       imageUrl: team.logoUrl,
       badge: team.game?.name || team.status,

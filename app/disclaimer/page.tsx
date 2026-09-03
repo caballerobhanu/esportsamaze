@@ -7,7 +7,7 @@ import { Footer } from '@/components/footer';
 export const revalidate = 86_400;
 
 export const metadata = {
-  title: 'About — Esports Amaze',
+  title: 'Disclaimer — Esports Amaze',
   description: 'General disclaimer for Esports Amaze content and data.',
 };
 

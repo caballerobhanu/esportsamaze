@@ -19,6 +19,7 @@ export interface HighlightMatchData {
   } | null;
   winner?: {
     teamName: string;
+    teamSlug: string | null;
     teamTag: string | null;
     placementPts: number;
     finishes: number;
@@ -91,7 +92,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
 
             <div>
               <Link
-                href={`/teams/${encodeURIComponent(match.winner.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
+                href={`/teams/${encodeURIComponent(match.winner.teamSlug || match.winner.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
                 className="font-display text-2xl sm:text-3xl font-medium tracking-tight text-[var(--ed-ink)] hover:text-[var(--ed-blue)] transition-colors block"
               >
                 {match.winner.teamName}

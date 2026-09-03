@@ -787,6 +787,10 @@ export interface BulkUniversalPlayerImportResult {
 export async function bulkUniversalPlayerMatchImportAction(
   rows: BulkUniversalPlayerRowInput[]
 ): Promise<BulkUniversalPlayerImportResult> {
+  if (!(await isAdmin())) {
+    redirect('/admin/login');
+  }
+
   try {
     if (!rows || rows.length === 0) {
       return {
