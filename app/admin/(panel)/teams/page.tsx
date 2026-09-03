@@ -86,7 +86,19 @@ async function deleteTeam(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (id) {
-    await prisma.team.delete({ where: { id } }).catch(() => null);
+    const attached =
+      (await prisma.transfer.count({ where: { teamId: id } })) +
+      (await prisma.tournamentTeam.count({ where: { teamId: id } })) +
+      (await prisma.matchTeamResult.count({ where: { teamId: id } })) +
+      (await prisma.matchPlayerStat.count({ where: { teamId: id } })) +
+      (await prisma.teamRanking.count({ where: { teamId: id } })) +
+      (await prisma.playerRanking.count({ where: { teamId: id } })) +
+      (await prisma.tournament.count({ where: { OR: [{ winnerTeamId: id }, { runnerUpTeamId: id }] } })) +
+      (await prisma.rankingTransferRule.count({ where: { OR: [{ oldTeamId: id }, { newTeamId: id }] } }));
+    if (attached > 0) {
+      redirect('/admin/teams?error=linked');
+    }
+    await prisma.team.delete({ where: { id } });
   }
   revalidatePath('/admin/teams');
   redirect('/admin/teams');
@@ -138,6 +150,11 @@ export default async function AdminTeamsPage({
       {error === 'name' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           Team name is required.
+        </p>
+      )}
+      {error === 'linked' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          This team still has transfers, tournament rosters, match results, stats or rankings attached — it cannot be deleted.
         </p>
       )}
 

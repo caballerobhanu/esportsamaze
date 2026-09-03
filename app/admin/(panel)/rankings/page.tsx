@@ -66,7 +66,11 @@ async function saveTeamRanking(formData: FormData) {
   };
 
   if (id) {
-    await prisma.teamRanking.update({ where: { id }, data }).catch(() => null);
+    try {
+      await prisma.teamRanking.update({ where: { id }, data });
+    } catch {
+      redirect(`/admin/rankings?tab=team&edit=${id}&error=save-failed`);
+    }
   } else {
     await prisma.teamRanking.create({ data });
   }
@@ -79,7 +83,7 @@ async function deleteTeamRanking(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
-  if (id) await prisma.teamRanking.delete({ where: { id } }).catch(() => null);
+  if (id) await prisma.teamRanking.delete({ where: { id } });
   revalidatePath('/admin/rankings');
   redirect('/admin/rankings?tab=team');
 }
@@ -111,7 +115,11 @@ async function savePlayerRanking(formData: FormData) {
   };
 
   if (id) {
-    await prisma.playerRanking.update({ where: { id }, data }).catch(() => null);
+    try {
+      await prisma.playerRanking.update({ where: { id }, data });
+    } catch {
+      redirect(`/admin/rankings?tab=player&edit=${id}&error=save-failed`);
+    }
   } else {
     await prisma.playerRanking.create({ data });
   }
@@ -124,7 +132,7 @@ async function deletePlayerRanking(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
-  if (id) await prisma.playerRanking.delete({ where: { id } }).catch(() => null);
+  if (id) await prisma.playerRanking.delete({ where: { id } });
   revalidatePath('/admin/rankings');
   redirect('/admin/rankings?tab=player');
 }
@@ -355,7 +363,7 @@ async function deleteTransferRule(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
-  if (id) await prisma.rankingTransferRule.delete({ where: { id } }).catch(() => null);
+  if (id) await prisma.rankingTransferRule.delete({ where: { id } });
   revalidatePath('/admin/rankings');
   redirect('/admin/rankings');
 }
@@ -504,6 +512,11 @@ export default async function AdminRankingsPage({
       {error === 'excluded' && (
         <p className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
           That event is excluded from KRAFTON rankings — tick &ldquo;Counts toward KRAFTON rankings&rdquo; on the tournament in the Tournaments panel to enable generation.
+        </p>
+      )}
+      {error === 'save-failed' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          The ranking row could not be saved — the selected team, player or tournament no longer exists.
         </p>
       )}
       {bulk && (

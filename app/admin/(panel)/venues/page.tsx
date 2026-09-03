@@ -58,7 +58,7 @@ async function deleteVenue(formData: FormData) {
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.tournamentVenue.deleteMany({ where: { venueId: id } });
-    await prisma.venue.delete({ where: { id } }).catch(() => null);
+    await prisma.venue.delete({ where: { id } });
   }
   revalidatePath('/admin/venues');
   redirect('/admin/venues');

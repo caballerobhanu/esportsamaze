@@ -69,7 +69,7 @@ async function deleteSponsor(formData: FormData) {
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.tournamentSponsor.deleteMany({ where: { sponsorId: id } });
-    await prisma.sponsor.delete({ where: { id } }).catch(() => null);
+    await prisma.sponsor.delete({ where: { id } });
   }
   revalidatePath('/admin/sponsors');
   redirect('/admin/sponsors');

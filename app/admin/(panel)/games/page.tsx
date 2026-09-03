@@ -82,7 +82,15 @@ async function deleteGame(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (id) {
-    await prisma.game.delete({ where: { id } }).catch(() => null);
+    const attached =
+      (await prisma.tournament.count({ where: { gameId: id } })) +
+      (await prisma.match.count({ where: { gameId: id } })) +
+      (await prisma.team.count({ where: { gameId: id } })) +
+      (await prisma.player.count({ where: { gameId: id } }));
+    if (attached > 0) {
+      redirect('/admin/games?error=linked');
+    }
+    await prisma.game.delete({ where: { id } });
   }
   revalidatePath('/admin/games');
   redirect('/admin/games');
@@ -121,6 +129,11 @@ export default async function AdminGamesPage({
       {error === 'name' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           Game name is required.
+        </p>
+      )}
+      {error === 'linked' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          This game still has tournaments, matches, teams or players attached — reassign or delete them first.
         </p>
       )}
 

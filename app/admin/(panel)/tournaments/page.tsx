@@ -609,7 +609,11 @@ async function deleteTournament(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (id) {
-    await prisma.tournament.delete({ where: { id } }).catch(() => null);
+    try {
+      await prisma.tournament.delete({ where: { id } });
+    } catch {
+      redirect('/admin/tournaments?error=delete-failed');
+    }
   }
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
@@ -919,6 +923,11 @@ export default async function AdminTournamentsPage({
       {error === 'required' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           Name, game and both start &amp; end dates are required.
+        </p>
+      )}
+      {error === 'delete-failed' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          The tournament could not be deleted — it is still referenced by other records.
         </p>
       )}
 

@@ -50,9 +50,45 @@ async function saveTransfer(formData: FormData) {
   };
 
   if (id) {
-    await prisma.transfer.update({ where: { id }, data }).catch(() => null);
+    try {
+      await prisma.transfer.update({ where: { id }, data });
+    } catch {
+      redirect(`/admin/transfers?edit=${id}&error=save-failed`);
+    }
   } else {
-    await prisma.transfer.create({ data });
+    try {
+      await prisma.transfer.create({ data });
+    } catch {
+      redirect('/admin/transfers?error=save-failed');
+    }
+  }
+
+  // Sync the player's "current team" with this move — unless a later-dated
+  // transfer already supersedes it (backfilled ledger entries stay consistent).
+  const laterMove = await prisma.transfer.findFirst({
+    where: { playerId, date: { gt: date }, ...(id ? { id: { not: id } } : {}) },
+    select: { id: true },
+  });
+  if (!laterMove) {
+    if (data.type === 'JOINED' || data.type === 'LOANED') {
+      await prisma.player.update({
+        where: { id: playerId },
+        data: { currentTeamId: teamId },
+      });
+    } else if (data.type === 'LEFT') {
+      // Only detach when the player is still marked with the team they left
+      const player = await prisma.player.findUnique({
+        where: { id: playerId },
+        select: { currentTeamId: true },
+      });
+      if (player?.currentTeamId === teamId) {
+        await prisma.player.update({
+          where: { id: playerId },
+          data: { currentTeamId: null },
+        });
+      }
+    }
+    // BENCHED keeps the player on the roster — no change
   }
 
   revalidatePath('/admin/transfers');
@@ -64,7 +100,11 @@ async function deleteTransfer(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (id) {
-    await prisma.transfer.delete({ where: { id } }).catch(() => null);
+    try {
+      await prisma.transfer.delete({ where: { id } });
+    } catch {
+      redirect('/admin/transfers?error=delete-failed');
+    }
   }
   revalidatePath('/admin/transfers');
   redirect('/admin/transfers');
@@ -136,6 +176,16 @@ export default async function AdminTransfersPage({
       {error === 'required' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           Player, team and date are all required.
+        </p>
+      )}
+      {error === 'save-failed' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          The transfer could not be saved — the selected player or team no longer exists.
+        </p>
+      )}
+      {error === 'delete-failed' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          The transfer could not be deleted — it was already removed or is still referenced.
         </p>
       )}
 

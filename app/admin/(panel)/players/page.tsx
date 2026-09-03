@@ -83,7 +83,14 @@ async function deletePlayer(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (id) {
-    await prisma.player.delete({ where: { id } }).catch(() => null);
+    const attached =
+      (await prisma.transfer.count({ where: { playerId: id } })) +
+      (await prisma.matchPlayerStat.count({ where: { playerId: id } })) +
+      (await prisma.playerRanking.count({ where: { playerId: id } }));
+    if (attached > 0) {
+      redirect('/admin/players?error=linked');
+    }
+    await prisma.player.delete({ where: { id } });
   }
   revalidatePath('/admin/players');
   redirect('/admin/players');
@@ -142,6 +149,11 @@ export default async function AdminPlayersPage({
       {error === 'ign' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           IGN is required.
+        </p>
+      )}
+      {error === 'linked' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          This player still has transfers, match statistics or rankings attached — it cannot be deleted.
         </p>
       )}
 

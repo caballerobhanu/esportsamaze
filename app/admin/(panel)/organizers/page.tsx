@@ -69,7 +69,7 @@ async function deleteOrganizer(formData: FormData) {
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.tournamentOrganizer.deleteMany({ where: { organizerId: id } });
-    await prisma.organizer.delete({ where: { id } }).catch(() => null);
+    await prisma.organizer.delete({ where: { id } });
   }
   revalidatePath('/admin/organizers');
   redirect('/admin/organizers');

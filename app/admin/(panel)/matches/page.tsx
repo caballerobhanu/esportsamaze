@@ -63,6 +63,8 @@ async function duplicateMatch(formData: FormData) {
       gameId: source.gameId,
       matchNumber: nextMatchNum,
       overallMatchNumber: nextOverallNum,
+      stageId: source.stageId,
+      groupId: source.groupId,
       stageType: source.stageType,
       groupName: source.groupName,
       mapName: source.mapName,
@@ -148,6 +150,21 @@ async function saveMatch(formData: FormData) {
     overallMatchNumber ? ` · Overall #${overallMatchNumber}` : ''
   }${groupName ? ` (${groupName})` : ''}`;
 
+  // Link the match to the tournament's stage/group records when the typed
+  // names match an existing stage/group (mirrors the bulk importers' matching)
+  const linkedStage = await prisma.tournamentStage.findFirst({
+    where: { tournamentId, name: { equals: stageName.trim(), mode: 'insensitive' } },
+    select: { id: true },
+  });
+  let linkedGroupId: string | null = null;
+  if (linkedStage && groupName?.trim()) {
+    const linkedGroup = await prisma.tournamentGroup.findFirst({
+      where: { stageId: linkedStage.id, name: { equals: groupName.trim(), mode: 'insensitive' } },
+      select: { id: true },
+    });
+    linkedGroupId = linkedGroup?.id ?? null;
+  }
+
   let matchId = id;
 
   const baseData: Record<string, any> = {
@@ -182,12 +199,20 @@ async function saveMatch(formData: FormData) {
           ...baseData,
           tournament: { connect: { id: tournamentId } },
           game: { connect: { id: gameId } },
+          stage: linkedStage ? { connect: { id: linkedStage.id } } : { disconnect: true },
+          group: linkedGroupId ? { connect: { id: linkedGroupId } } : { disconnect: true },
         },
       });
     } else {
       // Prisma .create() accepts scalar FK IDs directly
       const created = await prisma.match.create({
-        data: { ...baseData, tournamentId, gameId } as any,
+        data: {
+          ...baseData,
+          tournamentId,
+          gameId,
+          stageId: linkedStage?.id ?? null,
+          groupId: linkedGroupId,
+        } as any,
       });
       matchId = created.id;
 
@@ -224,7 +249,11 @@ async function deleteMatch(formData: FormData) {
       where: { matchGame: { matchId: id } },
     });
     await prisma.matchGame.deleteMany({ where: { matchId: id } });
-    await prisma.match.delete({ where: { id } }).catch(() => null);
+    try {
+      await prisma.match.delete({ where: { id } });
+    } catch {
+      redirect('/admin/matches?error=delete-failed');
+    }
   }
   revalidatePath('/admin/matches');
   redirect('/admin/matches');
@@ -332,7 +361,11 @@ async function deleteTeamResult(formData: FormData) {
   const id = fStr(formData, 'id');
   const matchId = fStr(formData, 'matchId');
   if (id) {
-    await prisma.matchTeamResult.delete({ where: { id } }).catch(() => null);
+    try {
+      await prisma.matchTeamResult.delete({ where: { id } });
+    } catch (err) {
+      if ((err as { code?: string })?.code !== 'P2025') redirect(matchId ? `/admin/matches?edit=${matchId}&error=delete-failed` : '/admin/matches?error=delete-failed');
+    }
   }
   revalidatePath('/admin/matches');
   redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
@@ -426,7 +459,11 @@ async function deletePlayerStat(formData: FormData) {
   const id = fStr(formData, 'id');
   const matchId = fStr(formData, 'matchId');
   if (id) {
-    await prisma.matchPlayerStat.delete({ where: { id } }).catch(() => null);
+    try {
+      await prisma.matchPlayerStat.delete({ where: { id } });
+    } catch (err) {
+      if ((err as { code?: string })?.code !== 'P2025') redirect(matchId ? `/admin/matches?edit=${matchId}&error=delete-failed` : '/admin/matches?error=delete-failed');
+    }
   }
   revalidatePath('/admin/matches');
   redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
@@ -650,23 +687,6 @@ export default async function AdminMatchesPage({
 }) {
   const { edit, error, tournamentId, stage, openNew } = await searchParams;
 
-  // Auto-sync status for all existing matches that have team scorecards recorded
-  await prisma.match.updateMany({
-    where: {
-      status: 'SCHEDULED',
-      games: {
-        some: {
-          teamResults: {
-            some: {},
-          },
-        },
-      },
-    },
-    data: {
-      status: 'COMPLETED',
-    },
-  }).catch(() => null);
-
   const [tournaments, games, teams, players, allMatchesList] = await Promise.all([
     prisma.tournament.findMany({
       orderBy: { startDate: 'desc' },
@@ -797,6 +817,11 @@ export default async function AdminMatchesPage({
       {error === 'required' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           Tournament, game and scheduled time are required.
+        </p>
+      )}
+      {error === 'delete-failed' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          The record could not be deleted — it was already removed or is still referenced by another entry.
         </p>
       )}
 
