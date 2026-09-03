@@ -64,6 +64,7 @@ export function Navbar() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
 
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const lastTriggerRef = React.useRef<HTMLElement | null>(null);
 
   // Flattened results for keyboard navigation
   const allResults = React.useMemo(() => {
@@ -134,11 +135,18 @@ export function Navbar() {
         return;
       }
 
+      if (mobileDrawerOpen && e.key === 'Escape') {
+        setMobileDrawerOpen(false);
+        return;
+      }
+
       if (!searchOpen) return;
 
       if (e.key === 'Escape') {
         e.preventDefault();
         setSearchOpen(false);
+        lastTriggerRef.current?.focus();
+        lastTriggerRef.current = null;
         return;
       }
 
@@ -161,20 +169,24 @@ export function Navbar() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchOpen, allResults, selectedIndex]);
+  }, [searchOpen, allResults, selectedIndex, mobileDrawerOpen]);
 
   const openSearch = () => {
+    lastTriggerRef.current = document.activeElement as HTMLElement | null;
     setOtherGamesOpen(false);
     setSearchQuery('');
     setSearchResults({ teams: [], players: [], tournaments: [], games: [] });
     setSelectedIndex(0);
     setSearchOpen(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
   };
 
   const closeSearch = () => {
     setSearchOpen(false);
     setSearchQuery('');
     setSearchResults({ teams: [], players: [], tournaments: [], games: [] });
+    lastTriggerRef.current?.focus();
+    lastTriggerRef.current = null;
   };
 
   const handleItemSelect = (href: string) => {
@@ -324,7 +336,7 @@ export function Navbar() {
           <div
             className={cn(
               'relative w-72 max-w-[80vw] h-full shadow-2xl p-5 flex flex-col justify-between bg-(--ed-blue) dark:bg-[#041129] text-white z-10 transition-transform duration-300 ease-out pointer-events-auto',
-              mobileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+              mobileDrawerOpen ? 'translate-x-0' : 'invisible -translate-x-full'
             )}
           >
             <div className="space-y-6">

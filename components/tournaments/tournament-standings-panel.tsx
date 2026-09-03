@@ -746,6 +746,11 @@ export function TournamentStandingsPanel({
               <button
                 key={c.key}
                 onClick={key ? () => toggle(key) : undefined}
+                aria-label={
+                  key
+                    ? `Sort by ${c.short}${sortKey === key ? (sortDir === 'asc' ? ', sorted ascending' : ', sorted descending') : ''}`
+                    : undefined
+                }
                 className={`ed-th px-2 text-center ${
                   key ? 'cursor-pointer transition-colors hover:text-(--ed-ink)' : 'cursor-default'
                 }`}

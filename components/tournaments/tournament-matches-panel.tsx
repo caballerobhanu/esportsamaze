@@ -224,6 +224,19 @@ function MatchScorecard({
       {/* Match Header Bar (Clickable accordion trigger when collapsible) */}
       <div
         onClick={isCollapsible ? toggle : undefined}
+        role={isCollapsible ? 'button' : undefined}
+        tabIndex={isCollapsible ? 0 : undefined}
+        aria-expanded={isCollapsible ? isOpen : undefined}
+        onKeyDown={
+          isCollapsible
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  toggle();
+                }
+              }
+            : undefined
+        }
         className={`p-4 sm:p-5 bg-slate-50 dark:bg-slate-900/60 border-b border-(--ed-hair) flex flex-wrap items-center justify-between gap-3 ${
           isCollapsible ? 'cursor-pointer hover:bg-slate-100/80 dark:hover:bg-slate-900 transition-colors' : ''
         }`}
@@ -312,16 +325,16 @@ function MatchScorecard({
           )}
 
           {isCollapsible && (
-            <button
-              type="button"
+            <span
+              aria-hidden="true"
               className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
             >
               <ChevronDown
                 className={`w-4 h-4 transition-transform duration-200 ${
-                  isOpen ? 'rotate-180 text-blue-500' : ''
+                  isOpen ? 'rotate-180 text-(--ed-blue)' : ''
                 }`}
               />
-            </button>
+            </span>
           )}
         </div>
       </div>

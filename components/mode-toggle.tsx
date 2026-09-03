@@ -15,7 +15,9 @@ export function ModeToggle() {
   if (!mounted) {
     return (
       <button
-        aria-label="Toggle theme"
+        disabled
+        tabIndex={-1}
+        aria-hidden="true"
         className="w-9 h-9 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 text-slate-600 dark:text-slate-400"
       >
         <span className="w-4 h-4" />
