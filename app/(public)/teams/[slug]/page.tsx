@@ -1,4 +1,5 @@
 import * as React from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -59,6 +60,30 @@ function socialLinkHref(key: string, value: string) {
   if (key === 'youtube') return `https://youtube.com/@${handle}`;
   if (key === 'twitter' || key === 'x') return `https://twitter.com/${handle}`;
   return value;
+}
+
+export async function generateMetadata({
+  params,
+}: TeamPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const team = await prisma.team.findFirst({
+    where: {
+      OR: [
+        { slug },
+        { tag: { equals: slug, mode: 'insensitive' } },
+        { name: { equals: slug, mode: 'insensitive' } },
+      ],
+    },
+    select: { name: true, tag: true, logoUrl: true },
+  });
+
+  if (!team) return { title: 'Team Not Found — Esports Amaze' };
+  const label = `${team.name}${team.tag ? ` [${team.tag}]` : ''}`;
+  return {
+    title: `${label} — Esports Amaze`,
+    description: `${label} profile — roster, tournament history, KRAFTON ranking and match statistics.`,
+    openGraph: { images: team.logoUrl ? [team.logoUrl] : undefined },
+  };
 }
 
 export default async function TeamPage({ params }: TeamPageProps) {
