@@ -43,14 +43,14 @@ export default async function TeamsPage() {
   return (
     <div className="flex flex-1 flex-col">
 
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-10 sm:px-6 sm:py-14">
+      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-4 sm:px-6 sm:py-5">
         {/* Editorial masthead */}
         <div className="mb-12 space-y-4">
           <span className="ed-chip text-(--ed-stone)">
             <ShieldCheck className="h-3.5 w-3.5 text-(--ed-blue)" />
             Official Team &amp; Roster Wiki
           </span>
-          <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">Teams</h1>
+          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">Teams</h1>
           <p className="max-w-xl text-[15px] leading-relaxed text-(--ed-stone)">
             Every organization in the Esports Amaze database — open a team for its active
             roster, trophy cabinet, and verified tournament history.

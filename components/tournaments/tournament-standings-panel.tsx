@@ -791,7 +791,7 @@ export function TournamentStandingsPanel({
               >
                 {/* Sticky team cell */}
                 <div
-                  className={`sticky left-0 z-10 flex items-center gap-2 border-l-4 bg-(--ed-surface) px-3 py-3 group-hover:bg-(--ed-canvas) ${
+                  className={`sticky left-0 z-10 flex items-center gap-2 border-l-4 bg-(--ed-surface) px-3 py-2 group-hover:bg-(--ed-canvas) ${
                     isPrec || zone ? zStyle.border : 'border-transparent'
                   }`}
                 >
@@ -863,7 +863,7 @@ export function TournamentStandingsPanel({
                     return (
                       <div
                         key={c.key}
-                        className="flex items-center justify-center gap-1 px-2 py-3"
+                        className="flex items-center justify-center gap-1 px-2 py-1.5"
                       >
                         {form.length === 0 ? (
                           <span className="text-[11px] text-(--ed-stone)">—</span>
@@ -947,7 +947,7 @@ export function TournamentStandingsPanel({
                   return (
                     <div
                       key={c.key}
-                      className={`num flex items-center justify-center px-2 py-3 text-sm whitespace-nowrap ${
+                      className={`num flex items-center justify-center px-2 py-1.5 text-sm whitespace-nowrap ${
                         isTotal
                           ? 'font-black text-(--ed-blue)'
                           : c.key === 'wwcd' && Number(val) > 0

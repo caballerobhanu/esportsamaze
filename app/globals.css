@@ -14,6 +14,7 @@ body {
   color: var(--ed-ink);
   min-height: 100vh;
   transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Rendered MediaWiki article content */
@@ -106,7 +107,7 @@ body {
   --ed-hair: #e0e6ee;
   --ed-ink: #161a22;
   --ed-stone: #64748b;
-  --ed-blue: #0061fe;
+  --ed-blue: #2a5ebd;
   --ed-magenta: #cd2f7b;
 }
 
@@ -117,7 +118,7 @@ body {
   --ed-hair: #2a3441;
   --ed-ink: #e9edf3;
   --ed-stone: #94a3b8;
-  --ed-blue: #4c8dff;
+  --ed-blue: #6f97e8;
   --ed-magenta: #e0518f;
 }
 
@@ -131,7 +132,7 @@ body {
     @apply overflow-hidden rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)];
   }
   .ed-card-head {
-    @apply flex items-center justify-between gap-3 border-b border-[var(--ed-hair)] px-4 py-3.5 sm:px-6;
+    @apply flex items-center justify-between gap-3 border-b border-[var(--ed-hair)] px-3.5 py-2.5 sm:px-4;
   }
   /* Uppercase stone micro label */
   .ed-label {
@@ -139,7 +140,7 @@ body {
   }
   /* 8px-radius hairline chip */
   .ed-chip {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-2.5 py-1 text-xs font-medium text-[var(--ed-ink)];
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-2 py-0.5 text-[11px] font-medium text-[var(--ed-ink)];
   }
   /* Nav tab — blue underline marks the active state */
   .ed-tab {
@@ -152,13 +153,13 @@ body {
   .ed-input {
     @apply w-full rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-3.5 py-2.5 text-sm text-[var(--ed-ink)] placeholder:text-[var(--ed-stone)] focus:border-[var(--ed-blue)] focus:outline-none;
   }
-  /* The one solid-blue action button (16px radius) */
+  /* The one solid-blue action button (compact, 14px radius) */
   .ed-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--ed-blue)] px-6 py-3 text-sm font-medium text-white transition-colors hover:brightness-110;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--ed-blue)] px-5 py-2.5 text-[13px] font-medium text-white transition-colors hover:brightness-110;
   }
   /* Table header cell */
   .ed-th {
-    @apply px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--ed-stone)];
+    @apply px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--ed-stone)];
   }
   /* Hairline-divided row list */
   .ed-rows {

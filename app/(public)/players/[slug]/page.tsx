@@ -601,8 +601,8 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         </section>
 
         {/* ============ BODY ============ */}
-        <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-          <div className="grid gap-8 lg:grid-cols-[1.4fr_.8fr]">
+        <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+          <div className="grid gap-5 lg:grid-cols-[1.4fr_.8fr]">
             <div className="space-y-8">
               {/* Recent form — line chart of the last 20 matches */}
               <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">

@@ -247,7 +247,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   </Link>
                 )}
               </div>
-              <h1 className="text-5xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-6xl lg:text-7xl">
+              <h1 className="text-4xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
                 {team.name}
               </h1>
               {team.tag && (
@@ -299,8 +299,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
       </section>
 
       {/* ============ BODY ============ */}
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-        <div className="grid gap-8 lg:grid-cols-[1.4fr_.8fr]">
+      <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+        <div className="grid gap-5 lg:grid-cols-[1.4fr_.8fr]">
           <div className="space-y-8">
             {/* Roster */}
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">

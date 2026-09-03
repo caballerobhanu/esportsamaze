@@ -103,7 +103,7 @@ export function TournamentAppHeader({
   ];
 
   return (
-    <header className="pt-8 sm:pt-12">
+    <header className="pt-4 sm:pt-6">
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-1.5 text-xs text-(--ed-stone)">
         <Link href="/" className="transition-colors hover:text-(--ed-blue)">Home</Link>
@@ -139,7 +139,7 @@ export function TournamentAppHeader({
             {tournament.eventType && <span className="ed-chip text-(--ed-stone)">{tournament.eventType}</span>}
           </div>
 
-          <h1 className="font-display mt-3 text-3xl font-medium leading-[1.15] tracking-tight sm:text-4xl lg:text-[2.75rem]">
+          <h1 className="font-display mt-2 text-2xl font-medium leading-[1.15] tracking-tight sm:text-3xl lg:text-4xl">
             {tournament.name}
           </h1>
 
@@ -182,7 +182,7 @@ export function TournamentAppHeader({
       </div>
 
       {/* Facts strip + prize block */}
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="ed-card grid grid-cols-2 gap-px bg-(--ed-hair) sm:grid-cols-3 lg:col-span-8">
           {facts.map((f) => (
             <div key={f.label} className="bg-(--ed-surface) px-5 py-4">
@@ -195,7 +195,7 @@ export function TournamentAppHeader({
           ))}
         </div>
 
-        <div className="ed-card flex flex-col justify-between p-6 lg:col-span-4">
+        <div className="ed-card flex flex-col justify-between p-4 lg:col-span-4">
           <div>
             <p className="ed-label mb-2 flex items-center gap-1.5">
               <Banknote className="h-3.5 w-3.5" />

@@ -335,7 +335,7 @@ function MatchScorecard({
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-(--ed-hair) bg-(--ed-canvas) text-[11px] font-bold text-slate-500">
-                    <th className="py-3 pl-5 pr-2 w-14 text-center">Rank</th>
+                    <th className="py-2 pl-4 pr-2 w-14 text-center">Rank</th>
                     <th className="py-3 px-3">Team</th>
                     {activeCols.map((def) => {
                       const isTotal = def.key === 'total';
@@ -370,7 +370,7 @@ function MatchScorecard({
                             : 'hover:bg-(--ed-canvas)'
                         }`}
                       >
-                        <td className="num py-3 pl-5 pr-2 text-center">
+                        <td className="num py-2 pl-4 pr-2 text-center">
                           <span
                             className={`num inline-flex h-6 w-6 items-center justify-center rounded-lg font-black text-xs ${
                               r.rank === 1
@@ -564,7 +564,7 @@ function SingleTeamMatchHistoryTable({
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-(--ed-hair) bg-(--ed-canvas) text-[11px] font-bold text-slate-500">
-                <th className="py-3 pl-5 pr-2">Match</th>
+                <th className="py-2 pl-4 pr-2">Match</th>
                 <th className="py-3 px-3">Stage</th>
                 <th className="py-3 px-3">Time (Local)</th>
                 <th className="py-3 px-3 text-center">Rank</th>
@@ -598,7 +598,7 @@ function SingleTeamMatchHistoryTable({
                       isWinner ? 'bg-amber-500/5 dark:bg-amber-500/10 font-medium' : ''
                     }`}
                   >
-                    <td className="py-3 pl-5 pr-2 font-black text-slate-900 dark:text-white">
+                    <td className="py-2 pl-4 pr-2 font-black text-slate-900 dark:text-white">
                       <div className="flex items-center gap-1.5">
                         <span className="num px-2 py-0.5 rounded-md bg-(--ed-blue)/10 text-(--ed-blue) font-black">
                           {m.matchNumber ? `M${m.matchNumber}` : `#${m.overallMatchNumber || ''}`}
@@ -852,7 +852,7 @@ function MultiTeamCompareTable({
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-(--ed-hair) bg-(--ed-canvas) text-[11px] font-bold text-slate-500">
-                <th className="py-3 pl-5 pr-2 w-28">Match</th>
+                <th className="py-2 pl-4 pr-2 w-28">Match</th>
                 <th className="py-3 px-3">Team</th>
                 <th className="py-3 px-3 text-center">Match Rank</th>
                 {activeCols.map((def) => {
@@ -894,7 +894,7 @@ function MultiTeamCompareTable({
                       } ${isFirstRowOfMatch ? 'border-t-2 border-slate-200 dark:border-slate-800' : ''}`}
                     >
                       {/* Match Name only on first row of each match */}
-                      <td className="py-3 pl-5 pr-2 font-black text-slate-900 dark:text-white align-middle">
+                      <td className="py-2 pl-4 pr-2 font-black text-slate-900 dark:text-white align-middle">
                         {isFirstRowOfMatch ? (
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-1.5">

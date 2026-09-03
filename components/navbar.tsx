@@ -191,7 +191,7 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative flex items-center justify-between h-14 sm:h-16 gap-4">
+          <div className="relative flex items-center justify-between h-14 gap-4">
             {/* SET 1 (left aligned): Logo + spacing + nav items */}
             <div className="flex items-center min-w-0">
               {/* Mobile Hamburger */}
@@ -219,7 +219,7 @@ export function Navbar() {
                   <Link
                     key={item.label}
                     href={item.href}
-                    className="whitespace-nowrap text-sm font-semibold text-white/85 hover:text-white transition-colors duration-150"
+                    className="whitespace-nowrap text-[13px] font-semibold text-white/85 hover:text-white transition-colors duration-150"
                   >
                     {item.label}
                   </Link>

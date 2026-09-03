@@ -67,7 +67,7 @@ export function HomeStandingsSection({
                         key={team.teamId}
                         className="hover:bg-[var(--ed-sand)]/30 transition-colors"
                       >
-                        <td className="py-2.5 px-3 text-center num text-[var(--ed-stone)] font-bold">
+                        <td className="py-1.5 px-2.5 text-center num text-[var(--ed-stone)] font-bold">
                           {team.rank === 1 ? (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-amber-400 text-slate-950 font-bold text-xs">
                               1
@@ -84,7 +84,7 @@ export function HomeStandingsSection({
                             team.rank
                           )}
                         </td>
-                        <td className="py-2.5 px-3 font-semibold text-[var(--ed-ink)]">
+                        <td className="py-1.5 px-2.5 font-semibold text-[var(--ed-ink)]">
                           <Link
                             href={`/teams/${encodeURIComponent(team.teamSlug || team.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
                             className="flex items-center gap-2 group"
@@ -102,22 +102,22 @@ export function HomeStandingsSection({
                             </span>
                           </Link>
                         </td>
-                        <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
+                        <td className="py-1.5 px-2 text-center num text-[var(--ed-stone)]">
                           {team.matchesPlayed}
                         </td>
-                        <td className="py-2.5 px-2 text-center num font-bold text-amber-600 dark:text-amber-400">
+                        <td className="py-1.5 px-2 text-center num font-bold text-amber-600 dark:text-amber-400">
                           {team.wwcd}
                         </td>
-                        <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
+                        <td className="py-1.5 px-2 text-center num text-[var(--ed-stone)]">
                           {team.placementPoints}
                         </td>
-                        <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
+                        <td className="py-1.5 px-2 text-center num text-[var(--ed-stone)]">
                           {team.eliminationPoints}
                         </td>
-                        <td className="py-2.5 px-3 text-center num font-bold text-sm text-[var(--ed-ink)] bg-[var(--ed-sand)]/20">
+                        <td className="py-1.5 px-2.5 text-center num font-bold text-sm text-[var(--ed-ink)] bg-[var(--ed-sand)]/20">
                           {team.totalPoints}
                         </td>
-                        <td className="py-2.5 px-3 text-center hidden sm:table-cell">
+                        <td className="py-1.5 px-2.5 text-center hidden sm:table-cell">
                           <div className="flex items-center justify-center gap-1">
                             {team.matchHistory.slice(-5).map((mh, idx) => (
                               <span
@@ -172,7 +172,7 @@ export function HomeStandingsSection({
               fraggers.slice(0, 5).map((player) => (
                 <div
                   key={player.playerId}
-                  className="p-3.5 hover:bg-[var(--ed-sand)]/30 transition-colors"
+                  className="p-3 hover:bg-[var(--ed-sand)]/30 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">

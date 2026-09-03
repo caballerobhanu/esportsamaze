@@ -177,7 +177,7 @@ export function EventsSection() {
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="min-w-[150px] sm:min-w-[168px] h-[172px] ed-card animate-pulse bg-[var(--ed-sand)]/30"
+                className="min-w-[136px] sm:min-w-[152px] h-[148px] ed-card animate-pulse bg-[var(--ed-sand)]/30"
               />
             ))}
           </div>
@@ -189,7 +189,7 @@ export function EventsSection() {
           <div className="flex gap-3 overflow-x-auto snap-x pb-1 [scrollbar-width:thin]">
             {visible.map((event) => {
               const cardClasses =
-                'group min-w-[150px] sm:min-w-[168px] snap-start ed-card p-4 flex flex-col items-center text-center gap-2 cursor-pointer hover:border-[var(--ed-blue)] transition-colors';
+                'group min-w-[136px] sm:min-w-[152px] snap-start ed-card p-4 flex flex-col items-center text-center gap-2 cursor-pointer hover:border-[var(--ed-blue)] transition-colors';
               const inner = (
                 <>
                   <EventLogo event={event} />

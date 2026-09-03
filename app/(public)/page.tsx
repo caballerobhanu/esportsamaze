@@ -184,7 +184,7 @@ export default async function HomePage() {
       <EventsSection />
 
       {/* 3. Main Dashboard Body (Editorial max-w-[1200px] layout) */}
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-8 space-y-10">
+      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-5 space-y-6">
         {/* News Section */}
         <NewsSection />
 
@@ -206,7 +206,7 @@ export default async function HomePage() {
         )}
 
         {/* Tournaments & Transfer Ledger Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-2">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-1">
           {/* Active & Upcoming Tournaments (7 cols) */}
           <section id="tournaments" className="lg:col-span-7 space-y-3">
             <div className="flex items-center justify-between">
@@ -329,7 +329,7 @@ export default async function HomePage() {
                       : null;
 
                     return (
-                      <div key={move.id} className="p-3.5 hover:bg-[var(--ed-sand)]/30 transition-colors space-y-2">
+                      <div key={move.id} className="p-3 hover:bg-[var(--ed-sand)]/30 transition-colors space-y-2">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <Link

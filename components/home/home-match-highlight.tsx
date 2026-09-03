@@ -80,7 +80,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
       {isCompleted && match.winner ? (
         <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-[var(--ed-hair)]">
           {/* Left 5 cols: Match Winner Box */}
-          <div className="md:col-span-5 p-5 sm:p-6 space-y-4 bg-[var(--ed-sand)]/30">
+          <div className="md:col-span-5 p-4 space-y-3 bg-[var(--ed-sand)]/30">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--ed-stone)] flex items-center gap-1.5">
                 <Trophy className="w-4 h-4 text-amber-500" /> Match Winner
@@ -137,7 +137,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
           </div>
 
           {/* Right 7 cols: Top Squads in this match */}
-          <div className="md:col-span-7 p-5 sm:p-6 space-y-3">
+          <div className="md:col-span-7 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="ed-label">Top Squads Placement</span>
               <span className="text-xs text-[var(--ed-stone)] font-mono">{match.mapName || 'Erangel'}</span>
@@ -157,16 +157,16 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
                   {match.topSquads && match.topSquads.length > 0 ? (
                     match.topSquads.map((s) => (
                       <tr key={`${s.rank}-${s.teamName}`} className="hover:bg-[var(--ed-sand)]/30 transition-colors">
-                        <td className="py-2.5 px-3 text-center num text-[var(--ed-stone)] font-bold">
+                        <td className="py-1.5 px-2.5 text-center num text-[var(--ed-stone)] font-bold">
                           #{s.rank}
                         </td>
-                        <td className="py-2.5 px-3 font-semibold text-[var(--ed-ink)]">
+                        <td className="py-1.5 px-2.5 font-semibold text-[var(--ed-ink)]">
                           {s.teamName}
                         </td>
-                        <td className="py-2.5 px-3 text-center num text-[var(--ed-stone)]">
+                        <td className="py-1.5 px-2.5 text-center num text-[var(--ed-stone)]">
                           {s.finishes} K
                         </td>
-                        <td className="py-2.5 px-3 text-right num font-bold text-emerald-600 dark:text-emerald-400">
+                        <td className="py-1.5 px-2.5 text-right num font-bold text-emerald-600 dark:text-emerald-400">
                           +{s.totalPts} pts
                         </td>
                       </tr>

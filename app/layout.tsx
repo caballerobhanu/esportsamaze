@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -12,6 +12,13 @@ export const metadata: Metadata = {
   title: 'Esports Amaze | High-Performance Esports Statistics Platform',
   description:
     'Comprehensive multi-game esports tournament engine and statistics database for BGMI, Valorant, CS2, MLBB, PUBG Mobile, Free Fire, and more.',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#2a5ebd',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

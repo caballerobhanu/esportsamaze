@@ -112,14 +112,14 @@ export default async function RankingsPage({
   return (
     <div className="flex flex-1 flex-col">
 
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-10 sm:px-6 sm:py-14">
+      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-4 sm:px-6 sm:py-5">
         {/* ── Masthead ── */}
         <div className="mb-8 space-y-4">
           <span className="ed-chip text-(--ed-stone)">
             <BarChart3 className="h-3.5 w-3.5 text-(--ed-blue)" />
             Official KRAFTON Power Rankings
           </span>
-          <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">Rankings</h1>
+          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">Rankings</h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-(--ed-stone)">
             Rolling points earned across Publisher and Tier events, decayed by recency so recent form
             weighs heaviest. Roster acquisitions carry points to the new organisation up to the cutoff date.
