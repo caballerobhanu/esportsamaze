@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { MOCK_TOURNAMENTS } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -47,20 +46,12 @@ export async function GET(request: NextRequest) {
       orderBy: { startDate: 'asc' },
     });
 
-    if (tournaments.length > 0) {
-      return NextResponse.json({ success: true, source: 'database', count: tournaments.length, data: tournaments });
-    }
+    return NextResponse.json({ success: true, source: 'database', count: tournaments.length, data: tournaments });
   } catch (error) {
-    console.warn('Prisma query failed, falling back to mock tournaments:', error);
+    console.error('Prisma tournaments query failed:', error);
+    return NextResponse.json(
+      { success: false, error: 'Tournament data is temporarily unavailable.' },
+      { status: 500 }
+    );
   }
-
-  let filtered = MOCK_TOURNAMENTS;
-  if (gameSlug && gameSlug !== 'all') {
-    filtered = filtered.filter((t) => t.gameId === gameSlug);
-  }
-  if (tier) {
-    filtered = filtered.filter((t) => t.tier === tier);
-  }
-
-  return NextResponse.json({ success: true, source: 'fallback', count: filtered.length, data: filtered });
 }

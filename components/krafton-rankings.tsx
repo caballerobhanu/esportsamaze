@@ -95,6 +95,11 @@ export function KraftonRankings() {
   }, []);
 
   const loading = data === null && !failed;
+  const empty =
+    !loading &&
+    !failed &&
+    (data?.teams?.length ?? 0) === 0 &&
+    (data?.players?.length ?? 0) === 0;
 
   return (
     <section id="krafton-rankings" className="space-y-3">
@@ -118,7 +123,12 @@ export function KraftonRankings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {empty ? (
+        <p className="py-8 text-center text-xs text-[var(--ed-stone)]">
+          No ranking events have been recorded yet.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Teams column */}
         <div className="ed-card">
           <div className="ed-card-head">
@@ -260,7 +270,8 @@ export function KraftonRankings() {
             </table>
           )}
         </div>
-      </div>
+        </div>
+      )}
 
       {failed && (
         <p className="text-center text-xs text-slate-400 py-4">

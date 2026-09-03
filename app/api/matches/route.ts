@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { MOCK_LIVE_MATCHES } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -37,20 +36,12 @@ export async function GET(request: NextRequest) {
       take: 20,
     });
 
-    if (matches.length > 0) {
-      return NextResponse.json({ success: true, source: 'database', count: matches.length, data: matches });
-    }
+    return NextResponse.json({ success: true, source: 'database', count: matches.length, data: matches });
   } catch (error) {
-    console.warn('Prisma query failed, falling back to mock matches:', error);
+    console.error('Prisma matches query failed:', error);
+    return NextResponse.json(
+      { success: false, error: 'Match data is temporarily unavailable.' },
+      { status: 500 }
+    );
   }
-
-  let filtered = MOCK_LIVE_MATCHES;
-  if (gameSlug && gameSlug !== 'all') {
-    filtered = filtered.filter((m) => m.gameId === gameSlug);
-  }
-  if (status) {
-    filtered = filtered.filter((m) => m.status === status);
-  }
-
-  return NextResponse.json({ success: true, source: 'fallback', count: filtered.length, data: filtered });
 }

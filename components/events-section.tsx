@@ -16,25 +16,27 @@ interface EventCardData {
   endDate: string;
   gameName: string;
   logoUrl?: string | null;
-  gradient?: string | null;
   stageName: string;
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function normalizeEvent(raw: any): EventCardData {
-  const isDbRow = Array.isArray(raw.stages);
+interface RawTournamentRow {
+  id: string;
+  slug: string;
+  name: string;
+  status: EventStatus;
+  startDate: string;
+  endDate: string;
+  game: { name: string; logoUrl: string | null } | null;
+  stages: { sequence: number; name: string }[];
+}
+
+function normalizeEvent(raw: RawTournamentRow): EventCardData {
   const status: EventStatus = raw.status;
 
   let stageName: string;
-  if (isDbRow && raw.stages.length > 0) {
-    const sorted = [...raw.stages].sort(
-      (a: any, b: any) => a.sequence - b.sequence
-    );
-    if (status === 'UPCOMING') {
-      stageName = sorted[0].name;
-    } else {
-      stageName = sorted[sorted.length - 1].name;
-    }
+  if (raw.stages.length > 0) {
+    const sorted = [...raw.stages].sort((a, b) => a.sequence - b.sequence);
+    stageName = status === 'UPCOMING' ? sorted[0].name : sorted[sorted.length - 1].name;
   } else {
     stageName =
       status === 'ONGOING'
@@ -46,14 +48,13 @@ function normalizeEvent(raw: any): EventCardData {
 
   return {
     id: raw.id,
-    slug: typeof raw.slug === 'string' ? raw.slug : undefined,
+    slug: raw.slug,
     name: raw.name,
     status,
     startDate: String(raw.startDate),
     endDate: String(raw.endDate),
-    gameName: raw.game?.name ?? raw.gameName ?? '',
+    gameName: raw.game?.name ?? '',
     logoUrl: raw.game?.logoUrl ?? null,
-    gradient: raw.bannerGradient ?? null,
     stageName,
   };
 }
@@ -98,8 +99,7 @@ function EventLogo({ event }: { event: EventCardData }) {
   return (
     <div
       className={cn(
-        'w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br',
-        event.gradient ?? 'from-[#0A5FC4] via-indigo-600 to-slate-900'
+        'w-14 h-14 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br from-[#0A5FC4] via-indigo-600 to-slate-900'
       )}
     >
       <span className="text-base font-black text-white drop-shadow">
@@ -116,10 +116,13 @@ export function EventsSection() {
   React.useEffect(() => {
     let cancelled = false;
     fetch('/api/tournaments')
-      .then((res) => res.json())
-      .then((json) => {
-        if (cancelled || !json?.data) return;
-        setEvents(json.data.map(normalizeEvent));
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((json: { data?: RawTournamentRow[] }) => {
+        if (cancelled) return;
+        setEvents((json?.data ?? []).map(normalizeEvent));
       })
       .catch(() => {
         if (!cancelled) setEvents([]);

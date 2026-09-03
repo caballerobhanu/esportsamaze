@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { MOCK_TRANSFERS } from '@/lib/mock-data';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -26,17 +25,12 @@ export async function GET(request: NextRequest) {
       take: 20,
     });
 
-    if (transfers.length > 0) {
-      return NextResponse.json({ success: true, source: 'database', count: transfers.length, data: transfers });
-    }
+    return NextResponse.json({ success: true, source: 'database', count: transfers.length, data: transfers });
   } catch (error) {
-    console.warn('Prisma query failed, falling back to mock transfers:', error);
+    console.error('Prisma transfers query failed:', error);
+    return NextResponse.json(
+      { success: false, error: 'Transfer data is temporarily unavailable.' },
+      { status: 500 }
+    );
   }
-
-  let filtered = MOCK_TRANSFERS;
-  if (type) {
-    filtered = filtered.filter((tr) => tr.type === type);
-  }
-
-  return NextResponse.json({ success: true, source: 'fallback', count: filtered.length, data: filtered });
 }
