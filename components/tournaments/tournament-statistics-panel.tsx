@@ -220,6 +220,7 @@ export interface TournamentStatisticsPanelProps {
   defaultView?: 'players' | 'teams';
   adminPlayerColumns?: PlayerStatColumnKey[];
   customPlayerColumns?: CustomPlayerColumn[];
+  variant?: 'editorial' | 'estatic';
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
@@ -244,7 +245,9 @@ export function TournamentStatisticsPanel({
   defaultView = 'players',
   adminPlayerColumns,
   customPlayerColumns,
+  variant = 'editorial',
 }: TournamentStatisticsPanelProps) {
+  const isEstatic = variant === 'estatic';
   const [activeSection, setActiveSection] = React.useState<'players' | 'teams'>(defaultView);
   const [selectedStages, setSelectedStages] = React.useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = React.useState<string>('ALL');
@@ -675,14 +678,14 @@ export function TournamentStatisticsPanel({
   }, [teamRows, selectedStages, selectedMap, selectedDay, searchQuery, teamSortKey, teamSortDir]);
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isEstatic ? 'rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-sm dark:border-white/10 dark:bg-[#0b1220]' : ''}`}>
       {/* ── Top Header ── */}
       <div>
         <h2 className="font-display flex items-center gap-2.5 text-xl font-medium tracking-tight">
-          <Trophy className="h-5 w-5 text-(--ed-magenta)" />
+          <Trophy className={`h-5 w-5 ${isEstatic ? 'text-[#0A5FC4] dark:text-blue-400' : 'text-(--ed-magenta)'}`} />
           Tournament Performance &amp; Statistics
         </h2>
-        <p className="text-xs text-(--ed-stone) mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Comprehensive performance statistics for participating players and teams.
         </p>
       </div>
@@ -695,29 +698,39 @@ export function TournamentStatisticsPanel({
           onClick={() => setActiveSection('players')}
           className={`text-left p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
             activeSection === 'players'
-              ? 'border-(--ed-blue) bg-blue-500/5 shadow-md shadow-blue-500/10 ring-2 ring-(--ed-blue)/30'
+              ? isEstatic
+                ? 'border-[#0A5FC4] bg-[#0A5FC4]/5 shadow-md shadow-blue-500/10 ring-2 ring-[#0A5FC4]/30'
+                : 'border-(--ed-blue) bg-blue-500/5 shadow-md shadow-blue-500/10 ring-2 ring-(--ed-blue)/30'
+              : isEstatic
+              ? 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20'
               : 'border-(--ed-hair) bg-(--ed-surface) hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <div className={`p-2.5 rounded-xl ${activeSection === 'players' ? 'bg-(--ed-blue) text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+            <div className={`p-2.5 rounded-xl ${
+              activeSection === 'players'
+                ? isEstatic
+                  ? 'bg-[#0A5FC4] text-white shadow-sm'
+                  : 'bg-(--ed-blue) text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`}>
               <Users className="w-5 h-5" />
             </div>
             <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-              activeSection === 'players' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+              activeSection === 'players' ? 'bg-[#0A5FC4] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
             }`}>
               {activeSection === 'players' ? 'Active View' : 'Select'}
             </span>
           </div>
-          <h3 className="font-display text-base font-bold text-(--ed-ink) group-hover:text-(--ed-blue) transition-colors">
+          <h3 className={`font-display text-base font-bold ${isEstatic ? 'text-slate-900 dark:text-white group-hover:text-[#0A5FC4]' : 'text-(--ed-ink) group-hover:text-(--ed-blue)'} transition-colors`}>
             👥 Player Performance
           </h3>
-          <p className="text-xs text-(--ed-stone) mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Individual fraggers leaderboard, eliminations, powerplay, and combat statistics.
           </p>
-          <div className="mt-4 pt-3 border-t border-(--ed-hair) flex items-center justify-between text-[11px] text-(--ed-stone)">
+          <div className={`mt-4 pt-3 border-t ${isEstatic ? 'border-slate-100 dark:border-white/10' : 'border-(--ed-hair)'} flex items-center justify-between text-[11px] text-slate-500`}>
             <span>{playerRows.length} Participating Players</span>
-            <span className="font-mono font-bold text-(--ed-ink)">
+            <span className={`font-mono font-bold ${isEstatic ? 'text-slate-900 dark:text-white' : 'text-(--ed-ink)'}`}>
               Top: {playerRows[0]?.totalElims || 0} Finishes
             </span>
           </div>
@@ -729,29 +742,39 @@ export function TournamentStatisticsPanel({
           onClick={() => setActiveSection('teams')}
           className={`text-left p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
             activeSection === 'teams'
-              ? 'border-(--ed-blue) bg-blue-500/5 shadow-md shadow-blue-500/10 ring-2 ring-(--ed-blue)/30'
+              ? isEstatic
+                ? 'border-[#0A5FC4] bg-[#0A5FC4]/5 shadow-md shadow-blue-500/10 ring-2 ring-[#0A5FC4]/30'
+                : 'border-(--ed-blue) bg-blue-500/5 shadow-md shadow-blue-500/10 ring-2 ring-(--ed-blue)/30'
+              : isEstatic
+              ? 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20'
               : 'border-(--ed-hair) bg-(--ed-surface) hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <div className="flex items-center justify-between mb-3">
-            <div className={`p-2.5 rounded-xl ${activeSection === 'teams' ? 'bg-(--ed-blue) text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+            <div className={`p-2.5 rounded-xl ${
+              activeSection === 'teams'
+                ? isEstatic
+                  ? 'bg-[#0A5FC4] text-white shadow-sm'
+                  : 'bg-(--ed-blue) text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`}>
               <Shield className="w-5 h-5" />
             </div>
             <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-              activeSection === 'teams' ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+              activeSection === 'teams' ? 'bg-[#0A5FC4] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
             }`}>
               {activeSection === 'teams' ? 'Active View' : 'Select'}
             </span>
           </div>
-          <h3 className="font-display text-base font-bold text-(--ed-ink) group-hover:text-(--ed-blue) transition-colors">
+          <h3 className={`font-display text-base font-bold ${isEstatic ? 'text-slate-900 dark:text-white group-hover:text-[#0A5FC4]' : 'text-(--ed-ink) group-hover:text-(--ed-blue)'} transition-colors`}>
             🛡️ Team Performance
           </h3>
-          <p className="text-xs text-(--ed-stone) mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Map statistics with stage filters, average placements, WWCDs, and totals across maps.
           </p>
-          <div className="mt-4 pt-3 border-t border-(--ed-hair) flex items-center justify-between text-[11px] text-(--ed-stone)">
+          <div className={`mt-4 pt-3 border-t ${isEstatic ? 'border-slate-100 dark:border-white/10' : 'border-(--ed-hair)'} flex items-center justify-between text-[11px] text-slate-500`}>
             <span>{teamRows.length} Participating Squads</span>
-            <span className="font-mono font-bold text-(--ed-ink)">
+            <span className={`font-mono font-bold ${isEstatic ? 'text-slate-900 dark:text-white' : 'text-(--ed-ink)'}`}>
               {mapsList.length > 0 ? `${mapsList.length} Maps Played` : 'All Maps'}
             </span>
           </div>

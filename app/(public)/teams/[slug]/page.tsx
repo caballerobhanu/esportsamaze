@@ -111,14 +111,34 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
   if (!team) notFound();
 
-  const otherTeams = await prisma.team.findMany({
-    where: { id: { not: team.id } },
-    take: 2,
-    orderBy: { name: 'asc' },
-    select: { id: true, slug: true, tag: true, name: true },
-  });
-  const prevTeam = otherTeams[0] || null;
-  const nextTeam = otherTeams[1] || null;
+  const [prevCandidate, nextCandidate] = await Promise.all([
+    prisma.team.findFirst({
+      where: { name: { lt: team.name } },
+      orderBy: { name: 'desc' },
+      select: { id: true, slug: true, tag: true, name: true },
+    }),
+    prisma.team.findFirst({
+      where: { name: { gt: team.name } },
+      orderBy: { name: 'asc' },
+      select: { id: true, slug: true, tag: true, name: true },
+    }),
+  ]);
+
+  const prevTeam =
+    prevCandidate ||
+    (await prisma.team.findFirst({
+      where: { id: { not: team.id } },
+      orderBy: { name: 'desc' },
+      select: { id: true, slug: true, tag: true, name: true },
+    }));
+
+  const nextTeam =
+    nextCandidate ||
+    (await prisma.team.findFirst({
+      where: { id: { not: team.id } },
+      orderBy: { name: 'asc' },
+      select: { id: true, slug: true, tag: true, name: true },
+    }));
 
   // Transfer ledger → players who previously represented this team
   const transfers = await prisma.transfer.findMany({
@@ -275,11 +295,6 @@ export default async function TeamPage({ params }: TeamPageProps) {
               <h1 className="text-4xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
                 {team.name}
               </h1>
-              {team.tag && (
-                <p className="mt-2 text-xl font-bold uppercase tracking-[.3em] text-[#0A5FC4] dark:text-blue-300">
-                  [{team.tag}]
-                </p>
-              )}
               <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
                 {team.region || 'Global'} region
                 {team.sponsors && (

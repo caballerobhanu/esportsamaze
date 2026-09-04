@@ -9,12 +9,13 @@ import {
   computeTotalPoints,
   computeUtilitiesTotal,
   computeTotalDistance,
+  parseWwcd,
 } from '@/lib/tournament-math';
 
 export interface MatrixCellSavePayload {
   teamId: string;
   rank: number;
-  wwcd?: boolean;
+  wwcd?: boolean | number | string;
   placePoints?: number;
   elimsPoints?: number;
   bonusPoints?: number;
@@ -401,13 +402,21 @@ export async function bulkUniversalMatchImportAction(
 
       affectedMatches.add(matchGameId);
 
-      // Match Team
+      // Match Team: Prioritize exact matches over partial substrings
       const cleanTeamInput = cleanStr(teamRaw);
-      let matchedTeam = allTeams.find((t) => {
-        const tn = cleanStr(t.name);
-        const tag = cleanStr(t.tag || '');
-        return tn === cleanTeamInput || tag === cleanTeamInput || tn.includes(cleanTeamInput) || cleanTeamInput.includes(tn);
-      });
+      let matchedTeam =
+        allTeams.find((t) => cleanStr(t.name) === cleanTeamInput) ||
+        allTeams.find((t) => cleanStr(t.tag || '') === cleanTeamInput) ||
+        [...allTeams]
+          .sort((a, b) => b.name.length - a.name.length)
+          .find((t) => {
+            const tn = cleanStr(t.name);
+            return tn.includes(cleanTeamInput) || cleanTeamInput.includes(tn);
+          }) ||
+        allTeams.find((t) => {
+          const tag = cleanStr(t.tag || '');
+          return tag && cleanTeamInput.includes(tag);
+        });
 
       if (!matchedTeam) {
         const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
@@ -424,10 +433,7 @@ export async function bulkUniversalMatchImportAction(
 
       // Compute Points & Stats
       const rank = Number(row.rank) || 1;
-      const isWwcd =
-        row.wwcd != null && String(row.wwcd).trim() !== ''
-          ? row.wwcd === true || row.wwcd === 1 || String(row.wwcd).toLowerCase() === 'true' || String(row.wwcd).toLowerCase() === 'yes'
-          : rank === 1;
+      const isWwcd = parseWwcd(row.wwcd, rank);
 
       const placePoints =
         row.placePoints != null && String(row.placePoints).trim() !== ''
@@ -580,7 +586,7 @@ export async function saveMultiMatchMatrixAction(
         if (!res.teamId) continue;
 
         const rank = Number(res.rank || 1);
-        const isWwcd = res.wwcd === true || rank === 1;
+        const isWwcd = parseWwcd(res.wwcd, rank);
         const placePoints =
           res.placePoints != null ? Number(res.placePoints) : getPlacementPoints(rank, pointsMatrix);
         const elimsPoints = Number(res.elimsPoints || 0) * killMultiplier;
@@ -996,13 +1002,21 @@ export async function bulkUniversalPlayerMatchImportAction(
 
       affectedMatches.add(matchGameId);
 
-      // 4. Match Team
+      // 4. Match Team: Prioritize exact matches over partial substrings
       const cleanTeamInput = cleanStr(teamRaw);
-      let matchedTeam = allTeams.find((t) => {
-        const tn = cleanStr(t.name);
-        const tag = cleanStr(t.tag || '');
-        return tn === cleanTeamInput || tag === cleanTeamInput || tn.includes(cleanTeamInput) || cleanTeamInput.includes(tn);
-      });
+      let matchedTeam =
+        allTeams.find((t) => cleanStr(t.name) === cleanTeamInput) ||
+        allTeams.find((t) => cleanStr(t.tag || '') === cleanTeamInput) ||
+        [...allTeams]
+          .sort((a, b) => b.name.length - a.name.length)
+          .find((t) => {
+            const tn = cleanStr(t.name);
+            return tn.includes(cleanTeamInput) || cleanTeamInput.includes(tn);
+          }) ||
+        allTeams.find((t) => {
+          const tag = cleanStr(t.tag || '');
+          return tag && cleanTeamInput.includes(tag);
+        });
 
       if (!matchedTeam) {
         const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
@@ -1078,10 +1092,7 @@ export async function bulkUniversalPlayerMatchImportAction(
       });
 
       const teamRank = Number(row.team_rank || row.teamRank) || (existingTeamResult ? existingTeamResult.rank : 1);
-      const isTeamWwcd =
-        row.team_wwcd != null || row.teamWwcd != null
-          ? row.team_wwcd === true || row.team_wwcd === 1 || String(row.team_wwcd).toLowerCase() === 'true'
-          : teamRank === 1;
+      const isTeamWwcd = parseWwcd(row.team_wwcd ?? row.teamWwcd ?? row.wwcd, teamRank);
 
       const teamPlacePoints =
         row.team_place != null && String(row.team_place).trim() !== ''

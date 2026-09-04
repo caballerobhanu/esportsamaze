@@ -177,14 +177,31 @@ export default async function HomePage() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors selection:bg-[var(--ed-blue)] selection:text-white">
-      {/* 1. Primary Top Navigation Bar */}
-
-      {/* 2. Live & Upcoming Events Strip */}
+    <div className="min-h-screen flex flex-col bg-[#f6f8fc] text-slate-950 transition-colors selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      {/* 1. Live & Upcoming Events Strip */}
       <EventsSection />
 
-      {/* 3. Main Dashboard Body (Editorial max-w-[1200px] layout) */}
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-5 space-y-6">
+      {/* 2. Welcoming Masthead */}
+      <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_-10%,rgba(10,95,196,.14),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(10,95,196,.04)_42%,rgba(10,95,196,.04)_43%,transparent_43%)] dark:bg-[radial-gradient(circle_at_80%_-10%,rgba(37,99,235,.2),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(255,255,255,.02)_42%,rgba(255,255,255,.02)_43%,transparent_43%)]" />
+        <div className="relative mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-10">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#0A5FC4]/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+              <Trophy className="h-3.5 w-3.5" />
+              <span>Official Esports Wiki &amp; Live Match Intelligence</span>
+            </div>
+            <h1 className="text-3xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-5xl">
+              Competitive Esports Dashboard
+            </h1>
+            <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+              Track verified publisher power rankings, real-time stage scorecards, certified squad rosters, and official tournament distributions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Main Dashboard Body */}
+      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* News Section */}
         <NewsSection />
 
@@ -206,25 +223,28 @@ export default async function HomePage() {
         )}
 
         {/* Tournaments & Transfer Ledger Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-1">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-2">
           {/* Active & Upcoming Tournaments (7 cols) */}
-          <section id="tournaments" className="lg:col-span-7 space-y-3">
+          <section id="tournaments" className="lg:col-span-7 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-[var(--ed-blue)]" />
-                <h2 className="font-display text-xl font-medium tracking-tight text-[var(--ed-ink)]">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+                  <Trophy className="w-4 h-4" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
                   Active &amp; Upcoming Tournaments
                 </h2>
               </div>
               <Link
                 href="/tournaments"
-                className="text-xs font-semibold text-[var(--ed-blue)] hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-[#0A5FC4] hover:underline dark:text-blue-400 flex items-center gap-1.5"
               >
-                All Tournaments <ArrowRight className="w-3.5 h-3.5" />
+                <span>All Tournaments</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {tournaments.map((tourney) => {
                 const venueName =
                   tourney.venues[0]?.venue?.name ||
@@ -248,54 +268,54 @@ export default async function HomePage() {
                   <Link
                     key={tourney.id}
                     href={`/tournaments/${tourney.slug}`}
-                    className="block p-4 sm:p-5 ed-card hover:border-[var(--ed-blue)] transition-colors space-y-3"
+                    className="block p-5 rounded-3xl border border-slate-200 bg-white hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220] transition-all space-y-3.5 group"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="ed-chip text-[var(--ed-ink)] font-semibold text-[10px]">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-300">
                             {tourney.tier || 'Tier 1'}
                           </span>
                           <span
                             className={cn(
-                              'ed-chip text-[10px] font-semibold',
+                              'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider',
                               tourney.status === 'ONGOING'
-                                ? 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                                 : tourney.status === 'UPCOMING'
-                                  ? 'border-[var(--ed-blue)]/30 bg-[var(--ed-blue)]/10 text-[var(--ed-blue)]'
-                                  : 'text-[var(--ed-stone)]'
+                                  ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300 border border-[#0A5FC4]/20'
+                                  : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
                             )}
                           >
                             {statusLabel}
                           </span>
                           {tourney.game?.name && (
-                            <span className="text-[10px] font-medium text-[var(--ed-stone)]">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                               {tourney.game.name}
                             </span>
                           )}
                         </div>
-                        <h3 className="font-display font-medium text-base text-[var(--ed-ink)] mt-1.5 hover:text-[var(--ed-blue)] transition-colors">
+                        <h3 className="text-base font-black text-slate-900 mt-2 group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-400 transition-colors">
                           {tourney.name}
                         </h3>
-                        <p className="text-xs text-[var(--ed-stone)]">
+                        <p className="text-xs font-medium text-slate-400">
                           {organizerName}
                         </p>
                       </div>
 
                       <div className="text-right shrink-0">
-                        <div className="text-[11px] text-[var(--ed-stone)] font-medium">Prize Pool</div>
-                        <div className="num text-base font-bold text-amber-600 dark:text-amber-400">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Prize Pool</div>
+                        <div className="text-base font-black text-amber-600 dark:text-amber-400">
                           {formatPrizePool(tourney.prizePool || 0, tourney.currency, tourney.usdRate)}
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-2.5 rounded-lg bg-[var(--ed-sand)]/40 border border-[var(--ed-hair)] flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--ed-stone)]">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-[var(--ed-blue)]" />
+                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:bg-white/[0.02] dark:border-white/5 dark:text-slate-400">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Calendar className="w-3.5 h-3.5 text-[#0A5FC4]" />
                         {formatDate(tourney.startDate)} – {formatDate(tourney.endDate)}
                       </span>
-                      <span className="flex items-center gap-1.5 font-medium text-[var(--ed-ink)]">
+                      <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
                         <MapPin className="w-3.5 h-3.5 text-rose-500" />
                         {venueName}
                       </span>
@@ -307,21 +327,23 @@ export default async function HomePage() {
           </section>
 
           {/* Roster Moves / Transfer Ledger (5 cols) */}
-          <section id="teams" className="lg:col-span-5 space-y-3">
+          <section id="teams" className="lg:col-span-5 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ArrowLeftRight className="w-5 h-5 text-[var(--ed-blue)]" />
-                <h2 className="font-display text-xl font-medium tracking-tight text-[var(--ed-ink)]">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+                  <ArrowLeftRight className="w-4 h-4" />
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
                   Transfer Ledger
                 </h2>
               </div>
-              <span className="ed-chip text-[var(--ed-stone)]">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">
                 Verified Signings
               </span>
             </div>
 
-            <div className="ed-card">
-              <div className="ed-rows">
+            <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
                 {transfers.length > 0 ? (
                   transfers.map((move) => {
                     const realName = move.player.firstName
@@ -329,27 +351,27 @@ export default async function HomePage() {
                       : null;
 
                     return (
-                      <div key={move.id} className="p-3 hover:bg-[var(--ed-sand)]/30 transition-colors space-y-2">
+                      <div key={move.id} className="p-4 hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors space-y-2.5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <Link
                               href={`/players/${encodeURIComponent(move.player.slug || move.player.ign.toLowerCase())}`}
-                              className="font-semibold text-sm text-[var(--ed-ink)] hover:text-[var(--ed-blue)] transition-colors"
+                              className="font-bold text-sm text-slate-900 hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors"
                             >
                               {move.player.ign}
                             </Link>
-                            {realName && <span className="text-xs text-[var(--ed-stone)]">({realName})</span>}
+                            {realName && <span className="text-xs text-slate-400">({realName})</span>}
                           </div>
                           <div className="flex items-center gap-1">
                             {move.staffRole && (
-                              <span className="ed-chip text-[10px] font-semibold text-[var(--ed-stone)]">
+                              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">
                                 {move.staffRole}
                               </span>
                             )}
                             <span
                               className={cn(
-                                'ed-chip text-[10px] font-semibold',
-                                move.type === 'LEFT' ? 'text-rose-600 dark:text-rose-400 border-rose-500/30' : 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider',
+                                move.type === 'LEFT' ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
                               )}
                             >
                               {move.type}
@@ -357,30 +379,30 @@ export default async function HomePage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-[var(--ed-sand)]/40 border border-[var(--ed-hair)] text-xs">
-                          <span className="text-[var(--ed-stone)]">
+                        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs dark:bg-white/[0.02] dark:border-white/5">
+                          <span className="text-slate-400 font-medium">
                             {move.type === 'LEFT' ? move.team.name : 'Free Agent / Prior Org'}
                           </span>
-                          <ArrowLeftRight className="w-3.5 h-3.5 text-[var(--ed-blue)]" />
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-[#0A5FC4]" />
                           <Link
                             href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                            className="font-semibold text-[var(--ed-ink)] hover:text-[var(--ed-blue)] transition-colors"
+                            className="font-bold text-slate-900 hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors"
                           >
                             {move.team.name}
                           </Link>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-[var(--ed-stone)]">
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
                           <span>
-                            Role: <strong className="text-[var(--ed-ink)] font-medium">{move.staffRole || move.player.role || 'Player'}</strong>
+                            Role: <strong className="text-slate-700 dark:text-slate-300 font-bold">{move.staffRole || move.player.role || 'Player'}</strong>
                           </span>
-                          <span className="num">{move.date.toISOString().slice(0, 10)}</span>
+                          <span className="font-bold">{move.date.toISOString().slice(0, 10)}</span>
                         </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="p-8 text-center text-xs text-[var(--ed-stone)]">
+                  <div className="p-8 text-center text-xs text-slate-400">
                     No transfers recorded yet.
                   </div>
                 )}
@@ -389,8 +411,6 @@ export default async function HomePage() {
           </section>
         </div>
       </main>
-
-      {/* Footer */}
     </div>
   );
 }

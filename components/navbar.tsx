@@ -36,8 +36,9 @@ const SHOW_OTHER_GAMES = false;
 export const NAV_ITEMS = [
   { label: 'Tournaments', href: '/tournaments' },
   { label: 'Teams', href: '/teams' },
-  { label: 'News', href: '/#news' },
   { label: 'Rankings', href: '/rankings' },
+  { label: 'Compare', href: '/compare' },
+  { label: 'News', href: '/#news' },
   { label: 'Support', href: '/about' },
 ];
 
@@ -202,7 +203,7 @@ export function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6">
           <div className="relative flex items-center justify-between h-14 gap-4">
             {/* SET 1 (left aligned): Logo + spacing + nav items */}
             <div className="flex items-center min-w-0">

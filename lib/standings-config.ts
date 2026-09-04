@@ -53,6 +53,8 @@ export interface ZoneRule {
   to: number;
   label: string;
   color?: ZoneColor | string;
+  targetStageName?: string;
+  targetStageId?: string;
 }
 
 export interface StandingsStageConfig {
@@ -420,10 +422,32 @@ export function normalizeZones(v: unknown): ZoneRule[] {
     const to = Number(row?.to);
     const label = String(row?.label ?? '').trim();
     const color = row?.color ? String(row.color).trim() : undefined;
+    const targetStageName = row?.targetStageName ? String(row.targetStageName).trim() : undefined;
+    const targetStageId = row?.targetStageId ? String(row.targetStageId).trim() : undefined;
     if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from || !label) continue;
-    list.push({ from: Math.round(from), to: Math.round(to), label, ...(color ? { color } : {}) });
+    list.push({
+      from: Math.round(from),
+      to: Math.round(to),
+      label,
+      ...(color ? { color } : {}),
+      ...(targetStageName ? { targetStageName } : {}),
+      ...(targetStageId ? { targetStageId } : {}),
+    });
   }
   return list;
+}
+
+export function resolveZoneTargetStage(zone: ZoneRule, availableStages: string[]): string | undefined {
+  if (zone.targetStageName && availableStages.some((s) => s.toLowerCase() === zone.targetStageName!.toLowerCase())) {
+    return availableStages.find((s) => s.toLowerCase() === zone.targetStageName!.toLowerCase());
+  }
+  // Intelligent heuristic: if zone label mentions an available stage, infer it
+  const cleanLabel = zone.label.toLowerCase();
+  const matched = availableStages.find((s) => {
+    const cleanStage = s.toLowerCase();
+    return cleanLabel === cleanStage || cleanLabel.includes(cleanStage);
+  });
+  return matched;
 }
 
 function normalizeFilters(v: unknown, fallback: StandingsFilterKey[]): StandingsFilterKey[] {

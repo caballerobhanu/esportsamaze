@@ -243,13 +243,16 @@ export function TournamentStandingsPanel({
   teams,
   config,
   overallTopFragger,
+  variant = 'editorial',
 }: {
   stages: StandingsStageSummary[];
   matches: StandingsMatchLite[];
   teams: Record<string, StandingsTeamMeta>;
   config: StandingsConfig;
   overallTopFragger?: { ign: string; teamName: string; kills: number } | null;
+  variant?: 'editorial' | 'estatic';
 }) {
+  const isEstatic = variant === 'estatic';
   const tabGroups = React.useMemo(() => config.tabGroups || [], [config.tabGroups]);
   const hasTabGroups = tabGroups.length > 0;
 
@@ -790,23 +793,41 @@ export function TournamentStandingsPanel({
               <div
                 key={team.teamId}
                 className={`group grid transition-colors ${
-                  isPrec ? 'bg-slate-50/50 dark:bg-slate-900/30' : 'hover:bg-(--ed-canvas)'
+                  isPrec ? 'bg-slate-50/50 dark:bg-slate-900/30' : isEstatic ? 'hover:bg-slate-50/80 dark:hover:bg-white/5' : 'hover:bg-(--ed-canvas)'
                 }`}
                 style={{ gridTemplateColumns: gridTemplate }}
               >
                 {/* Sticky team cell */}
                 <div
-                  className={`sticky left-0 z-10 flex items-center gap-2 border-l-4 bg-(--ed-surface) px-3 py-2 group-hover:bg-(--ed-canvas) ${
+                  className={`sticky left-0 z-10 flex items-center gap-2 border-l-4 ${
+                    isEstatic ? 'bg-white dark:bg-[#0b1220]' : 'bg-(--ed-surface)'
+                  } px-3 py-2 group-hover:bg-(--ed-canvas) ${
                     isPrec || zone ? zStyle.border : 'border-transparent'
                   }`}
                 >
-                  <span
-                    className={`num w-6 shrink-0 text-sm ${
-                      team.rank <= 3 ? 'font-black text-(--ed-ink)' : 'text-(--ed-stone)'
-                    }`}
-                  >
-                    {String(team.rank).padStart(2, '0')}
-                  </span>
+                  {isEstatic ? (
+                    <span
+                      className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center text-xs font-black ${
+                        team.rank === 1
+                          ? 'bg-amber-400 text-slate-950 shadow-sm shadow-amber-400/25'
+                          : team.rank === 2
+                          ? 'bg-slate-300 text-slate-900'
+                          : team.rank === 3
+                          ? 'bg-amber-600/20 text-amber-600 dark:text-amber-400'
+                          : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {team.rank}
+                    </span>
+                  ) : (
+                    <span
+                      className={`num w-6 shrink-0 text-sm ${
+                        team.rank <= 3 ? 'font-black text-(--ed-ink)' : 'text-(--ed-stone)'
+                      }`}
+                    >
+                      {String(team.rank).padStart(2, '0')}
+                    </span>
+                  )}
                   {(config.logoMode === 'BOTH' || config.logoMode === 'COUNTRY') && meta?.countryCode && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -838,14 +859,14 @@ export function TournamentStandingsPanel({
                   <span className="hidden truncate text-sm font-bold sm:inline">
                     {meta?.displayName || meta?.name || team.teamName}
                   </span>
-                  <span className="truncate text-sm font-bold sm:hidden">
-                    {meta?.tag || meta?.name || team.teamName}
+                  <span className="truncate text-xs font-black uppercase tracking-wider sm:hidden">
+                    {meta?.tag || meta?.name?.slice(0, 4)?.toUpperCase() || team.teamName.slice(0, 4).toUpperCase()}
                   </span>
 
                   {/* Precedence qualification badge */}
                   {isPrec && (
                     <span
-                      className={`ml-auto hidden text-[10px] font-black uppercase px-2 py-0.5 rounded-full lg:inline-flex items-center gap-1 border ${zStyle.bgSoft} ${zStyle.text} border-current/20`}
+                      className={`ml-auto ${isEstatic ? 'inline-flex' : 'hidden lg:inline-flex'} text-[10px] font-black uppercase px-2 py-0.5 rounded-full items-center gap-1 border ${zStyle.bgSoft} ${zStyle.text} border-current/20`}
                       title="Qualified via previous higher-tier stage"
                     >
                       <ShieldCheck className="w-3 h-3" /> {assignment.precedenceLabel}
@@ -855,7 +876,7 @@ export function TournamentStandingsPanel({
                   {/* Active stage qualification badge */}
                   {!isPrec && zone && (
                     <span
-                      className={`ml-auto hidden text-[10px] font-black uppercase px-2 py-0.5 rounded-full lg:inline-flex items-center gap-1 ${zStyle.bgSoft} ${zStyle.text}`}
+                      className={`ml-auto ${isEstatic ? 'inline-flex' : 'hidden lg:inline-flex'} text-[10px] font-black uppercase px-2 py-0.5 rounded-full items-center gap-1 border ${zStyle.bgSoft} ${zStyle.text} border-current/20`}
                     >
                       {zone.label}
                     </span>
@@ -954,9 +975,15 @@ export function TournamentStandingsPanel({
                       key={c.key}
                       className={`num flex items-center justify-center px-2 py-1.5 text-sm whitespace-nowrap ${
                         isTotal
-                          ? 'font-black text-(--ed-blue)'
+                          ? isEstatic
+                            ? 'font-black text-base text-[#0A5FC4] dark:text-blue-300'
+                            : 'font-black text-(--ed-blue)'
                           : c.key === 'wwcd' && Number(val) > 0
-                          ? 'font-bold text-emerald-600 dark:text-emerald-400'
+                          ? isEstatic
+                            ? 'font-bold text-amber-500'
+                            : 'font-bold text-emerald-600 dark:text-emerald-400'
+                          : isEstatic
+                          ? 'text-slate-700 dark:text-slate-300'
                           : 'text-(--ed-ink)'
                       }`}
                     >
@@ -987,7 +1014,13 @@ export function TournamentStandingsPanel({
     if (zones.length === 0 && precedenceQualifications.size === 0) return null;
 
     return (
-      <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-(--ed-hair)">
+      <div
+        className={`flex flex-wrap items-center gap-3 p-3 rounded-2xl ${
+          isEstatic
+            ? 'bg-slate-50/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10'
+            : 'bg-slate-50 dark:bg-slate-900/60 border border-(--ed-hair)'
+        }`}
+      >
         <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
           <Info className="w-3.5 h-3.5" /> Advancement Zones:
         </span>
@@ -1002,7 +1035,7 @@ export function TournamentStandingsPanel({
           );
         })}
         {precedenceQualifications.size > 0 && (
-          <span className="flex items-center gap-1 text-xs text-(--ed-blue) font-bold ml-auto">
+          <span className={`flex items-center gap-1 text-xs ${isEstatic ? 'text-[#0A5FC4] dark:text-blue-300' : 'text-(--ed-blue)'} font-bold ml-auto`}>
             <ShieldCheck className="w-3.5 h-3.5" /> {precedenceQualifications.size} teams already qualified via Super Weekends (Slots pass to next teams)
           </span>
         )}
@@ -1021,12 +1054,48 @@ export function TournamentStandingsPanel({
   );
 
   return (
-    <div className="space-y-5">
+    <div className={`space-y-5 ${isEstatic ? 'rounded-3xl border border-slate-200 bg-white p-5 sm:p-7 shadow-sm dark:border-white/10 dark:bg-[#0b1220]' : ''}`}>
       {/* ── Sub-Division Top Level Tabs (e.g. League Weeks, Weekends, Playoffs, Finals) ── */}
       {hasTabGroups ? (
         <div className="space-y-3">
-          {/* Top-Level Sub-Division Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900/80 w-fit border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full">
+          {/* Mobile Selectors when isEstatic */}
+          {isEstatic && (
+            <div className="sm:hidden space-y-2">
+              <div className="relative">
+                <select
+                  value={activeGroupId}
+                  onChange={(e) => switchGroup(e.target.value)}
+                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-100/90 py-2.5 pl-3.5 pr-8 text-xs font-black uppercase tracking-wider text-slate-900 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                >
+                  {tabGroups.map((grp) => (
+                    <option key={grp.id} value={grp.id} className="bg-white dark:bg-[#0b1220]">
+                      {grp.name} ({grp.items.length})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              </div>
+              {activeGroup && activeGroup.items.length > 1 && (
+                <div className="relative">
+                  <select
+                    value={activeId}
+                    onChange={(e) => switchTabItem(e.target.value)}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-100/90 py-2.5 pl-3.5 pr-8 text-xs font-black uppercase tracking-wider text-slate-900 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                  >
+                    {activeGroup.items.map((it) => (
+                      <option key={it.id} value={it.id} className="bg-white dark:bg-[#0b1220]">
+                        {it.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Desktop / Default Top-Level Sub-Division Tabs */}
+          <div className={`${isEstatic ? 'hidden sm:flex' : 'flex'} items-center gap-1.5 p-1 rounded-2xl ${isEstatic ? 'bg-slate-100/90 dark:bg-white/5 border border-slate-200/80 dark:border-white/10' : 'bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800'} w-fit overflow-x-auto max-w-full`}>
             {tabGroups.map((grp) => {
               const isGroupActive = grp.id === activeGroupId;
               return (
@@ -1036,16 +1105,20 @@ export function TournamentStandingsPanel({
                   onClick={() => switchGroup(grp.id)}
                   className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                     isGroupActive
-                      ? 'bg-white dark:bg-slate-800 text-(--ed-blue) shadow-sm border border-slate-200/60 dark:border-slate-700/60'
+                      ? isEstatic
+                        ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25'
+                        : 'bg-white dark:bg-slate-800 text-(--ed-blue) shadow-sm border border-slate-200/60 dark:border-slate-700/60'
                       : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  <Flame className={`w-3.5 h-3.5 ${isGroupActive ? 'text-amber-500' : 'text-slate-400'}`} />
+                  <Flame className={`w-3.5 h-3.5 ${isGroupActive ? (isEstatic ? 'text-amber-300' : 'text-amber-500') : 'text-slate-400'}`} />
                   <span>{grp.name}</span>
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                       isGroupActive
-                        ? 'bg-(--ed-blue)/10 text-(--ed-blue)'
+                        ? isEstatic
+                          ? 'bg-white/20 text-white'
+                          : 'bg-(--ed-blue)/10 text-(--ed-blue)'
                         : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                     }`}
                   >
@@ -1058,12 +1131,26 @@ export function TournamentStandingsPanel({
 
           {/* Second-Level Sub-Tabs (Stages & Custom Cumulative views inside the active sub-division) */}
           {activeGroup && (
-            <div className="flex items-end gap-2 overflow-x-auto border-b border-(--ed-hair) pb-px pt-1">
+            <div className={`${isEstatic ? 'hidden sm:flex' : 'flex'} items-center gap-2 overflow-x-auto ${isEstatic ? 'border-b border-slate-100 dark:border-white/10 pb-2.5 pt-1' : 'border-b border-(--ed-hair) pb-px pt-1'}`}>
               {activeGroup.items.map((item) => {
                 const isItemActive = activeId === item.id;
                 const isCustom = item.type === 'CUSTOM_TAB' || item.type === 'OVERALL';
 
-                return (
+                return isEstatic ? (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => switchTabItem(item.id)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isItemActive
+                        ? 'border-2 border-[#0A5FC4] bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
+                        : 'border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/20'
+                    }`}
+                  >
+                    {isCustom && <Sparkles className="w-3.5 h-3.5 text-amber-500" />}
+                    <span>{item.label}</span>
+                  </button>
+                ) : (
                   <button
                     key={item.id}
                     type="button"
@@ -1133,10 +1220,10 @@ export function TournamentStandingsPanel({
 
       {/* Custom Tab Banner & Precedence Toggle */}
       {(activeNavItem?.type === 'CUSTOM_TAB' || activeCustomTab) && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className={`p-4 rounded-2xl ${isEstatic ? 'bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20 shadow-xs' : 'bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-500/20'} flex flex-col sm:flex-row sm:items-center justify-between gap-3`}>
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-md bg-(--ed-blue) text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+              <span className={`px-2 py-0.5 rounded-md ${isEstatic ? 'bg-[#0A5FC4]' : 'bg-(--ed-blue)'} text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1`}>
                 <Layers className="w-3 h-3" /> Cumulative Standings
               </span>
               <h3 className="text-sm font-black text-slate-900 dark:text-white">
@@ -1159,9 +1246,13 @@ export function TournamentStandingsPanel({
             <button
               type="button"
               onClick={() => setHidePrecedenceQualified((prev) => !prev)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 hidePrecedenceQualified
-                  ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-xs'
+                  ? isEstatic
+                    ? 'bg-[#0A5FC4] border-[#0A5FC4] text-white shadow-md shadow-blue-500/25'
+                    : 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-xs'
+                  : isEstatic
+                  ? 'bg-white dark:bg-[#0b1220] border-slate-300 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:border-[#0A5FC4]'
                   : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-slate-400'
               }`}
             >

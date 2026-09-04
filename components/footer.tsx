@@ -4,7 +4,7 @@ import Link from 'next/link';
 export function Footer() {
   return (
     <footer className="bg-slate-700 text-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div className="space-y-3">
@@ -35,6 +35,11 @@ export function Footer() {
               <li>
                 <Link href="/about" className="hover:text-white transition-colors">
                   About
+                </Link>
+              </li>
+              <li>
+                <Link href="/compare" className="hover:text-white transition-colors">
+                  Head-to-Head Compare
                 </Link>
               </li>
               <li>

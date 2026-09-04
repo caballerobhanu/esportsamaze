@@ -321,11 +321,25 @@ export function getPlacementPoints(
   return DEFAULT_BR_PLACEMENT_POINTS[rank] ?? 0;
 }
 
+export function parseWwcd(val: any, fallbackRank?: number): boolean {
+  if (val !== undefined && val !== null && String(val).trim() !== '') {
+    const s = String(val).trim().toLowerCase();
+    if (s === '1' || s === 'true' || s === 'yes' || s === 'wwcd' || s === 'won') {
+      return true;
+    }
+    if (s === '0' || s === 'false' || s === 'no') {
+      return false;
+    }
+  }
+  return fallbackRank === 1;
+}
+
 export interface AggregatedTeamStanding {
   teamId: string;
   teamName: string;
   tag: string;
   logoUrl?: string;
+  logoDarkUrl?: string;
   rank: number;
   matchesPlayed: number;
   wwcd: number;
@@ -403,7 +417,7 @@ export function compareFraggerStandings(
 export function calculateTournamentStandings(
   teamResults: {
     teamId: string;
-    team?: { id: string; name: string; tag?: string | null; logoUrl?: string | null };
+    team?: { id: string; name: string; tag?: string | null; logoUrl?: string | null; imageDarkUrl?: string | null };
     rank: number;
     wwcd?: boolean;
     placePoints?: number;
@@ -439,6 +453,7 @@ export function calculateTournamentStandings(
       teamName: r.team?.name || 'Unknown Team',
       tag: r.team?.tag || '',
       logoUrl: r.team?.logoUrl || undefined,
+      logoDarkUrl: r.team?.imageDarkUrl || undefined,
       rank: 0,
       matchesPlayed: 0,
       wwcd: 0,

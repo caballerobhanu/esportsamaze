@@ -599,6 +599,8 @@ async function saveTournament(formData: FormData) {
     }
   }
 
+  revalidatePath('/api/tournaments');
+  revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
   redirect('/admin/tournaments');
@@ -615,6 +617,8 @@ async function deleteTournament(formData: FormData) {
       redirect('/admin/tournaments?error=delete-failed');
     }
   }
+  revalidatePath('/api/tournaments');
+  revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
   redirect('/admin/tournaments');
@@ -700,6 +704,8 @@ async function duplicateTournament(formData: FormData) {
     },
   });
 
+  revalidatePath('/api/tournaments');
+  revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
   redirect(`/admin/tournaments?edit=${created.id}#tournament-editor`);

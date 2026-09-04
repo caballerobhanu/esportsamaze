@@ -105,6 +105,7 @@ interface CellData {
   grenadesUsed: number | '';
   molotovsUsed: number | '';
   rescues: number | '';
+  wwcd?: boolean;
   isModified?: boolean;
 }
 
@@ -117,6 +118,7 @@ interface ParsedPreviewRow {
   matchedTeamName: string;
   matchedTeamTag: string;
   rank: number;
+  wwcd?: boolean;
   elims: number;
   damage: number;
   isValid: boolean;
@@ -441,6 +443,7 @@ export function MultiMatchMatrixGrid({
     let colTeam = -1;
     let colElims = -1;
     let colDamage = -1;
+    let colWwcd = -1;
 
     if (hasHeader) {
       firstTokens.forEach((t, idx) => {
@@ -448,6 +451,7 @@ export function MultiMatchMatrixGrid({
         else if (t.includes('team') || t.includes('name') || t.includes('tag') || t.includes('clan')) colTeam = idx;
         else if (t.includes('elim') || t.includes('kill') || t === 'kp' || t === 'finishes' || t === 'pts') colElims = idx;
         else if (t.includes('dmg') || t.includes('damage')) colDamage = idx;
+        else if (t.includes('wwcd') || t.includes('chicken') || t === 'win' || t === 'won') colWwcd = idx;
       });
     }
 
@@ -460,12 +464,17 @@ export function MultiMatchMatrixGrid({
       let teamRaw = '';
       let elims = 0;
       let damage = 0;
+      let isWwcd: boolean | undefined = undefined;
 
       if (hasHeader && colTeam !== -1) {
         teamRaw = tokens[colTeam] || '';
         if (colRank !== -1 && !isNaN(Number(tokens[colRank])) && tokens[colRank] !== '') rank = Number(tokens[colRank]);
         if (colElims !== -1 && !isNaN(Number(tokens[colElims])) && tokens[colElims] !== '') elims = Number(tokens[colElims]);
         if (colDamage !== -1 && !isNaN(Number(tokens[colDamage])) && tokens[colDamage] !== '') damage = Number(tokens[colDamage]);
+        if (colWwcd !== -1 && tokens[colWwcd] !== undefined && tokens[colWwcd] !== '') {
+          const w = tokens[colWwcd].trim().toLowerCase();
+          isWwcd = w === '1' || w === 'true' || w === 'yes' || w === 'wwcd' || w === 'won';
+        }
       } else {
         // Positional fallback analysis:
         // Case 1: [Rank, Team, Elims, Damage] or [Rank, Team, Elims]
@@ -503,6 +512,10 @@ export function MultiMatchMatrixGrid({
         }
       }
 
+      if (isWwcd === undefined) {
+        isWwcd = rank === 1;
+      }
+
       const matched = findMatchingTeam(teamRaw) || visibleTeams[idx] || null;
 
       return {
@@ -511,6 +524,7 @@ export function MultiMatchMatrixGrid({
         matchedTeamName: matched?.name || teamRaw || `Row #${idx + 1}`,
         matchedTeamTag: matched?.tag || '',
         rank,
+        wwcd: isWwcd,
         elims,
         damage,
         isValid: Boolean(matched),
@@ -542,6 +556,7 @@ export function MultiMatchMatrixGrid({
         next[key] = {
           ...existing,
           rank: row.rank,
+          wwcd: row.wwcd,
           elims: row.elims,
           damage: row.damage || existing.damage || 0,
           isModified: true,
@@ -687,6 +702,7 @@ export function MultiMatchMatrixGrid({
 
           if (cell && cell.rank !== '') {
             const rank = Number(cell.rank);
+            const isWwcd = cell.wwcd !== undefined ? cell.wwcd : rank === 1;
             const elims = Number(cell.elims || 0);
             const bonus = Number(cell.bonusPoints || 0);
             const placePoints = getPlacementPoints(rank, pointsMatrix);
@@ -696,7 +712,7 @@ export function MultiMatchMatrixGrid({
             resultsForMatch.push({
               teamId: t.id,
               rank,
-              wwcd: rank === 1,
+              wwcd: isWwcd,
               placePoints,
               elimsPoints,
               bonusPoints: bonus,

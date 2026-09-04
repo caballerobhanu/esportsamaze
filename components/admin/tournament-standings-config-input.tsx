@@ -74,15 +74,17 @@ const ZONE_COLORS: { key: ZoneColor; label: string; bg: string }[] = [
 
 function ZonesEditor({
   zones,
+  stageNames = [],
   onChange,
 }: {
   zones: ZoneRule[];
+  stageNames?: string[];
   onChange: (zones: ZoneRule[]) => void;
 }) {
   return (
     <div className="space-y-2">
       {zones.map((z, i) => (
-        <div key={i} className="grid grid-cols-[4.5rem_4.5rem_1fr_8.5rem_auto] gap-2 items-center">
+        <div key={i} className="grid grid-cols-[4rem_4rem_1fr_10.5rem_7.5rem_auto] gap-2 items-center">
           <input
             type="number"
             min={1}
@@ -117,6 +119,38 @@ function ZonesEditor({
               onChange(zones.map((row, idx) => (idx === i ? { ...row, label: e.target.value } : row)))
             }
           />
+
+          {/* Linked Target Stage Dropdown */}
+          <select
+            className={`${inputCls} font-semibold`}
+            value={z.targetStageName || ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              onChange(
+                zones.map((row, idx) => {
+                  if (idx !== i) return row;
+                  const newLabel =
+                    (!row.label || row.label.startsWith('Top ') || row.label.startsWith('Advance to ')) && val
+                      ? `Top ${row.to - row.from + 1} to ${val}`
+                      : row.label;
+                  return {
+                    ...row,
+                    targetStageName: val || undefined,
+                    label: newLabel || row.label,
+                  };
+                })
+              );
+            }}
+            title="Link this qualification zone to an actual tournament stage (e.g. Grand Finals)"
+          >
+            <option value="">🎯 Link Stage (None)</option>
+            {stageNames.map((s) => (
+              <option key={s} value={s}>
+                ➔ {s}
+              </option>
+            ))}
+          </select>
+
           <select
             className={inputCls}
             value={z.color || 'blue'}
@@ -549,6 +583,7 @@ function TabGroupsEditor({
                             </label>
                             <ZonesEditor
                               zones={item.zones || []}
+                              stageNames={stageNames}
                               onChange={(updatedZones) => updateItem(gIdx, iIdx, { zones: updatedZones })}
                             />
                           </div>
@@ -889,7 +924,7 @@ export function TournamentStandingsConfigInput({
             Applied to the Overall Standings tab and stages that do not have custom overrides.
           </p>
         </div>
-        <ZonesEditor zones={config.zones} onChange={(zones) => patch({ zones })} />
+        <ZonesEditor zones={config.zones} stageNames={stageNames} onChange={(zones) => patch({ zones })} />
       </div>
 
       {/* ── Hierarchical Standings Sub-Divisions (e.g. League Weeks, Weekends, Playoffs, Finals) ── */}

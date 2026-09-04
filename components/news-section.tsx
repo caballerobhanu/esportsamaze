@@ -127,80 +127,85 @@ export function NewsSection() {
   }, []);
 
   return (
-    <section id="news" className="space-y-3">
+    <section id="news" className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Newspaper className="w-5 h-5 text-[var(--ed-blue)]" />
-          <h2 className="font-display text-xl font-medium tracking-tight text-[var(--ed-ink)]">
-            Latest News
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+            <Newspaper className="w-4 h-4" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+            Latest Headlines
           </h2>
         </div>
         <a
           href="https://esportsamaze.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-semibold text-[var(--ed-blue)] hover:underline flex items-center gap-1"
+          className="text-xs font-bold text-[#0A5FC4] hover:underline dark:text-blue-400 flex items-center gap-1.5"
         >
-          Visit esportsamaze.com <ExternalLink className="w-3.5 h-3.5" />
+          <span>More on esportsamaze.com</span>
+          <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
 
       {failed ? (
-        <div className="rounded-xl border border-dashed border-[var(--ed-hair)] p-8 text-center text-xs text-[var(--ed-stone)]">
+        <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400 dark:border-white/10">
           News is unavailable right now. Check back soon.
         </div>
       ) : posts === null ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="ed-card overflow-hidden animate-pulse"
+              className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220] animate-pulse"
             >
-              <div className="aspect-video bg-[var(--ed-sand)]/50" />
-              <div className="p-4 space-y-2">
-                <div className="h-3 w-3/4 rounded bg-[var(--ed-sand)]/60" />
-                <div className="h-3 w-full rounded bg-[var(--ed-sand)]/40" />
-                <div className="h-3 w-1/2 rounded bg-[var(--ed-sand)]/40" />
+              <div className="aspect-video bg-slate-100 dark:bg-white/5" />
+              <div className="p-5 space-y-3">
+                <div className="h-3 w-1/3 rounded-full bg-slate-200 dark:bg-white/10" />
+                <div className="h-4 w-5/6 rounded-full bg-slate-200 dark:bg-white/10" />
+                <div className="h-3 w-full rounded-full bg-slate-100 dark:bg-white/5" />
               </div>
             </div>
           ))}
         </div>
       ) : posts.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[var(--ed-hair)] p-8 text-center text-xs text-[var(--ed-stone)]">
+        <div className="rounded-3xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-400 dark:border-white/10">
           No news articles found.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {posts.map((post) => (
             <a
               key={post.id}
               href={post.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="group ed-card hover:border-[var(--ed-blue)] transition-colors flex flex-col"
+              className="group rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220] transition-all flex flex-col"
             >
-              {post.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={post.image}
-                  alt=""
-                  className="aspect-video w-full object-cover border-b border-[var(--ed-hair)]"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="aspect-video w-full bg-[var(--ed-sand)]/40 border-b border-[var(--ed-hair)] flex items-center justify-center">
-                  <Newspaper className="w-8 h-8 text-[var(--ed-stone)]/40" />
-                </div>
-              )}
+              <div className="aspect-video w-full overflow-hidden bg-slate-100 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 relative">
+                {post.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={post.image}
+                    alt=""
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center">
+                    <Newspaper className="w-8 h-8 text-slate-300 dark:text-white/20" />
+                  </div>
+                )}
+              </div>
 
-              <div className="p-4 space-y-2 flex flex-col flex-1">
-                <span className="text-[11px] font-semibold text-[var(--ed-stone)]">
+              <div className="p-5 space-y-2.5 flex flex-col flex-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400">
                   {formatDate(post.date)}
                 </span>
-                <h3 className="text-sm font-semibold text-[var(--ed-ink)] leading-snug line-clamp-2 group-hover:text-[var(--ed-blue)] transition-colors">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 group-hover:text-[#0A5FC4] dark:group-hover:text-blue-300 transition-colors">
                   {post.title}
                 </h3>
-                <p className="text-xs text-[var(--ed-stone)] leading-relaxed line-clamp-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
                   {post.excerpt}
                 </p>
               </div>

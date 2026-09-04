@@ -91,16 +91,26 @@ export function MatchBatchImporter({
     (nameOrTag: string): TeamOption | undefined => {
       if (!nameOrTag) return undefined;
       const clean = nameOrTag.trim().toLowerCase().replace(/^\[|\]$/g, '');
-      return allTeams.find((t) => {
+      // 1. Exact match on name
+      const exactName = allTeams.find((t) => t.name.toLowerCase() === clean);
+      if (exactName) return exactName;
+
+      // 2. Exact match on tag
+      const exactTag = allTeams.find((t) => (t.tag || '').toLowerCase() === clean);
+      if (exactTag) return exactTag;
+
+      // 3. Name contains clean or clean contains name (longer team names first)
+      const sortedByLength = [...allTeams].sort((a, b) => b.name.length - a.name.length);
+      const partialName = sortedByLength.find((t) => {
         const tName = t.name.toLowerCase();
+        return tName.includes(clean) || clean.includes(tName);
+      });
+      if (partialName) return partialName;
+
+      // 4. Tag partial match
+      return allTeams.find((t) => {
         const tTag = (t.tag || '').toLowerCase();
-        return (
-          tName === clean ||
-          tTag === clean ||
-          tName.includes(clean) ||
-          clean.includes(tName) ||
-          (tTag && clean.includes(tTag))
-        );
+        return tTag && clean.includes(tTag);
       });
     },
     [allTeams]

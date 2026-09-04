@@ -33,11 +33,11 @@ function RankBadge({ rank }: { rank: number }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center w-5 h-5 rounded text-xs num font-bold shrink-0',
-        rank === 1 && 'bg-amber-400 text-slate-950 font-bold',
-        rank === 2 && 'bg-slate-300 dark:bg-slate-700 text-[var(--ed-ink)] font-bold',
-        rank === 3 && 'bg-amber-700/20 text-amber-700 dark:text-amber-400 font-bold',
-        rank > 3 && 'bg-[var(--ed-sand)] text-[var(--ed-stone)]'
+        'inline-flex items-center justify-center w-5 h-5 rounded-md text-xs font-black shrink-0',
+        rank === 1 && 'bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 shadow-xs',
+        rank === 2 && 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+        rank === 3 && 'bg-amber-600/20 text-amber-700 dark:text-amber-400',
+        rank > 3 && 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-500'
       )}
     >
       {rank}
@@ -53,7 +53,7 @@ function TeamLogo({ name, logos }: { name: string; logos: RankingsResponse['logo
       <img
         src={logo.logoUrl}
         alt=""
-        className="w-5 h-5 rounded object-contain shrink-0"
+        className="w-5 h-5 rounded-md object-contain shrink-0"
         loading="lazy"
       />
     );
@@ -64,7 +64,7 @@ function TeamLogo({ name, logos }: { name: string; logos: RankingsResponse['logo
     .map((w) => w[0]?.toUpperCase())
     .join('');
   return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-[var(--ed-sand)] text-[10px] font-bold text-[var(--ed-stone)] shrink-0">
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-md bg-slate-100 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400 shrink-0">
       {initials}
     </span>
   );
@@ -102,174 +102,185 @@ export function KraftonRankings() {
     (data?.players?.length ?? 0) === 0;
 
   return (
-    <section id="krafton-rankings" className="space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Shield className="w-5 h-5 text-[var(--ed-blue)]" />
-          <h2 className="font-display text-xl font-medium tracking-tight text-[var(--ed-ink)]">
-            KRAFTON Rankings
+    <section id="krafton-rankings" className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+            <Shield className="w-4 h-4" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+            KRAFTON Power Rankings
           </h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="ed-chip text-[var(--ed-stone)]">
+          <span className="hidden sm:inline-block rounded-full bg-slate-200/60 px-3 py-1 text-[11px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400">
             Decay-Adjusted Rolling Points
           </span>
           <Link
             href="/rankings"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ed-blue)] hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0A5FC4] hover:underline dark:text-blue-400"
           >
-            Full rankings →
+            <span>Full rankings</span>
+            <span>&rarr;</span>
           </Link>
         </div>
       </div>
 
       {empty ? (
-        <p className="py-8 text-center text-xs text-[var(--ed-stone)]">
+        <p className="py-8 text-center text-xs text-slate-400">
           No ranking events have been recorded yet.
         </p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Teams column */}
-        <div className="ed-card">
-          <div className="ed-card-head">
-            <span className="font-semibold text-xs uppercase tracking-wider text-[var(--ed-ink)]">
-              Teams
-            </span>
-            <span className="ed-chip text-[var(--ed-stone)]">Top 10</span>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Teams column */}
+          <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]">
+              <span className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                Teams
+              </span>
+              <span className="rounded-full bg-[#0A5FC4]/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+                Top 10
+              </span>
+            </div>
 
-          {loading ? (
-            <RankSkeleton rowsWithSub={false} />
-          ) : (
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="bg-[var(--ed-sand)]/50 border-b border-[var(--ed-hair)]">
-                  <th className="ed-th text-center w-10">#</th>
-                  <th className="ed-th">Team</th>
-                  <th className="ed-th text-center w-14">Events</th>
-                  <th className="ed-th text-right w-20">Points</th>
-                </tr>
-              </thead>
-              <tbody className="ed-rows font-medium">
-                {(data?.teams ?? []).map((team) => (
-                  <tr
-                    key={team.name}
-                    className="hover:bg-[var(--ed-sand)]/30 transition-colors"
-                  >
-                    <td className="py-2.5 px-2 text-center">
-                      <RankBadge rank={team.rank} />
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <TeamLogo name={team.name} logos={data?.logos ?? {}} />
-                        <Link
-                          href={`/teams/${encodeURIComponent(team.slug || team.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                          className="font-semibold text-[var(--ed-ink)] truncate hover:text-[var(--ed-blue)] transition-colors"
-                        >
-                          {team.name}
-                        </Link>
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
-                      {team.events}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num font-bold text-[var(--ed-ink)]">
-                      {team.points.toFixed(1)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Players column */}
-        <div className="ed-card">
-          <div className="ed-card-head">
-            <span className="font-semibold text-xs uppercase tracking-wider text-[var(--ed-ink)]">
-              Players
-            </span>
-            <span className="ed-chip text-[var(--ed-stone)]">Top 10</span>
-          </div>
-
-          {loading ? (
-            <RankSkeleton rowsWithSub />
-          ) : (
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="bg-[var(--ed-sand)]/50 border-b border-[var(--ed-hair)]">
-                  <th className="ed-th text-center w-10">#</th>
-                  <th className="ed-th">Player</th>
-                  <th className="ed-th text-center w-14">Finishes</th>
-                  <th className="ed-th text-right w-20">Points</th>
-                </tr>
-              </thead>
-              <tbody className="ed-rows font-medium">
-                {(data?.players ?? []).map((player) => (
-                  <tr
-                    key={player.name}
-                    className="hover:bg-[var(--ed-sand)]/30 transition-colors"
-                  >
-                    <td className="py-2.5 px-2 text-center">
-                      <RankBadge rank={player.rank} />
-                    </td>
-                    <td className="py-2.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <TeamLogo
-                          name={player.team || 'Free Agent'}
-                          logos={data?.logos ?? {}}
-                        />
-                        <div className="min-w-0 leading-tight">
-                          {player.slug ? (
+            {loading ? (
+              <RankSkeleton rowsWithSub={false} />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/30 dark:border-white/5 dark:bg-white/[0.01]">
+                      <th className="py-2.5 px-3 text-center text-[11px] font-black uppercase tracking-wider text-slate-400 w-10">#</th>
+                      <th className="py-2.5 px-3 text-[11px] font-black uppercase tracking-wider text-slate-400">Team</th>
+                      <th className="py-2.5 px-2 text-center text-[11px] font-black uppercase tracking-wider text-slate-400 w-14">Events</th>
+                      <th className="py-2.5 px-3 text-right text-[11px] font-black uppercase tracking-wider text-slate-400 w-20">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
+                    {(data?.teams ?? []).map((team) => (
+                      <tr
+                        key={team.name}
+                        className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="py-2.5 px-2 text-center">
+                          <RankBadge rank={team.rank} />
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <TeamLogo name={team.name} logos={data?.logos ?? {}} />
                             <Link
-                              href={`/players/${player.slug}`}
-                              className="font-semibold text-[var(--ed-ink)] truncate hover:text-[var(--ed-blue)] transition-colors"
+                              href={`/teams/${encodeURIComponent(team.slug || team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                              className="font-bold text-slate-900 truncate hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors"
                             >
-                              {player.name}
+                              {team.name}
                             </Link>
-                          ) : (
-                            <span className="font-semibold text-[var(--ed-ink)] truncate">
-                              {player.name}
-                            </span>
-                          )}
-                          <div
-                            className={cn(
-                              'text-[10px] truncate',
-                              player.team
-                                ? 'text-[var(--ed-stone)]'
-                                : 'text-[var(--ed-stone)] italic opacity-70'
-                            )}
-                          >
-                            {player.team ? (
-                              player.teamSlug ? (
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-bold text-slate-500 dark:text-slate-400">
+                          {team.events}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
+                          {team.points.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Players column */}
+          <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]">
+              <span className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+                Players
+              </span>
+              <span className="rounded-full bg-[#0A5FC4]/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
+                Top 10
+              </span>
+            </div>
+
+            {loading ? (
+              <RankSkeleton rowsWithSub />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/30 dark:border-white/5 dark:bg-white/[0.01]">
+                      <th className="py-2.5 px-3 text-center text-[11px] font-black uppercase tracking-wider text-slate-400 w-10">#</th>
+                      <th className="py-2.5 px-3 text-[11px] font-black uppercase tracking-wider text-slate-400">Player</th>
+                      <th className="py-2.5 px-2 text-center text-[11px] font-black uppercase tracking-wider text-slate-400 w-14">Finishes</th>
+                      <th className="py-2.5 px-3 text-right text-[11px] font-black uppercase tracking-wider text-slate-400 w-20">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
+                    {(data?.players ?? []).map((player) => (
+                      <tr
+                        key={player.name}
+                        className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors"
+                      >
+                        <td className="py-2.5 px-2 text-center">
+                          <RankBadge rank={player.rank} />
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <TeamLogo
+                              name={player.team || 'Free Agent'}
+                              logos={data?.logos ?? {}}
+                            />
+                            <div className="min-w-0 leading-tight">
+                              {player.slug ? (
                                 <Link
-                                  href={`/teams/${player.teamSlug}`}
-                                  className="hover:text-[var(--ed-blue)] transition-colors"
+                                  href={`/players/${player.slug}`}
+                                  className="font-bold text-slate-900 truncate hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors"
                                 >
-                                  {player.team}
+                                  {player.name}
                                 </Link>
                               ) : (
-                                player.team
-                              )
-                            ) : (
-                              'Free Agent'
-                            )}
+                                <span className="font-bold text-slate-900 dark:text-white truncate">
+                                  {player.name}
+                                </span>
+                              )}
+                              <div
+                                className={cn(
+                                  'text-[10px] truncate font-medium',
+                                  player.team
+                                    ? 'text-slate-400'
+                                    : 'text-slate-400 italic opacity-70'
+                                )}
+                              >
+                                {player.team ? (
+                                  player.teamSlug ? (
+                                    <Link
+                                      href={`/teams/${player.teamSlug}`}
+                                      className="hover:text-[#0A5FC4] dark:hover:text-blue-400 transition-colors"
+                                    >
+                                      {player.team}
+                                    </Link>
+                                  ) : (
+                                    player.team
+                                  )
+                                ) : (
+                                  'Free Agent'
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-2 text-center num text-[var(--ed-stone)]">
-                      {player.totalFinishes}
-                    </td>
-                    <td className="py-2.5 px-3 text-right num font-bold text-[var(--ed-ink)]">
-                      {player.points.toFixed(1)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                        </td>
+                        <td className="py-2.5 px-2 text-center font-bold text-slate-500 dark:text-slate-400">
+                          {player.totalFinishes}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
+                          {player.points.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

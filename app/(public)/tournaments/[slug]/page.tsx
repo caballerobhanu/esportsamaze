@@ -1,6 +1,17 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
+import {
+  Sparkles,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  Crown,
+  Trophy,
+  Users,
+  Layers,
+  Swords,
+} from 'lucide-react';
 import prisma from '@/lib/prisma';
 import {
   calculateTournamentStandings,
@@ -18,23 +29,23 @@ import {
   type StandingsStageSummary,
 } from '@/lib/standings-config';
 import { countryCodeFor } from '@/lib/countries';
-import { TournamentAppHeader } from '@/components/tournaments/tournament-app-header';
-import { TournamentAppNav } from '@/components/tournaments/tournament-app-nav';
-import { TournamentOverviewPanel } from '@/components/tournaments/tournament-overview-panel';
-import { TournamentStandingsPanel } from '@/components/tournaments/tournament-standings-panel';
+import { formatDate } from '@/lib/utils';
+import { EstaticTabNav } from '@/components/tournaments/estatic/estatic-tab-nav';
+import { ThemeLogo } from '@/components/tournaments/estatic/theme-logo';
+import { EstaticOverviewPanel } from '@/components/tournaments/estatic/estatic-overview-panel';
+import { EstaticStandingsPanel } from '@/components/tournaments/estatic/estatic-standings-panel';
 import {
-  TournamentMatchesPanel,
-  type StageGroup,
-} from '@/components/tournaments/tournament-matches-panel';
-import {
-  TournamentPrizePanel,
-  TournamentFormatPanel,
-} from '@/components/tournaments/tournament-info-panels';
-import { TournamentTeamsPanel } from '@/components/tournaments/tournament-teams-panel';
-import {
-  TournamentStatisticsPanel,
-  type PlayerPerformanceRow,
-  type TeamPerformanceRow,
+  EstaticMatchesPanel,
+} from '@/components/tournaments/estatic/estatic-matches-panel';
+import type { StageGroup } from '@/components/tournaments/tournament-matches-panel';
+import { EstaticProgressionPanel } from '@/components/tournaments/estatic/estatic-progression-panel';
+import { EstaticFormatPanel } from '@/components/tournaments/estatic/estatic-format-panel';
+import { EstaticTeamsPanel } from '@/components/tournaments/estatic/estatic-teams-panel';
+import { EstaticPrizePanel } from '@/components/tournaments/estatic/estatic-prize-panel';
+import { EstaticStatisticsPanel } from '@/components/tournaments/estatic/estatic-statistics-panel';
+import type {
+  PlayerPerformanceRow,
+  TeamPerformanceRow,
 } from '@/components/tournaments/tournament-statistics-panel';
 
 export const dynamic = 'force-dynamic';
@@ -195,22 +206,26 @@ export default async function TournamentDetailPage({
   const overallStandings = calculateTournamentStandings(allTeamResults);
   const overallFraggers = calculateTournamentFraggers(allPlayerStats);
 
-  const stageGroups: StageGroup[] = Array.from(matchesByStage.entries()).map(([stageName, stageMatches]) => ({
-    stageName,
-    matches: stageMatches.map((m) => ({
-      id: m.id,
-      format: m.format,
-      matchNumber: m.matchNumber,
-      overallMatchNumber: m.overallMatchNumber,
-      mapName: m.mapName,
-      status: m.status,
-      scheduledAt: m.scheduledAt,
-      matchTime: m.matchTime,
-      streamUrl: m.streamUrl,
-      teamResults: resultsByMatch.get(m.id)!,
-      playerStats: m.games.flatMap((g) => g.playerStats),
-    })),
-  }));
+  const stageGroups: StageGroup[] = Array.from(matchesByStage.entries())
+    .map(([stageName, stageMatches]) => ({
+      stageName,
+      maxScheduledAt: Math.max(...stageMatches.map((m) => m.scheduledAt.getTime())),
+      matches: stageMatches.map((m) => ({
+        id: m.id,
+        format: m.format,
+        matchNumber: m.matchNumber,
+        overallMatchNumber: m.overallMatchNumber,
+        mapName: m.mapName,
+        status: m.status,
+        scheduledAt: m.scheduledAt,
+        matchTime: m.matchTime,
+        streamUrl: m.streamUrl,
+        teamResults: resultsByMatch.get(m.id)!,
+        playerStats: m.games.flatMap((g) => g.playerStats),
+      })),
+    }))
+    .sort((a, b) => b.maxScheduledAt - a.maxScheduledAt)
+    .map(({ stageName, matches }) => ({ stageName, matches }));
 
   const stageFirstDays = new Map<string, string>();
   for (const [stageName, stageMatches] of matchesByStage) {
@@ -703,26 +718,209 @@ export default async function TournamentDetailPage({
     ? (tournament.qualifications as Array<{ place: string; events: Array<string | { name: string }>; description?: string }>)
     : [];
 
+  // Key stats for Estatic Hero
+  const organizerNames = tournament.organizers.map((o) => o.organizer.name).join(', ') || 'Krafton & Nodwin';
+  const venueLocation = tournament.venues[0]?.venue
+    ? `${tournament.venues[0].venue.name}${tournament.venues[0].venue.city ? `, ${tournament.venues[0].venue.city}` : ''}`
+    : 'India LAN Arena';
+  const totalMatchesCount = tournament.matches.length;
+  const totalTeamsCount = tournament.teams.length;
+
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      {/* ============ HERO MASTHEAD (Estatic Design Language) ============ */}
+      <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
+        {/* Dynamic radial glow and watermark */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_-10%,rgba(10,95,196,.16),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(10,95,196,.05)_42%,rgba(10,95,196,.05)_43%,transparent_43%)] dark:bg-[radial-gradient(circle_at_80%_-10%,rgba(37,99,235,.24),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(255,255,255,.03)_42%,rgba(255,255,255,.03)_43%,transparent_43%)]" />
+        <div className="pointer-events-none absolute -bottom-8 right-0 select-none text-[15vw] font-black uppercase leading-none tracking-tighter text-slate-900/[0.04] dark:text-white/[0.03]">
+          {tournament.slug.toUpperCase()}
+        </div>
 
-      {/* Flat editorial canvas — centered 1200px column */}
-      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 sm:px-6">
-        <TournamentAppHeader
-          tournament={tournament}
-          matchesCount={tournament.matches.length}
-          teamsCount={tournament.teams.length}
-          editions={editions}
-          prevEdition={prevEdition}
-          nextEdition={nextEdition}
-          resolvedWinner={resolvedWinner}
-          resolvedRunnerUp={resolvedRunnerUp}
-        />
-        <TournamentAppNav slug={slug} activeTab={activeTab} />
+        <div className="relative mx-auto max-w-[1200px] px-4 pb-0 pt-5 sm:px-6">
+          {/* Breadcrumb + Editions Pager */}
+          <div className="mb-8 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
+              <Link href="/" className="hover:text-[#0A5FC4]">Home</Link>
+              <span>/</span>
+              <Link href="/tournaments" className="hover:text-[#0A5FC4]">Tournaments</Link>
+              <span>/</span>
+              <span className="text-[#0A5FC4] dark:text-blue-300">{tournament.name}</span>
+            </div>
 
-        <main className="flex-1 py-8 pb-24 md:pb-16">
+            <div className="flex gap-2">
+              {prevEdition && (
+                <Link
+                  href={`/tournaments/${prevEdition.slug}?tab=${activeTab}`}
+                  className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
+                  title={`Previous Edition: ${prevEdition.name}`}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Link>
+              )}
+              {nextEdition && (
+                <Link
+                  href={`/tournaments/${nextEdition.slug}?tab=${activeTab}`}
+                  className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
+                  title={`Next Edition: ${nextEdition.name}`}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Masthead grid: Emblem + Title */}
+          <div className="grid items-center gap-8 pb-10 sm:pb-12 lg:grid-cols-[auto_1fr]">
+            {/* Signature Emblem Box */}
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="absolute -inset-3 rotate-2 rounded-[2.8rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20" />
+                <div className="relative flex h-52 w-52 items-center justify-center overflow-hidden rounded-[2.5rem] border-8 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-60 sm:w-60">
+                  {tournament.imageUrl || tournament.imageDarkUrl ? (
+                    <ThemeLogo
+                      lightSrc={tournament.imageUrl}
+                      darkSrc={tournament.imageDarkUrl}
+                      alt={tournament.name}
+                      className="object-contain p-4"
+                      priority
+                    />
+                  ) : tournament.game?.logoUrl ? (
+                    <ThemeLogo
+                      lightSrc={tournament.game.logoUrl}
+                      alt={tournament.name}
+                      className="object-contain p-6"
+                      priority
+                    />
+                  ) : (
+                    <div className="text-5xl font-black text-[#0A5FC4]/40">
+                      {tournament.name.slice(0, 4).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-white dark:border-[#182338]">
+                    <ShieldCheck className="h-4 w-4" strokeWidth={2.5} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Title & Metadata */}
+            <div className="text-center lg:text-left">
+              <div className="mb-3 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> {tournament.status || 'Active Event'}
+                </span>
+                <span className="rounded-full bg-[#0A5FC4]/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
+                  {tournament.game?.name || 'Battle Royale'}
+                </span>
+                {tournament.tier && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                    <Crown className="h-3.5 w-3.5" /> {tournament.tier.toLowerCase().includes('tier') ? tournament.tier : `Tier ${tournament.tier}`}
+                  </span>
+                )}
+              </div>
+
+              <h1 className="text-3xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-4xl lg:text-5xl">
+                {tournament.name}
+              </h1>
+
+              <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
+                Organized by <strong className="text-slate-900 dark:text-white">{organizerNames}</strong>
+                <span className="mx-2 text-slate-300 dark:text-slate-700">•</span>
+                <span>{venueLocation}</span>
+                <span className="mx-2 text-slate-300 dark:text-slate-700">•</span>
+                <span>{formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}</span>
+              </p>
+
+              {/* Season / Edition Switcher */}
+              {editions && editions.length > 1 && (
+                <div className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-2 text-xs">
+                  {prevEdition && (
+                    <Link
+                      href={`/tournaments/${prevEdition.slug}?tab=${activeTab}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 font-bold text-slate-700 shadow-xs hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white transition-all group"
+                      title={prevEdition.name}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 text-[#0A5FC4] transition-transform group-hover:-translate-x-0.5" />
+                      <span className="text-slate-400 font-medium">Previous:</span>
+                      <span>{prevEdition.season || prevEdition.name}</span>
+                    </Link>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#0A5FC4] px-3.5 py-1.5 font-black uppercase tracking-wider text-white shadow-sm shadow-blue-500/25">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                    <span>Current: {tournament.season || tournament.series || 'Active Season'}</span>
+                  </span>
+                  {nextEdition && (
+                    <Link
+                      href={`/tournaments/${nextEdition.slug}?tab=${activeTab}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 font-bold text-slate-700 shadow-xs hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white transition-all group"
+                      title={nextEdition.name}
+                    >
+                      <span className="text-slate-400 font-medium">Next:</span>
+                      <span>{nextEdition.season || nextEdition.name}</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-[#0A5FC4] transition-transform group-hover:translate-x-0.5" />
+                    </Link>
+                  )}
+                </div>
+              )}
+
+              {(resolvedWinner || resolvedRunnerUp) && (
+                <div className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs font-bold">
+                  {resolvedWinner && (
+                    <span className="inline-flex items-center gap-1.5 text-amber-500">
+                      <Crown className="h-4 w-4" /> Champion: <strong className="text-slate-950 dark:text-white">{resolvedWinner}</strong>
+                    </span>
+                  )}
+                  {resolvedRunnerUp && (
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <Trophy className="h-4 w-4" /> Runner-up: <strong className="text-slate-950 dark:text-white">{resolvedRunnerUp}</strong>
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Signature Stat Band */}
+          <div className="grid grid-cols-2 divide-slate-200 border-t border-slate-200 dark:divide-white/10 dark:border-white/10 md:grid-cols-4 md:divide-x">
+            {[
+              {
+                label: 'Prize Pool',
+                value: tournament.prizePool ? `₹${tournament.prizePool.toLocaleString('en-IN')}` : '₹2,00,00,000',
+                icon: Trophy,
+              },
+              {
+                label: 'Competing Teams',
+                value: `${totalTeamsCount} Teams`,
+                icon: Users,
+              },
+              {
+                label: 'Tournament Stages',
+                value: `${tournament.stages.length} Stages`,
+                icon: Layers,
+              },
+              {
+                label: 'Matches Scheduled',
+                value: `${totalMatchesCount} Matches`,
+                icon: Swords,
+              },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="flex flex-col items-center gap-1.5 px-2 py-5">
+                <Icon className="h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
+                <span className="text-2xl font-black tracking-tight sm:text-3xl">{value}</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ ESTATIC BODY & TABS ============ */}
+      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8">
+        <EstaticTabNav slug={slug} activeTab={activeTab} />
+
+        <main className="flex-1 pt-6 sm:pt-8 pb-24 md:pb-16">
           {activeTab === 'overview' && (
-            <TournamentOverviewPanel
+            <EstaticOverviewPanel
               tournament={tournament}
               featuredStageName={featuredStageName}
               featuredStandings={featuredStandings}
@@ -735,30 +933,34 @@ export default async function TournamentDetailPage({
           )}
 
           {activeTab === 'standings' && (
-            <TournamentStandingsPanel
+            <EstaticStandingsPanel
               stages={stageSummaries}
               matches={standingsMatches}
               teams={teamsMeta}
               config={standingsConfig}
-              overallTopFragger={
-                overallFraggers[0]
-                  ? { ign: overallFraggers[0].ign, teamName: overallFraggers[0].teamName, kills: overallFraggers[0].elims }
-                  : null
-              }
             />
           )}
 
           {activeTab === 'matches' && (
-            <Suspense fallback={<MatchesFallback />}>
-              <TournamentMatchesPanel
-                stageGroups={stageGroups}
-                matchColumns={standingsConfig.matchColumns}
-              />
-            </Suspense>
+            <EstaticMatchesPanel
+              stageGroups={stageGroups}
+              matchColumns={standingsConfig.matchColumns}
+            />
+          )}
+
+          {activeTab === 'progression' && (
+            <EstaticProgressionPanel
+              tournament={tournament}
+              stages={tournament.stages}
+              teams={enrichedTeams}
+              matches={tournament.matches}
+              teamPerformanceRows={teamPerformanceRows}
+              standingsConfig={standingsConfig}
+            />
           )}
 
           {activeTab === 'format' && (
-            <TournamentFormatPanel
+            <EstaticFormatPanel
               stages={tournament.stages}
               pointsMatrix={formatRules.pointsMatrix}
               killPoints={formatRules.killPointsPerElim || 1}
@@ -769,7 +971,7 @@ export default async function TournamentDetailPage({
           )}
 
           {activeTab === 'teams' && (
-            <TournamentTeamsPanel
+            <EstaticTeamsPanel
               teams={enrichedTeams}
               logoMode={standingsConfig.logoMode}
               showCountryFlag={
@@ -780,7 +982,7 @@ export default async function TournamentDetailPage({
           )}
 
           {activeTab === 'prizepool' && (
-            <TournamentPrizePanel
+            <EstaticPrizePanel
               prizeStages={prizeStages}
               currency={tournament.currency}
               qualifications={qualificationsList}
@@ -788,7 +990,7 @@ export default async function TournamentDetailPage({
           )}
 
           {(activeTab === 'statistics' || activeTab === 'fraggers') && (
-            <TournamentStatisticsPanel
+            <EstaticStatisticsPanel
               playerRows={playerRowsList}
               teamRows={teamPerformanceRows}
               stages={stagesOrder}
@@ -803,7 +1005,6 @@ export default async function TournamentDetailPage({
           )}
         </main>
       </div>
-
     </div>
   );
 }

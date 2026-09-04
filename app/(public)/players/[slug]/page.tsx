@@ -118,7 +118,16 @@ function extractIndividualPrizes(prizeDistribution: unknown, playerId: string, i
 export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const player = await prisma.player.findUnique({ where: { slug }, select: { ign: true } });
+    const player = await prisma.player.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { ign: { equals: slug, mode: 'insensitive' } },
+          { id: slug },
+        ],
+      },
+      select: { ign: true },
+    });
     return {
       title: player ? `${player.ign} — Player Profile | Esports Amaze` : 'Player Profile | Esports Amaze',
     };
@@ -174,8 +183,16 @@ async function getStanding(ign: string) {
 
 export default async function PlayerPage({ params }: PlayerPageProps) {
   const { slug } = await params;
-  const player = await prisma.player.findUnique({
-    where: { slug },
+  const decoded = decodeURIComponent(slug).trim();
+  const player = await prisma.player.findFirst({
+    where: {
+      OR: [
+        { slug },
+        { slug: decoded },
+        { ign: { equals: decoded, mode: 'insensitive' } },
+        { id: slug },
+      ],
+    },
     include: { currentTeam: true, game: true },
   });
   if (!player) notFound();

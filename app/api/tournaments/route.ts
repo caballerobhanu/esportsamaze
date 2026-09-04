@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import prisma from '@/lib/prisma';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const gameSlug = searchParams.get('game');
-  const tier = searchParams.get('tier');
-
-  try {
+const getCachedTournaments = unstable_cache(
+  async (gameSlug: string | null, tier: string | null) => {
     const where: Record<string, unknown> = {};
     if (gameSlug && gameSlug !== 'all') {
       where.game = { slug: gameSlug };
@@ -15,38 +12,55 @@ export async function GET(request: NextRequest) {
       where.tier = tier;
     }
 
-    const tournaments = await prisma.tournament.findMany({
+    return prisma.tournament.findMany({
       where,
-      include: {
-        game: true,
-        organizers: { include: { organizer: true } },
-        sponsors: { include: { sponsor: true } },
-        venues: { include: { venue: true } },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        tier: true,
+        imageUrl: true,
+        imageDarkUrl: true,
+        game: {
+          select: {
+            name: true,
+            logoUrl: true,
+          },
+        },
         stages: {
-          include: {
-            groups: true,
+          select: {
+            sequence: true,
+            name: true,
           },
-        },
-        teams: {
-          include: {
-            team: true,
-          },
-        },
-        matches: {
-          include: {
-            games: {
-              include: {
-                teamResults: true,
-                playerStats: true,
-              },
-            },
-          },
+          orderBy: { sequence: 'asc' },
         },
       },
       orderBy: { startDate: 'asc' },
     });
+  },
+  ['tournaments-list-cache'],
+  { tags: ['tournaments-list'], revalidate: 300 }
+);
 
-    return NextResponse.json({ success: true, source: 'database', count: tournaments.length, data: tournaments });
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const gameSlug = searchParams.get('game');
+  const tier = searchParams.get('tier');
+
+  try {
+    const tournaments = await getCachedTournaments(gameSlug, tier);
+
+    return NextResponse.json(
+      { success: true, source: 'database-cached', count: tournaments.length, data: tournaments },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (error) {
     console.error('Prisma tournaments query failed:', error);
     return NextResponse.json(

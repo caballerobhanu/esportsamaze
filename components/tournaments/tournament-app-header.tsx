@@ -154,26 +154,29 @@ export function TournamentAppHeader({
           )}
 
           {editions && editions.length > 1 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               {prevEdition && (
                 <Link
                   href={`/tournaments/${prevEdition.slug}`}
-                  className="ed-chip transition-colors hover:border-(--ed-blue) hover:text-(--ed-blue)"
+                  className="ed-chip inline-flex items-center gap-1 font-semibold transition-colors hover:border-(--ed-blue) hover:text-(--ed-blue)"
                   title={prevEdition.name}
                 >
-                  ← {prevEdition.season || prevEdition.name}
+                  <span className="opacity-60">Previous:</span>
+                  <span className="font-bold">{prevEdition.season || prevEdition.name}</span>
                 </Link>
               )}
-              <span className="ed-chip border-(--ed-blue)/40 text-(--ed-blue)">
-                {tournament.season || tournament.series}
+              <span className="ed-chip inline-flex items-center gap-1 border-(--ed-blue) bg-(--ed-blue)/10 font-bold text-(--ed-blue)">
+                <span className="opacity-60">Current:</span>
+                <span>{tournament.season || tournament.series || 'Active Season'}</span>
               </span>
               {nextEdition && (
                 <Link
                   href={`/tournaments/${nextEdition.slug}`}
-                  className="ed-chip transition-colors hover:border-(--ed-blue) hover:text-(--ed-blue)"
+                  className="ed-chip inline-flex items-center gap-1 font-semibold transition-colors hover:border-(--ed-blue) hover:text-(--ed-blue)"
                   title={nextEdition.name}
                 >
-                  {nextEdition.season || nextEdition.name} →
+                  <span className="opacity-60">Next:</span>
+                  <span className="font-bold">{nextEdition.season || nextEdition.name}</span>
                 </Link>
               )}
             </div>

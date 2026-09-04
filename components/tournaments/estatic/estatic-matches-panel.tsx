@@ -1,0 +1,253 @@
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import Link from 'next/link';
+import {
+  Swords,
+  Calendar,
+  Clock,
+  Trophy,
+  Crown,
+  ChevronRight,
+  ExternalLink,
+  Flame,
+  Layers,
+  MapPin,
+} from 'lucide-react';
+import { formatDate } from '@/lib/utils';
+import type { StageGroup } from '../tournament-matches-panel';
+import { ThemeLogo } from './theme-logo';
+
+interface EstaticMatchesPanelProps {
+  stageGroups: StageGroup[];
+  matchColumns?: any;
+}
+
+export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
+  // Current active stage
+  const [selectedStageIdx, setSelectedStageIdx] = useState<number>(0);
+  const currentStage = stageGroups[selectedStageIdx] || stageGroups[0];
+
+  // Current selected match in stage
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+
+  const activeMatch = useMemo(() => {
+    if (!currentStage || !currentStage.matches.length) return null;
+    if (selectedMatchId) {
+      const found = currentStage.matches.find((m) => m.id === selectedMatchId);
+      if (found) return found;
+    }
+    return currentStage.matches[currentStage.matches.length - 1] || currentStage.matches[0];
+  }, [currentStage, selectedMatchId]);
+
+  if (!stageGroups || stageGroups.length === 0) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+        <p className="text-sm font-bold text-slate-400">No match records available yet for this tournament.</p>
+      </div>
+    );
+  }
+
+  const sortedResults = useMemo(() => {
+    if (!activeMatch?.teamResults) return [];
+    return [...activeMatch.teamResults].sort((a, b) => {
+      // 1. Sort by Total Points descending
+      const diffTotal = (b.totalPoints || 0) - (a.totalPoints || 0);
+      if (diffTotal !== 0) return diffTotal;
+
+      // 2. WWCD descending (winner first on tie)
+      const aWwcd = (a.wwcd || a.rank === 1) ? 1 : 0;
+      const bWwcd = (b.wwcd || b.rank === 1) ? 1 : 0;
+      if (bWwcd !== aWwcd) return bWwcd - aWwcd;
+
+      // 3. Place Points descending
+      const diffPlace = (b.placePoints || 0) - (a.placePoints || 0);
+      if (diffPlace !== 0) return diffPlace;
+
+      // 4. Elims Points descending
+      const diffElims = (b.elimsPoints || 0) - (a.elimsPoints || 0);
+      if (diffElims !== 0) return diffElims;
+
+      // 5. Original finish rank ascending
+      return (a.rank || 99) - (b.rank || 99);
+    });
+  }, [activeMatch]);
+
+  const winner = activeMatch?.teamResults?.find((r) => r.wwcd || r.rank === 1);
+
+  return (
+    <div className="space-y-8">
+      {/* Stage Selector Pills */}
+      <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+          {stageGroups.map((g, idx) => {
+            const active = selectedStageIdx === idx;
+            return (
+              <button
+                key={g.stageName}
+                onClick={() => {
+                  setSelectedStageIdx(idx);
+                  setSelectedMatchId(null);
+                }}
+                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all duration-200 ${
+                  active
+                    ? 'bg-[#0A5FC4] text-white shadow-lg shadow-blue-500/25 scale-[1.02]'
+                    : 'border border-slate-200 bg-slate-50/80 text-slate-600 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>{g.stageName}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Match Pills in Active Stage */}
+        {currentStage && currentStage.matches.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-2">Select Match:</span>
+            {currentStage.matches.map((m) => {
+              const active = activeMatch?.id === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMatchId(m.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                    active
+                      ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/20'
+                      : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                  }`}
+                >
+                  <span>M{m.overallMatchNumber ?? m.matchNumber}</span>
+                  {m.mapName && (
+                    <span className={`text-[10px] ${active ? 'text-blue-100' : 'text-slate-400'}`}>
+                      ({m.mapName})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Active Match Hero Card */}
+      {activeMatch && (
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6 dark:border-white/10">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-full bg-[#0A5FC4] px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white">
+                  Match #{activeMatch.overallMatchNumber ?? activeMatch.matchNumber}
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  {activeMatch.status}
+                </span>
+              </div>
+              <h3 className="mt-2 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                {activeMatch.format || `Match ${activeMatch.matchNumber} — ${activeMatch.mapName || 'Erangel'}`}
+              </h3>
+              <p className="mt-1 text-xs font-semibold text-slate-400 flex items-center gap-3">
+                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-[#0A5FC4]" /> {activeMatch.mapName || 'Erangel'}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-[#0A5FC4]" /> {activeMatch.matchTime || formatDate(activeMatch.scheduledAt)}</span>
+              </p>
+            </div>
+
+            {winner && (
+              <div className="flex items-center gap-3 rounded-2xl bg-amber-400/10 border border-amber-400/20 px-4 py-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-400 text-slate-950 shadow-md">
+                  <Crown className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Match Winner
+                  </span>
+                  <div className="text-sm font-black text-slate-900 dark:text-white">
+                    {winner.team?.name || 'Winner Squad'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Lobby Results Scorecard */}
+          <div className="mt-6 overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
+                  <th className="pb-3 w-14 text-center">Rank</th>
+                  <th className="pb-3 pl-2">Squad</th>
+                  <th className="pb-3 text-center">WWCD</th>
+                  <th className="pb-3 text-center">Place Pts</th>
+                  <th className="pb-3 text-center">Elims Pts</th>
+                  <th className="pb-3 pr-4 text-right">Total Score</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/10">
+                {sortedResults.map((tr, idx) => {
+                  const standingRank = idx + 1;
+                  const isWwcd = Boolean(tr.wwcd || tr.rank === 1);
+
+                  return (
+                    <tr
+                      key={tr.id}
+                      className="text-sm hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <td className="py-3.5 text-center font-black">
+                        <span
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${
+                            standingRank === 1
+                              ? 'bg-amber-400 text-slate-950 shadow-sm'
+                              : standingRank === 2
+                              ? 'bg-slate-300 text-slate-900'
+                              : standingRank === 3
+                              ? 'bg-amber-600/20 text-amber-600'
+                              : 'text-slate-400'
+                          }`}
+                        >
+                          {standingRank}
+                        </span>
+                      </td>
+                      <td className="py-3.5 pl-2">
+                        <div className="flex items-center gap-3 font-extrabold">
+                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-black/30">
+                            {tr.team?.logoUrl || tr.team?.imageDarkUrl ? (
+                              <ThemeLogo
+                                lightSrc={tr.team?.logoUrl}
+                                darkSrc={tr.team?.imageDarkUrl}
+                                alt={tr.team?.name || 'Team'}
+                                className="object-contain p-1"
+                              />
+                            ) : (
+                              <span className="text-xs font-black text-slate-400">
+                                {tr.team?.name?.slice(0, 2).toUpperCase() || 'TM'}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-slate-900 dark:text-white truncate">{tr.team?.name || 'Unknown Squad'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 text-center font-black text-sm">
+                        {isWwcd ? (
+                          <span className="text-amber-500 font-black">1</span>
+                        ) : (
+                          <span className="text-slate-400 font-medium">0</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 text-center font-bold text-slate-500">{tr.placePoints || 0}</td>
+                      <td className="py-3.5 text-center font-bold text-slate-500">{tr.elimsPoints || 0}</td>
+                      <td className="py-3.5 pr-4 text-right font-black text-base text-[#0A5FC4] dark:text-blue-300">
+                        {tr.totalPoints || 0}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

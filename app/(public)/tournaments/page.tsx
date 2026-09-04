@@ -68,35 +68,34 @@ export default async function TournamentsPage() {
   ];
 
   return (
-    <div className="flex flex-1 flex-col">
-
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-4 sm:px-6 sm:py-5">
-        {/* Editorial masthead */}
-        <div className="mb-12 space-y-4">
-          <span className="ed-chip text-(--ed-stone)">
-            <Trophy className="h-3.5 w-3.5 text-(--ed-blue)" />
-            Official Esports Tournament Portal
-          </span>
-          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
+    <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 sm:py-8">
+        {/* Estatic masthead */}
+        <div className="mb-10 space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#0A5FC4]/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
+            <Trophy className="h-3.5 w-3.5" />
+            <span>Official Esports Championships</span>
+          </div>
+          <h1 className="text-4xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-5xl">
             Tournaments
           </h1>
-          <p className="max-w-xl text-[15px] leading-relaxed text-(--ed-stone)">
+          <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
             Browse verified esports championships — live stage standings, scheduled matchups,
-            prize distributions, and team rosters.
+            prize distributions, and competitive squad leaderboards.
           </p>
         </div>
 
-        {/* Metric ribbon — one hairline-divided card */}
-        <div className="ed-card mb-12 grid grid-cols-2 gap-px bg-(--ed-hair) lg:grid-cols-4">
+        {/* Metric ribbon — rounded-3xl card */}
+        <div className="mb-10 grid grid-cols-2 gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0b1220] md:grid-cols-4 md:divide-x divide-slate-200 dark:divide-white/10">
           {metrics.map((m) => (
-            <div key={m.label} className="bg-(--ed-surface) px-6 py-5">
-              <p className="ed-label mb-2 flex items-center gap-1.5">
-                <m.icon className={`h-3.5 w-3.5 ${m.live ? 'text-rose-500' : 'text-(--ed-blue)'}`} />
+            <div key={m.label} className="flex flex-col items-center gap-1.5 p-3 text-center">
+              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <m.icon className={`h-3.5 w-3.5 ${m.live ? 'text-rose-500' : 'text-[#0A5FC4] dark:text-blue-300'}`} />
                 {m.label}
               </p>
-              <p className="font-display flex items-center gap-2 text-3xl font-medium tracking-tight">
-                {m.live && m.value > 0 && <span className="h-2 w-2 animate-live rounded-full bg-rose-500" />}
-                <span className="num">{m.value}</span>
+              <p className="flex items-center gap-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                {m.live && m.value > 0 && <span className="h-2 w-2 animate-ping rounded-full bg-rose-500" />}
+                <span>{m.value}</span>
               </p>
             </div>
           ))}
@@ -104,51 +103,57 @@ export default async function TournamentsPage() {
 
         {/* Featured split card */}
         {featured && (
-          <div className="ed-card mb-14">
-            <div className="grid grid-cols-1 gap-8 p-6 sm:p-8 lg:grid-cols-12 lg:items-center">
+          <div className="relative mb-12 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-center">
               <div className="space-y-4 lg:col-span-8">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-lg border border-(--ed-hair) px-2.5 py-1 text-xs font-medium ${
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
                       featured.status === 'ONGOING'
-                        ? 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400'
-                        : 'text-(--ed-blue)'
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                        : 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
                     }`}
                   >
-                    {featured.status === 'ONGOING' && <span className="h-1.5 w-1.5 animate-live rounded-full bg-rose-500" />}
-                    {featured.status === 'ONGOING' ? 'Featured live tournament' : 'Featured upcoming tournament'}
+                    {featured.status === 'ONGOING' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />}
+                    {featured.status === 'ONGOING' ? 'Live Tournament' : 'Upcoming Event'}
                   </span>
-                  <span className="ed-chip text-(--ed-stone)">{featured.game.name}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                    {featured.game.name}
+                  </span>
                 </div>
 
-                <h2 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
+                <h2 className="text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-3xl">
                   {featured.name}
                 </h2>
 
-                <p className="max-w-lg text-sm leading-relaxed text-(--ed-stone)">
+                <p className="max-w-lg text-sm font-medium text-slate-500 dark:text-slate-400">
                   {featured.series ? `${featured.series} ${featured.season ? `· ${featured.season}` : ''} — ` : ''}
                   {featured._count.teams} professional teams competing across official match stages.
                 </p>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-(--ed-stone)">
-                  <span className="num text-(--ed-ink)">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-500 dark:text-slate-400">
+                  <span>
                     {formatDate(featured.startDate)} — {formatDate(featured.endDate)}
                   </span>
-                  <span aria-hidden>·</span>
-                  <span className="num text-(--ed-ink)">{featured._count.matches} matches</span>
+                  <span>•</span>
+                  <span>{featured._count.matches} matches scheduled</span>
                 </div>
               </div>
 
-              <div className="flex flex-col justify-between gap-6 rounded-xl border border-(--ed-hair) bg-(--ed-canvas) p-6 lg:col-span-4">
+              <div className="flex flex-col justify-between gap-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-6 dark:border-white/10 dark:bg-white/5 lg:col-span-4">
                 <div>
-                  <p className="ed-label mb-2">Prize Pool</p>
-                  <div className="font-display text-2xl font-medium tracking-tight">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Total Prize Pool</p>
+                  <div className="text-2xl font-black tracking-tight text-[#0A5FC4] dark:text-blue-300">
                     <PrizePoolBadge amount={featured.prizePool} currency={featured.currency} usdRate={featured.usdRate} />
                   </div>
                 </div>
 
-                <Link href={`/tournaments/${featured.slug}`} className="ed-btn w-full">
-                  View Standings & Matches <ArrowRight className="h-4 w-4" />
+                <Link
+                  href={`/tournaments/${featured.slug}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0A5FC4] px-5 py-3 text-xs font-black uppercase tracking-wider text-white shadow-md shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-lg"
+                >
+                  <span>View Standings &amp; Matches</span>
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -158,7 +163,6 @@ export default async function TournamentsPage() {
         {/* Directory */}
         <TournamentsDirectoryExplorer tournaments={tournaments} games={games} />
       </main>
-
     </div>
   );
 }
