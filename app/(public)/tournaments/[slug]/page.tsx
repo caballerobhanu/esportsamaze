@@ -886,7 +886,7 @@ export default async function TournamentDetailPage({
             {[
               {
                 label: 'Prize Pool',
-                value: tournament.prizePool ? `₹${tournament.prizePool.toLocaleString('en-IN')}` : '₹2,00,00,000',
+                value: tournament.prizePool ? `${tournament.currency === 'USD' ? '$' : '₹'}${tournament.prizePool.toLocaleString('en-IN')}` : 'TBD',
                 icon: Trophy,
               },
               {
@@ -984,6 +984,7 @@ export default async function TournamentDetailPage({
 
           {activeTab === 'prizepool' && (
             <EstaticPrizePanel
+              totalPrizePool={tournament.prizePool}
               prizeStages={prizeStages}
               currency={tournament.currency}
               qualifications={qualificationsList}
