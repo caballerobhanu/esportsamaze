@@ -988,6 +988,7 @@ export default async function TournamentDetailPage({
               prizeStages={prizeStages}
               currency={tournament.currency}
               qualifications={qualificationsList}
+              teams={tournament.teams}
             />
           )}
 

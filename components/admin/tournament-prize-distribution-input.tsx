@@ -70,8 +70,17 @@ const AWARD_PRESETS = [
   { label: '💣 Grenade Master', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
   { label: '⚡ Emerging Player', type: 'PLAYER' as const, rewardType: 'TITLE' as const },
   { label: '📱 Official Device Award', type: 'PLAYER' as const, rewardType: 'ITEM' as const, customReward: 'Realme GT 7 Pro' },
-  { label: '🏆 Fair Play Award', type: 'TEAM' as const, rewardType: 'TITLE' as const },
 ];
+
+function getOrdinal(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return 'th';
+  if (mod10 === 1) return 'st';
+  if (mod10 === 2) return 'nd';
+  if (mod10 === 3) return 'rd';
+  return 'th';
+}
 
 export function TournamentPrizeDistributionInput({
   initialDistribution,
@@ -206,7 +215,7 @@ export function TournamentPrizeDistributionInput({
       targetStage.ranks = [
         ...targetStage.ranks,
         {
-          rank: defaultRank || `${nextRankNum}th Place`,
+          rank: defaultRank || `${nextRankNum}${getOrdinal(nextRankNum)} Place`,
           prize: 0,
           percentage: 0,
           recipientType,
