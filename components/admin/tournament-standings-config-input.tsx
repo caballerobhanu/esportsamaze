@@ -678,6 +678,12 @@ export function TournamentStandingsConfigInput({
     () => config.statisticsConfig?.defaultView || 'players'
   );
 
+  React.useEffect(() => {
+    if (config.statisticsConfig?.defaultView) {
+      setStatsConfigTab(config.statisticsConfig.defaultView);
+    }
+  }, [config.statisticsConfig?.defaultView]);
+
   return (
     <div className="space-y-6">
       <input type="hidden" name="standingsConfigJson" value={JSON.stringify(config)} />

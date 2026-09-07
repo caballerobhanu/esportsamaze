@@ -121,6 +121,202 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
   );
 }
 
+const COLUMN_CONFIG_MAP: Record<
+  PlayerStatColumnKey,
+  {
+    field: keyof PlayerPerformanceRow;
+    label: string;
+    render: (player: PlayerPerformanceRow) => React.ReactNode;
+    headerClass?: string;
+    cellClass?: string;
+  }
+> = {
+  elims: {
+    field: 'totalElims',
+    label: 'Elims',
+    render: (p) => (
+      <span className="text-base font-black text-[#0A5FC4] dark:text-blue-300 font-mono">
+        {p.totalElims}
+      </span>
+    ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+  powerplay: {
+    field: 'totalPowerplay',
+    label: 'Powerplay',
+    render: (p) => (
+      <span className="font-bold text-slate-700 dark:text-slate-200">
+        {p.totalPowerplay || 0}
+      </span>
+    ),
+    headerClass: 'text-center w-24',
+    cellClass: 'text-center',
+  },
+  avgElims: {
+    field: 'avgElims',
+    label: 'Avg',
+    render: (p) => (
+      <span className="font-bold text-slate-600 dark:text-slate-300">
+        {p.avgElims}
+      </span>
+    ),
+    headerClass: 'text-center w-16',
+    cellClass: 'text-center',
+  },
+  maxElims: {
+    field: 'maxElims',
+    label: 'Max Elims',
+    render: (p) => (
+      <span className="font-bold text-slate-800 dark:text-slate-200">
+        {p.maxElims ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+  zeroElimsMatches: {
+    field: 'zeroElimsMatches',
+    label: '0 Elims',
+    render: (p) => (
+      <span className="font-bold text-slate-500">
+        {p.zeroElimsMatches ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+  fivePlusElimsMatches: {
+    field: 'fivePlusElimsMatches',
+    label: '5+ Elims',
+    render: (p) => (
+      <span className="font-black text-purple-600 dark:text-purple-400">
+        {p.fivePlusElimsMatches ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+  damage: {
+    field: 'totalDamage',
+    label: 'Damage',
+    render: (p) => (
+      <span className="font-bold text-slate-800 dark:text-slate-200">
+        {p.totalDamage?.toLocaleString() ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-24',
+    cellClass: 'text-center',
+  },
+  headshots: {
+    field: 'totalHeadshots',
+    label: 'HS',
+    render: (p) => (
+      <span className="font-bold text-slate-600 dark:text-slate-300">
+        {p.totalHeadshots ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-16',
+    cellClass: 'text-center',
+  },
+  assists: {
+    field: 'totalAssists',
+    label: 'Assists',
+    render: (p) => (
+      <span className="font-bold text-slate-600 dark:text-slate-300">
+        {p.totalAssists ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-16',
+    cellClass: 'text-center',
+  },
+  knockouts: {
+    field: 'totalKnockouts',
+    label: 'Knocks',
+    render: (p) => (
+      <span className="font-bold text-slate-700 dark:text-slate-200">
+        {p.totalKnockouts ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-16',
+    cellClass: 'text-center',
+  },
+  survivalTime: {
+    field: 'totalSurvivalTime',
+    label: 'Survival',
+    render: (p) => {
+      const totalSec = p.totalSurvivalTime || 0;
+      const mins = Math.floor(totalSec / 60);
+      const secs = totalSec % 60;
+      return (
+        <span className="font-medium text-slate-600 dark:text-slate-300 font-mono text-xs">
+          {mins}m {secs}s
+        </span>
+      );
+    },
+    headerClass: 'text-center w-24',
+    cellClass: 'text-center',
+  },
+  healing: {
+    field: 'totalHealing',
+    label: 'Healing',
+    render: (p) => (
+      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+        {p.totalHealing?.toLocaleString() ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+  damageReceived: {
+    field: 'totalDamageReceived',
+    label: 'Dmg Recv',
+    render: (p) => (
+      <span className="font-bold text-rose-500">
+        {p.totalDamageReceived?.toLocaleString() ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-24',
+    cellClass: 'text-center',
+  },
+  utilities: {
+    field: 'totalUtilities',
+    label: 'Utilities',
+    render: (p) => (
+      <span className="font-bold text-slate-600 dark:text-slate-300">
+        {p.totalUtilities ?? 0}
+      </span>
+    ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+  totalDist: {
+    field: 'totalDist',
+    label: 'Distance',
+    render: (p) => (
+      <span className="font-bold text-slate-600 dark:text-slate-300">
+        {((p.totalDist || 0) / 1000).toFixed(1)} km
+      </span>
+    ),
+    headerClass: 'text-center w-24',
+    cellClass: 'text-center',
+  },
+  mvp: {
+    field: 'totalMvps',
+    label: 'MVPs',
+    render: (p) =>
+      p.totalMvps > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[11px] font-black text-amber-700 dark:text-amber-300">
+          <Award className="h-3 w-3" /> {p.totalMvps}
+        </span>
+      ) : (
+        <span className="text-slate-400 text-xs">—</span>
+      ),
+    headerClass: 'text-center w-20',
+    cellClass: 'text-center',
+  },
+};
+
 export function EstaticStatisticsPanel({
   playerRows,
   teamRows,
@@ -141,8 +337,22 @@ export function EstaticStatisticsPanel({
   const [selectedRole, setSelectedRole] = React.useState<string>('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
+  const activeColumns: PlayerStatColumnKey[] = React.useMemo(() => {
+    if (adminPlayerColumns && adminPlayerColumns.length > 0) {
+      return adminPlayerColumns.filter((col) => COLUMN_CONFIG_MAP[col]);
+    }
+    return ['elims', 'avgElims', 'damage', 'headshots', 'assists', 'mvp'];
+  }, [adminPlayerColumns]);
+
   // Player Sort State
-  const [playerSortKey, setPlayerSortKey] = React.useState<string>('totalElims');
+  const [playerSortKey, setPlayerSortKey] = React.useState<string>(() => {
+    if (adminPlayerColumns && adminPlayerColumns.length > 0) {
+      if (adminPlayerColumns.includes('elims')) return 'totalElims';
+      const firstCol = adminPlayerColumns[0];
+      return (COLUMN_CONFIG_MAP[firstCol]?.field as string) || 'totalElims';
+    }
+    return 'totalElims';
+  });
   const [playerSortDir, setPlayerSortDir] = React.useState<'asc' | 'desc'>('desc');
 
   // Team Sort & Points Mode State
@@ -200,6 +410,21 @@ export function EstaticStatisticsPanel({
           }
           return {
             ...p,
+            maxElims:
+              p.maxElims ??
+              (allMatches.length > 0
+                ? allMatches.reduce((mx, m) => Math.max(mx, m.playerElims || 0), 0)
+                : 0),
+            zeroElimsMatches:
+              p.zeroElimsMatches ??
+              (allMatches.length > 0
+                ? allMatches.filter((m) => (m.playerElims || 0) === 0).length
+                : 0),
+            fivePlusElimsMatches:
+              p.fivePlusElimsMatches ??
+              (allMatches.length > 0
+                ? allMatches.filter((m) => (m.playerElims || 0) >= 5).length
+                : 0),
             customStats,
           };
         }
@@ -223,6 +448,8 @@ export function EstaticStatisticsPanel({
         const survival = activeMatches.reduce((s, m) => s + (m.survivalTime || 0), 0);
         const mvps = activeMatches.filter((m) => m.isMvp).length;
         const maxElims = activeMatches.reduce((mx, m) => Math.max(mx, m.playerElims || 0), 0);
+        const zeroElims = activeMatches.filter((m) => (m.playerElims || 0) === 0).length;
+        const fivePlusElims = activeMatches.filter((m) => (m.playerElims || 0) >= 5).length;
 
         const customStats: Record<string, number> = {};
         if (customPlayerColumns && customPlayerColumns.length > 0) {
@@ -244,6 +471,8 @@ export function EstaticStatisticsPanel({
           totalMvps: mvps,
           avgElims: Number((elims / (mp || 1)).toFixed(2)),
           maxElims,
+          zeroElimsMatches: zeroElims,
+          fivePlusElimsMatches: fivePlusElims,
           customStats,
         };
       })
@@ -960,54 +1189,39 @@ export function EstaticStatisticsPanel({
                     <span>MP</span>
                     <SortIcon active={playerSortKey === 'matchesPlayed'} dir={playerSortDir} />
                   </th>
-                  <th
-                    className="py-3.5 px-3 text-center cursor-pointer group w-20"
-                    onClick={() => handlePlayerSort('totalElims')}
-                  >
-                    <span>Elims</span>
-                    <SortIcon active={playerSortKey === 'totalElims'} dir={playerSortDir} />
-                  </th>
-                  <th
-                    className="hidden sm:table-cell py-3.5 px-3 text-center cursor-pointer group w-16"
-                    onClick={() => handlePlayerSort('avgElims')}
-                  >
-                    <span>Avg</span>
-                    <SortIcon active={playerSortKey === 'avgElims'} dir={playerSortDir} />
-                  </th>
-                  <th
-                    className="hidden md:table-cell py-3.5 px-3 text-center cursor-pointer group w-24"
-                    onClick={() => handlePlayerSort('totalDamage')}
-                  >
-                    <span>Damage</span>
-                    <SortIcon active={playerSortKey === 'totalDamage'} dir={playerSortDir} />
-                  </th>
-                  <th
-                    className="hidden lg:table-cell py-3.5 px-3 text-center cursor-pointer group w-20"
-                    onClick={() => handlePlayerSort('totalHeadshots')}
-                  >
-                    <span>HS</span>
-                    <SortIcon active={playerSortKey === 'totalHeadshots'} dir={playerSortDir} />
-                  </th>
-                  <th
-                    className="hidden lg:table-cell py-3.5 px-3 text-center cursor-pointer group w-20"
-                    onClick={() => handlePlayerSort('totalAssists')}
-                  >
-                    <span>Assists</span>
-                    <SortIcon active={playerSortKey === 'totalAssists'} dir={playerSortDir} />
-                  </th>
-                  <th
-                    className="py-3.5 pr-4 sm:pr-6 text-center cursor-pointer group w-20"
-                    onClick={() => handlePlayerSort('totalMvps')}
-                  >
-                    <span>MVPs</span>
-                    <SortIcon active={playerSortKey === 'totalMvps'} dir={playerSortDir} />
-                  </th>
+                  {activeColumns.map((colKey) => {
+                    const colDef = COLUMN_CONFIG_MAP[colKey];
+                    if (!colDef) return null;
+                    return (
+                      <th
+                        key={colKey}
+                        className={`py-3.5 px-3 cursor-pointer group ${colDef.headerClass || 'text-center'}`}
+                        onClick={() => handlePlayerSort(colDef.field as string)}
+                      >
+                        <span>{colDef.label}</span>
+                        <SortIcon active={playerSortKey === colDef.field} dir={playerSortDir} />
+                      </th>
+                    );
+                  })}
+                  {customPlayerColumns?.map((customCol) => (
+                    <th
+                      key={customCol.id}
+                      className="py-3.5 px-3 text-center cursor-pointer group w-24"
+                      onClick={() => handlePlayerSort(customCol.id)}
+                    >
+                      <span title={customCol.label}>{customCol.short || customCol.label}</span>
+                      <SortIcon active={playerSortKey === customCol.id} dir={playerSortDir} />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/10 text-xs sm:text-sm">
                 {filteredPlayers.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-sm font-bold text-slate-400">
+                    <td
+                      colSpan={3 + activeColumns.length + (customPlayerColumns?.length || 0)}
+                      className="py-12 text-center text-sm font-bold text-slate-400"
+                    >
                       No player statistics found for selected filters.
                     </td>
                   </tr>
@@ -1080,43 +1294,32 @@ export function EstaticStatisticsPanel({
                         {player.matchesPlayed}
                       </td>
 
-                      {/* Elims */}
-                      <td className="py-3 px-3 text-center">
-                        <span className="text-base font-black text-[#0A5FC4] dark:text-blue-300 font-mono">
-                          {player.totalElims}
-                        </span>
-                      </td>
+                      {/* Dynamic Standard Columns */}
+                      {activeColumns.map((colKey) => {
+                        const colDef = COLUMN_CONFIG_MAP[colKey];
+                        if (!colDef) return null;
+                        return (
+                          <td
+                            key={colKey}
+                            className={`py-3 px-3 ${colDef.cellClass || 'text-center'}`}
+                          >
+                            {colDef.render(player)}
+                          </td>
+                        );
+                      })}
 
-                      {/* Avg Elims */}
-                      <td className="hidden sm:table-cell py-3 px-3 text-center font-bold text-slate-600 dark:text-slate-300">
-                        {player.avgElims}
-                      </td>
-
-                      {/* Damage */}
-                      <td className="hidden md:table-cell py-3 px-3 text-center font-bold text-slate-800 dark:text-slate-200">
-                        {player.totalDamage.toLocaleString()}
-                      </td>
-
-                      {/* Headshots */}
-                      <td className="hidden lg:table-cell py-3 px-3 text-center font-bold text-slate-600 dark:text-slate-300">
-                        {player.totalHeadshots}
-                      </td>
-
-                      {/* Assists */}
-                      <td className="hidden lg:table-cell py-3 px-3 text-center font-bold text-slate-600 dark:text-slate-300">
-                        {player.totalAssists}
-                      </td>
-
-                      {/* MVPs */}
-                      <td className="py-3 pr-4 sm:pr-6 text-center">
-                        {player.totalMvps > 0 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[11px] font-black text-amber-700 dark:text-amber-300">
-                            <Award className="h-3 w-3" /> {player.totalMvps}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">—</span>
-                        )}
-                      </td>
+                      {/* Dynamic Custom Columns */}
+                      {customPlayerColumns?.map((customCol) => {
+                        const val = player.customStats?.[customCol.id] ?? 0;
+                        return (
+                          <td
+                            key={customCol.id}
+                            className="py-3 px-3 text-center font-black text-indigo-600 dark:text-indigo-400"
+                          >
+                            {val}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))
                 )}
