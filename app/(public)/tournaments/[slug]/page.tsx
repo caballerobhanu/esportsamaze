@@ -727,15 +727,23 @@ export default async function TournamentDetailPage({
   const totalMatchesCount = tournament.matches.length;
   const totalTeamsCount = tournament.teams.length;
 
+  const customBackdrop = (tournament.formatDetails as Record<string, any> | null)?.backdropText?.trim();
+  const hideBackdrop = customBackdrop?.toUpperCase() === 'NONE';
+  const backdropWatermark = hideBackdrop
+    ? null
+    : (customBackdrop || tournament.series?.trim() || tournament.slug).toUpperCase();
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
       {/* ============ HERO MASTHEAD (Estatic Design Language) ============ */}
       <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
         {/* Dynamic radial glow and watermark */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_-10%,rgba(10,95,196,.16),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(10,95,196,.05)_42%,rgba(10,95,196,.05)_43%,transparent_43%)] dark:bg-[radial-gradient(circle_at_80%_-10%,rgba(37,99,235,.24),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(255,255,255,.03)_42%,rgba(255,255,255,.03)_43%,transparent_43%)]" />
-        <div className="pointer-events-none absolute -bottom-8 right-0 select-none text-[15vw] font-black uppercase leading-none tracking-tighter text-slate-900/[0.04] dark:text-white/[0.03]">
-          {tournament.slug.toUpperCase()}
-        </div>
+        {backdropWatermark && (
+          <div className="pointer-events-none absolute -bottom-8 right-0 select-none text-[15vw] font-black uppercase leading-none tracking-tighter text-slate-900/[0.04] dark:text-white/[0.03]">
+            {backdropWatermark}
+          </div>
+        )}
 
         <div className="relative mx-auto max-w-[1200px] px-4 pb-0 pt-4 sm:px-6 sm:pt-5">
           {/* Breadcrumb + Editions Pager */}

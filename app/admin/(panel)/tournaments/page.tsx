@@ -114,15 +114,19 @@ async function saveTournament(formData: FormData) {
     }>
   >(fStr(formData, 'teamRankingsJson'), 'final rankings') ?? [];
 
-  // Format details JSON (points system, placement points, kill points multiplier, featured stage)
+  // Format details JSON (points system, placement points, kill points multiplier, featured stage, custom backdrop watermark)
   const formatDetailsRaw = fStr(formData, 'formatDetailsJson') || fStr(formData, 'formatDetails');
   let formatDetails = parseJsonField<any>(formatDetailsRaw, 'points system');
 
   const featuredStage = fStr(formData, 'featuredStage')?.trim() || null;
-  if (featuredStage || formatDetails) {
+  const hasBackdropField = formData.has('backdropText');
+  const backdropText = hasBackdropField ? (fStr(formData, 'backdropText')?.trim() || null) : undefined;
+
+  if (featuredStage || hasBackdropField || formatDetails) {
     formatDetails = {
       ...(formatDetails || {}),
       featuredStage,
+      ...(hasBackdropField ? { backdropText } : {}),
     };
   }
 
@@ -1090,6 +1094,18 @@ export default async function AdminTournamentsPage({
                 />
                 <p className="text-[10px] text-slate-400 mt-0.5">
                   Leave blank to auto-display the most recent stage by match date.
+                </p>
+              </div>
+              <div>
+                <label className={labelCls}>Backdrop Watermark</label>
+                <input
+                  name="backdropText"
+                  defaultValue={(editing?.formatDetails as any)?.backdropText ?? ''}
+                  placeholder={`Auto: ${editing?.series || 'Series Name (e.g. BGMS)'}`}
+                  className={inputCls}
+                />
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Hero background watermark. Leave blank for Series Name ({editing?.series || 'e.g. BGMS'}), or type &quot;NONE&quot; to hide.
                 </p>
               </div>
               <div>
