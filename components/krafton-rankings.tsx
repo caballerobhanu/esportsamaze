@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-interface RankedTeam {
+export interface RankedTeam {
   rank: number;
   name: string;
   slug?: string;
@@ -13,7 +13,7 @@ interface RankedTeam {
   points: number;
 }
 
-interface RankedPlayer {
+export interface RankedPlayer {
   rank: number;
   name: string;
   slug?: string;
@@ -23,7 +23,7 @@ interface RankedPlayer {
   points: number;
 }
 
-interface RankingsResponse {
+export interface RankingsResponse {
   teams: RankedTeam[];
   players: RankedPlayer[];
   logos: Record<string, { logoUrl: string | null; imageDarkUrl: string | null }>;
@@ -70,11 +70,12 @@ function TeamLogo({ name, logos }: { name: string; logos: RankingsResponse['logo
   );
 }
 
-export function KraftonRankings() {
-  const [data, setData] = React.useState<RankingsResponse | null>(null);
+export function KraftonRankings({ initialData }: { initialData?: RankingsResponse }) {
+  const [data, setData] = React.useState<RankingsResponse | null>(() => initialData ?? null);
   const [failed, setFailed] = React.useState(false);
 
   React.useEffect(() => {
+    if (initialData) return; // Already hydrated by server
     let cancelled = false;
     fetch('/api/rankings')
       .then((res) => {
@@ -92,7 +93,7 @@ export function KraftonRankings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialData]);
 
   const loading = data === null && !failed;
   const empty =

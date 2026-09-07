@@ -17,6 +17,7 @@ import { SectionHeading } from '@/components/home/section-heading';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
 import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
+import { getRankingsData } from '@/lib/server-rankings';
 import { itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
 
@@ -249,10 +250,41 @@ export default async function HomePage() {
     ? { name: liveTournament.name, slug: liveTournament.slug, stageName }
     : null;
 
+  // 8. Circuit Tournaments & Krafton Rankings pre-computed on server (SSR)
+  const [circuitTournaments, rankingsData] = await Promise.all([
+    prisma.tournament.findMany({
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        imageUrl: true,
+        imageDarkUrl: true,
+        game: {
+          select: {
+            name: true,
+            logoUrl: true,
+          },
+        },
+        stages: {
+          select: {
+            sequence: true,
+            name: true,
+          },
+          orderBy: { sequence: 'asc' },
+        },
+      },
+      orderBy: { startDate: 'asc' },
+    }).catch(() => []),
+    getRankingsData().catch(() => ({ teams: [], players: [], logos: {} })),
+  ]);
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
       {/* 1. Live & Upcoming Events Strip */}
-      <EventsSection />
+      <EventsSection initialTournaments={circuitTournaments} />
 
       {/* 2. Main body — the front page, then match center, news, reference data */}
       <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-10 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-10">
@@ -290,7 +322,7 @@ export default async function HomePage() {
         <EditorsPicks articles={editorPicks} />
 
         {/* Krafton rankings */}
-        <KraftonRankings />
+        <KraftonRankings initialData={rankingsData} />
 
         {/* Tournaments & transfers */}
         <div className="grid grid-cols-1 gap-8 pt-2 lg:grid-cols-12">

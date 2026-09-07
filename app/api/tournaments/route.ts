@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
 import prisma from '@/lib/prisma';
+import { isAdmin } from '@/lib/admin-auth';
 
 const getCachedTournaments = unstable_cache(
   async (gameSlug: string | null, tier: string | null) => {
@@ -46,6 +47,10 @@ const getCachedTournaments = unstable_cache(
 );
 
 export async function GET(request: NextRequest) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const gameSlug = searchParams.get('game');
   const tier = searchParams.get('tier');

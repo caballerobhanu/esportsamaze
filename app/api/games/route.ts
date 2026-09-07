@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { isAdmin } from '@/lib/admin-auth';
 
 const DEFAULT_GAMES = [
   { id: 'bgmi', name: 'Battlegrounds Mobile India', slug: 'bgmi', genre: 'BATTLE_ROYALE', developer: 'Krafton' },
@@ -14,6 +15,10 @@ const DEFAULT_GAMES = [
 ];
 
 export async function GET() {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const games = await prisma.game.findMany({
       include: {

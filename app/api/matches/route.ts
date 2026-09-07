@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { isAdmin } from '@/lib/admin-auth';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export async function GET(request: NextRequest) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const ip = await getClientIp();
   const rl = checkRateLimit('api:matches', ip, { windowMs: 60_000, maxRequests: 120 });
   if (!rl.allowed) {

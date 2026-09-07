@@ -20,13 +20,13 @@ interface EventCardData {
   stageName: string;
 }
 
-interface RawTournamentRow {
+export interface RawTournamentRow {
   id: string;
   slug: string;
   name: string;
   status: EventStatus;
-  startDate: string;
-  endDate: string;
+  startDate: string | Date;
+  endDate: string | Date;
   imageUrl?: string | null;
   imageDarkUrl?: string | null;
   game: { name: string; logoUrl: string | null } | null;
@@ -63,31 +63,106 @@ function normalizeEvent(raw: RawTournamentRow): EventCardData {
   };
 }
 
+function formatDateRange(start: string, end: string) {
+  const s = new Date(start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const e = new Date(end).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${s} — ${e}`;
+}
+
 function selectEvents(all: EventCardData[], tab: EventTab): EventCardData[] {
   const live = all
     .filter((e) => e.status === 'ONGOING')
     .sort((a, b) => a.endDate.localeCompare(b.endDate));
   const upcoming = all
     .filter((e) => e.status === 'UPCOMING')
-    .sort((a, b) => a.startDate.localeCompare(b.startDate))
-    .slice(0, 4);
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
   const past = all
     .filter((e) => e.status === 'COMPLETED')
-    .sort((a, b) => b.endDate.localeCompare(a.endDate))
-    .slice(0, 5);
+    .sort((a, b) => b.endDate.localeCompare(a.endDate));
 
-  return tab === 'active' ? [...live, ...upcoming] : past;
+  if (tab === 'active') {
+    return [...live, ...upcoming];
+  }
+  return past;
+}
+
+function EventCard({ event }: { event: EventCardData }) {
+  const isLive = event.status === 'ONGOING';
+  const isUpcoming = event.status === 'UPCOMING';
+
+  const href = event.slug ? `/tournaments/${event.slug}` : `/tournaments/${event.id}`;
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'group flex flex-col justify-between p-3 rounded-lg border transition-all',
+        'bg-[var(--ed-card)] hover:border-[var(--ed-magenta)] hover:shadow-xs',
+        isLive
+          ? 'border-[var(--ed-magenta)]/40 bg-[var(--ed-magenta)]/[0.02]'
+          : 'border-[var(--ed-hair)]'
+      )}
+    >
+      <div className="flex items-start gap-2.5">
+        <EventLogo event={event} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            {isLive && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--ed-magenta)] uppercase tracking-wider">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--ed-magenta)] animate-pulse" />
+                Live
+              </span>
+            )}
+            {isUpcoming && (
+              <span className="text-[10px] font-bold text-[var(--ed-muted)] uppercase tracking-wider">
+                Upcoming
+              </span>
+            )}
+            <span className="text-[10px] text-[var(--ed-subtle)] truncate">
+              {event.gameName}
+            </span>
+          </div>
+
+          <h3 className="text-xs font-bold text-[var(--ed-ink)] line-clamp-1 group-hover:text-[var(--ed-magenta)] transition-colors">
+            {event.name}
+          </h3>
+
+          <p className="text-[11px] text-[var(--ed-muted)] mt-0.5 truncate">
+            {event.stageName}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-2.5 pt-2 border-t border-[var(--ed-hair)] flex items-center justify-between text-[10px] text-[var(--ed-subtle)]">
+        <span>{formatDateRange(event.startDate, event.endDate)}</span>
+        <span className="font-semibold text-[var(--ed-muted)] group-hover:text-[var(--ed-magenta)] transition-colors">
+          View &rarr;
+        </span>
+      </div>
+    </Link>
+  );
 }
 
 function EventLogo({ event }: { event: EventCardData }) {
+  const logo = event.logoDarkUrl || event.logoUrl;
+  if (logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt={event.name}
+        className="w-8 h-8 rounded-md object-contain shrink-0 bg-[var(--ed-sand)] p-0.5"
+        loading="lazy"
+      />
+    );
+  }
+
   const initials = event.name
     .split(/\s+/)
-    .filter((w) => /^[A-Za-z0-9]/.test(w))
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join('');
 
-  // Logo files can 404 (e.g. paths backed by public/ assets that aren't
   // deployed); drop a broken variant and fall back to the other one/initials.
   const [failed, setFailed] = React.useState({ light: false, dark: false });
   const showLight = Boolean(event.logoUrl) && !failed.light;
@@ -135,11 +210,14 @@ function EventLogo({ event }: { event: EventCardData }) {
   );
 }
 
-export function EventsSection() {
+export function EventsSection({ initialTournaments }: { initialTournaments?: RawTournamentRow[] }) {
   const [tab, setTab] = React.useState<EventTab>('active');
-  const [events, setEvents] = React.useState<EventCardData[] | null>(null);
+  const [events, setEvents] = React.useState<EventCardData[] | null>(() =>
+    initialTournaments ? initialTournaments.map(normalizeEvent) : null
+  );
 
   React.useEffect(() => {
+    if (initialTournaments) return; // Hydrated by server
     let cancelled = false;
     fetch('/api/tournaments')
       .then((res) => {
@@ -156,7 +234,7 @@ export function EventsSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialTournaments]);
 
   const visible = events ? selectEvents(events, tab) : [];
 

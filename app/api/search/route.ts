@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { publishedVisibility } from '@/lib/news-queries';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
+import { isSameOrigin, crossSiteForbiddenResponse } from '@/lib/anti-scrape';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,10 @@ export interface SearchResultItem {
 }
 
 export async function GET(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return crossSiteForbiddenResponse();
+  }
+
   const ip = await getClientIp();
   const rl = checkRateLimit('api:search', ip, { windowMs: 60_000, maxRequests: 60 });
   if (!rl.allowed) {

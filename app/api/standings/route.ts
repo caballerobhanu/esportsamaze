@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { isAdmin } from '@/lib/admin-auth';
 import { computeTournamentStandings, computeTournamentFraggers } from '@/lib/match-standings';
 
 /**
@@ -9,6 +10,10 @@ import { computeTournamentStandings, computeTournamentFraggers } from '@/lib/mat
  * Returns both team standings and player fraggers by default (or either one via `type`).
  */
 export async function GET(request: NextRequest) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const tournamentId = searchParams.get('tournament');
   const stageId = searchParams.get('stage') ?? undefined;

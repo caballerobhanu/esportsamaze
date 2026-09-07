@@ -1,11 +1,10 @@
-import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
 import {
   computeTeamRankings,
   computePlayerRankings,
 } from '@/lib/krafton-rankings';
 import { loadTransferRules } from '@/lib/ranking-rules';
+import type { RankingsResponse } from '@/components/krafton-rankings';
 
 const LIMIT = 10;
 
@@ -13,11 +12,11 @@ function toDateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function GET() {
-  if (!(await isAdmin())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+/**
+ * Server-side rankings calculation.
+ * Computes official Krafton points directly from the database without any HTTP fetch.
+ */
+export async function getRankingsData(): Promise<RankingsResponse> {
   try {
     const [teamRows, playerRows, rules] = await Promise.all([
       prisma.teamRanking.findMany({
@@ -38,20 +37,17 @@ export async function GET() {
       loadTransferRules(),
     ]);
 
-    // Events excluded from KRAFTON rankings never contribute points
-    // (rows without a tournament link are manual entries → included)
-    const eligibleTeamRows = teamRows.filter((r) => !r.tournamentId || r.tournament?.rankingIncluded !== false);
-    const eligiblePlayerRows = playerRows.filter((r) => !r.tournamentId || r.tournament?.rankingIncluded !== false);
+    const eligibleTeamRows = teamRows.filter(
+      (r) => !r.tournamentId || r.tournament?.rankingIncluded !== false
+    );
+    const eligiblePlayerRows = playerRows.filter(
+      (r) => !r.tournamentId || r.tournament?.rankingIncluded !== false
+    );
 
     if (teamRows.length === 0 && playerRows.length === 0) {
-      return NextResponse.json({
-        success: true,
-        source: 'database',
-        data: { teams: [], players: [], logos: {} },
-      });
+      return { teams: [], players: [], logos: {} };
     }
 
-    // Logo + slug lookup per team name (used by both tables)
     const logos: Record<
       string,
       { logoUrl: string | null; imageDarkUrl: string | null; slug?: string }
@@ -64,7 +60,6 @@ export async function GET() {
       };
     }
 
-    // attach team slugs to players for sub-name links
     const teamSlugByName = new Map<string, string>();
     for (const [name, meta] of Object.entries(logos)) {
       if (meta.slug) teamSlugByName.set(name, meta.slug);
@@ -116,16 +111,9 @@ export async function GET() {
         };
       });
 
-    return NextResponse.json({
-      success: true,
-      source: 'database',
-      data: { teams, players, logos },
-    });
+    return { teams, players, logos };
   } catch (error) {
-    console.error('Prisma rankings query failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Rankings are temporarily unavailable.' },
-      { status: 500 }
-    );
+    console.error('Server rankings computation failed:', error);
+    return { teams: [], players: [], logos: {} };
   }
 }

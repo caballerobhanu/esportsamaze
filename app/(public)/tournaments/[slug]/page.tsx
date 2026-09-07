@@ -25,10 +25,12 @@ import {
   matchDayKey,
   matchRelativeDayKey,
   resolvePrizeRecipients,
+  type StandingsConfig,
   type StandingsMatchLite,
   type StandingsTeamMeta,
   type StandingsStageSummary,
 } from '@/lib/standings-config';
+import { isAdmin } from '@/lib/admin-auth';
 import { countryCodeFor } from '@/lib/countries';
 import { formatDate } from '@/lib/utils';
 import { EstaticTabNav } from '@/components/tournaments/estatic/estatic-tab-nav';
@@ -372,6 +374,35 @@ export default async function TournamentDetailPage({
 
   const uniqueDaysList = Array.from({ length: distinctMatchDates.length }, (_, i) => String(i + 1));
 
+  // Determine which metrics are authorized for display from tournament config
+  const userIsAdmin = await isAdmin();
+  const standingsCfg = (tournament.standingsConfig as StandingsConfig | null) ?? null;
+  const statsCfg = standingsCfg?.statisticsConfig;
+  const activeMetrics = new Set<string>();
+  if (statsCfg?.playerColumns && Array.isArray(statsCfg.playerColumns) && statsCfg.playerColumns.length > 0) {
+    for (const col of statsCfg.playerColumns) activeMetrics.add(col);
+  } else {
+    activeMetrics.add('elims');
+    activeMetrics.add('powerplay');
+    activeMetrics.add('avgElims');
+  }
+  if (statsCfg?.customPlayerColumns && Array.isArray(statsCfg.customPlayerColumns)) {
+    for (const col of statsCfg.customPlayerColumns) {
+      if (col.metric) activeMetrics.add(col.metric);
+    }
+  }
+
+  // Admin sees all metrics; public visitors only see metrics configured for this tournament
+  const allowDamage = userIsAdmin || activeMetrics.has('damage');
+  const allowDamageReceived = userIsAdmin || activeMetrics.has('damageReceived');
+  const allowHealing = userIsAdmin || activeMetrics.has('healing');
+  const allowUtilities = userIsAdmin || activeMetrics.has('utilities');
+  const allowTotalDist = userIsAdmin || activeMetrics.has('totalDist');
+  const allowHeadshots = userIsAdmin || activeMetrics.has('headshots');
+  const allowAssists = userIsAdmin || activeMetrics.has('assists');
+  const allowKnockouts = userIsAdmin || activeMetrics.has('knockouts');
+  const allowSurvival = userIsAdmin || activeMetrics.has('survivalTime');
+
   const playerMap = new Map<string, PlayerPerformanceRow>();
 
   for (const m of tournament.matches) {
@@ -423,15 +454,15 @@ export default async function TournamentDetailPage({
         pRow.matchesPlayed += 1;
         pRow.totalElims += ps.playerElims || 0;
         pRow.totalPowerplay += ps.playerPowerplay || 0;
-        pRow.totalDamage += ps.damage || 0;
-        pRow.totalHeadshots += ps.headshots || 0;
-        pRow.totalAssists += ps.assists || 0;
-        pRow.totalKnockouts += ps.knockouts || 0;
-        pRow.totalSurvivalTime += ps.survivalTime || 0;
-        pRow.totalHealing += ps.healing || 0;
-        pRow.totalDamageReceived += ps.damageReceived || 0;
-        pRow.totalUtilities += ps.utilitiesTotal || 0;
-        pRow.totalDist += ps.totalDist || 0;
+        if (allowDamage) pRow.totalDamage += ps.damage || 0;
+        if (allowHeadshots) pRow.totalHeadshots += ps.headshots || 0;
+        if (allowAssists) pRow.totalAssists += ps.assists || 0;
+        if (allowKnockouts) pRow.totalKnockouts += ps.knockouts || 0;
+        if (allowSurvival) pRow.totalSurvivalTime += ps.survivalTime || 0;
+        if (allowHealing) pRow.totalHealing += ps.healing || 0;
+        if (allowDamageReceived) pRow.totalDamageReceived += ps.damageReceived || 0;
+        if (allowUtilities) pRow.totalUtilities += ps.utilitiesTotal || 0;
+        if (allowTotalDist) pRow.totalDist += ps.totalDist || 0;
         if (ps.isMvp) pRow.totalMvps += 1;
 
         const elimsCount = ps.playerElims || 0;
@@ -447,15 +478,15 @@ export default async function TournamentDetailPage({
           day: matchDay,
           playerElims: ps.playerElims || 0,
           playerPowerplay: ps.playerPowerplay || 0,
-          damage: ps.damage || 0,
-          headshots: ps.headshots || 0,
-          assists: ps.assists || 0,
-          knockouts: ps.knockouts || 0,
-          survivalTime: ps.survivalTime || 0,
-          healing: ps.healing || 0,
-          damageReceived: ps.damageReceived || 0,
-          utilities: ps.utilitiesTotal || 0,
-          totalDist: ps.totalDist || 0,
+          damage: allowDamage ? (ps.damage || 0) : 0,
+          headshots: allowHeadshots ? (ps.headshots || 0) : 0,
+          assists: allowAssists ? (ps.assists || 0) : 0,
+          knockouts: allowKnockouts ? (ps.knockouts || 0) : 0,
+          survivalTime: allowSurvival ? (ps.survivalTime || 0) : 0,
+          healing: allowHealing ? (ps.healing || 0) : 0,
+          damageReceived: allowDamageReceived ? (ps.damageReceived || 0) : 0,
+          utilities: allowUtilities ? (ps.utilitiesTotal || 0) : 0,
+          totalDist: allowTotalDist ? (ps.totalDist || 0) : 0,
           isMvp: ps.isMvp,
         };
       }
