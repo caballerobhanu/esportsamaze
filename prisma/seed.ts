@@ -21,6 +21,9 @@ const DATE_FIELDS = new Set([
   'startDate',
   'endDate',
   'scheduledAt',
+  'publishedAt',
+  'deletedAt',
+  'before',
 ]);
 
 function reviveDates<T extends Record<string, unknown>>(rows: T[]): T[] {
@@ -76,8 +79,13 @@ async function main() {
   const snapshotPath = findSnapshot();
   const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8')) as Record<string, Record<string, unknown>[]>;
 
-  // 1. Clean existing records in reverse dependency order
+  // 1. Clean existing records in reverse dependency order (children before parents)
   console.log('🧹 Cleaning existing records...');
+  await prisma.articleReaction.deleteMany({});
+  await prisma.comment.deleteMany({});
+  await prisma.articleRevision.deleteMany({});
+  await prisma.article.deleteMany({});
+  await prisma.mediaAsset.deleteMany({});
   await prisma.matchPlayerStat.deleteMany({});
   await prisma.matchTeamResult.deleteMany({});
   await prisma.matchGame.deleteMany({});
@@ -100,7 +108,7 @@ async function main() {
   await prisma.organizer.deleteMany({});
   await prisma.game.deleteMany({});
 
-  // 2. Restore in dependency order (explicit IDs preserve every relation)
+  // 2. Restore in dependency order (parents before children; explicit IDs preserve every relation)
   await insertMany('Games', snapshot.games, (d) => prisma.game.createMany({ data: d as never }));
   await insertMany('Organizers', snapshot.organizers, (d) => prisma.organizer.createMany({ data: d as never }));
   await insertMany('Sponsors', snapshot.sponsors, (d) => prisma.sponsor.createMany({ data: d as never }));
@@ -122,6 +130,11 @@ async function main() {
   await insertMany('Team Rankings', snapshot.teamRankings, (d) => prisma.teamRanking.createMany({ data: d as never }));
   await insertMany('Player Rankings', snapshot.playerRankings, (d) => prisma.playerRanking.createMany({ data: d as never }));
   await insertMany('Ranking Transfer Rules', snapshot.rankingTransferRules, (d) => prisma.rankingTransferRule.createMany({ data: d as never }));
+  await insertMany('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d as never }));
+  await insertMany('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d as never }));
+  await insertMany('Article Revisions', snapshot.articleRevisions, (d) => prisma.articleRevision.createMany({ data: d as never }));
+  await insertMany('Comments', snapshot.comments, (d) => prisma.comment.createMany({ data: d as never }));
+  await insertMany('Article Reactions', snapshot.articleReactions, (d) => prisma.articleReaction.createMany({ data: d as never }));
 
   console.log('🎉 Restore complete — database matches the snapshot exactly.');
 }

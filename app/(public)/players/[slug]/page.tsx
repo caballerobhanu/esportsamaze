@@ -199,7 +199,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   });
   if (!player) notFound();
 
-  const [standing, prevPlayer, nextPlayer, allStats, transfers, squadParticipations] = await Promise.all([
+  const [standing, prevPlayer, nextPlayer, allStats, transfers] = await Promise.all([
     getStanding(player.ign),
     prisma.player.findFirst({
       where: { id: { lt: player.id } },
@@ -241,23 +241,47 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
       orderBy: { date: 'desc' },
       include: { team: { select: { id: true, name: true, tag: true, slug: true } } },
     }),
-    prisma.tournamentTeam.findMany({
-      include: {
-        tournament: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            startDate: true,
-            currency: true,
-            usdRate: true,
-            prizeDistribution: true,
-          },
-        },
-        team: { select: { id: true, name: true, tag: true, slug: true } },
-      },
-    }),
   ]);
+
+  // Scope squad participations to candidate teams and tournaments associated with this player
+  const candidateTeamIds = Array.from(
+    new Set([
+      ...(player.currentTeamId ? [player.currentTeamId] : []),
+      ...transfers.map((t) => t.teamId),
+      ...allStats.map((s) => s.teamId).filter((id): id is string => Boolean(id)),
+    ])
+  );
+  const candidateTournamentIds = Array.from(
+    new Set(allStats.map((s) => s.matchGame.match.tournament?.id).filter((id): id is string => Boolean(id)))
+  );
+
+  const squadParticipations =
+    candidateTeamIds.length > 0 || candidateTournamentIds.length > 0
+      ? await prisma.tournamentTeam.findMany({
+          where: {
+            OR: [
+              ...(candidateTeamIds.length > 0 ? [{ teamId: { in: candidateTeamIds } }] : []),
+              ...(candidateTournamentIds.length > 0 ? [{ tournamentId: { in: candidateTournamentIds } }] : []),
+            ],
+          },
+          take: 50,
+          orderBy: { tournament: { startDate: 'desc' } },
+          include: {
+            tournament: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                startDate: true,
+                currency: true,
+                usdRate: true,
+                prizeDistribution: true,
+              },
+            },
+            team: { select: { id: true, name: true, tag: true, slug: true } },
+          },
+        })
+      : [];
 
   const socials = (player.socialLinks ?? {}) as SocialMap;
   const realName = [player.firstName, player.lastName].filter(Boolean).join(' ') || 'Name not disclosed';
