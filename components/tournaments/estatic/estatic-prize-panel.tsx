@@ -159,23 +159,23 @@ export function EstaticPrizePanel({
   // Identify podium ranks
   const first =
     ranks.find((r) => {
-      const norm = normalizeRankLabel(r.rank).toLowerCase();
-      return norm.includes('1st') || norm.includes('winner') || norm === '1';
+      const norm = normalizeRankLabel(r.rank);
+      return /\b(1st|winner|champion)\b/i.test(norm) || norm.trim() === '1';
     }) || ranks[0];
 
   const second =
     ranks.find((r) => {
-      const norm = normalizeRankLabel(r.rank).toLowerCase();
+      const norm = normalizeRankLabel(r.rank);
       return (
-        (norm.includes('2nd') || norm.includes('runner') || norm === '2') &&
+        (/\b(2nd|runner|runners-up|runner-up)\b/i.test(norm) || norm.trim() === '2') &&
         r !== first
       );
     }) || (ranks[1] !== first ? ranks[1] : undefined);
 
   const third =
     ranks.find((r) => {
-      const norm = normalizeRankLabel(r.rank).toLowerCase();
-      return (norm.includes('3rd') || norm === '3') && r !== first && r !== second;
+      const norm = normalizeRankLabel(r.rank);
+      return (/\b3rd\b/i.test(norm) || norm.trim() === '3') && r !== first && r !== second;
     }) || (ranks[2] !== first && ranks[2] !== second ? ranks[2] : undefined);
 
   const hasDistribution = ranks.length > 0;
@@ -492,20 +492,17 @@ export function EstaticPrizePanel({
               <tbody className="divide-y divide-slate-100 dark:divide-white/10">
                 {ranks.map((row, idx) => {
                   const normalizedRank = normalizeRankLabel(row.rank);
-                  const lowerRank = normalizedRank.toLowerCase();
                   const isGold =
-                    lowerRank.includes('1st') ||
-                    lowerRank.includes('winner') ||
-                    lowerRank === '1';
+                    /\b(1st|winner|champion)\b/i.test(normalizedRank) ||
+                    normalizedRank.trim() === '1';
                   const isSilver =
-                    lowerRank.includes('2nd') ||
-                    lowerRank.includes('runner') ||
-                    lowerRank === '2';
+                    /\b(2nd|runner|runners-up|runner-up)\b/i.test(normalizedRank) ||
+                    normalizedRank.trim() === '2';
                   const isBronze =
-                    lowerRank.includes('3rd') || lowerRank === '3';
+                    /\b3rd\b/i.test(normalizedRank) ||
+                    normalizedRank.trim() === '3';
                   const isMvp =
-                    lowerRank.includes('mvp') ||
-                    lowerRank.includes('wicked') ||
+                    /\b(mvp|wicked)\b/i.test(normalizedRank) ||
                     row.rewardType === 'TITLE';
 
                   const badgeCls = isGold
