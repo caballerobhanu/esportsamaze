@@ -33,6 +33,7 @@ export interface EstaticStatisticsPanelProps {
   stageGroups?: Record<string, string[]>;
   logoMode?: StandingsLogoMode;
   defaultView?: 'players' | 'teams';
+  defaultTeamPointsMode?: TeamPointsMode;
   adminPlayerColumns?: PlayerStatColumnKey[];
   customPlayerColumns?: CustomPlayerColumn[];
 }
@@ -128,6 +129,7 @@ export function EstaticStatisticsPanel({
   daysList = [],
   stageGroups,
   defaultView = 'players',
+  defaultTeamPointsMode = 'sum',
   adminPlayerColumns,
   customPlayerColumns,
 }: EstaticStatisticsPanelProps) {
@@ -146,7 +148,19 @@ export function EstaticStatisticsPanel({
   // Team Sort & Points Mode State
   const [teamSortKey, setTeamSortKey] = React.useState<string>('totalPoints');
   const [teamSortDir, setTeamSortDir] = React.useState<'asc' | 'desc'>('desc');
-  const [teamPointsMode, setTeamPointsMode] = React.useState<TeamPointsMode>('sum');
+  const [teamPointsMode, setTeamPointsMode] = React.useState<TeamPointsMode>(defaultTeamPointsMode);
+
+  React.useEffect(() => {
+    if (defaultView) {
+      setActiveTab(defaultView);
+    }
+  }, [defaultView]);
+
+  React.useEffect(() => {
+    if (defaultTeamPointsMode) {
+      setTeamPointsMode(defaultTeamPointsMode);
+    }
+  }, [defaultTeamPointsMode]);
 
   // Roles available
   const rolesList = React.useMemo(() => {
@@ -357,6 +371,17 @@ export function EstaticStatisticsPanel({
       .slice(0, 3);
   }, [playerRows]);
 
+  // Top 3 Tournament Teams Spotlight
+  const top3Teams = React.useMemo(() => {
+    return [...teamRows]
+      .sort((a, b) => {
+        const valA = teamPointsMode === 'sum' ? a.totalPoints : teamPointsMode === 'avg' ? a.avgTotalPoints : a.maxTotalPoints;
+        const valB = teamPointsMode === 'sum' ? b.totalPoints : teamPointsMode === 'avg' ? b.avgTotalPoints : b.maxTotalPoints;
+        return valB - valA || b.wwcdCount - a.wwcdCount || b.totalElimsPoints - a.totalElimsPoints;
+      })
+      .slice(0, 3);
+  }, [teamRows, teamPointsMode]);
+
   const handlePlayerSort = (key: string) => {
     if (playerSortKey === key) {
       setPlayerSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
@@ -377,8 +402,8 @@ export function EstaticStatisticsPanel({
 
   return (
     <div className="space-y-7">
-      {/* ============ TOP FRAGGERS PODIUM SPOTLIGHT (Signature Estatic Wow Factor) ============ */}
-      {top3Fraggers.length >= 3 && (
+      {/* ============ TOP FRAGGERS PODIUM SPOTLIGHT (When viewing Player Performance) ============ */}
+      {activeTab === 'players' && top3Fraggers.length >= 3 && (
         <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,95,196,.08),transparent_65%)]" />
           
@@ -512,6 +537,150 @@ export function EstaticStatisticsPanel({
                     </span>
                     <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       Damage
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============ TOP TEAMS CHAMPIONS PODIUM SPOTLIGHT (When viewing Team Performance) ============ */}
+      {activeTab === 'teams' && top3Teams.length >= 3 && (
+        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,95,196,.08),transparent_65%)]" />
+          
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
+                Tournament Leaders &amp; Top Squads
+              </p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
+                Team Performance Podium
+              </h2>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-700 dark:text-blue-300">
+              <Crown className="h-3.5 w-3.5" />
+              <span>Overall Team Standings</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* #2 Silver */}
+            {top3Teams[1] && (
+              <div className="relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                    #2
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    {top3Teams[1].matchesPlayed} Matches · {top3Teams[1].wwcdCount} WWCD
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
+                    {top3Teams[1].teamName}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {top3Teams[1].winRate}% Win Rate · {top3Teams[1].totalElimsPoints} Elims
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
+                  <div>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white">
+                      {teamPointsMode === 'sum' ? top3Teams[1].totalPoints : teamPointsMode === 'avg' ? top3Teams[1].avgTotalPoints : top3Teams[1].maxTotalPoints}
+                    </span>
+                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Points ({teamPointsMode.toUpperCase()})
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {top3Teams[1].totalPlacePoints} Place / {top3Teams[1].totalElimsPoints} Elims
+                    </span>
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Split
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* #1 Gold - Highlighted */}
+            {top3Teams[0] && (
+              <div className="relative flex flex-col justify-between rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-sm font-black text-slate-950 shadow-md shadow-amber-400/40">
+                    #1
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    <Crown className="h-3 w-3" /> Team Leader
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-2xl font-black text-slate-950 dark:text-white">
+                    {top3Teams[0].teamName}
+                  </h3>
+                  <p className="text-xs font-extrabold text-[#0A5FC4] dark:text-blue-300">
+                    {top3Teams[0].winRate}% Win Rate · {top3Teams[0].wwcdCount} WWCDs
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-amber-400/30 pt-3">
+                  <div>
+                    <span className="text-3xl font-black text-[#0A5FC4] dark:text-blue-300">
+                      {teamPointsMode === 'sum' ? top3Teams[0].totalPoints : teamPointsMode === 'avg' ? top3Teams[0].avgTotalPoints : top3Teams[0].maxTotalPoints}
+                    </span>
+                    <span className="ml-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Pts ({teamPointsMode.toUpperCase()})
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                      {top3Teams[0].totalPlacePoints}P / {top3Teams[0].totalElimsPoints}E
+                    </span>
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Place / Elims
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* #3 Bronze */}
+            {top3Teams[2] && (
+              <div className="relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-700/20 text-xs font-black text-amber-700 dark:text-amber-400">
+                    #3
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    {top3Teams[2].matchesPlayed} Matches · {top3Teams[2].wwcdCount} WWCD
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
+                    {top3Teams[2].teamName}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {top3Teams[2].winRate}% Win Rate · {top3Teams[2].totalElimsPoints} Elims
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
+                  <div>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white">
+                      {teamPointsMode === 'sum' ? top3Teams[2].totalPoints : teamPointsMode === 'avg' ? top3Teams[2].avgTotalPoints : top3Teams[2].maxTotalPoints}
+                    </span>
+                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Points ({teamPointsMode.toUpperCase()})
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {top3Teams[2].totalPlacePoints} Place / {top3Teams[2].totalElimsPoints} Elims
+                    </span>
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Split
                     </span>
                   </div>
                 </div>

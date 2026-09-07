@@ -674,6 +674,9 @@ export function TournamentStandingsConfigInput({
   const [newThreshold, setNewThreshold] = React.useState<number>(500);
   const [newCustomLabel, setNewCustomLabel] = React.useState<string>('Max Damage in Match');
   const [newCustomShort, setNewCustomShort] = React.useState<string>('Max Dmg');
+  const [statsConfigTab, setStatsConfigTab] = React.useState<'players' | 'teams'>(
+    () => config.statisticsConfig?.defaultView || 'players'
+  );
 
   return (
     <div className="space-y-6">
@@ -974,329 +977,409 @@ export function TournamentStandingsConfigInput({
             <select
               className={inputCls}
               value={config.statisticsConfig?.defaultView || 'players'}
-              onChange={(e) =>
+              onChange={(e) => {
+                const val = e.target.value as 'players' | 'teams';
                 patch({
                   statisticsConfig: {
                     ...config.statisticsConfig,
-                    defaultView: e.target.value as 'players' | 'teams',
+                    defaultView: val,
                   },
-                })
-              }
+                });
+                setStatsConfigTab(val);
+              }}
             >
               <option value="players">👥 Player Performance (Fraggers Table)</option>
               <option value="teams">🛡️ Team Performance (Map Breakdown &amp; Metrics)</option>
             </select>
           </div>
-        </div>
 
-        {/* Player Columns to Showcase */}
-        <div className="space-y-2 pt-2 border-t border-purple-200/40 dark:border-purple-900/40">
-          <div className="flex items-center justify-between">
-            <label className={labelCls}>
-              Showcase Player Columns (Fraggers Table)
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  patch({
-                    statisticsConfig: {
-                      ...config.statisticsConfig,
-                      playerColumns: ['elims', 'powerplay', 'avgElims'],
-                    },
-                  })
-                }
-                className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
-              >
-                Reset to Essential (Elims &amp; Powerplay)
-              </button>
-              <span className="text-slate-300">|</span>
-              <button
-                type="button"
-                onClick={() =>
-                  patch({
-                    statisticsConfig: {
-                      ...config.statisticsConfig,
-                      playerColumns: PLAYER_STAT_COLUMN_DEFS.map((c) => c.key),
-                    },
-                  })
-                }
-                className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
-              >
-                Select All
-              </button>
+          <div className="flex items-center">
+            <div className="text-xs p-3 rounded-xl border border-purple-300/40 dark:border-purple-800/40 bg-white/80 dark:bg-slate-900/80 w-full flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-slate-900 dark:text-white">Active Public Landing Tab: </span>
+                <span className="text-purple-600 dark:text-purple-400 font-extrabold">
+                  {config.statisticsConfig?.defaultView === 'teams'
+                    ? '🛡️ Team Performance (Map Breakdown & Standings)'
+                    : '👥 Player Performance (Kill Leaders & Fraggers)'}
+                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  {config.statisticsConfig?.defaultView === 'teams'
+                    ? 'Visitors clicking "Statistics" will immediately see the Team Leaders Podium, map-by-map table & WWCD records.'
+                    : 'Visitors clicking "Statistics" will immediately see the Top Fraggers Podium & individual player metrics.'}
+                </p>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-            {PLAYER_STAT_COLUMN_DEFS.map((col) => {
-              const currentCols = config.statisticsConfig?.playerColumns || ['elims', 'powerplay', 'avgElims'];
-              const isChecked = currentCols.includes(col.key);
-              return (
-                <label
-                  key={col.key}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                    isChecked
-                      ? 'bg-purple-500/10 border-purple-500/30 text-purple-900 dark:text-purple-200'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => {
-                      const updated = isChecked
-                        ? currentCols.filter((k) => k !== col.key)
-                        : [...currentCols, col.key];
+        {/* Interactive Configuration Tabs */}
+        <div className="flex items-center gap-2 pt-2 border-t border-purple-200/40 dark:border-purple-900/40 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setStatsConfigTab('players')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              statsConfigTab === 'players'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <span>👥 Configure Player Performance</span>
+            {config.statisticsConfig?.defaultView !== 'teams' && (
+              <span className="text-[10px] bg-purple-400/30 text-white px-1.5 py-0.5 rounded-full font-black uppercase">
+                Landing Default
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatsConfigTab('teams')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              statsConfigTab === 'teams'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <span>🛡️ Configure Team Performance</span>
+            {config.statisticsConfig?.defaultView === 'teams' && (
+              <span className="text-[10px] bg-purple-400/30 text-white px-1.5 py-0.5 rounded-full font-black uppercase">
+                Landing Default
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* ── PLAYER CONFIGURATION TAB ── */}
+        {statsConfigTab === 'players' && (
+          <div className="space-y-4 pt-1">
+            {/* Player Columns to Showcase */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>
+                  Showcase Player Columns (Fraggers Table)
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
                       patch({
                         statisticsConfig: {
                           ...config.statisticsConfig,
-                          playerColumns: updated,
+                          playerColumns: ['elims', 'powerplay', 'avgElims'],
                         },
-                      });
-                    }}
-                    className="rounded text-purple-600 focus:ring-purple-500"
-                  />
-                  <span>{col.label}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Custom Calculated Metric Columns */}
-        <div className="space-y-3 pt-3 border-t border-purple-200/40 dark:border-purple-900/40">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <label className={labelCls}>
-                Admin Custom Calculated Metric Columns
-              </label>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Create custom aggregated metrics (e.g. Max Damage in a Match, Sum of Damage, Avg Damage/Match, 0-Value Matches, Thresholds).
-              </p>
-            </div>
-            {!showAddCustomCol && (
-              <button
-                type="button"
-                onClick={() => {
-                  setNewMetric('damage');
-                  setNewAggregator('max');
-                  setNewThreshold(500);
-                  const auto = generateCustomColumnLabel('damage', 'max', 500);
-                  setNewCustomLabel(auto.label);
-                  setNewCustomShort(auto.short);
-                  setShowAddCustomCol(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Create Custom Column</span>
-              </button>
-            )}
-          </div>
-
-          {/* New Custom Column Form */}
-          {showAddCustomCol && (
-            <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/10 dark:bg-purple-950/20 space-y-3 animate-in fade-in zoom-in-95 duration-100">
-              <div className="flex items-center justify-between pb-1 border-b border-purple-200/40 dark:border-purple-800/40">
-                <span className="text-xs font-bold text-purple-900 dark:text-purple-200">
-                  New Custom Column Builder
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAddCustomCol(false)}
-                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                >
-                  Cancel
-                </button>
+                      })
+                    }
+                    className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Reset to Essential (Elims &amp; Powerplay)
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      patch({
+                        statisticsConfig: {
+                          ...config.statisticsConfig,
+                          playerColumns: PLAYER_STAT_COLUMN_DEFS.map((c) => c.key),
+                        },
+                      })
+                    }
+                    className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                  >
+                    Select All
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {/* 1. Pick Metric */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    1. Pick Base Metric
-                  </label>
-                  <select
-                    className={inputCls}
-                    value={newMetric}
-                    onChange={(e) => {
-                      const m = e.target.value as PlayerMetricField;
-                      setNewMetric(m);
-                      const auto = generateCustomColumnLabel(m, newAggregator, newThreshold);
-                      setNewCustomLabel(auto.label);
-                      setNewCustomShort(auto.short);
-                    }}
-                  >
-                    {PLAYER_METRIC_FIELDS.map((f) => (
-                      <option key={f.key} value={f.key}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 2. Pick Aggregation */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    2. Pick Aggregation / Operator
-                  </label>
-                  <select
-                    className={inputCls}
-                    value={newAggregator}
-                    onChange={(e) => {
-                      const a = e.target.value as PlayerMetricAggregator;
-                      setNewAggregator(a);
-                      const auto = generateCustomColumnLabel(newMetric, a, newThreshold);
-                      setNewCustomLabel(auto.label);
-                      setNewCustomShort(auto.short);
-                    }}
-                  >
-                    {PLAYER_METRIC_AGGREGATORS.map((a) => (
-                      <option key={a.key} value={a.key}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Threshold (if count_gte) */}
-                {newAggregator === 'count_gte' && (
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Threshold Value (≥ X)
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                {PLAYER_STAT_COLUMN_DEFS.map((col) => {
+                  const currentCols = config.statisticsConfig?.playerColumns || ['elims', 'powerplay', 'avgElims'];
+                  const isChecked = currentCols.includes(col.key);
+                  return (
+                    <label
+                      key={col.key}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                        isChecked
+                          ? 'bg-purple-500/10 border-purple-500/30 text-purple-900 dark:text-purple-200'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const updated = isChecked
+                            ? currentCols.filter((k) => k !== col.key)
+                            : [...currentCols, col.key];
+                          patch({
+                            statisticsConfig: {
+                              ...config.statisticsConfig,
+                              playerColumns: updated,
+                            },
+                          });
+                        }}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      <span>{col.label}</span>
                     </label>
-                    <input
-                      type="number"
-                      className={inputCls}
-                      value={newThreshold}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setNewThreshold(val);
-                        const auto = generateCustomColumnLabel(newMetric, newAggregator, val);
-                        setNewCustomLabel(auto.label);
-                        setNewCustomShort(auto.short);
-                      }}
-                    />
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Calculated Metric Columns */}
+            <div className="space-y-3 pt-3 border-t border-purple-200/40 dark:border-purple-900/40">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <label className={labelCls}>
+                    Admin Custom Calculated Metric Columns
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Create custom aggregated metrics (e.g. Max Damage in a Match, Sum of Damage, Avg Damage/Match, 0-Value Matches, Thresholds).
+                  </p>
+                </div>
+                {!showAddCustomCol && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomCol(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create Custom Column</span>
+                  </button>
                 )}
-
-                {/* 4. Column Header Label */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    3. Header Display Label
-                  </label>
-                  <input
-                    type="text"
-                    className={inputCls}
-                    value={newCustomLabel}
-                    onChange={(e) => setNewCustomLabel(e.target.value)}
-                    placeholder="e.g. Max Damage in Match"
-                  />
-                </div>
-
-                {/* 5. Short Header */}
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Short Header Code
-                  </label>
-                  <input
-                    type="text"
-                    className={inputCls}
-                    value={newCustomShort}
-                    onChange={(e) => setNewCustomShort(e.target.value)}
-                    placeholder="e.g. Max Dmg"
-                  />
-                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddCustomCol(false)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const id = `${newMetric}_${newAggregator}_${Date.now().toString(36)}`;
-                    const newCol: CustomPlayerColumn = {
-                      id,
-                      metric: newMetric,
-                      aggregator: newAggregator,
-                      threshold: newAggregator === 'count_gte' ? newThreshold : undefined,
-                      label: newCustomLabel.trim() || generateCustomColumnLabel(newMetric, newAggregator, newThreshold).label,
-                      short: newCustomShort.trim() || generateCustomColumnLabel(newMetric, newAggregator, newThreshold).short,
-                    };
-                    const existing = config.statisticsConfig?.customPlayerColumns || [];
+              {/* Add Custom Column Drawer/Inline Form */}
+              {showAddCustomCol && (
+                <div className="p-4 rounded-xl border border-purple-500/40 bg-white dark:bg-slate-900 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-purple-700 dark:text-purple-300">
+                      Define New Aggregated Metric Column
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCustomCol(false)}
+                      className="text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelCls}>Base Metric</label>
+                      <select
+                        className={inputCls}
+                        value={newMetric}
+                        onChange={(e) => {
+                          const m = e.target.value as PlayerMetricField;
+                          setNewMetric(m);
+                          const generated = generateCustomColumnLabel(m, newAggregator, newThreshold);
+                          setNewCustomLabel(generated.label);
+                          setNewCustomShort(generated.short);
+                        }}
+                      >
+                        {PLAYER_METRIC_FIELDS.map((f) => (
+                          <option key={f.key} value={f.key}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>Aggregation Operation</label>
+                      <select
+                        className={inputCls}
+                        value={newAggregator}
+                        onChange={(e) => {
+                          const a = e.target.value as PlayerMetricAggregator;
+                          setNewAggregator(a);
+                          const generated = generateCustomColumnLabel(newMetric, a, newThreshold);
+                          setNewCustomLabel(generated.label);
+                          setNewCustomShort(generated.short);
+                        }}
+                      >
+                        {PLAYER_METRIC_AGGREGATORS.map((a) => (
+                          <option key={a.key} value={a.key}>
+                            {a.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {newAggregator === 'count_gte' && (
+                      <div>
+                        <label className={labelCls}>Threshold Value (≥)</label>
+                        <input
+                          type="number"
+                          className={inputCls}
+                          value={newThreshold}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 0;
+                            setNewThreshold(val);
+                            const generated = generateCustomColumnLabel(newMetric, newAggregator, val);
+                            setNewCustomLabel(generated.label);
+                            setNewCustomShort(generated.short);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Full Column Header Label</label>
+                      <input
+                        className={inputCls}
+                        value={newCustomLabel}
+                        onChange={(e) => setNewCustomLabel(e.target.value)}
+                        placeholder="e.g. Max Damage in Match"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Short Header (Abbreviation)</label>
+                      <input
+                        className={inputCls}
+                        value={newCustomShort}
+                        onChange={(e) => setNewCustomShort(e.target.value)}
+                        placeholder="e.g. Max Dmg"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCustomCol(false)}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newCol: CustomPlayerColumn = {
+                          id: `custom_${Date.now()}`,
+                          label: newCustomLabel.trim() || 'Custom Metric',
+                          short: newCustomShort.trim() || 'Custom',
+                          metric: newMetric,
+                          aggregator: newAggregator,
+                          threshold: newAggregator === 'count_gte' ? newThreshold : undefined,
+                        };
+                        const existing = config.statisticsConfig?.customPlayerColumns || [];
+                        patch({
+                          statisticsConfig: {
+                            ...config.statisticsConfig,
+                            customPlayerColumns: [...existing, newCol],
+                          },
+                        });
+                        setShowAddCustomCol(false);
+                      }}
+                      className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold"
+                    >
+                      Save Column
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Configured Custom Columns List */}
+              {config.statisticsConfig?.customPlayerColumns && config.statisticsConfig.customPlayerColumns.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {config.statisticsConfig.customPlayerColumns.map((col) => (
+                    <div
+                      key={col.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl border border-purple-500/30 bg-purple-500/10 text-xs"
+                    >
+                      <div>
+                        <p className="font-bold text-purple-900 dark:text-purple-200">{col.label}</p>
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400">
+                          {col.metric} · {col.aggregator === 'count_gte' ? `≥ ${col.threshold ?? 5}` : col.aggregator}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = (config.statisticsConfig?.customPlayerColumns || []).filter(
+                            (c) => c.id !== col.id
+                          );
+                          patch({
+                            statisticsConfig: {
+                              ...config.statisticsConfig,
+                              customPlayerColumns: updated,
+                            },
+                          });
+                        }}
+                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                        title="Delete custom column"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  No custom calculated columns added yet. Click &quot;+ Create Custom Column&quot; to define custom metric aggregations (e.g. Max Damage in a match, Sum of Damage, Avg Knocks).
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TEAM CONFIGURATION TAB ── */}
+        {statsConfigTab === 'teams' && (
+          <div className="space-y-4 pt-1">
+            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-2.5">
+              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-sm">Team Performance Configuration Active</span>
+                <p className="mt-1 text-slate-600 dark:text-slate-300">
+                  When visitors navigate to the public tournament statistics page, they will land directly on the <strong>Team Performance Podium and Map Breakdown</strong> view.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Default Points Aggregation Mode</label>
+                <select
+                  className={inputCls}
+                  value={config.statisticsConfig?.defaultTeamPointsMode || 'sum'}
+                  onChange={(e) =>
                     patch({
                       statisticsConfig: {
                         ...config.statisticsConfig,
-                        customPlayerColumns: [...existing, newCol],
+                        defaultTeamPointsMode: e.target.value as 'sum' | 'avg' | 'max',
                       },
-                    });
-                    setShowAddCustomCol(false);
-                  }}
-                  className="px-4 py-1.5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer"
+                    })
+                  }
                 >
-                  Save Column
-                </button>
+                  <option value="sum">📊 Cumulative Total Points (Sum)</option>
+                  <option value="avg">📈 Average Points / Match (Avg)</option>
+                  <option value="max">🔥 Peak Match Total Points (Max)</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  Determines whether the public team table ranks and displays cumulative points, average points per game, or peak match score.
+                </p>
               </div>
             </div>
-          )}
 
-          {/* List of configured custom columns */}
-          {config.statisticsConfig?.customPlayerColumns && config.statisticsConfig.customPlayerColumns.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-              {config.statisticsConfig.customPlayerColumns.map((col, idx) => (
-                <div
-                  key={col.id || idx}
-                  className="p-3 rounded-xl border border-purple-500/20 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 shadow-2xs"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {col.label}
-                      </span>
-                      {col.short && (
-                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono bg-purple-50 dark:bg-purple-950/50 px-1 py-0.2 rounded">
-                          {col.short}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-400 capitalize mt-0.5">
-                      {col.metric} · {col.aggregator === 'count_gte' ? `≥ ${col.threshold ?? 5}` : col.aggregator}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = (config.statisticsConfig?.customPlayerColumns || []).filter(
-                        (c) => c.id !== col.id
-                      );
-                      patch({
-                        statisticsConfig: {
-                          ...config.statisticsConfig,
-                          customPlayerColumns: updated,
-                        },
-                      });
-                    }}
-                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                    title="Delete custom column"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/50 p-4 space-y-2">
+              <h5 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+                Team Performance Features Included On Public Page
+              </h5>
+              <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
+                <li><strong>Team Leaders Podium:</strong> Top 3 teams spotlight by total points, win rate %, and eliminations.</li>
+                <li><strong>Map-by-Map Breakdown:</strong> Detailed team performance across Erangel, Miramar, Sanhok, etc.</li>
+                <li><strong>Win Rate &amp; WWCD Ratio:</strong> Percentage of matches won and chicken dinner count.</li>
+                <li><strong>Placement vs Elims Ratio:</strong> Combat aggression vs survival score distribution.</li>
+              </ul>
             </div>
-          ) : (
-            <p className="text-xs text-slate-400 italic">
-              No custom calculated columns added yet. Click &quot;+ Create Custom Column&quot; to define custom metric aggregations (e.g. Max Damage in a match, Sum of Damage, Avg Knocks).
-            </p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -294,6 +294,7 @@ export interface StatisticsConfig {
   defaultView?: 'players' | 'teams';
   playerColumns?: PlayerStatColumnKey[];
   customPlayerColumns?: CustomPlayerColumn[];
+  defaultTeamPointsMode?: 'sum' | 'avg' | 'max';
 }
 
 export interface TeamsTabConfig {
@@ -609,10 +610,15 @@ export function normalizeStatisticsConfig(v: unknown): StatisticsConfig {
   const customPlayerColumns = asArray(s.customPlayerColumns)
     .map(normalizeCustomPlayerColumn)
     .filter((c): c is CustomPlayerColumn => Boolean(c));
+  const defaultTeamPointsMode =
+    s.defaultTeamPointsMode === 'avg' || s.defaultTeamPointsMode === 'max'
+      ? s.defaultTeamPointsMode
+      : 'sum';
   return {
     defaultView,
     playerColumns: playerColumns.length > 0 ? playerColumns : undefined,
     customPlayerColumns: customPlayerColumns.length > 0 ? customPlayerColumns : undefined,
+    defaultTeamPointsMode,
   };
 }
 

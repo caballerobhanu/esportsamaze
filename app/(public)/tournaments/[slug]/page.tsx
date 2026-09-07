@@ -1000,6 +1000,7 @@ export default async function TournamentDetailPage({
               stageGroups={stageGroupsMap}
               logoMode={standingsConfig.logoMode}
               defaultView={standingsConfig.statisticsConfig?.defaultView}
+              defaultTeamPointsMode={standingsConfig.statisticsConfig?.defaultTeamPointsMode}
               adminPlayerColumns={standingsConfig.statisticsConfig?.playerColumns}
               customPlayerColumns={standingsConfig.statisticsConfig?.customPlayerColumns}
             />
