@@ -36,3 +36,26 @@ test('verifyPassword validates against environment variable', () => {
   assert.equal(verifyPassword('wrong-password'), false);
   assert.equal(verifyPassword(''), false);
 });
+
+test('verifyPassword fails closed when ADMIN_PASSWORD is unset', () => {
+  delete process.env.ADMIN_PASSWORD;
+  delete process.env.ALLOW_DEV_AUTH;
+  const env = process.env as Record<string, string | undefined>;
+  const originalEnv = env.NODE_ENV;
+  env.NODE_ENV = 'development';
+
+  // Fails closed by default even in development
+  assert.equal(verifyPassword('changeme'), false);
+  assert.equal(verifyPassword('any'), false);
+
+  // Only succeeds in dev if explicit ALLOW_DEV_AUTH=1
+  process.env.ALLOW_DEV_AUTH = '1';
+  assert.equal(verifyPassword('changeme'), true);
+  assert.equal(verifyPassword('other'), false);
+
+  // Never succeeds in production
+  env.NODE_ENV = 'production';
+  assert.equal(verifyPassword('changeme'), false);
+
+  env.NODE_ENV = originalEnv;
+});

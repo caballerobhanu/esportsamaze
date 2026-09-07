@@ -3,7 +3,9 @@ import prisma from '@/lib/prisma';
 import { ARTICLE_CATEGORIES } from '@/lib/news';
 import { baseUrl } from '@/lib/seo';
 
-export const dynamic = 'force-dynamic';
+import { publishedVisibility } from '@/lib/news-queries';
+
+export const revalidate = 3600; // Cache sitemap for 1 hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = baseUrl();
@@ -27,20 +29,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const [tournaments, teams, players, articles, tagRows] = await Promise.all([
-      prisma.tournament.findMany({ select: { slug: true, updatedAt: true } }),
-      prisma.team.findMany({ where: { slug: { not: null } }, select: { slug: true, updatedAt: true } }),
-      prisma.player.findMany({ where: { slug: { not: null } }, select: { slug: true, updatedAt: true } }),
-      prisma.article.findMany({
-        where: { status: 'PUBLISHED', deletedAt: null },
+    const [tournaments, teams, players, articles] = await Promise.all([
+      prisma.tournament.findMany({
         select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 5000,
       }),
-      prisma.article.findMany({ where: { status: 'PUBLISHED', deletedAt: null }, select: { tags: true } }),
+      prisma.team.findMany({
+        where: { slug: { not: null } },
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 5000,
+      }),
+      prisma.player.findMany({
+        where: { slug: { not: null } },
+        select: { slug: true, updatedAt: true },
+        orderBy: { updatedAt: 'desc' },
+        take: 5000,
+      }),
+      prisma.article.findMany({
+        where: publishedVisibility(),
+        select: { slug: true, updatedAt: true, tags: true },
+        orderBy: { publishedAt: 'desc' },
+        take: 5000,
+      }),
     ]);
 
     // Index the 20 most-used tags as dedicated archive pages.
     const tagCounts = new Map<string, number>();
-    for (const a of tagRows) {
+    for (const a of articles) {
       for (const t of a.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
     }
     const topTags = [...tagCounts.entries()]

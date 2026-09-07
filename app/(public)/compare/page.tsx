@@ -36,15 +36,17 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   const params = await searchParams;
   const isPlayerMode = params.type === 'players';
 
-  // Load list of all teams and players for selection controls
+  // Load list of top teams and players for selection controls
   const [teamsList, playersList] = await Promise.all([
     prisma.team.findMany({
       select: { id: true, name: true, slug: true, logoUrl: true, tag: true },
       orderBy: { name: 'asc' },
+      take: 200,
     }),
     prisma.player.findMany({
       select: { id: true, ign: true, slug: true, avatarUrl: true, currentTeam: { select: { name: true } } },
       orderBy: { ign: 'asc' },
+      take: 200,
     }),
   ]);
 
@@ -96,10 +98,12 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
         prisma.matchTeamResult.findMany({
           where: { teamId: teamA.id },
           select: { matchGameId: true, rank: true, wwcd: true, elimsPoints: true, damage: true, totalPoints: true },
+          take: 500,
         }),
         prisma.matchTeamResult.findMany({
           where: { teamId: teamB.id },
           select: { matchGameId: true, rank: true, wwcd: true, elimsPoints: true, damage: true, totalPoints: true },
+          take: 500,
         }),
       ]);
 
@@ -567,10 +571,12 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       prisma.matchPlayerStat.findMany({
         where: { playerId: playerA.id },
         select: { matchGameId: true, playerElims: true, damage: true },
+        take: 500,
       }),
       prisma.matchPlayerStat.findMany({
         where: { playerId: playerB.id },
         select: { matchGameId: true, playerElims: true, damage: true },
+        take: 500,
       }),
     ]);
 

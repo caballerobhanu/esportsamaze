@@ -1009,7 +1009,7 @@ function MultiTeamCompareTable({
   );
 }
 
-export function TournamentMatchesPanel({
+function TournamentMatchesPanelInner({
   stageGroups,
   matchColumns = DEFAULT_MATCH_COLUMNS,
 }: {
@@ -1760,5 +1760,22 @@ export function TournamentMatchesPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+export function TournamentMatchesPanel(props: {
+  stageGroups: StageGroup[];
+  matchColumns?: MatchColumnKey[];
+}) {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+          <p className="text-xs font-bold text-slate-400 animate-pulse">Loading matches...</p>
+        </div>
+      }
+    >
+      <TournamentMatchesPanelInner {...props} />
+    </React.Suspense>
   );
 }

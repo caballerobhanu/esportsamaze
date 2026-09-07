@@ -702,6 +702,7 @@ export default async function AdminMatchesPage({
   const [tournaments, games, teams, players, allMatchesList] = await Promise.all([
     prisma.tournament.findMany({
       orderBy: { startDate: 'desc' },
+      take: 100,
       select: {
         id: true,
         name: true,
@@ -712,11 +713,16 @@ export default async function AdminMatchesPage({
       },
     }),
     prisma.game.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true } }),
-    prisma.team.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, tag: true } }),
-    prisma.player.findMany({
-      orderBy: { ign: 'asc' },
-      select: { id: true, ign: true, role: true, currentTeamId: true, currentTeam: { select: { tag: true } } },
-    }),
+    edit
+      ? prisma.team.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, tag: true }, take: 200 })
+      : Promise.resolve([]),
+    edit
+      ? prisma.player.findMany({
+          orderBy: { ign: 'asc' },
+          select: { id: true, ign: true, role: true, currentTeamId: true, currentTeam: { select: { tag: true } } },
+          take: 500,
+        })
+      : Promise.resolve([]),
     prisma.match.findMany({
       where: {
         ...(tournamentId ? { tournamentId } : {}),

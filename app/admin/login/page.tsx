@@ -34,7 +34,6 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const usingDefaultPassword = !process.env.ADMIN_PASSWORD;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-[#07090e] px-4">
@@ -47,15 +46,6 @@ export default async function AdminLoginPage({
             {error === 'rate-limited'
               ? 'Too many failed attempts — try again in about 15 minutes.'
               : 'Incorrect password.'}
-          </p>
-        )}
-        {usingDefaultPassword && (
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-snug">
-            ADMIN_PASSWORD is not set in .env — using the default
-            <code className="mx-1 px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono">
-              changeme
-            </code>
-            . Set it before deploying.
           </p>
         )}
 

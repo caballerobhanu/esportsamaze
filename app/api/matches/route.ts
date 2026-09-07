@@ -21,17 +21,73 @@ export async function GET(request: NextRequest) {
 
     const matches = await prisma.match.findMany({
       where,
-      include: {
-        game: true,
-        tournament: true,
-        stage: true,
+      select: {
+        id: true,
+        matchNumber: true,
+        overallMatchNumber: true,
+        format: true,
+        mapName: true,
+        scheduledAt: true,
+        status: true,
+        streamUrl: true,
+        vods: true,
+        game: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        tournament: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            tier: true,
+            status: true,
+            imageUrl: true,
+            imageDarkUrl: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+        stage: {
+          select: { id: true, name: true, stageType: true, sequence: true },
+        },
         games: {
-          include: {
+          select: {
+            id: true,
+            sequence: true,
+            mapName: true,
+            duration: true,
             teamResults: {
-              include: { team: true },
+              select: {
+                id: true,
+                rank: true,
+                wwcd: true,
+                totalPoints: true,
+                team: {
+                  select: {
+                    id: true,
+                    name: true,
+                    tag: true,
+                    slug: true,
+                    logoUrl: true,
+                    imageDarkUrl: true,
+                  },
+                },
+              },
             },
             playerStats: {
-              include: { player: true },
+              select: {
+                id: true,
+                kills: true,
+                damage: true,
+                player: {
+                  select: {
+                    id: true,
+                    ign: true,
+                    slug: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
             },
           },
         },
@@ -40,7 +96,14 @@ export async function GET(request: NextRequest) {
       take: 20,
     });
 
-    return NextResponse.json({ success: true, source: 'database', count: matches.length, data: matches });
+    return NextResponse.json(
+      { success: true, source: 'database', count: matches.length, data: matches },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      }
+    );
   } catch (error) {
     console.error('Prisma matches query failed:', error);
     return NextResponse.json(

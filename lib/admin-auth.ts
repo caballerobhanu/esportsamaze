@@ -7,10 +7,10 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 function getAdminSecret(): string {
   const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL: ADMIN_PASSWORD or ADMIN_SESSION_SECRET must be configured in production.');
+    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1') {
+      return 'changeme';
     }
-    return 'changeme';
+    throw new Error('FATAL: ADMIN_PASSWORD or ADMIN_SESSION_SECRET must be configured. Set ALLOW_DEV_AUTH=1 only for local offline dev.');
   }
   return secret;
 }
@@ -52,8 +52,10 @@ export function verifyPassword(input: string): boolean {
   if (!input) return false;
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    if (process.env.NODE_ENV === 'production') return false;
-    return input === 'changeme';
+    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1') {
+      return input === 'changeme';
+    }
+    return false;
   }
   if (process.env.NODE_ENV === 'production' && input === 'changeme') {
     return false;

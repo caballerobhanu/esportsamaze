@@ -48,10 +48,30 @@ async function main() {
   const dir = path.join(process.cwd(), 'prisma', 'backups');
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, `db-snapshot-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`);
-  await writeFile(file, JSON.stringify(snapshot, null, 2));
-  console.log(`✅ Snapshot saved: ${file}`);
+  const jsonContent = JSON.stringify(snapshot, null, 2);
+  await writeFile(file, jsonContent, 'utf8');
+
+  // Verify file was written completely and integrity is intact
+  const { statSync, readFileSync } = await import('fs');
+  const stats = statSync(file);
+  if (stats.size < 1024) {
+    throw new Error(`Integrity error: Snapshot file is suspiciously small (${stats.size} bytes).`);
+  }
+
+  // Verify file parseability
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'));
+    if (!parsed.exportedAt || !Array.isArray(parsed.tournaments)) {
+      throw new Error('Snapshot JSON validation failed: Missing expected root keys.');
+    }
+  } catch (err) {
+    throw new Error(`Snapshot JSON is malformed or truncated: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const sizeKb = (stats.size / 1024).toFixed(1);
+  console.log(`✅ Snapshot verified and saved: ${file} (${sizeKb} KB, ${Object.values(counts).reduce((a, b) => a + b, 0)} total records)`);
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => { console.error('❌ Backup failed:', e); process.exit(1); })
   .finally(async () => { await prisma.$disconnect(); });

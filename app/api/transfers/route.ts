@@ -13,19 +13,50 @@ export async function GET(request: NextRequest) {
 
     const transfers = await prisma.transfer.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        date: true,
+        type: true,
+        notes: true,
         player: {
-          include: {
-            currentTeam: true,
+          select: {
+            id: true,
+            ign: true,
+            slug: true,
+            avatarUrl: true,
+            currentTeam: {
+              select: {
+                id: true,
+                name: true,
+                tag: true,
+                slug: true,
+                logoUrl: true,
+              },
+            },
           },
         },
-        team: true,
+        team: {
+          select: {
+            id: true,
+            name: true,
+            tag: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
       },
       orderBy: { date: 'desc' },
       take: 20,
     });
 
-    return NextResponse.json({ success: true, source: 'database', count: transfers.length, data: transfers });
+    return NextResponse.json(
+      { success: true, source: 'database', count: transfers.length, data: transfers },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      }
+    );
   } catch (error) {
     console.error('Prisma transfers query failed:', error);
     return NextResponse.json(

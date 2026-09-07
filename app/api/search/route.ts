@@ -46,7 +46,14 @@ export async function GET(request: NextRequest) {
             { displayName: { contains: q, mode: 'insensitive' } },
           ],
         },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          region: true,
+          slug: true,
+          tag: true,
+          logoUrl: true,
+          status: true,
           game: { select: { name: true, slug: true } },
         },
         take: limit,
@@ -62,9 +69,15 @@ export async function GET(request: NextRequest) {
             { slug: { contains: q, mode: 'insensitive' } },
           ],
         },
-        include: {
+        select: {
+          id: true,
+          ign: true,
+          firstName: true,
+          lastName: true,
+          slug: true,
+          avatarUrl: true,
+          role: true,
           currentTeam: { select: { name: true, tag: true, logoUrl: true } },
-          game: { select: { name: true } },
         },
         take: limit,
       }),
@@ -79,8 +92,15 @@ export async function GET(request: NextRequest) {
             { organizers: { some: { organizer: { name: { contains: q, mode: 'insensitive' } } } } },
           ],
         },
-        include: {
-          game: { select: { name: true } },
+        select: {
+          id: true,
+          name: true,
+          tier: true,
+          region: true,
+          prizePool: true,
+          slug: true,
+          imageUrl: true,
+          status: true,
         },
         take: limit,
       }),
@@ -93,6 +113,13 @@ export async function GET(request: NextRequest) {
             { slug: { contains: q, mode: 'insensitive' } },
             { developer: { contains: q, mode: 'insensitive' } },
           ],
+        },
+        select: {
+          id: true,
+          name: true,
+          genre: true,
+          developer: true,
+          logoUrl: true,
         },
         take: limit,
       }),
@@ -190,18 +217,25 @@ export async function GET(request: NextRequest) {
       formattedGames.length +
       formattedArticles.length;
 
-    return NextResponse.json({
-      success: true,
-      query: q,
-      total,
-      results: {
-        teams: formattedTeams,
-        players: formattedPlayers,
-        tournaments: formattedTournaments,
-        games: formattedGames,
-        articles: formattedArticles,
+    return NextResponse.json(
+      {
+        success: true,
+        query: q,
+        total,
+        results: {
+          teams: formattedTeams,
+          players: formattedPlayers,
+          tournaments: formattedTournaments,
+          games: formattedGames,
+          articles: formattedArticles,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error during search API query:', error);
     return NextResponse.json(

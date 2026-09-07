@@ -16,18 +16,36 @@ if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
 fi
 git pull origin "$CURRENT_BRANCH"
 
-echo ">>> [2/5] Installing dependencies via npm ci (exact lockfile sync)..."
+echo ">>> [2/6] Installing dependencies via npm ci (exact lockfile sync)..."
 npm ci --prefer-offline
 
-echo ">>> [3/5] Generating Prisma client & applying migrations..."
+echo ">>> [3/6] Pre-migration database backup & test suite validation..."
+mkdir -p /var/backups/esportsamaze
+BACKUP_TIMESTAMP=$(date +"%Y-%m-%d_%H%M%S")
+if docker ps --format '{{.Names}}' | grep -q "esportsamaze_postgres"; then
+    echo "Creating pre-update database snapshot..."
+    docker exec esportsamaze_postgres pg_dump -U postgres esportsamaze | gzip > "/var/backups/esportsamaze/pre_update_${BACKUP_TIMESTAMP}.sql.gz" || true
+fi
+npm test
+
+echo ">>> [4/6] Generating Prisma client & applying migrations..."
 npx prisma generate
 npx prisma migrate deploy
 
-echo ">>> [4/5] Building Next.js production bundle..."
+echo ">>> [5/6] Building Next.js production bundle..."
 npm run build
 
-echo ">>> [5/5] Reloading PM2 workers with zero downtime..."
+echo ">>> [6/6] Reloading PM2 workers with zero downtime & health check..."
 pm2 reload deploy/ecosystem.config.cjs --update-env
+pm2 save
+
+echo "Probing /api/health endpoint..."
+sleep 2
+if curl -sf http://localhost:3000/api/health >/dev/null 2>&1 || curl -sf http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+    echo "Health check passed: Application is responsive and database connection is healthy."
+else
+    echo "WARNING: Health check probe did not respond with 200 on port 3000. Inspect logs with: pm2 logs esportsamaze --lines 30"
+fi
 
 echo "=============================================================================="
 echo "✅ EsportsAmaze updated successfully with ZERO downtime!"

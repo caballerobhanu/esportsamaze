@@ -51,8 +51,8 @@ async function hasValidSession(token: string | undefined): Promise<boolean> {
   if (!token) return false;
   const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
   if (!secret) {
-    // Fail closed in production; dev-only fallback secret must match admin-auth.ts.
-    return process.env.NODE_ENV !== 'production'
+    // Fail closed: only permit dev-only fallback if explicit ALLOW_DEV_AUTH=1 in dev
+    return process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1'
       ? isValidSessionToken(token, 'changeme')
       : false;
   }
