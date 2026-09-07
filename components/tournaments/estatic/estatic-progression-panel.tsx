@@ -1,28 +1,16 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import Link from 'next/link';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Trophy,
-  Crown,
-  Route,
-  Layers,
-  Swords,
-  Users,
-  ShieldCheck,
-  Flame,
-  CheckCircle2,
-  Clock,
-  Sparkles,
+  Route as RouteIcon,
+  Check,
   ChevronDown,
-  ChevronRight,
+  Crown,
   Search,
-  SlidersHorizontal,
   Star,
-  Zap,
-  ArrowRight,
-  Maximize2,
-  Minimize2,
+  Users,
+  Layers,
 } from 'lucide-react';
 import { ThemeLogo } from './theme-logo';
 import {
@@ -44,6 +32,8 @@ export interface StagePerformanceSummary {
   placePoints: number;
   stageRank: number | null;
   isQualifyingStage: boolean;
+  participated: boolean;
+  status: 'QUALIFIED' | 'PLAYED' | 'BYPASSED' | 'MISSED';
 }
 
 export interface GrandFinalistEntry {
@@ -67,6 +57,11 @@ export interface GrandFinalistEntry {
   avgPoints: number;
   stagesJourney: StagePerformanceSummary[];
   qualifyingStageName: string | null;
+  qualifyingStageSequence: number;
+  qualifyingRank: number;
+  qualifyingZone: { from: number; to: number } | null;
+  routeIsCumulative: boolean;
+  routeIncludeStages: string[];
   roster: Array<{ ign: string; role?: string | null; captain?: boolean }>;
 }
 
@@ -140,6 +135,69 @@ function getStageAbbreviation(name: string): string {
   return name.length > 8 ? `${name.slice(0, 7)}…` : name;
 }
 
+// Determine the concluding stage sequence for a qualification source
+function getSourceConclusionSequence(
+  source: {
+    sourceStageName: string;
+    itemType: 'STAGE' | 'CUSTOM_TAB';
+    includeStages?: string[];
+  },
+  stagesList: Array<{ id: string; name: string; sequence: number }>
+): number {
+  if (source.includeStages && source.includeStages.length > 0) {
+    const seqs = source.includeStages.map((name) => {
+      const match = stagesList.find((s) => s.name.toLowerCase() === name.toLowerCase());
+      return match ? match.sequence : 0;
+    });
+    const maxSeq = Math.max(...seqs, 0);
+    if (maxSeq > 0) return maxSeq;
+  }
+  const match = stagesList.find((s) => s.name.toLowerCase() === source.sourceStageName.toLowerCase());
+  return match ? match.sequence : 999;
+}
+
+// Map a configured zone color name to a small marker dot class
+function routeDotClass(color: string | undefined): string {
+  switch ((color || '').toLowerCase()) {
+    case 'green':
+    case 'emerald':
+    case 'teal':
+      return 'bg-emerald-500';
+    case 'gold':
+    case 'amber':
+    case 'yellow':
+    case 'orange':
+      return 'bg-amber-500';
+    case 'purple':
+    case 'pink':
+      return 'bg-violet-500';
+    case 'cyan':
+      return 'bg-cyan-500';
+    case 'red':
+    case 'rose':
+      return 'bg-rose-500';
+    case 'slate':
+      return 'bg-slate-400';
+    default:
+      return 'bg-[var(--ed-blue)]';
+  }
+}
+
+// Node tint for a participated stage, driven by the rank band
+function rankNodeClass(rank: number | null): string {
+  if (rank === 1)
+    return 'border-amber-400/60 bg-amber-400/15 text-amber-700 dark:text-amber-300';
+  if (rank !== null && rank <= 4)
+    return 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-300';
+  if (rank !== null && rank <= 8)
+    return 'border-[var(--ed-hair)] bg-[var(--ed-surface)] text-[var(--ed-ink)]';
+  return 'border-[var(--ed-hair)] bg-[var(--ed-sand)] text-[var(--ed-stone)]';
+}
+
+const IDENTITY_W = 252;
+const STAGE_W = 88;
+const TOTALS_W = 96;
+
 export function EstaticProgressionPanel({
   tournament,
   stages,
@@ -155,6 +213,13 @@ export function EstaticProgressionPanel({
     );
     return finals?.name || stages[stages.length - 1]?.name || 'Grand Finals';
   }, [stages]);
+
+  // All tournament stages excluding Grand Finals itself, sorted by chronological sequence
+  const precedingStages = useMemo(() => {
+    return stages
+      .filter((s) => s.name.toLowerCase() !== targetFinalsStage.toLowerCase())
+      .sort((a, b) => a.sequence - b.sequence);
+  }, [stages, targetFinalsStage]);
 
   const stageNames = useMemo(() => stages.map((s) => s.name), [stages]);
 
@@ -262,8 +327,28 @@ export function EstaticProgressionPanel({
       }
     }
 
+    // Deduplicate identical zone definitions
+    const uniqueSources: typeof linkedZoneSources = [];
+    const seenSourceKeys = new Set<string>();
+    for (const src of linkedZoneSources) {
+      const key = `${src.sourceStageName.toLowerCase()}:${src.zone.from}-${src.zone.to}`;
+      if (!seenSourceKeys.has(key)) {
+        seenSourceKeys.add(key);
+        uniqueSources.push(src);
+      }
+    }
+
+    // Order qualification sources chronologically so teams qualifying in earlier stages are handled first
+    uniqueSources.sort((a, b) => {
+      const seqA = getSourceConclusionSequence(a, stages);
+      const seqB = getSourceConclusionSequence(b, stages);
+      return seqA - seqB;
+    });
+
     // Process each qualifying zone source
-    for (const source of linkedZoneSources) {
+    for (const source of uniqueSources) {
+      const conclusionSeq = getSourceConclusionSequence(source, stages);
+
       let sourceMatches = matches;
       if (source.includeStages && source.includeStages.length > 0) {
         sourceMatches = matches.filter((m) => {
@@ -295,39 +380,45 @@ export function EstaticProgressionPanel({
           ? `Top ${source.zone.to} in ${source.sourceStageName} (Rank #${st.rank})`
           : `${source.zone.label} via ${source.sourceStageName} (Rank #${st.rank})`;
 
-        // Build chronological stage journey for this team
+        // Build chronological stage journey across ALL preceding stages
         const stagesJourney: StagePerformanceSummary[] = [];
         const qualifyingStageNormalized = source.sourceStageName.toLowerCase();
-
-        // All tournament stages excluding Grand Finals itself
-        const precedingStages = stages
-          .filter((s) => s.name.toLowerCase() !== targetFinalsStage.toLowerCase())
-          .sort((a, b) => a.sequence - b.sequence);
 
         for (const s of precedingStages) {
           const stageStandingData = stageStandingsMap.get(s.name.toLowerCase())?.get(st.teamId);
           const stagePerf = perf?.stageStats?.[s.name];
 
           const mp = stageStandingData?.matchesPlayed || stagePerf?.matchesPlayed || 0;
-          if (mp > 0) {
-            const isQualStage =
-              s.name.toLowerCase() === qualifyingStageNormalized ||
-              qualifyingStageNormalized.includes(s.name.toLowerCase()) ||
-              s.name.toLowerCase().includes(qualifyingStageNormalized);
+          const participated = mp > 0;
 
-            stagesJourney.push({
-              stageId: s.id,
-              stageName: s.name,
-              sequence: s.sequence,
-              matchesPlayed: mp,
-              totalPoints: stageStandingData?.totalPoints ?? stagePerf?.totalPoints ?? 0,
-              wwcdCount: stageStandingData?.wwcd ?? stagePerf?.wwcdCount ?? 0,
-              elimsCount: stageStandingData?.elims ?? stagePerf?.elims ?? 0,
-              placePoints: stageStandingData?.placePoints ?? stagePerf?.placePoints ?? 0,
-              stageRank: stageStandingData?.rank ?? null,
-              isQualifyingStage: isQualStage,
-            });
+          const isQualStage =
+            s.name.toLowerCase() === qualifyingStageNormalized ||
+            qualifyingStageNormalized.includes(s.name.toLowerCase()) ||
+            s.name.toLowerCase().includes(qualifyingStageNormalized) ||
+            (source.includeStages?.some((stName) => stName.toLowerCase() === s.name.toLowerCase()) ?? false);
+
+          let status: 'QUALIFIED' | 'PLAYED' | 'BYPASSED' | 'MISSED';
+          if (participated) {
+            status = isQualStage ? 'QUALIFIED' : 'PLAYED';
+          } else {
+            // Team already qualified before this stage occurred -> BYPASSED
+            status = conclusionSeq < s.sequence ? 'BYPASSED' : 'MISSED';
           }
+
+          stagesJourney.push({
+            stageId: s.id,
+            stageName: s.name,
+            sequence: s.sequence,
+            matchesPlayed: mp,
+            totalPoints: stageStandingData?.totalPoints ?? stagePerf?.totalPoints ?? 0,
+            wwcdCount: stageStandingData?.wwcd ?? stagePerf?.wwcdCount ?? 0,
+            elimsCount: stageStandingData?.elims ?? stagePerf?.elims ?? 0,
+            placePoints: stageStandingData?.placePoints ?? stagePerf?.placePoints ?? 0,
+            stageRank: stageStandingData?.rank ?? null,
+            isQualifyingStage: isQualStage,
+            participated,
+            status,
+          });
         }
 
         results.push({
@@ -342,7 +433,7 @@ export function EstaticProgressionPanel({
           routeLabel: routeDesc,
           sourceStageName: source.sourceStageName,
           sourceType: 'ZONE',
-          zoneColor: (source.zone.color as string) || 'emerald',
+          zoneColor: (source.zone.color as string) || 'blue',
           isConfirmed: true,
           totalMatchesPlayed: perf?.matchesPlayed || st.matchesPlayed || 0,
           totalPoints: perf?.totalPoints || st.totalPoints || 0,
@@ -351,6 +442,11 @@ export function EstaticProgressionPanel({
           avgPoints: perf?.avgTotalPoints || Number((st.totalPoints / (st.matchesPlayed || 1)).toFixed(2)),
           stagesJourney,
           qualifyingStageName: source.sourceStageName,
+          qualifyingStageSequence: conclusionSeq,
+          qualifyingRank: st.rank,
+          qualifyingZone: { from: source.zone.from, to: source.zone.to },
+          routeIsCumulative: (source.includeStages?.length ?? 0) > 1,
+          routeIncludeStages: source.includeStages ?? [],
           roster,
         });
       }
@@ -361,43 +457,42 @@ export function EstaticProgressionPanel({
       const topTeams = teamPerformanceRows.slice(0, 16);
       topTeams.forEach((tRow, idx) => {
         const tt = teamMetaMap.get(tRow.teamId);
-        const precedingStages = stages
-          .filter((s) => s.name.toLowerCase() !== targetFinalsStage.toLowerCase())
-          .sort((a, b) => a.sequence - b.sequence);
 
         const stagesJourney: StagePerformanceSummary[] = [];
         for (const s of precedingStages) {
           const stagePerf = tRow.stageStats?.[s.name];
           const mp = stagePerf?.matchesPlayed || 0;
-          if (mp > 0) {
-            stagesJourney.push({
-              stageId: s.id,
-              stageName: s.name,
-              sequence: s.sequence,
-              matchesPlayed: mp,
-              totalPoints: stagePerf?.totalPoints || 0,
-              wwcdCount: stagePerf?.wwcdCount || 0,
-              elimsCount: stagePerf?.elims || 0,
-              placePoints: stagePerf?.placePoints || 0,
-              stageRank: null,
-              isQualifyingStage: idx < 16,
-            });
-          }
+          const participated = mp > 0;
+
+          stagesJourney.push({
+            stageId: s.id,
+            stageName: s.name,
+            sequence: s.sequence,
+            matchesPlayed: mp,
+            totalPoints: stagePerf?.totalPoints || 0,
+            wwcdCount: stagePerf?.wwcdCount || 0,
+            elimsCount: stagePerf?.elims || 0,
+            placePoints: stagePerf?.placePoints || 0,
+            stageRank: null,
+            isQualifyingStage: false,
+            participated,
+            status: participated ? 'PLAYED' : 'MISSED',
+          });
         }
 
         results.push({
           teamId: tRow.teamId,
           teamName: tRow.teamName,
-          teamTag: tRow.teamTag,
-          teamSlug: tRow.teamSlug,
-          logoUrl: tRow.teamLogo,
-          logoDarkUrl: tRow.teamLogoDark,
+          teamTag: tRow.teamTag ?? null,
+          teamSlug: tRow.teamSlug ?? null,
+          logoUrl: tRow.teamLogo ?? null,
+          logoDarkUrl: tRow.teamLogoDark ?? null,
           country: tt?.country || tt?.team?.region || null,
           slotNumber: idx + 1,
           routeLabel: `Overall Standings (Rank #${idx + 1})`,
           sourceStageName: 'Overall Standings',
           sourceType: 'STANDINGS',
-          zoneColor: 'emerald',
+          zoneColor: 'blue',
           isConfirmed: true,
           totalMatchesPlayed: tRow.matchesPlayed,
           totalPoints: tRow.totalPoints,
@@ -406,14 +501,39 @@ export function EstaticProgressionPanel({
           avgPoints: tRow.avgTotalPoints,
           stagesJourney,
           qualifyingStageName: 'Overall Standings',
+          qualifyingStageSequence: 999,
+          qualifyingRank: idx + 1,
+          qualifyingZone: null,
+          routeIsCumulative: false,
+          routeIncludeStages: [],
           roster: Array.isArray(tt?.rosterJson) ? tt!.rosterJson : [],
         });
       });
     }
 
+    // Sort finalists: Teams qualified in earlier stages appear on top!
+    results.sort((a, b) => {
+      // 1. Earlier qualifying stage sequence first
+      if (a.qualifyingStageSequence !== b.qualifyingStageSequence) {
+        return a.qualifyingStageSequence - b.qualifyingStageSequence;
+      }
+      // 2. Rank in that qualifying stage
+      if (a.qualifyingRank !== b.qualifyingRank) {
+        return a.qualifyingRank - b.qualifyingRank;
+      }
+      // 3. Tiebreak by total tournament points
+      return b.totalPoints - a.totalPoints;
+    });
+
+    // Re-index slot numbers so earlier qualifying teams have slots 1, 2, 3...
+    results.forEach((team, idx) => {
+      team.slotNumber = idx + 1;
+    });
+
     return results;
   }, [
     stages,
+    precedingStages,
     matches,
     standingsConfig,
     stageNames,
@@ -424,518 +544,720 @@ export function EstaticProgressionPanel({
     teamPerformanceRows,
   ]);
 
-  // Unique qualification routes
-  const uniqueRoutes = useMemo(() => {
-    const map = new Map<string, number>();
-    finalists.forEach((t) => {
-      map.set(t.sourceStageName, (map.get(t.sourceStageName) || 0) + 1);
-    });
-    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  // Group finalists by qualification route, preserving qualification order
+  const routeGroups = useMemo(() => {
+    const groups: Array<{
+      name: string;
+      zone: { from: number; to: number } | null;
+      color: string;
+      cumulative: boolean;
+      includeStages: string[];
+      teams: GrandFinalistEntry[];
+    }> = [];
+    const byName = new Map<string, (typeof groups)[0]>();
+
+    for (const t of finalists) {
+      let g = byName.get(t.sourceStageName);
+      if (!g) {
+        g = {
+          name: t.sourceStageName,
+          zone: t.qualifyingZone,
+          color: t.zoneColor,
+          cumulative: t.routeIsCumulative,
+          includeStages: t.routeIncludeStages,
+          teams: [],
+        };
+        byName.set(t.sourceStageName, g);
+        groups.push(g);
+      }
+      g.teams.push(t);
+    }
+    return groups;
   }, [finalists]);
 
   // Controls state
-  const [routeFilter, setRouteFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOption, setSortOption] = useState<'slot' | 'matches' | 'points'>('slot');
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
-  const [activeTooltipStage, setActiveTooltipStage] = useState<{
-    teamId: string;
-    stageName: string;
+  const [activeTooltip, setActiveTooltip] = useState<{
+    teamName: string;
+    stage: StagePerformanceSummary;
+    x: number;
+    top: number;
+    bottom: number;
+    placement: 'above' | 'below';
   } | null>(null);
 
-  // Filter & Sort
-  const displayedFinalists = useMemo(() => {
-    let list = [...finalists];
+  // Fixed-position tooltip anchored to the node's viewport rect — a plain
+  // absolute popover would be clipped by the journey track's overflow scroll.
+  const openStageTooltip = (
+    team: GrandFinalistEntry,
+    stageItem: StagePerformanceSummary,
+    e: React.MouseEvent
+  ) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setActiveTooltip({
+      teamName: team.teamName,
+      stage: stageItem,
+      x: rect.left + rect.width / 2,
+      top: rect.top,
+      bottom: rect.bottom,
+      placement: rect.top > 240 ? 'above' : 'below',
+    });
+  };
 
-    // Filter by route
-    if (routeFilter !== 'ALL') {
-      list = list.filter((t) => t.sourceStageName.toLowerCase() === routeFilter.toLowerCase());
-    }
+  // A scrolled page leaves a fixed tooltip anchored to stale coordinates.
+  useEffect(() => {
+    if (!activeTooltip) return;
+    const close = () => setActiveTooltip(null);
+    window.addEventListener('scroll', close, { passive: true, capture: true });
+    return () => window.removeEventListener('scroll', close, true);
+  }, [activeTooltip]);
 
-    // Filter by search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (t) =>
-          t.teamName.toLowerCase().includes(q) ||
-          (t.teamTag && t.teamTag.toLowerCase().includes(q)) ||
-          t.routeLabel.toLowerCase().includes(q)
-      );
-    }
+  // Filter & sort within each route group
+  const visibleGroups = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
 
-    // Sort
-    if (sortOption === 'matches') {
-      list.sort((a, b) => b.totalMatchesPlayed - a.totalMatchesPlayed);
-    } else if (sortOption === 'points') {
-      list.sort((a, b) => b.totalPoints - a.totalPoints);
-    } else {
-      list.sort((a, b) => a.slotNumber - b.slotNumber);
-    }
+    const sortTeams = (list: GrandFinalistEntry[]) => {
+      const arr = [...list];
+      if (sortOption === 'matches') {
+        arr.sort((a, b) => b.totalMatchesPlayed - a.totalMatchesPlayed);
+      } else if (sortOption === 'points') {
+        arr.sort((a, b) => b.totalPoints - a.totalPoints);
+      } else {
+        arr.sort((a, b) => a.slotNumber - b.slotNumber);
+      }
+      return arr;
+    };
 
-    return list;
-  }, [finalists, routeFilter, searchQuery, sortOption]);
-
-  // Max matches played across finalists for intensity calculation
-  const maxMatchesPlayed = useMemo(() => {
-    return Math.max(...finalists.map((f) => f.totalMatchesPlayed), 1);
-  }, [finalists]);
+    return routeGroups
+      .map((g) => ({
+        ...g,
+        teams: sortTeams(
+          q
+            ? g.teams.filter(
+                (t) =>
+                  t.teamName.toLowerCase().includes(q) ||
+                  (t.teamTag && t.teamTag.toLowerCase().includes(q)) ||
+                  t.routeLabel.toLowerCase().includes(q)
+              )
+            : g.teams
+        ),
+      }))
+      .filter((g) => g.teams.length > 0);
+  }, [routeGroups, searchQuery, sortOption]);
 
   // Average matches played to reach finals
   const avgMatchesToReach = useMemo(() => {
-    if (finalists.length === 0) return 0;
+    if (finalists.length === 0) return '0';
     const total = finalists.reduce((acc, f) => acc + f.totalMatchesPlayed, 0);
-    return (total / finalists.length).toFixed(1);
+    return (total / finalists.length).toFixed(0);
   }, [finalists]);
 
   const toggleExpand = (teamId: string) => {
     setExpandedTeamId((prev) => (prev === teamId ? null : teamId));
   };
 
-  return (
-    <div className="space-y-8">
-      {/* ================= 1. PROGRESSION MASTHEAD ================= */}
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
-        {/* Ambient Glow */}
-        <div className="pointer-events-none absolute right-0 top-0 h-64 w-64 rounded-full bg-gradient-to-br from-amber-400/10 via-blue-500/10 to-transparent blur-3xl" />
+  const scrollToRoute = (name: string) => {
+    document
+      .getElementById(`route-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#0A5FC4] dark:text-blue-300">
-              <Sparkles className="h-4 w-4" />
-              <span>Championship Journey</span>
-            </div>
-            <h2 className="mt-1.5 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+  const journeyColCount = precedingStages.length + 1;
+  // Stage columns stretch to fill wide screens but scroll horizontally below their 88px floor
+  const gridTemplate = `${IDENTITY_W}px repeat(${journeyColCount}, minmax(${STAGE_W}px, 1fr)) ${TOTALS_W}px`;
+  const matrixMinWidth = IDENTITY_W + journeyColCount * STAGE_W + TOTALS_W;
+
+  const stickyCellBg =
+    'bg-[var(--ed-surface)] group-hover:bg-[#eef2f7] dark:group-hover:bg-[#1a222e]';
+
+  const headerStats = [
+    { label: 'Finalists', value: `${finalists.length}` },
+    { label: 'Routes', value: `${routeGroups.length}` },
+    { label: 'Avg matches', value: `${avgMatchesToReach}` },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* ================= HEADER + ROUTE MAP ================= */}
+      <section className="ed-card px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-base font-bold tracking-tight text-[var(--ed-ink)] sm:text-lg">
+              <RouteIcon className="h-4 w-4 shrink-0 text-[var(--ed-blue)]" />
               Road to {targetFinalsStage}
             </h2>
-            <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400 max-w-xl">
-              Stage-by-stage battle progression showing every tournament stage played by the 16 qualified squads to earn their championship finals ticket.
+            <p className="mt-0.5 text-[12px] font-medium text-[var(--ed-stone)]">
+              How every squad punched its ticket — stage by stage.
             </p>
           </div>
 
-          {/* Quick Stats Band */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 text-center dark:border-white/5 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Finals Slots</span>
-              <span className="text-xl font-black text-amber-500">16 / 16</span>
-              <span className="text-[10px] font-bold text-slate-400 block">Confirmed</span>
-            </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 text-center dark:border-white/5 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Routes</span>
-              <span className="text-xl font-black text-[#0A5FC4] dark:text-blue-300">{uniqueRoutes.length} Paths</span>
-              <span className="text-[10px] font-bold text-slate-400 block">Playoffs & SW</span>
-            </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 text-center dark:border-white/5 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Avg Battle MP</span>
-              <span className="text-xl font-black text-emerald-500">{avgMatchesToReach}</span>
-              <span className="text-[10px] font-bold text-slate-400 block">Matches to Finals</span>
-            </div>
-
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3.5 text-center dark:border-white/5 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Max Journey</span>
-              <span className="text-xl font-black text-slate-900 dark:text-white">{maxMatchesPlayed}m</span>
-              <span className="text-[10px] font-bold text-slate-400 block">Most Matches</span>
-            </div>
+          <div className="flex items-center gap-5">
+            {headerStats.map((stat, i) => (
+              <div
+                key={stat.label}
+                className={i > 0 ? 'border-l border-[var(--ed-hair)] pl-5' : ''}
+              >
+                <span className="block text-lg font-bold leading-tight tabular-nums text-[var(--ed-ink)]">
+                  {stat.value}
+                </span>
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--ed-stone)]">
+                  {stat.label}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* ================= 2. FILTER & SORT TOOLBAR ================= */}
-        <div className="mt-6 flex flex-col gap-4 border-t border-slate-100 pt-6 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-          {/* Pathway Filter Pills */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setRouteFilter('ALL')}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                routeFilter === 'ALL'
-                  ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-950'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10'
-              }`}
-            >
-              <span>All Finalists</span>
-              <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] dark:bg-white/20">
-                {finalists.length}
-              </span>
-            </button>
-
-            {uniqueRoutes.map((r) => {
-              const active = routeFilter.toLowerCase() === r.name.toLowerCase();
-              return (
-                <button
-                  key={r.name}
-                  onClick={() => setRouteFilter(r.name)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-                    active
-                      ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/20'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-400 dark:hover:bg-white/10'
-                  }`}
-                >
-                  <span>{r.name}</span>
-                  <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-[10px] dark:bg-white/10">
-                    {r.count}
+        {/* Route cards — the qualification map, click to jump to a route */}
+        {routeGroups.length > 0 && (
+          <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2">
+            {routeGroups.map((g) => (
+              <button
+                key={g.name}
+                onClick={() => scrollToRoute(g.name)}
+                className="group cursor-pointer rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-3.5 py-2.5 text-left transition-colors hover:border-[var(--ed-blue)]"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${routeDotClass(g.color)}`} />
+                  <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-[var(--ed-stone)]">
+                    {g.name}
                   </span>
-                </button>
-              );
-            })}
+                  <span className="ml-auto shrink-0 text-[11px] font-bold tabular-nums text-[var(--ed-ink)]">
+                    {g.teams.length}
+                  </span>
+                </div>
+                <div className="mt-1 text-[13px] font-bold text-[var(--ed-ink)]">
+                  {g.zone ? `Top ${g.zone.to} → ${targetFinalsStage}` : `Top ${g.teams.length} overall`}
+                </div>
+                <div className="text-[11px] font-medium text-[var(--ed-stone)]">
+                  {g.cumulative
+                    ? `Cumulative · ${g.includeStages.map((s) => getStageAbbreviation(s)).join(' + ')}`
+                    : 'Stage standings'}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Toolbar: legend + search + sort */}
+        <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--ed-hair)] pt-3">
+          <div className="hidden flex-wrap items-center gap-x-4 gap-y-1 lg:flex">
+            <span className="ed-label">Reading the row</span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[var(--ed-stone)]">
+              <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full border border-amber-400/60 bg-amber-400/15 text-[8px] font-bold text-amber-700 dark:text-amber-300">
+                1
+              </span>
+              Stage win
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[var(--ed-stone)]">
+              <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full border border-blue-500/30 bg-blue-500/10 text-[8px] font-bold text-blue-700 dark:text-blue-300">
+                4
+              </span>
+              Top 4
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[var(--ed-stone)]">
+              <span className="relative flex h-4.5 w-4.5 items-center justify-center rounded-full border border-emerald-500/50 bg-emerald-500/10 text-[8px] font-bold text-emerald-700 dark:text-emerald-300">
+                6
+              </span>
+              Qualified here
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[var(--ed-stone)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--ed-hair)]" />
+              Did not play
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[var(--ed-stone)]">
+              <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/5 text-emerald-600/80 dark:text-emerald-400/80">
+                <Check className="h-2.5 w-2.5" />
+              </span>
+              Skipped — already through
+            </span>
           </div>
 
-          {/* Search & Sort Controls */}
-          <div className="flex items-center gap-3">
-            {/* Search input */}
-            <div className="relative min-w-[180px] sm:w-56">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <div className="ml-auto flex items-center gap-2">
+            <div className="relative w-44 sm:w-52">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ed-stone)]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search finalist squad..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#0A5FC4] focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
+                placeholder="Search squad…"
+                className="h-8.5 w-full rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] py-1.5 pl-8 pr-2.5 text-[12px] font-medium text-[var(--ed-ink)] placeholder:text-[var(--ed-stone)] focus:border-[var(--ed-blue)] focus:outline-none"
               />
             </div>
-
-            {/* Sort Selector */}
             <select
               value={sortOption}
-              onChange={(e) => setSortOption(e.target.value as any)}
-              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 focus:border-[#0A5FC4] focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-slate-300 cursor-pointer"
+              onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+              className="h-8.5 cursor-pointer rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] px-2 py-1.5 text-[12px] font-semibold text-[var(--ed-ink)] focus:border-[var(--ed-blue)] focus:outline-none"
             >
-              <option value="slot">Sort: Finalist Slot #</option>
-              <option value="matches">Sort: Matches to Qualify</option>
-              <option value="points">Sort: Total Points</option>
+              <option value="slot">Qualification order</option>
+              <option value="matches">Most matches</option>
+              <option value="points">Most points</option>
             </select>
           </div>
         </div>
       </section>
 
-      {/* ================= 3. PROGRESSION TIMELINE MATRIX ================= */}
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-        {/* Table Header */}
-        <div className="hidden lg:grid grid-cols-[260px_1fr_160px] xl:grid-cols-[280px_1fr_180px] items-center border-b border-slate-200 bg-slate-50/90 px-6 py-4 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10 dark:bg-white/5">
-          <div>Qualified Squad & Pathway</div>
-          <div className="text-center">Tournament Stages Battled Through ➔ {targetFinalsStage}</div>
-          <div className="text-right">Total Matches Played</div>
-        </div>
-
-        {/* Squad Rows */}
-        <div className="divide-y divide-slate-100 dark:divide-white/5">
-          {displayedFinalists.map((team) => {
-            const isExpanded = expandedTeamId === team.teamId;
-            const matchPercentage = Math.round((team.totalMatchesPlayed / maxMatchesPlayed) * 100);
-
-            return (
-              <div
-                key={team.teamId}
-                className={`transition-colors duration-150 ${
-                  isExpanded ? 'bg-blue-50/40 dark:bg-blue-950/20' : 'hover:bg-slate-50/60 dark:hover:bg-white/[0.02]'
-                }`}
-              >
-                {/* Main Interactive Row */}
-                <div
-                  onClick={() => toggleExpand(team.teamId)}
-                  className="grid grid-cols-1 lg:grid-cols-[260px_1fr_160px] xl:grid-cols-[280px_1fr_180px] items-center gap-4 p-5 sm:p-6 cursor-pointer select-none"
-                >
-                  {/* --- LEFT COLUMN: Team Identity --- */}
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-black text-slate-900 shadow-2xs dark:bg-white/10 dark:text-white">
-                      #{team.slotNumber}
+      {/* ================= ROUTE SECTIONS ================= */}
+      {finalists.length === 0 ? (
+        <section className="ed-card">
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-14 text-center">
+            <RouteIcon className="h-8 w-8 text-[var(--ed-hair)]" />
+            <p className="ed-label">No finalists confirmed yet</p>
+            <p className="max-w-sm text-xs font-medium text-[var(--ed-stone)]">
+              Finalists appear here once qualification zones targeting {targetFinalsStage} are
+              configured and their stage matches have results.
+            </p>
+          </div>
+        </section>
+      ) : visibleGroups.length === 0 ? (
+        <section className="ed-card">
+          <div className="px-6 py-10 text-center text-xs font-semibold text-[var(--ed-stone)]">
+            No squads match the current search.
+          </div>
+        </section>
+      ) : (
+        visibleGroups.map((group) => {
+          return (
+            <section
+              key={group.name}
+              id={`route-${group.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+              className="ed-card scroll-mt-24"
+            >
+              {/* Route head */}
+              <div className="ed-card-head">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${routeDotClass(group.color)}`} />
+                  <h3 className="truncate text-sm font-bold text-[var(--ed-ink)]">{group.name}</h3>
+                  <span className="ed-chip hidden shrink-0 sm:inline-flex">
+                    {group.zone
+                      ? `Top ${group.zone.to} → ${targetFinalsStage}`
+                      : `Top ${group.teams.length} overall`}
+                  </span>
+                  {group.cumulative && (
+                    <span className="hidden shrink-0 text-[11px] font-medium text-[var(--ed-stone)] md:inline">
+                      Cumulative ·{' '}
+                      {group.includeStages.map((s) => getStageAbbreviation(s)).join(' + ')}
                     </span>
+                  )}
+                </div>
+                <span className="ed-label shrink-0">
+                  {group.teams.length} {group.teams.length === 1 ? 'squad' : 'squads'}
+                </span>
+              </div>
 
-                    <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-black/30">
-                      {team.logoUrl || team.logoDarkUrl ? (
-                        <ThemeLogo
-                          lightSrc={team.logoUrl}
-                          darkSrc={team.logoDarkUrl}
-                          alt={team.teamName}
-                          className="object-contain p-1"
-                        />
-                      ) : (
-                        <span className="text-xs font-black text-slate-400">
-                          {team.teamName.slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
+              {/* Journey matrix */}
+              <div className="overflow-x-auto no-scrollbar">
+                <div
+                  className="progression-scroll-inner"
+                  style={
+                    {
+                      '--stage-count': journeyColCount,
+                      '--matrix-min-w': `${matrixMinWidth}px`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {/* Column header */}
+                  <div
+                    className="progression-matrix grid border-b border-[var(--ed-hair)] bg-[var(--ed-sand)]/50"
+                    style={{ gridTemplateColumns: gridTemplate }}
+                  >
+                    <div className="ed-th sticky left-0 z-10 bg-[var(--ed-sand)] px-3 py-2">
+                      Squad
                     </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <h4 className="truncate text-sm font-black text-slate-900 dark:text-white">
-                          {team.teamName}
-                        </h4>
-                        {team.teamTag && (
-                          <span className="text-[10px] font-extrabold uppercase text-slate-400 shrink-0">
-                            [{team.teamTag}]
-                          </span>
-                        )}
+                    {precedingStages.map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-center gap-1 px-1 py-2 text-center"
+                        title={s.name}
+                      >
+                        <span className="text-[9px] font-medium text-[var(--ed-stone)]">
+                          {s.sequence}
+                        </span>
+                        <span className="truncate text-[10px] font-bold uppercase tracking-wide text-[var(--ed-ink)]">
+                          {getStageAbbreviation(s.name)}
+                        </span>
                       </div>
-
-                      {/* How They Qualified Ticket Pill */}
-                      <div className="mt-1 flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                        <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-500" />
-                        <span className="truncate">{team.routeLabel}</span>
-                      </div>
+                    ))}
+                    <div
+                      className="flex items-center justify-center gap-1 px-1 py-2 text-amber-600 dark:text-amber-400"
+                      title={targetFinalsStage}
+                    >
+                      <Trophy className="h-3 w-3 shrink-0 fill-amber-300 text-amber-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wide">
+                        {getStageAbbreviation(targetFinalsStage)}
+                      </span>
+                    </div>
+                    <div className="ed-th sticky right-0 z-10 hidden bg-[var(--ed-sand)] px-3 py-2 text-right sm:block">
+                      Totals
                     </div>
                   </div>
 
-                  {/* --- MIDDLE COLUMN: Interactive Stage Journey Track --- */}
-                  <div className="flex items-center justify-start lg:justify-center overflow-x-auto no-scrollbar py-2 px-1">
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      {team.stagesJourney.map((stageItem) => {
-                        const isQualifying = stageItem.isQualifyingStage;
-                        const isTooltipActive =
-                          activeTooltipStage?.teamId === team.teamId &&
-                          activeTooltipStage?.stageName === stageItem.stageName;
+                  {/* Team rows */}
+                  <div className="ed-rows">
+                    {group.teams.map((team) => {
+                      const isExpanded = expandedTeamId === team.teamId;
+                      const qIdx = team.stagesJourney.findIndex((j) => j.isQualifyingStage);
 
-                        return (
-                          <React.Fragment key={stageItem.stageName}>
-                            {/* Connected Step Node */}
-                            <div className="relative group">
-                              <button
-                                type="button"
-                                onMouseEnter={() =>
-                                  setActiveTooltipStage({
-                                    teamId: team.teamId,
-                                    stageName: stageItem.stageName,
-                                  })
-                                }
-                                onMouseLeave={() => setActiveTooltipStage(null)}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveTooltipStage(
-                                    isTooltipActive
-                                      ? null
-                                      : { teamId: team.teamId, stageName: stageItem.stageName }
-                                  );
-                                }}
-                                className={`group/btn relative inline-flex flex-col items-center justify-center rounded-2xl px-3 py-2 text-center transition-all duration-200 cursor-pointer ${
-                                  isQualifying
-                                    ? 'border-2 border-emerald-500 bg-emerald-500/10 shadow-sm shadow-emerald-500/20 scale-105'
-                                    : 'border border-slate-200 bg-slate-50/90 hover:border-[#0A5FC4] hover:bg-white dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400'
-                                }`}
-                              >
-                                {isQualifying && (
-                                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 flex h-4 items-center gap-0.5 rounded-full bg-emerald-500 px-1.5 text-[8px] font-black uppercase tracking-wider text-white shadow-xs">
-                                    <Star className="h-2 w-2 fill-white" /> Ticket
+                      return (
+                        <div key={team.teamId} className="group">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isExpanded}
+                            onClick={() => toggleExpand(team.teamId)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleExpand(team.teamId);
+                              }
+                            }}
+                            className="progression-matrix grid cursor-pointer items-stretch select-none"
+                            style={{ gridTemplateColumns: gridTemplate }}
+                          >
+                            {/* --- Identity (sticky) --- */}
+                            <div
+                              className={`sticky left-0 z-10 flex items-center gap-2 border-r border-[var(--ed-hair)] px-2.5 py-2.5 transition-colors ${stickyCellBg}`}
+                            >
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--ed-sand)] text-[10px] font-bold tabular-nums text-[var(--ed-ink)]">
+                                {team.slotNumber}
+                              </span>
+
+                              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-sand)]">
+                                {team.logoUrl || team.logoDarkUrl ? (
+                                  <ThemeLogo
+                                    lightSrc={team.logoUrl}
+                                    darkSrc={team.logoDarkUrl}
+                                    alt={team.teamName}
+                                    className="object-contain p-0.5"
+                                  />
+                                ) : (
+                                  <span className="text-[9px] font-bold text-[var(--ed-stone)]">
+                                    {team.teamName.slice(0, 2).toUpperCase()}
                                   </span>
                                 )}
+                              </div>
 
-                                <span className={`text-[11px] font-black uppercase tracking-wider ${
-                                  isQualifying ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'
-                                }`}>
-                                  {getStageAbbreviation(stageItem.stageName)}
-                                </span>
-
-                                <div className="mt-0.5 flex items-center gap-1 text-[10px] font-extrabold text-slate-400">
-                                  <span>{stageItem.matchesPlayed}m</span>
-                                  {stageItem.stageRank && (
-                                    <span className="rounded bg-slate-200/80 px-1 py-0.2 text-[9px] font-black text-slate-700 dark:bg-white/10 dark:text-slate-300">
-                                      #{stageItem.stageRank}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <h4 className="truncate text-[13px] font-bold text-[var(--ed-ink)]">
+                                    {team.teamName}
+                                  </h4>
+                                  {team.teamTag && (
+                                    <span className="hidden shrink-0 text-[9px] font-semibold uppercase text-[var(--ed-stone)] sm:inline">
+                                      {team.teamTag}
                                     </span>
                                   )}
                                 </div>
-                              </button>
+                                {/* Mobile-only totals: the sticky totals column is hidden on small screens */}
+                                <div className="mt-0.5 text-[10px] font-semibold tabular-nums text-[var(--ed-stone)] sm:hidden">
+                                  {team.totalPoints} pts · {team.totalMatchesPlayed}m ·{' '}
+                                  {team.wwcdCount} WWCD
+                                </div>
+                              </div>
+                            </div>
 
-                              {/* Interactive Stage Popover Tooltip */}
-                              {isTooltipActive && (
-                                <div className="absolute bottom-full left-1/2 z-50 mb-2.5 -translate-x-1/2 w-48 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-[#0f172a] text-left animate-in fade-in zoom-in-95 duration-150">
-                                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 dark:border-white/10">
-                                    <span className="text-xs font-black text-slate-900 dark:text-white truncate">
-                                      {stageItem.stageName}
-                                    </span>
-                                    {stageItem.stageRank && (
-                                      <span className="rounded-md bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-slate-950">
-                                        Rank #{stageItem.stageRank}
-                                      </span>
+                            {/* --- Journey nodes --- */}
+                            {team.stagesJourney.map((stageItem, stageIdx) => {
+                              // Track segments: emerald once the squad has qualified, dashed when it wasn't there
+                              const segAfterQ = (cellIdx: number) => qIdx >= 0 && cellIdx > qIdx;
+                              const segClass = (cellIdx: number) => {
+                                if (segAfterQ(cellIdx)) return 'h-[2px] bg-emerald-500/50';
+                                const cur = team.stagesJourney[cellIdx];
+                                const prevCell = team.stagesJourney[cellIdx - 1];
+                                const bothPlayed =
+                                  (!prevCell || prevCell.participated) && cur.participated;
+                                return bothPlayed
+                                  ? 'h-px bg-[var(--ed-hair)]'
+                                  : 'border-t border-dashed border-[var(--ed-hair)]';
+                              };
+
+                              return (
+                                <div
+                                  key={stageItem.stageName}
+                                  className="relative flex items-center justify-center px-1"
+                                >
+                                  {/* Left connector */}
+                                  {stageIdx > 0 && (
+                                    <div
+                                      className={`absolute left-0 right-1/2 top-1/2 z-0 -translate-y-1/2 ${segClass(stageIdx)}`}
+                                    />
+                                  )}
+                                  {/* Right connector */}
+                                  <div
+                                    className={`absolute left-1/2 right-0 top-1/2 z-0 -translate-y-1/2 ${segClass(stageIdx + 1)}`}
+                                  />
+
+                                  {stageItem.participated ? (
+                                    <button
+                                      type="button"
+                                      aria-label={`${team.teamName} — ${stageItem.stageName}: rank ${stageItem.stageRank ?? '—'}, ${stageItem.totalPoints} points`}
+                                      onMouseEnter={(e) => openStageTooltip(team, stageItem, e)}
+                                      onMouseLeave={() => setActiveTooltip(null)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openStageTooltip(team, stageItem, e);
+                                      }}
+                                      className={`relative z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border text-[11px] font-bold tabular-nums transition-transform hover:scale-110 ${
+                                        stageItem.isQualifyingStage
+                                          ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-700 ring-2 ring-emerald-500/20 dark:text-emerald-300'
+                                          : rankNodeClass(stageItem.stageRank)
+                                      }`}
+                                    >
+                                      {stageItem.stageRank ?? '·'}
+                                      {stageItem.isQualifyingStage && (
+                                        <Star className="absolute -right-1 -top-1 h-3 w-3 fill-emerald-500 text-emerald-500" />
+                                      )}
+                                    </button>
+                                  ) : stageItem.status === 'BYPASSED' ? (
+                                    <div
+                                      onMouseEnter={(e) => openStageTooltip(team, stageItem, e)}
+                                      onMouseLeave={() => setActiveTooltip(null)}
+                                      className="relative z-10 flex h-5.5 w-5.5 cursor-help items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/5 text-emerald-600/80 dark:text-emerald-400/80"
+                                    >
+                                      <Check className="h-3 w-3" />
+                                    </div>
+                                  ) : (
+                                    <div
+                                      onMouseEnter={(e) => openStageTooltip(team, stageItem, e)}
+                                      onMouseLeave={() => setActiveTooltip(null)}
+                                      className="relative z-10 flex h-4 w-4 cursor-help items-center justify-center"
+                                    >
+                                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--ed-hair)]" />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* Finals milestone */}
+                            <div className="relative flex items-center justify-center px-1">
+                              <div
+                                className={`absolute left-0 right-1/2 top-1/2 z-0 -translate-y-1/2 ${
+                                  qIdx >= 0 ? 'h-[2px] bg-emerald-500/50' : 'h-px bg-[var(--ed-hair)]'
+                                }`}
+                              />
+                              <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border border-amber-400/60 bg-amber-400/15 shadow-xs shadow-amber-400/20">
+                                <Trophy className="h-3.5 w-3.5 fill-amber-300 text-amber-500" />
+                              </div>
+                            </div>
+
+                            {/* --- Totals (sticky, desktop only — mobile shows them in the squad cell) --- */}
+                            <div
+                              className={`sticky right-0 z-10 hidden items-center justify-between gap-1 border-l border-[var(--ed-hair)] px-3 py-2.5 transition-colors sm:flex ${stickyCellBg}`}
+                            >
+                              <div className="text-right leading-tight">
+                                <span className="block text-[13px] font-bold tabular-nums text-[var(--ed-ink)]">
+                                  {team.totalMatchesPlayed}
+                                  <span className="text-[9px] font-semibold text-[var(--ed-stone)]">m</span>
+                                </span>
+                                <span className="block text-[10px] font-semibold tabular-nums text-[var(--ed-stone)]">
+                                  {team.totalPoints} pts
+                                </span>
+                                <span className="block text-[9px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                                  {team.wwcdCount} WWCD
+                                </span>
+                              </div>
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 shrink-0 text-[var(--ed-stone)] transition-transform duration-200 ${
+                                  isExpanded ? 'rotate-180 text-[var(--ed-blue)]' : ''
+                                }`}
+                              />
+                            </div>
+                          </div>
+
+                          {/* ================= EXPANDED TEAM DOSSIER ================= */}
+                          {isExpanded && (
+                            <div className="border-t border-[var(--ed-hair)] bg-[var(--ed-sand)]/40 px-4 py-4">
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                {/* 1. Stage Performance Bar Breakdown */}
+                                <div className="rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4 md:col-span-2">
+                                  <h5 className="mb-3 flex items-center gap-1.5 ed-label">
+                                    <Layers className="h-3 w-3 text-[var(--ed-blue)]" />
+                                    Stage-by-stage scoring
+                                  </h5>
+
+                                  <div className="space-y-2">
+                                    {team.stagesJourney
+                                      .filter((st) => st.participated)
+                                      .map((st) => {
+                                        const maxStagePts = Math.max(
+                                          ...team.stagesJourney.map((s) => s.totalPoints),
+                                          1
+                                        );
+                                        const widthPct = Math.round((st.totalPoints / maxStagePts) * 100);
+
+                                        return (
+                                          <div key={st.stageName} className="flex items-center gap-2.5 text-[11px]">
+                                            <div className="w-28 truncate font-semibold text-[var(--ed-ink)]">
+                                              {st.stageName}
+                                            </div>
+                                            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-[var(--ed-sand)]">
+                                              <div
+                                                className={`h-full rounded-full transition-all duration-500 ${
+                                                  st.isQualifyingStage
+                                                    ? 'bg-emerald-500'
+                                                    : 'bg-[var(--ed-blue)]'
+                                                }`}
+                                                style={{ width: `${Math.max(widthPct, 4)}%` }}
+                                              />
+                                            </div>
+                                            <div className="w-24 text-right font-bold tabular-nums text-[var(--ed-ink)]">
+                                              {st.totalPoints} pts
+                                              <span className="ml-1 text-[9px] font-medium text-[var(--ed-stone)]">
+                                                ({st.matchesPlayed}m)
+                                              </span>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+
+                                {/* 2. Squad Roster & Quick Highlights */}
+                                <div className="flex flex-col justify-between rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4">
+                                  <div>
+                                    <h5 className="mb-2.5 flex items-center gap-1.5 ed-label">
+                                      <Users className="h-3 w-3 text-[var(--ed-blue)]" />
+                                      Championship roster
+                                    </h5>
+
+                                    {team.roster && team.roster.length > 0 ? (
+                                      <div className="flex flex-wrap gap-1">
+                                        {team.roster.map((player) => (
+                                          <span
+                                            key={player.ign}
+                                            className="ed-chip"
+                                          >
+                                            {player.captain && (
+                                              <Crown className="h-2.5 w-2.5 text-amber-500" />
+                                            )}
+                                            {player.ign}
+                                            {player.role && (
+                                              <span className="text-[9px] font-medium text-[var(--ed-stone)]">
+                                                {player.role}
+                                              </span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-[11px] font-medium text-[var(--ed-stone)]">
+                                        Active tournament lineup
+                                      </p>
                                     )}
                                   </div>
 
-                                  <div className="mt-2 space-y-1 text-[11px]">
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                      <span>Matches:</span>
-                                      <span className="font-black text-slate-900 dark:text-white">
-                                        {stageItem.matchesPlayed}
+                                  <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--ed-hair)] pt-3 text-center">
+                                    <div className="rounded-lg bg-[var(--ed-sand)] p-1.5">
+                                      <span className="block text-[9px] font-semibold uppercase text-[var(--ed-stone)]">
+                                        Total WWCD
+                                      </span>
+                                      <span className="text-[13px] font-bold tabular-nums text-amber-600 dark:text-amber-400">
+                                        {team.wwcdCount}
                                       </span>
                                     </div>
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                      <span>Stage Points:</span>
-                                      <span className="font-black text-[#0A5FC4] dark:text-blue-400">
-                                        {stageItem.totalPoints} pts
+                                    <div className="rounded-lg bg-[var(--ed-sand)] p-1.5">
+                                      <span className="block text-[9px] font-semibold uppercase text-[var(--ed-stone)]">
+                                        Total elims
                                       </span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                      <span>WWCD (Wins):</span>
-                                      <span className="font-black text-amber-500">
-                                        {stageItem.wwcdCount} 🍗
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                      <span>Elims / Place:</span>
-                                      <span className="font-semibold text-slate-500">
-                                        {stageItem.elimsCount} / {stageItem.placePoints}
+                                      <span className="text-[13px] font-bold tabular-nums text-[var(--ed-ink)]">
+                                        {team.elimsCount}
                                       </span>
                                     </div>
                                   </div>
-
-                                  {isQualifying && (
-                                    <div className="mt-2.5 rounded-xl bg-emerald-500/10 p-1.5 text-center text-[10px] font-black uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                                      Qualified for Finals Here
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Connected Arrow Indicator */}
-                            <ArrowRight className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600 shrink-0" />
-                          </React.Fragment>
-                        );
-                      })}
-
-                      {/* Destination: GRAND FINALS Milestone Node */}
-                      <div className="relative inline-flex items-center gap-2 rounded-2xl border-2 border-amber-400 bg-amber-400/15 px-3.5 py-2 text-center shadow-md shadow-amber-400/20">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-400 text-slate-950 shadow-xs">
-                          <Trophy className="h-3.5 w-3.5 fill-slate-950" />
-                        </div>
-                        <div className="text-left">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">
-                            {targetFinalsStage}
-                          </span>
-                          <span className="text-[9px] font-extrabold uppercase text-slate-500 dark:text-slate-400">
-                            Slot #{team.slotNumber}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* --- RIGHT COLUMN: Total Matches Played --- */}
-                  <div className="flex items-center justify-between lg:justify-end gap-3 text-right">
-                    <div className="text-left lg:text-right">
-                      <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-                        {team.totalMatchesPlayed} <span className="text-xs font-semibold text-slate-400">Matches</span>
-                      </span>
-
-                      {/* Match Intensity Bar */}
-                      <div className="mt-1 flex items-center justify-end gap-1.5">
-                        <div className="h-1.5 w-20 sm:w-24 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-500"
-                            style={{ width: `${matchPercentage}%` }}
-                          />
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400">
-                          {team.totalPoints} pts
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-200 dark:bg-white/10">
-                      <ChevronDown
-                        className={`h-4 w-4 transition-transform duration-200 ${
-                          isExpanded ? 'rotate-180 text-[#0A5FC4]' : ''
-                        }`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ================= 4. EXPANDABLE TEAM BATTLE DOSSIER ================= */}
-                {isExpanded && (
-                  <div className="border-t border-slate-100 bg-slate-50/50 p-6 dark:border-white/5 dark:bg-black/20 animate-in fade-in duration-200">
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                      {/* 1. Stage Performance Bar Breakdown */}
-                      <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#0b1220]">
-                        <h5 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-4">
-                          <Layers className="h-3.5 w-3.5 text-[#0A5FC4]" />
-                          Stage-by-Stage Scoring Breakdown
-                        </h5>
-
-                        <div className="space-y-3">
-                          {team.stagesJourney.map((st) => {
-                            const maxStagePts = Math.max(
-                              ...team.stagesJourney.map((s) => s.totalPoints),
-                              1
-                            );
-                            const widthPct = Math.round((st.totalPoints / maxStagePts) * 100);
-
-                            return (
-                              <div key={st.stageName} className="flex items-center gap-3 text-xs">
-                                <div className="w-28 font-bold text-slate-700 dark:text-slate-300 truncate">
-                                  {st.stageName}
-                                </div>
-                                <div className="flex-1 h-3 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden relative">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-500 ${
-                                      st.isQualifyingStage
-                                        ? 'bg-gradient-to-r from-emerald-400 to-emerald-600'
-                                        : 'bg-gradient-to-r from-blue-400 to-blue-600'
-                                    }`}
-                                    style={{ width: `${Math.max(widthPct, 4)}%` }}
-                                  />
-                                </div>
-                                <div className="w-24 text-right font-black text-slate-900 dark:text-white">
-                                  {st.totalPoints} pts
-                                  <span className="text-[10px] font-semibold text-slate-400 ml-1">
-                                    ({st.matchesPlayed}m)
-                                  </span>
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* 2. Squad Roster & Quick Highlights */}
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-white/10 dark:bg-[#0b1220] flex flex-col justify-between">
-                        <div>
-                          <h5 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-3">
-                            <Users className="h-3.5 w-3.5 text-[#0A5FC4]" />
-                            Championship Roster
-                          </h5>
-
-                          {team.roster && team.roster.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {team.roster.map((player) => (
-                                <span
-                                  key={player.ign}
-                                  className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 dark:bg-white/10 dark:text-slate-200"
-                                >
-                                  {player.captain && (
-                                    <Crown className="h-2.5 w-2.5 text-amber-500" />
-                                  )}
-                                  {player.ign}
-                                  {player.role && (
-                                    <span className="text-[9px] font-semibold text-slate-400">
-                                      ({player.role})
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
                             </div>
-                          ) : (
-                            <p className="text-xs font-semibold text-slate-400">
-                              Active tournament lineup
-                            </p>
                           )}
                         </div>
-
-                        <div className="mt-6 border-t border-slate-100 pt-4 dark:border-white/10 grid grid-cols-2 gap-2 text-center">
-                          <div className="rounded-xl bg-slate-50 p-2 dark:bg-white/5">
-                            <span className="text-[10px] font-bold uppercase text-slate-400 block">Total WWCD</span>
-                            <span className="text-sm font-black text-amber-500">{team.wwcdCount} 🍗</span>
-                          </div>
-                          <div className="rounded-xl bg-slate-50 p-2 dark:bg-white/5">
-                            <span className="text-[10px] font-bold uppercase text-slate-400 block">Total Elims</span>
-                            <span className="text-sm font-black text-rose-500">{team.elimsCount}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
               </div>
-            );
-          })}
+            </section>
+          );
+        })
+      )}
+
+      {/* ================= STAGE TOOLTIP (fixed, escapes row clipping) ================= */}
+      {activeTooltip && (
+        <div
+          className="pointer-events-none fixed z-[70] w-48 rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-2.5 text-left shadow-lg"
+          style={{
+            left: activeTooltip.x,
+            top: activeTooltip.placement === 'above' ? activeTooltip.top - 6 : activeTooltip.bottom + 6,
+            transform:
+              activeTooltip.placement === 'above'
+                ? 'translate(-50%, -100%)'
+                : 'translate(-50%, 0)',
+          }}
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--ed-hair)] pb-1.5">
+            <span className="truncate text-[11px] font-bold text-[var(--ed-ink)]">
+              {activeTooltip.teamName}
+            </span>
+            {activeTooltip.stage.stageRank && (
+              <span className="shrink-0 rounded bg-amber-400 px-1 py-0.5 text-[9px] font-bold text-slate-950">
+                #{activeTooltip.stage.stageRank}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[var(--ed-blue)]">
+            {activeTooltip.stage.stageName}
+          </div>
+
+          {activeTooltip.stage.participated ? (
+            <div className="mt-1 space-y-0.5 text-[10px]">
+              <div className="flex justify-between text-[var(--ed-stone)]">
+                <span>Matches</span>
+                <span className="font-bold tabular-nums text-[var(--ed-ink)]">
+                  {activeTooltip.stage.matchesPlayed}
+                </span>
+              </div>
+              <div className="flex justify-between text-[var(--ed-stone)]">
+                <span>Points</span>
+                <span className="font-bold tabular-nums text-[var(--ed-blue)]">
+                  {activeTooltip.stage.totalPoints}
+                </span>
+              </div>
+              <div className="flex justify-between text-[var(--ed-stone)]">
+                <span>WWCD</span>
+                <span className="font-bold tabular-nums text-amber-600 dark:text-amber-400">
+                  {activeTooltip.stage.wwcdCount}
+                </span>
+              </div>
+              <div className="flex justify-between text-[var(--ed-stone)]">
+                <span>Elims / Place</span>
+                <span className="font-semibold tabular-nums text-[var(--ed-ink)]">
+                  {activeTooltip.stage.elimsCount} / {activeTooltip.stage.placePoints}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-1.5 text-[10px]">
+              {activeTooltip.stage.status === 'BYPASSED' ? (
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  Stage skipped — squad earned direct entry to {targetFinalsStage} earlier.
+                </span>
+              ) : (
+                <span className="font-medium text-[var(--ed-stone)]">
+                  Did not participate in this stage.
+                </span>
+              )}
+            </div>
+          )}
+
+          {activeTooltip.stage.isQualifyingStage && (
+            <div className="mt-1.5 rounded-md bg-emerald-500/10 py-1 text-center text-[9px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+              Qualified for finals here
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

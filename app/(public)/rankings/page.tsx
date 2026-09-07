@@ -8,7 +8,7 @@ import { ArrowRight, BarChart3, Clock3, ShieldCheck, Swords, Trophy } from 'luci
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'KRAFTON Rankings | Esports Amaze — Official Team & Player Power Rankings',
+  title: 'KRAFTON Rankings | eSportsAmaze — Official Team & Player Power Rankings',
   description:
     'Official KRAFTON power rankings for BGMI and PUBG Mobile teams and players — decay-adjusted rolling points across Publisher and Tier events, with roster-acquisition transfers.',
 };

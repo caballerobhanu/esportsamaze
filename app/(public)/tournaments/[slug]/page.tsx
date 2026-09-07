@@ -16,6 +16,7 @@ import prisma from '@/lib/prisma';
 import {
   calculateTournamentStandings,
   calculateTournamentFraggers,
+  readKillMultiplier,
   type AggregatedTeamStanding,
 } from '@/lib/tournament-math';
 import {
@@ -150,14 +151,14 @@ export async function generateMetadata({
     });
     if (tournament) {
       return {
-        title: `${tournament.name} — Esports Amaze Standings, Matches & Stats`,
+        title: `${tournament.name} — eSportsAmaze Standings, Matches & Stats`,
         description: `Official stage-wise standings, match scorecards, prize pool distribution, participating team rosters, and top fraggers for ${tournament.name}.`,
       };
     }
   } catch {
     /* fall through */
   }
-  return { title: 'Tournament Details | Esports Amaze' };
+  return { title: 'Tournament Details | eSportsAmaze' };
 }
 
 export default async function TournamentDetailPage({
@@ -736,18 +737,18 @@ export default async function TournamentDetailPage({
           {tournament.slug.toUpperCase()}
         </div>
 
-        <div className="relative mx-auto max-w-[1200px] px-4 pb-0 pt-5 sm:px-6">
+        <div className="relative mx-auto max-w-[1200px] px-4 pb-0 pt-4 sm:px-6 sm:pt-5">
           {/* Breadcrumb + Editions Pager */}
-          <div className="mb-8 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
-              <Link href="/" className="hover:text-[#0A5FC4]">Home</Link>
-              <span>/</span>
-              <Link href="/tournaments" className="hover:text-[#0A5FC4]">Tournaments</Link>
-              <span>/</span>
-              <span className="text-[#0A5FC4] dark:text-blue-300">{tournament.name}</span>
+          <div className="mb-5 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
+            <div className="flex min-w-0 items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
+              <Link href="/" className="shrink-0 hover:text-[#0A5FC4]">Home</Link>
+              <span className="shrink-0">/</span>
+              <Link href="/tournaments" className="shrink-0 hover:text-[#0A5FC4]">Tournaments</Link>
+              <span className="shrink-0">/</span>
+              <span className="truncate text-[#0A5FC4] dark:text-blue-300" title={tournament.name}>{tournament.name}</span>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               {prevEdition && (
                 <Link
                   href={`/tournaments/${prevEdition.slug}?tab=${activeTab}`}
@@ -770,12 +771,12 @@ export default async function TournamentDetailPage({
           </div>
 
           {/* Masthead grid: Emblem + Title */}
-          <div className="grid items-center gap-8 pb-10 sm:pb-12 lg:grid-cols-[auto_1fr]">
+          <div className="grid items-center gap-5 pb-8 sm:gap-8 sm:pb-12 lg:grid-cols-[auto_1fr]">
             {/* Signature Emblem Box */}
             <div className="flex justify-center">
               <div className="relative">
-                <div className="absolute -inset-3 rotate-2 rounded-[2.8rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20" />
-                <div className="relative flex h-52 w-52 items-center justify-center overflow-hidden rounded-[2.5rem] border-8 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-60 sm:w-60">
+                <div className="absolute -inset-2 rotate-2 rounded-[2.2rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 sm:-inset-3 sm:rounded-[2.8rem]" />
+                <div className="relative flex h-36 w-36 items-center justify-center overflow-hidden rounded-[2rem] border-4 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-48 sm:w-48 sm:rounded-[2.5rem] sm:border-8 lg:h-52 lg:w-52 xl:h-60 xl:w-60">
                   {tournament.imageUrl || tournament.imageDarkUrl ? (
                     <ThemeLogo
                       lightSrc={tournament.imageUrl}
@@ -819,11 +820,11 @@ export default async function TournamentDetailPage({
                 )}
               </div>
 
-              <h1 className="text-3xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-4xl lg:text-5xl">
+              <h1 className="text-2xl font-black uppercase leading-[1.08] tracking-[-.04em] text-slate-950 dark:text-white sm:text-4xl sm:leading-tight sm:tracking-[-.05em] lg:text-5xl">
                 {tournament.name}
               </h1>
 
-              <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
+              <p className="mt-3 text-[13px] font-medium text-slate-500 dark:text-slate-400 sm:text-sm">
                 Organized by <strong className="text-slate-900 dark:text-white">{organizerNames}</strong>
                 <span className="mx-2 text-slate-300 dark:text-slate-700">•</span>
                 <span>{venueLocation}</span>
@@ -904,10 +905,10 @@ export default async function TournamentDetailPage({
                 icon: Swords,
               },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="flex flex-col items-center gap-1.5 px-2 py-5">
+              <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-2 py-4 sm:gap-1.5 sm:py-5">
                 <Icon className="h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
-                <span className="text-2xl font-black tracking-tight sm:text-3xl">{value}</span>
-                <span className="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">{label}</span>
+                <span className="text-lg font-black tracking-tight sm:text-xl md:text-2xl xl:text-3xl">{value}</span>
+                <span className="text-[9px] font-extrabold uppercase tracking-[.18em] text-slate-400 sm:text-[10px]">{label}</span>
               </div>
             ))}
           </div>
@@ -963,7 +964,7 @@ export default async function TournamentDetailPage({
             <EstaticFormatPanel
               stages={tournament.stages}
               pointsMatrix={formatRules.pointsMatrix}
-              killPoints={formatRules.killPointsPerElim || 1}
+              killPoints={readKillMultiplier(tournament.formatDetails)}
               gameMode={tournament.gameMode}
               eventType={tournament.eventType}
               device={tournament.device}

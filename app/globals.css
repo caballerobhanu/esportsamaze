@@ -78,6 +78,31 @@ body {
   background: rgba(148, 163, 184, 0.6);
 }
 
+/* Hide the scrollbar while keeping the area scrollable
+   (tab strips, journey tracks) */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Progression journey matrix (estatic progression panel).
+   The grid template is set inline for desktop; small screens swap to a
+   compact template whose totals column lives inside the squad cell. */
+.progression-scroll-inner {
+  min-width: var(--matrix-min-w, 900px);
+}
+@media (max-width: 639px) {
+  .progression-scroll-inner {
+    min-width: calc(200px + var(--stage-count, 8) * 80px) !important;
+  }
+  .progression-matrix {
+    grid-template-columns: 200px repeat(var(--stage-count, 8), 80px) !important;
+  }
+}
+
 /* Pulse animation for live badge */
 @keyframes live-pulse {
   0%, 100% {
@@ -123,7 +148,7 @@ body {
 }
 
 .font-display {
-  font-family: var(--font-display), var(--font-sans);
+  font-family: var(--font-sans);
 }
 
 @layer components {
@@ -169,4 +194,199 @@ body {
   .num {
     @apply tabular-nums font-semibold;
   }
+  /* Magazine micro-kicker: uppercase, wide-tracked section label */
+  .kicker {
+    @apply text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ed-stone)];
+  }
+  /* Horizontal snap rail (circuit strip, editor's picks on small screens).
+     Scroll inside the rail; the page itself never scrolls sideways. */
+  .rail {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail > * {
+    scroll-snap-align: start;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LEGAL PAGES — about / privacy / disclaimer / terms / contact
+   ═══════════════════════════════════════════════════════════ */
+.legal-body h2 {
+  @apply mt-9 mb-2.5 text-xl font-extrabold tracking-tight;
+}
+.legal-body h3 {
+  @apply mt-6 mb-2 text-base font-extrabold tracking-tight;
+}
+.legal-body p {
+  @apply mb-4 text-[15px] leading-relaxed;
+}
+.legal-body ul {
+  @apply mb-4 list-disc space-y-1.5 pl-6 text-[15px] leading-relaxed;
+}
+.legal-body li::marker {
+  @apply text-[var(--ed-blue)];
+}
+.legal-body a {
+  @apply font-semibold text-[var(--ed-blue)] underline decoration-[var(--ed-blue)]/40 underline-offset-2 hover:decoration-[var(--ed-blue)];
+}
+.legal-body strong {
+  @apply font-bold text-[var(--ed-ink)];
+}
+.legal-body address {
+  @apply mb-4 text-[15px] not-italic leading-relaxed;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ARTICLE BODY — rendered Tiptap HTML on public news pages
+   ═══════════════════════════════════════════════════════════ */
+.article-body {
+  @apply text-[15px] leading-relaxed text-[var(--ed-ink)];
+}
+.article-body > * + * {
+  @apply mt-5;
+}
+.article-body h2 {
+  font-family: var(--font-sans); @apply mt-10 mb-3 border-b border-[var(--ed-hair)] pb-2 text-xl font-extrabold tracking-tight sm:text-2xl;
+}
+.article-body h3 {
+  font-family: var(--font-sans); @apply mt-8 mb-2.5 text-lg font-extrabold tracking-tight sm:text-xl;
+}
+.article-body p {
+  @apply leading-relaxed;
+}
+.article-body strong {
+  @apply font-bold text-[var(--ed-ink)];
+}
+.article-body em {
+  @apply italic;
+}
+.article-body ul {
+  @apply list-disc space-y-1.5 pl-6;
+}
+.article-body ol {
+  @apply list-decimal space-y-1.5 pl-6;
+}
+.article-body li::marker {
+  @apply text-[var(--ed-blue)];
+}
+.article-body blockquote {
+  @apply rounded-r-xl border-l-4 border-[var(--ed-blue)] bg-[var(--ed-sand)] px-4 py-2.5 text-[15px] font-semibold italic text-[var(--ed-ink)];
+}
+.article-body a {
+  @apply font-semibold text-[var(--ed-blue)] underline decoration-[var(--ed-blue)]/40 underline-offset-2 hover:decoration-[var(--ed-blue)];
+}
+.article-body img {
+  @apply my-6 w-full rounded-xl border border-[var(--ed-hair)];
+}
+.article-body pre {
+  @apply my-5 overflow-x-auto rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-4 text-[13px] leading-relaxed;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.article-body code {
+  @apply rounded-md border border-[var(--ed-hair)] bg-[var(--ed-sand)] px-1.5 py-0.5 text-[13px];
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.article-body pre code {
+  @apply border-none bg-transparent p-0;
+}
+.article-body hr {
+  @apply my-8 border-[var(--ed-hair)];
+}
+/* Embedded YouTube / generic iframes from the editor */
+.article-body div[data-youtube-video] iframe {
+  @apply my-6 aspect-video w-full rounded-xl border border-[var(--ed-hair)];
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LEGACY MARKDOWN fallback (pre-WYSIWYG seed articles)
+   ═══════════════════════════════════════════════════════════ */
+.article-legacy {
+  @apply text-[15px] leading-relaxed text-[var(--ed-ink)];
+}
+.article-legacy p {
+  @apply mb-5 leading-relaxed;
+}
+.article-legacy h2 {
+  font-family: var(--font-sans); @apply mt-10 mb-4 border-b border-[var(--ed-hair)] pb-2 text-xl font-extrabold uppercase tracking-tight sm:text-2xl;
+}
+.article-legacy h3 {
+  font-family: var(--font-sans); @apply mt-8 mb-3 text-lg font-extrabold tracking-tight sm:text-xl;
+}
+.article-legacy strong {
+  @apply font-bold text-[var(--ed-ink)];
+}
+.article-legacy em {
+  @apply italic text-[var(--ed-stone)];
+}
+.article-legacy ul {
+  @apply list-disc space-y-1.5 pl-6;
+}
+.article-legacy li {
+  @apply my-1 text-[var(--ed-ink)];
+}
+.article-legacy blockquote {
+  @apply my-6 rounded-r-xl border-l-4 border-[var(--ed-blue)] bg-[var(--ed-sand)] py-2.5 pl-4 pr-3 text-[15px] font-semibold italic text-[var(--ed-ink)];
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TIPTAP EDITOR pane (admin) — mirrors .article-body
+   ═══════════════════════════════════════════════════════════ */
+.news-editor-prose {
+  @apply text-[15px] leading-relaxed text-[var(--ed-ink)];
+}
+.news-editor-prose > * + * {
+  @apply mt-5;
+}
+.news-editor-prose h2 {
+  font-family: var(--font-sans); @apply border-b border-[var(--ed-hair)] pb-2 text-xl font-extrabold tracking-tight sm:text-2xl;
+}
+.news-editor-prose h3 {
+  font-family: var(--font-sans); @apply text-lg font-extrabold tracking-tight sm:text-xl;
+}
+.news-editor-prose ul {
+  @apply list-disc space-y-1.5 pl-6;
+}
+.news-editor-prose ol {
+  @apply list-decimal space-y-1.5 pl-6;
+}
+.news-editor-prose li::marker {
+  @apply text-[var(--ed-blue)];
+}
+.news-editor-prose blockquote {
+  @apply rounded-r-xl border-l-4 border-[var(--ed-blue)] bg-[var(--ed-sand)] px-4 py-2.5 font-semibold italic;
+}
+.news-editor-prose pre {
+  @apply overflow-x-auto rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-4 text-[13px] leading-relaxed;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.news-editor-prose code {
+  @apply rounded-md border border-[var(--ed-hair)] bg-[var(--ed-sand)] px-1.5 py-0.5 text-[13px];
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.news-editor-prose pre code {
+  @apply border-none bg-transparent p-0;
+}
+.news-editor-prose img {
+  @apply my-5 max-w-full rounded-xl border border-[var(--ed-hair)];
+}
+.news-editor-prose hr {
+  @apply my-8 border-[var(--ed-hair)];
+}
+.news-editor-prose a {
+  @apply cursor-pointer font-semibold text-[var(--ed-blue)] underline underline-offset-2;
+}
+.news-editor-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-slate-400;
+}
+.news-editor-prose div[data-youtube-video] iframe {
+  @apply aspect-video w-full rounded-xl border border-[var(--ed-hair)];
 }

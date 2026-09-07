@@ -20,18 +20,30 @@ export async function GET(
   const { filename } = await params;
 
   // Prevent path traversal
-  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+  const safeFilename = path.basename(filename);
+  if (
+    safeFilename !== filename ||
+    filename.includes('..') ||
+    filename.startsWith('.') ||
+    !/^[a-zA-Z0-9._-]+$/.test(filename)
+  ) {
     return NextResponse.json({ success: false, error: 'Invalid file name' }, { status: 400 });
   }
 
-  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  const filePath = path.resolve(resolvedUploadDir, safeFilename);
+  if (!filePath.startsWith(resolvedUploadDir + path.sep)) {
+    return NextResponse.json({ success: false, error: 'Invalid file path' }, { status: 400 });
+  }
+
+  const ext = safeFilename.split('.').pop()?.toLowerCase() ?? '';
   const mime = MIME_BY_EXT[ext];
   if (!mime) {
     return NextResponse.json({ success: false, error: 'Unsupported type' }, { status: 400 });
   }
 
   try {
-    const file = await readFile(path.join(UPLOAD_DIR, filename));
+    const file = await readFile(filePath);
     const headers: Record<string, string> = {
       'Content-Type': mime,
       'Cache-Control': 'public, max-age=31536000, immutable',

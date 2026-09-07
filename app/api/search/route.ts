@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { publishedVisibility } from '@/lib/news-queries';
 
 export const dynamic = 'force-dynamic';
 
 export interface SearchResultItem {
   id: string;
-  type: 'team' | 'player' | 'tournament' | 'game';
+  type: 'team' | 'player' | 'tournament' | 'game' | 'article';
   title: string;
   subtitle: string;
   href: string;
@@ -15,8 +16,8 @@ export interface SearchResultItem {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const q = (searchParams.get('q') || '').trim();
-  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5', 10), 1), 20);
+  const q = (searchParams.get('q') || '').trim().slice(0, 100);
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5', 10) || 5, 1), 20);
 
   if (!q || q.length < 2) {
     return NextResponse.json({
@@ -28,12 +29,13 @@ export async function GET(request: NextRequest) {
         players: [],
         tournaments: [],
         games: [],
+        articles: [],
       },
     });
   }
 
   try {
-    const [teams, players, tournaments, games] = await Promise.all([
+    const [teams, players, tournaments, games, articles] = await Promise.all([
       // 1. Search Teams
       prisma.team.findMany({
         where: {
@@ -94,6 +96,34 @@ export async function GET(request: NextRequest) {
         },
         take: limit,
       }),
+
+      // 5. Search Articles (published only — title, excerpt, tags, author)
+      prisma.article.findMany({
+        where: {
+          AND: [
+            publishedVisibility(),
+            {
+              OR: [
+                { title: { contains: q, mode: 'insensitive' } },
+                { excerpt: { contains: q, mode: 'insensitive' } },
+                { tags: { has: q } },
+                { authorName: { contains: q, mode: 'insensitive' } },
+              ],
+            },
+          ],
+        },
+        orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }],
+        take: limit,
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          excerpt: true,
+          coverImage: true,
+          category: true,
+          publishedAt: true,
+        },
+      }),
     ]);
 
     const formattedTeams: SearchResultItem[] = teams.map((team) => ({
@@ -143,11 +173,22 @@ export async function GET(request: NextRequest) {
       badge: 'Game',
     }));
 
+    const formattedArticles: SearchResultItem[] = articles.map((article) => ({
+      id: article.id,
+      type: 'article',
+      title: article.title,
+      subtitle: article.excerpt || 'Esports news & editorial',
+      href: `/news/${article.slug}`,
+      imageUrl: article.coverImage,
+      badge: article.category.charAt(0) + article.category.slice(1).toLowerCase(),
+    }));
+
     const total =
       formattedTeams.length +
       formattedPlayers.length +
       formattedTournaments.length +
-      formattedGames.length;
+      formattedGames.length +
+      formattedArticles.length;
 
     return NextResponse.json({
       success: true,
@@ -158,6 +199,7 @@ export async function GET(request: NextRequest) {
         players: formattedPlayers,
         tournaments: formattedTournaments,
         games: formattedGames,
+        articles: formattedArticles,
       },
     });
   } catch (error) {
@@ -166,7 +208,9 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: 'Failed to execute search query',
-        details: error instanceof Error ? error.message : String(error),
+        ...(process.env.NODE_ENV === 'development'
+          ? { details: error instanceof Error ? error.message : String(error) }
+          : {}),
       },
       { status: 500 }
     );

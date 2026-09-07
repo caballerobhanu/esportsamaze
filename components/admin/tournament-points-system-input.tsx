@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Trophy, Award, Sliders, Check } from 'lucide-react';
-import { POINTS_SYSTEM_PRESETS, PointsSystemPreset } from '@/lib/tournament-math';
+import { POINTS_SYSTEM_PRESETS, PointsSystemPreset, readKillMultiplier } from '@/lib/tournament-math';
 
 interface TournamentPointsSystemInputProps {
   initialFormatDetails?: any;
@@ -13,7 +13,7 @@ export function TournamentPointsSystemInput({
 }: TournamentPointsSystemInputProps) {
   const initialSystemId = initialFormatDetails?.pointsSystem || 'BGIS_OFFICIAL_10';
   const initialMatrix = initialFormatDetails?.placementPoints || null;
-  const initialKillPts = initialFormatDetails?.killPoints ?? 1;
+  const initialKillPts = readKillMultiplier(initialFormatDetails);
 
   const [selectedSystem, setSelectedSystem] = React.useState<string>(initialSystemId);
   const [killPoints, setKillPoints] = React.useState<number>(initialKillPts);
@@ -53,6 +53,8 @@ export function TournamentPointsSystemInput({
     return {
       pointsSystem: selectedSystem,
       placementPoints: customPlacement,
+      // Canonical kill-multiplier key; killPoints kept in sync for older readers.
+      killPointsPerElim: Number(killPoints) || 1,
       killPoints: Number(killPoints) || 1,
     };
   }, [selectedSystem, customPlacement, killPoints]);

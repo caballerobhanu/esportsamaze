@@ -12,7 +12,7 @@ export function Footer() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.svg"
-                alt="esportsamaze"
+                alt="eSportsAmaze"
                 className="h-8 w-auto object-contain brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
               />
             </Link>
@@ -38,6 +38,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/contact" className="hover:text-white transition-colors">
+                  Contact
+                </Link>
+              </li>
+              <li>
                 <Link href="/compare" className="hover:text-white transition-colors">
                   Head-to-Head Compare
                 </Link>
@@ -48,6 +53,11 @@ export function Footer() {
                   className="hover:text-white transition-colors"
                 >
                   Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-white transition-colors">
+                  Terms &amp; Conditions
                 </Link>
               </li>
               <li>
@@ -65,9 +75,26 @@ export function Footer() {
             </h4>
             <ul className="space-y-1.5 text-slate-300">
               <li>
-                <Link href="/#news" className="hover:text-white transition-colors">
+                <Link href="/news" className="hover:text-white transition-colors">
                   News
                 </Link>
+              </li>
+              <li>
+                <Link
+                  href="/news/saved"
+                  className="hover:text-white transition-colors"
+                >
+                  Saved Stories
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="/rss.xml"
+                  className="hover:text-white transition-colors"
+                  title="RSS feed — latest esports news"
+                >
+                  RSS Feed
+                </a>
               </li>
               <li>
                 <Link
@@ -76,16 +103,6 @@ export function Footer() {
                 >
                   KRAFTON Rankings
                 </Link>
-              </li>
-              <li>
-                <a
-                  href="https://esportsamaze.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
-                >
-                  esportsamaze.com
-                </a>
               </li>
               <li>
                 <a
@@ -103,7 +120,7 @@ export function Footer() {
 
         <div className="mt-8 pt-4 border-t border-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
           <p suppressHydrationWarning>
-            © {new Date().getFullYear()} Esports Amaze · An eSports Project by Bhanu
+            © {new Date().getFullYear()} eSportsAmaze · An eSports Project by Bhanu
             Pratap
           </p>
           <span>Beta Phase</span>

@@ -54,12 +54,15 @@ const teamSocialIcons: Record<string, typeof Globe> = {
 };
 
 function socialLinkHref(key: string, value: string) {
-  if (/^https?:\/\//.test(value)) return value;
-  const handle = value.replace(/^@/, '');
+  const clean = value.trim();
+  if (/^(javascript|data|vbscript):/i.test(clean)) return '#';
+  if (/^https?:\/\//i.test(clean)) return clean;
+  const handle = clean.replace(/^@/, '');
   if (key === 'instagram') return `https://instagram.com/${handle}`;
   if (key === 'youtube') return `https://youtube.com/@${handle}`;
   if (key === 'twitter' || key === 'x') return `https://twitter.com/${handle}`;
-  return value;
+  if (key === 'discord') return `https://discord.gg/${handle}`;
+  return `https://${clean}`;
 }
 
 export async function generateMetadata({
@@ -77,10 +80,10 @@ export async function generateMetadata({
     select: { name: true, tag: true, logoUrl: true },
   });
 
-  if (!team) return { title: 'Team Not Found — Esports Amaze' };
+  if (!team) return { title: 'Team Not Found — eSportsAmaze' };
   const label = `${team.name}${team.tag ? ` [${team.tag}]` : ''}`;
   return {
-    title: `${label} — Esports Amaze`,
+    title: `${label} — eSportsAmaze`,
     description: `${label} profile — roster, tournament history, KRAFTON ranking and match statistics.`,
     openGraph: { images: team.logoUrl ? [team.logoUrl] : undefined },
   };
@@ -685,7 +688,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 <ShieldCheck className="h-6 w-6 text-amber-300" />
               </div>
               <p className="mt-5 text-sm leading-6 text-blue-100">
-                Roster, results, and identity data for {team.name} are maintained by Esports Amaze.
+                Roster, results, and identity data for {team.name} are maintained by eSportsAmaze.
               </p>
             </section>
           </aside>

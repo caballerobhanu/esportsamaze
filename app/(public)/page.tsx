@@ -1,19 +1,23 @@
 import * as React from 'react';
 import Link from 'next/link';
-import { 
-  Trophy, 
-  ArrowLeftRight, 
-  Calendar, 
-  MapPin, 
-  ArrowRight
+import {
+  ArrowLeftRight,
+  Calendar,
+  MapPin,
 } from 'lucide-react';
 import { EventsSection } from '@/components/events-section';
-import { NewsSection } from '@/components/news-section';
 import { KraftonRankings } from '@/components/krafton-rankings';
 import { HomeMatchHighlight, type HighlightMatchData } from '@/components/home/home-match-highlight';
 import { HomeStandingsSection } from '@/components/home/home-standings-section';
+import { FrontPage } from '@/components/home/front-page';
+import { TheBrief } from '@/components/home/the-brief';
+import { EditorsPicks } from '@/components/home/editors-picks';
+import { StatsBand } from '@/components/home/stats-band';
+import { SectionHeading } from '@/components/home/section-heading';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
+import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
+import { itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -176,42 +180,85 @@ export default async function HomePage() {
     },
   });
 
+  // 6. Database counts for the closing stats band — real numbers, nothing projected
+  const [tournamentsCount, teamsCount, matchesCount, playersCount] = await Promise.all([
+    prisma.tournament.count(),
+    prisma.team.count(),
+    prisma.match.count(),
+    prisma.player.count({ where: { isPlayer: true } }),
+  ]);
+
+  // 7. Editorial pool feeding every magazine block (lead, latest, picks, brief)
+  let pool: ArticleCardData[] = [];
+  try {
+    pool = await getFrontPageArticles(24);
+  } catch (err) {
+    console.error('Failed to fetch articles for homepage:', err);
+  }
+
+  const lead = pool.find((a) => a.coverImage) ?? pool[0] ?? null;
+  const usedIds = new Set<string>(lead ? [lead.id] : []);
+
+  const secondary = pool.filter((a) => !usedIds.has(a.id) && a.coverImage).slice(0, 2);
+  secondary.forEach((a) => usedIds.add(a.id));
+
+  // The Latest wire and The Brief take priority on unique stories; picks
+  // fill from what's left and may backfill from earlier stories so the
+  // photographic band still renders on a small editorial pool.
+  const latest = pool.filter((a) => !usedIds.has(a.id)).slice(0, 7);
+  latest.forEach((a) => usedIds.add(a.id));
+  const brief = pool.filter((a) => !usedIds.has(a.id)).slice(0, 10);
+  brief.forEach((a) => usedIds.add(a.id));
+
+  let picks = pool.filter((a) => !usedIds.has(a.id) && a.coverImage);
+  if (picks.length < 3) {
+    picks = [
+      ...picks,
+      ...pool.filter(
+        (a) =>
+          a.coverImage &&
+          a.id !== lead?.id &&
+          !secondary.some((s) => s.id === a.id) &&
+          !picks.some((p) => p.id === a.id)
+      ),
+    ];
+  }
+  const editorPicks: ArticleCardData[] = [];
+  for (const article of picks) {
+    if (editorPicks.length >= 3) break;
+    if (!editorPicks.some((p) => p.id === article.id)) {
+      editorPicks.push(article);
+    }
+  }
+
+  const liveTournamentTeaser = liveTournament
+    ? { name: liveTournament.name, slug: liveTournament.slug, stageName }
+    : null;
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#f6f8fc] text-slate-950 transition-colors selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+    <div className="flex min-h-screen flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
       {/* 1. Live & Upcoming Events Strip */}
       <EventsSection />
 
-      {/* 2. Welcoming Masthead */}
-      <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_-10%,rgba(10,95,196,.14),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(10,95,196,.04)_42%,rgba(10,95,196,.04)_43%,transparent_43%)] dark:bg-[radial-gradient(circle_at_80%_-10%,rgba(37,99,235,.2),transparent_45%),linear-gradient(115deg,transparent_42%,rgba(255,255,255,.02)_42%,rgba(255,255,255,.02)_43%,transparent_43%)]" />
-        <div className="relative mx-auto max-w-[1200px] px-4 py-8 sm:px-6 sm:py-10">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#0A5FC4]/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
-              <Trophy className="h-3.5 w-3.5" />
-              <span>Official Esports Wiki &amp; Live Match Intelligence</span>
-            </div>
-            <h1 className="text-3xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-              Competitive Esports Dashboard
-            </h1>
-            <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-              Track verified publisher power rankings, real-time stage scorecards, certified squad rosters, and official tournament distributions.
-            </p>
-          </div>
-        </div>
-      </section>
+      {/* 2. Main body — the front page, then match center, news, reference data */}
+      <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-10 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-10">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd(pool.slice(0, 10))) }}
+        />
 
-      {/* 3. Main Dashboard Body */}
-      <main className="flex-1 max-w-[1200px] w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* News Section */}
-        <NewsSection />
+        {/* The Front Page: lead story + numbered latest wire + live tournament card */}
+        <FrontPage
+          lead={lead}
+          secondary={secondary}
+          latest={latest}
+          liveTournament={liveTournamentTeaser}
+        />
 
-        {/* KRAFTON Rankings */}
-        <KraftonRankings />
-
-        {/* Match Highlight Card */}
+        {/* Latest match result (or next scheduled match) */}
         {highlightMatch && <HomeMatchHighlight match={highlightMatch} />}
 
-        {/* Points Table & Fraggers Split (Live event only, last stage with tournament name header) */}
+        {/* Points table & fraggers for the ongoing tournament */}
         {liveTournament && (
           <HomeStandingsSection
             tournamentTitle={liveTournament.name}
@@ -222,27 +269,26 @@ export default async function HomePage() {
           />
         )}
 
-        {/* Tournaments & Transfer Ledger Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-2">
+        {/* Dense magazine news list */}
+        <TheBrief articles={brief} />
+
+        {/* Featured photographic cards */}
+        <EditorsPicks articles={editorPicks} />
+
+        {/* Krafton rankings */}
+        <KraftonRankings />
+
+        {/* Tournaments & transfers */}
+        <div className="grid grid-cols-1 gap-8 pt-2 lg:grid-cols-12">
           {/* Active & Upcoming Tournaments (7 cols) */}
-          <section id="tournaments" className="lg:col-span-7 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
-                  <Trophy className="w-4 h-4" />
-                </div>
-                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
-                  Active &amp; Upcoming Tournaments
-                </h2>
-              </div>
-              <Link
-                href="/tournaments"
-                className="text-xs font-bold text-[#0A5FC4] hover:underline dark:text-blue-400 flex items-center gap-1.5"
-              >
-                <span>All Tournaments</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
+          <section id="tournaments" className="min-w-0 space-y-4 lg:col-span-7">
+            <SectionHeading
+              id="tournaments-heading"
+              kicker="Competitions"
+              title="Tournaments"
+              href="/tournaments"
+              linkLabel="All tournaments"
+            />
 
             <div className="space-y-4">
               {tournaments.map((tourney) => {
@@ -253,13 +299,11 @@ export default async function HomePage() {
                   tourney.eventType ||
                   'Online';
                 const organizerName =
-                  tourney.organizers[0]?.organizer?.name ||
-                  tourney.legacyOrganizer ||
-                  'Official Circuit';
+                  tourney.organizers[0]?.organizer?.name || tourney.legacyOrganizer || null;
 
                 const statusLabel =
                   tourney.status === 'ONGOING'
-                    ? 'In Progress'
+                    ? 'In progress'
                     : tourney.status === 'UPCOMING'
                       ? 'Upcoming'
                       : 'Concluded';
@@ -268,55 +312,55 @@ export default async function HomePage() {
                   <Link
                     key={tourney.id}
                     href={`/tournaments/${tourney.slug}`}
-                    className="block p-5 rounded-3xl border border-slate-200 bg-white hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220] transition-all space-y-3.5 group"
+                    className="ed-card group block space-y-3.5 p-5 transition-colors hover:border-[var(--ed-blue)]"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                            {tourney.tier || 'Tier 1'}
-                          </span>
+                    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="ed-chip px-2.5 py-0.5 text-[10px]">{tourney.tier || 'Tier 1'}</span>
                           <span
                             className={cn(
-                              'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider',
+                              'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
                               tourney.status === 'ONGOING'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                ? 'border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
                                 : tourney.status === 'UPCOMING'
-                                  ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300 border border-[#0A5FC4]/20'
+                                  ? 'border border-[var(--ed-blue)]/20 bg-[var(--ed-blue)]/10 text-[var(--ed-blue)]'
                                   : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
                             )}
                           >
                             {statusLabel}
                           </span>
                           {tourney.game?.name && (
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                               {tourney.game.name}
                             </span>
                           )}
                         </div>
-                        <h3 className="text-base font-black text-slate-900 mt-2 group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-400 transition-colors">
+                        <h3 className="mt-2 text-base font-bold transition-colors group-hover:text-[var(--ed-blue)]">
                           {tourney.name}
                         </h3>
-                        <p className="text-xs font-medium text-slate-400">
-                          {organizerName}
-                        </p>
+                        {organizerName && (
+                          <p className="text-xs font-medium text-[var(--ed-stone)]">{organizerName}</p>
+                        )}
                       </div>
 
-                      <div className="text-right shrink-0">
-                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Prize Pool</div>
-                        <div className="text-base font-black text-amber-600 dark:text-amber-400">
+                      <div className="min-w-0 text-right">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ed-stone)]">
+                          Prize pool
+                        </div>
+                        <div className="text-base font-bold text-amber-600 dark:text-amber-400">
                           {formatPrizePool(tourney.prizePool || 0, tourney.currency, tourney.usdRate)}
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:bg-white/[0.02] dark:border-white/5 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-3 text-xs text-[var(--ed-stone)]">
                       <span className="flex items-center gap-1.5 font-medium">
-                        <Calendar className="w-3.5 h-3.5 text-[#0A5FC4]" />
+                        <Calendar className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
                         {formatDate(tourney.startDate)} – {formatDate(tourney.endDate)}
                       </span>
-                      <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
-                        <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                      <span className="flex items-center gap-1.5 font-semibold text-[var(--ed-ink)]">
+                        <MapPin className="h-3.5 w-3.5 text-rose-500" />
                         {venueName}
                       </span>
                     </div>
@@ -326,24 +370,16 @@ export default async function HomePage() {
             </div>
           </section>
 
-          {/* Roster Moves / Transfer Ledger (5 cols) */}
-          <section id="teams" className="lg:col-span-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
-                  <ArrowLeftRight className="w-4 h-4" />
-                </div>
-                <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
-                  Transfer Ledger
-                </h2>
-              </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">
-                Verified Signings
-              </span>
-            </div>
+          {/* Roster moves (5 cols) */}
+          <section id="teams" className="min-w-0 space-y-4 lg:col-span-5">
+            <SectionHeading
+              id="roster-heading"
+              kicker="The transfer wire"
+              title="Roster moves"
+            />
 
-            <div className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-              <div className="divide-y divide-slate-100 dark:divide-white/5">
+            <div className="ed-card">
+              <div className="divide-y divide-[var(--ed-hair)]">
                 {transfers.length > 0 ? (
                   transfers.map((move) => {
                     const realName = move.player.firstName
@@ -351,50 +387,66 @@ export default async function HomePage() {
                       : null;
 
                     return (
-                      <div key={move.id} className="p-4 hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors space-y-2.5">
+                      <div
+                        key={move.id}
+                        className="space-y-2.5 p-4 transition-colors hover:bg-[var(--ed-sand)]/60"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <Link
                               href={`/players/${encodeURIComponent(move.player.slug || move.player.ign.toLowerCase())}`}
-                              className="font-bold text-sm text-slate-900 hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors"
+                              className="text-sm font-bold transition-colors hover:text-[var(--ed-blue)]"
                             >
                               {move.player.ign}
                             </Link>
-                            {realName && <span className="text-xs text-slate-400">({realName})</span>}
+                            {realName && (
+                              <span className="text-xs text-[var(--ed-stone)]">({realName})</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1">
                             {move.staffRole && (
-                              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:bg-white/10 dark:text-slate-400">
-                                {move.staffRole}
-                              </span>
+                              <span className="ed-chip px-2.5 py-0.5 text-[10px]">{move.staffRole}</span>
                             )}
                             <span
                               className={cn(
-                                'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider',
-                                move.type === 'LEFT' ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                                move.type === 'LEFT'
+                                  ? 'border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                  : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                               )}
                             >
-                              {move.type}
+                              {move.type.charAt(0) + move.type.slice(1).toLowerCase()}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs dark:bg-white/[0.02] dark:border-white/5">
-                          <span className="text-slate-400 font-medium">
-                            {move.type === 'LEFT' ? move.team.name : 'Free Agent / Prior Org'}
-                          </span>
-                          <ArrowLeftRight className="w-3.5 h-3.5 text-[#0A5FC4]" />
-                          <Link
-                            href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                            className="font-bold text-slate-900 hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors"
-                          >
-                            {move.team.name}
-                          </Link>
+                        <div className="flex items-center justify-between rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-2.5 text-xs">
+                          {move.type === 'LEFT' ? (
+                            <>
+                              <span className="font-bold text-[var(--ed-ink)]">{move.team.name}</span>
+                              <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
+                              <span className="font-medium text-[var(--ed-stone)]">Free agent</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-medium text-[var(--ed-stone)]">Free agent</span>
+                              <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
+                              <Link
+                                href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                                className="font-bold transition-colors hover:text-[var(--ed-blue)]"
+                              >
+                                {move.team.name}
+                              </Link>
+                            </>
+                          )}
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <div className="flex items-center justify-between text-[11px] text-[var(--ed-stone)]">
                           <span>
-                            Role: <strong className="text-slate-700 dark:text-slate-300 font-bold">{move.staffRole || move.player.role || 'Player'}</strong>
+                            Role:{' '}
+                            <strong className="font-bold text-[var(--ed-ink)]">
+                              {move.staffRole || move.player.role || 'Player'}
+                            </strong>
                           </span>
                           <span className="font-bold">{move.date.toISOString().slice(0, 10)}</span>
                         </div>
@@ -402,7 +454,7 @@ export default async function HomePage() {
                     );
                   })
                 ) : (
-                  <div className="p-8 text-center text-xs text-slate-400">
+                  <div className="p-8 text-center text-xs text-[var(--ed-stone)]">
                     No transfers recorded yet.
                   </div>
                 )}
@@ -411,6 +463,14 @@ export default async function HomePage() {
           </section>
         </div>
       </main>
+
+      {/* 3. Closing masthead: site statement + live counters + quick links */}
+      <StatsBand
+        tournamentsCount={tournamentsCount}
+        teamsCount={teamsCount}
+        playersCount={playersCount}
+        matchesCount={matchesCount}
+      />
     </div>
   );
 }

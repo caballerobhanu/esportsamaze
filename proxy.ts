@@ -6,21 +6,57 @@ import type { NextRequest } from 'next/server';
  * requests get a real 307 instead of a streamed page with a client-side
  * redirect (layout-level redirects alone leak the page's RSC payload).
  *
- * Keep the token derivation in sync with lib/admin-auth.ts `tokenFor`
- * (ADMIN_SESSION_SECRET || ADMIN_PASSWORD || 'changeme').
+ * Session tokens are `iat.signature` HMAC-SHA256 pairs minted by
+ * lib/admin-auth.ts `grantAdminSession` — keep the verification here in sync
+ * (this file runs on the edge runtime, so it uses Web Crypto).
  */
 const COOKIE_NAME = 'ea_admin';
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-async function expectedToken(): Promise<string> {
-  const secret =
-    process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || 'changeme';
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(`${secret}::esportsamaze-admin`)
+async function hmacHex(data: string, key: string): Promise<string> {
+  const enc = new TextEncoder();
+  const keyObj = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(key),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
   );
-  return Array.from(new Uint8Array(digest))
+  const sig = await crypto.subtle.sign('HMAC', keyObj, enc.encode(data));
+  return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+// Constant-time string compare (both digests are fixed 64-char hex).
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function isValidSessionToken(token: string, secret: string): Promise<boolean> {
+  const dot = token.indexOf('.');
+  const iatPart = token.slice(0, dot);
+  const iat = parseInt(iatPart, 36);
+  if (!Number.isFinite(iat) || iat <= 0) return false;
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (nowSec - iat > SESSION_TTL_SECONDS || iat > nowSec + 60) return false;
+  const expected = await hmacHex(`admin-session:${iatPart}`, secret);
+  return safeEqual(token.slice(dot + 1), expected);
+}
+
+async function hasValidSession(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
+  if (!secret) {
+    // Fail closed in production; dev-only fallback secret must match admin-auth.ts.
+    return process.env.NODE_ENV !== 'production'
+      ? isValidSessionToken(token, 'changeme')
+      : false;
+  }
+  return isValidSessionToken(token, secret);
 }
 
 export async function proxy(request: NextRequest) {
@@ -29,8 +65,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  if (token && token === (await expectedToken())) {
+  if (await hasValidSession(request.cookies.get(COOKIE_NAME)?.value)) {
     return NextResponse.next();
   }
 

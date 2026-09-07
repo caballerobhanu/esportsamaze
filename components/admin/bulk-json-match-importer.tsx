@@ -27,6 +27,7 @@ import {
   type BulkUniversalImportResult,
   type BulkUniversalPlayerImportResult,
 } from '@/app/admin/(panel)/matches/matrix/actions';
+import { parseWwcd } from '@/lib/tournament-math';
 
 const USER_EXACT_TEAM_HEADERS =
   'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tteam\trank\twwcd\tplacePoints\telims\tbonusPoints\ttotalPoints\tsurvivalTime\tdamage\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tairdrops\trescues\tdistDrove\tdistWalk';
@@ -205,7 +206,10 @@ export function BulkJsonMatchImporter({
             break;
           case 'team_wwcd':
           case 'teamwwcd':
+          case 'iswwcd':
+          case 'is_wwcd':
             colMap['team_wwcd'] = idx;
+            colMap['wwcd'] = idx;
             break;
           case 'team_place':
           case 'teamplace':
@@ -232,7 +236,11 @@ export function BulkJsonMatchImporter({
             break;
           case 'wwcd':
           case 'winner':
+          case 'chicken':
+          case 'win':
+          case 'won':
             colMap['wwcd'] = idx;
+            colMap['team_wwcd'] = idx;
             break;
           case 'placepoints':
           case 'place_points':
@@ -415,7 +423,12 @@ export function BulkJsonMatchImporter({
             elims: getVal('elims', 12) != null ? Number(getVal('elims', 12)) : 0,
             playerPowerplay: getVal('playerpowerplay', 13) != null ? Number(getVal('playerpowerplay', 13)) : undefined,
             team_rank: getVal('team_rank', 14) != null ? Number(getVal('team_rank', 14)) : undefined,
-            team_wwcd: getVal('team_wwcd', 15) != null ? getVal('team_wwcd', 15) : undefined,
+            team_wwcd: (() => {
+              const raw = getVal('team_wwcd', 15) ?? getVal('wwcd');
+              if (raw != null) return parseWwcd(raw);
+              const r = getVal('team_rank', 14) != null ? Number(getVal('team_rank', 14)) : undefined;
+              return r === 1 ? true : undefined;
+            })(),
             team_place: getVal('team_place', 16) != null ? Number(getVal('team_place', 16)) : undefined,
             team_elims: getVal('team_elims', 17) != null ? Number(getVal('team_elims', 17)) : undefined,
             team_total: getVal('team_total', 18) != null ? Number(getVal('team_total', 18)) : undefined,
@@ -444,6 +457,10 @@ export function BulkJsonMatchImporter({
         }
 
         // Team Row fallback
+        const teamRankVal = getVal('rank', 10) != null ? Number(getVal('rank', 10)) : 1;
+        const rawTeamWwcd = getVal('wwcd', 11) ?? getVal('team_wwcd') ?? getVal('teamwwcd') ?? getVal('winner') ?? getVal('chicken') ?? getVal('win');
+        const isTeamWwcdVal = rawTeamWwcd != null ? parseWwcd(rawTeamWwcd, teamRankVal) : teamRankVal === 1;
+
         return {
           Tournament: getVal('tournament', 0) || '',
           Stage: getVal('stage', 1) || 'Grand Finals',
@@ -455,8 +472,8 @@ export function BulkJsonMatchImporter({
           Map: getVal('map', 7) || 'Erangel',
           Group: getVal('group', 8) || undefined,
           team: getVal('team', 9) || '',
-          rank: getVal('rank', 10) != null ? Number(getVal('rank', 10)) : 1,
-          wwcd: getVal('wwcd', 11) != null ? getVal('wwcd', 11) : undefined,
+          rank: teamRankVal,
+          wwcd: isTeamWwcdVal,
           placePoints: getVal('placepoints', 12) != null ? Number(getVal('placepoints', 12)) : undefined,
           elims: getVal('elims', 13) != null ? Number(getVal('elims', 13)) : 0,
           bonusPoints: getVal('bonuspoints', 14) != null ? Number(getVal('bonuspoints', 14)) : 0,
@@ -819,7 +836,13 @@ export function BulkJsonMatchImporter({
                               #{row.rank != null ? row.rank : '—'}
                             </td>
                             <td className="py-2 px-3 text-center">
-                              {row.wwcd === true || String(row.wwcd).toLowerCase() === 'true' ? '🏆 WWCD' : '—'}
+                              {parseWwcd(row.wwcd ?? row.team_wwcd, row.rank) ? (
+                                <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                                  <Trophy className="w-3.5 h-3.5 text-amber-500 shrink-0" /> WWCD
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
                             </td>
                             {parsedRows.some((r) => r.placePoints != null) && (
                               <td className="py-2 px-3 text-center text-slate-600 dark:text-slate-400">

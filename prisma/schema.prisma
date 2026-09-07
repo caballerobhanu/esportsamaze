@@ -77,6 +77,7 @@ model Team {
   rankingTransfersIn     RankingTransferRule[] @relation("RankingTransferNewTeam")
   tournamentsWon    Tournament[]      @relation("TournamentWinner")
   tournamentsRunnerUp Tournament[]    @relation("TournamentRunnerUp")
+  articles          Article[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 }
@@ -116,6 +117,9 @@ model Transfer {
   staffRole String?      // Set when this move is a staff appointment: "Coach", "Analyst"…
   date      DateTime
   notes     String?
+
+  @@index([playerId])
+  @@index([date])
 }
 
 model Organizer {
@@ -243,6 +247,7 @@ model Tournament {
   matches           Match[]
   teamRankings      TeamRanking[]
   playerRankings    PlayerRanking[]
+  articles          Article[]
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 }
@@ -250,7 +255,7 @@ model Tournament {
 model TeamRanking {
   id           String      @id @default(cuid())
   tournamentId String?
-  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
   tier         String
   endDate      DateTime
   teamId       String
@@ -258,13 +263,17 @@ model TeamRanking {
   rank         Int
   createdAt    DateTime    @default(now())
 
+  // Append-only history: a team can legitimately have multiple ranking rows
+  // per tournament across tier periods — no unique constraint here.
   @@index([tier, endDate])
+  @@index([teamId])
+  @@index([tournamentId])
 }
 
 model PlayerRanking {
   id           String      @id @default(cuid())
   tournamentId String?
-  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
   tier         String
   endDate      DateTime
   playerId     String
@@ -279,7 +288,10 @@ model PlayerRanking {
   emerging     Int         @default(0)
   createdAt    DateTime    @default(now())
 
+  // Append-only history (see TeamRanking)
   @@index([tier, endDate])
+  @@index([playerId])
+  @@index([tournamentId])
 }
 
 // Time-based point transfers: points a team earned on/before `before`
@@ -323,7 +335,7 @@ model TournamentTeam {
   seed             Int?
   seedLabel        String?     // Custom seed / entry reason (e.g. "Direct Invite", "BGIS 2026 Champion", "Survival Stage Slot")
   seedTournamentId String?     // Optional linked tournament ID if seeded from a prior event in DB
-  seedTournament   Tournament? @relation("TournamentTeamSeedEvent", fields: [seedTournamentId], references: [id])
+  seedTournament   Tournament? @relation("TournamentTeamSeedEvent", fields: [seedTournamentId], references: [id], onDelete: SetNull)
   finalRank        Int?
   prizeWon         Float?
   logoUrl          String?     // Event-specific team logo override (light)
@@ -332,6 +344,9 @@ model TournamentTeam {
   displayName      String?     // Event-specific display name override (e.g. sponsor name)
   country          String?     // Event-specific country override (name or ISO code)
   rosterJson       Json        // Array of player IGNs, roles, captain flag
+
+  @@unique([tournamentId, teamId])
+  @@index([teamId])
 }
 
 model Match {
@@ -339,9 +354,9 @@ model Match {
   tournamentId String
   tournament   Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   stageId      String?
-  stage        TournamentStage? @relation(fields: [stageId], references: [id])
+  stage        TournamentStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
   groupId      String?
-  group        TournamentGroup? @relation(fields: [groupId], references: [id])
+  group        TournamentGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   gameId       String
   game         Game             @relation(fields: [gameId], references: [id])
   matchNumber        Int?             @default(1)
@@ -359,6 +374,11 @@ model Match {
   games              MatchGame[]
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @default(now()) @updatedAt
+
+  @@index([tournamentId, matchNumber])
+  @@index([stageId])
+  @@index([groupId])
+  @@index([status, scheduledAt])
 }
 
 model MatchGame {
@@ -370,6 +390,8 @@ model MatchGame {
   duration    Int?              // Duration in seconds
   teamResults MatchTeamResult[]
   playerStats MatchPlayerStat[]
+
+  @@index([matchId])
 }
 
 model MatchTeamResult {
@@ -409,6 +431,11 @@ model MatchTeamResult {
   won            Boolean   @default(false) // Legacy alias for won
   score          Int?      // Legacy score
   rawData        Json?
+
+  // One result row per team per game — without this, double-submits or two
+  // concurrent admins silently double-count a team's points in standings.
+  @@unique([matchGameId, teamId])
+  @@index([teamId])
 }
 
 model MatchPlayerStat {
@@ -454,4 +481,108 @@ model MatchPlayerStat {
   kills          Int       @default(0) // Legacy alias for playerElims
   deaths         Int       @default(0)
   rawData        Json?
+
+  // One stat row per player per game (see MatchTeamResult for the rationale).
+  @@unique([matchGameId, playerId])
+  @@index([playerId])
+  @@index([teamId])
 }
+
+model Article {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  excerpt         String?
+  content         String       @db.Text
+  coverImage      String?
+  category        String       @default("GENERAL") // TOURNAMENTS, ROSTERS, ANALYSIS, INTERVIEWS, GENERAL
+  tags            String[]     @default([])
+  authorName      String       @default("Esports Amaze Staff")
+  authorRole      String?      @default("Editor")
+  featured        Boolean      @default(false)
+  status          String       @default("PUBLISHED") // DRAFT, SCHEDULED, PUBLISHED
+  readTimeMinutes Int          @default(3)
+  publishedAt     DateTime     @default(now())
+  views           Int          @default(0)
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  focusKeyword    String?
+
+  tournamentId    String?
+  tournament      Tournament?  @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+
+  teamId          String?
+  team            Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  revisions ArticleRevision[]
+  reactions ArticleReaction[]
+  comments  Comment[]
+
+  @@index([publishedAt])
+  @@index([category])
+  @@index([featured])
+}
+
+model ArticleRevision {
+  id              String   @id @default(cuid())
+  article         Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId       String
+  title           String
+  excerpt         String?
+  content         String   @db.Text
+  coverImage      String?
+  tags            String[] @default([])
+  authorName      String
+  authorRole      String?
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  focusKeyword    String?
+  wordCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([articleId, createdAt])
+}
+
+model ArticleReaction {
+  id        String   @id @default(cuid())
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId String
+  sessionId String
+  kind      String   @default("LIKE") // LIKE, HYPE, INSIGHT
+  createdAt DateTime @default(now())
+
+  @@unique([articleId, sessionId, kind])
+  @@index([articleId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  articleId  String
+  authorName String   @default("Guest")
+  body       String   @db.Text
+  status     String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt  DateTime @default(now())
+
+  @@index([articleId, status])
+  @@index([status])
+}
+
+model MediaAsset {
+  id           String   @id @default(cuid())
+  filename     String   @unique
+  originalName String?
+  mimeType     String?
+  size         Int      @default(0)
+  alt          String?
+  createdAt    DateTime @default(now())
+}
+

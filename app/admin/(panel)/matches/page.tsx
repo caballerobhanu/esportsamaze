@@ -13,6 +13,7 @@ import {
   computeUtilitiesTotal,
   computeTotalDistance,
   computeTotalPoints,
+  readKillMultiplier,
 } from '@/lib/tournament-math';
 import { MatchInfoInputs } from '@/components/admin/match-info-inputs';
 import { MatchBatchImporter } from '@/components/admin/match-batch-importer';
@@ -129,13 +130,15 @@ async function saveMatch(formData: FormData) {
     redirect(`/admin/matches?error=required${id ? `&edit=${id}` : ''}`);
   }
 
+  // VOD links JSON — a malformed payload aborts the save with a visible error
+  // instead of silently dropping the admin's data.
   let vods: any = null;
   const vodsRaw = fStr(formData, 'vodsJson');
   if (vodsRaw) {
     try {
       vods = JSON.parse(vodsRaw);
     } catch {
-      vods = null;
+      redirect(`/admin/matches?error=json&field=vods${id ? `&edit=${id}` : ''}`);
     }
   }
 
@@ -294,11 +297,6 @@ async function saveTeamResult(formData: FormData) {
   const distWalk = fNum(formData, 'distWalk') ?? 0;
   const totalDist = computeTotalDistance({ distDrove, distWalk });
 
-  const existing = await prisma.matchTeamResult.findFirst({
-    where: { matchGameId, teamId },
-    select: { id: true },
-  });
-
   const payload = {
     shortCode: fOpt(formData, 'shortCode'),
     mp: fNum(formData, 'mp') ?? 1,
@@ -332,11 +330,13 @@ async function saveTeamResult(formData: FormData) {
     score: totalPoints,
   };
 
-  if (existing) {
-    await prisma.matchTeamResult.update({ where: { id: existing.id }, data: payload });
-  } else {
-    await prisma.matchTeamResult.create({ data: { matchGameId, teamId, ...payload } });
-  }
+  await prisma.matchTeamResult.upsert({
+    where: {
+      matchGameId_teamId: { matchGameId, teamId },
+    },
+    update: payload,
+    create: { matchGameId, teamId, ...payload },
+  });
 
   const mg = await prisma.matchGame.findUnique({
     where: { id: matchGameId },
@@ -428,21 +428,13 @@ async function savePlayerStat(formData: FormData) {
     kills: playerElims,
   };
 
-  const existing = await prisma.matchPlayerStat.findFirst({
-    where: { matchGameId, playerId },
-    select: { id: true },
+  await prisma.matchPlayerStat.upsert({
+    where: {
+      matchGameId_playerId: { matchGameId, playerId },
+    },
+    update: payload,
+    create: { matchGameId, playerId, ...payload },
   });
-
-  if (existing) {
-    await prisma.matchPlayerStat.update({
-      where: { id: existing.id },
-      data: payload,
-    });
-  } else {
-    await prisma.matchPlayerStat.create({
-      data: { matchGameId, playerId, ...payload },
-    });
-  }
 
   const mg = await prisma.matchGame.findUnique({
     where: { id: matchGameId },
@@ -484,85 +476,92 @@ async function importBatchTeamResultsAction(formData: FormData) {
   try {
     rows = JSON.parse(rowsJson);
   } catch {
-    rows = [];
+    redirect(`/admin/matches?error=json&field=team-results${matchId ? `&edit=${matchId}` : ''}`);
   }
 
   if (rows.length > 0) {
-    if (replaceExisting) {
-      await prisma.matchTeamResult.deleteMany({ where: { matchGameId } });
-    }
-
-    for (const r of rows) {
-      if (!r.teamId) continue;
-      const rank = Number(r.rank || 1);
-      const isWwcd = r.wwcd === true || rank === 1;
-      const placePoints = Number(r.placePoints || 0);
-      const elimsPoints = Number(r.elimsPoints || 0);
-      const bonusPoints = Number(r.bonusPoints || 0);
-      const totalPoints = Number(r.totalPoints || (placePoints + elimsPoints + bonusPoints));
-
-      const smokesUsed = Number(r.smokesUsed || 0);
-      const grenadesUsed = Number(r.grenadesUsed || 0);
-      const molotovsUsed = Number(r.molotovsUsed || 0);
-      const flashUsed = Number(r.flashUsed || 0);
-      const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
-
-      const distDrove = Number(r.distDrove || 0);
-      const distWalk = Number(r.distWalk || 0);
-      const totalDist = computeTotalDistance({ distDrove, distWalk });
-
-      const payload = {
-        shortCode: r.shortCode || null,
-        mp: Number(r.mp || 1),
-        rank,
-        wwcd: isWwcd,
-        placePoints,
-        elimsPoints,
-        bonusPoints,
-        totalPoints,
-        damage: Number(r.damage || 0),
-        survivalTime: Number(r.survivalTime || 1680),
-        healing: Number(r.healing || 0),
-        damageReceived: Number(r.damageReceived || 0),
-        headshots: Number(r.headshots || 0),
-        assists: Number(r.assists || 0),
-        knockouts: Number(r.knockouts || 0),
-        longestElim: Number(r.longestElim || 0),
-        vehicleElims: Number(r.vehicleElims || 0),
-        grenadeElims: Number(r.grenadeElims || 0),
-        smokesUsed,
-        grenadesUsed,
-        molotovsUsed,
-        flashUsed,
-        utilitiesTotal,
-        airdrops: Number(r.airdrops || 0),
-        rescues: Number(r.rescues || 0),
-        distDrove,
-        distWalk,
-        totalDist,
-        won: isWwcd,
-        score: totalPoints,
-      };
-
-      if (!replaceExisting) {
-        const existing = await prisma.matchTeamResult.findFirst({
-          where: { matchGameId, teamId: r.teamId },
-          select: { id: true },
-        });
-        if (existing) {
-          await prisma.matchTeamResult.update({ where: { id: existing.id }, data: payload });
-          continue;
-        }
+    await prisma.$transaction(async (tx) => {
+      if (replaceExisting) {
+        await tx.matchTeamResult.deleteMany({ where: { matchGameId } });
       }
 
-      await prisma.matchTeamResult.create({
-        data: {
-          matchGameId,
-          teamId: r.teamId,
-          ...payload,
-        },
-      });
-    }
+      for (const r of rows) {
+        if (!r.teamId) continue;
+        const rank = Number(r.rank || 1);
+        const isWwcd = r.wwcd === true || rank === 1;
+        const placePoints = Number(r.placePoints || 0);
+        const elimsPoints = Number(r.elimsPoints || 0);
+        const bonusPoints = Number(r.bonusPoints || 0);
+        const totalPoints = Number(r.totalPoints || (placePoints + elimsPoints + bonusPoints));
+
+        const smokesUsed = Number(r.smokesUsed || 0);
+        const grenadesUsed = Number(r.grenadesUsed || 0);
+        const molotovsUsed = Number(r.molotovsUsed || 0);
+        const flashUsed = Number(r.flashUsed || 0);
+        const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
+
+        const distDrove = Number(r.distDrove || 0);
+        const distWalk = Number(r.distWalk || 0);
+        const totalDist = computeTotalDistance({ distDrove, distWalk });
+
+        const payload = {
+          shortCode: r.shortCode || null,
+          mp: Number(r.mp || 1),
+          rank,
+          wwcd: isWwcd,
+          placePoints,
+          elimsPoints,
+          bonusPoints,
+          totalPoints,
+          damage: Number(r.damage || 0),
+          survivalTime: Number(r.survivalTime || 1680),
+          healing: Number(r.healing || 0),
+          damageReceived: Number(r.damageReceived || 0),
+          headshots: Number(r.headshots || 0),
+          assists: Number(r.assists || 0),
+          knockouts: Number(r.knockouts || 0),
+          longestElim: Number(r.longestElim || 0),
+          vehicleElims: Number(r.vehicleElims || 0),
+          grenadeElims: Number(r.grenadeElims || 0),
+          smokesUsed,
+          grenadesUsed,
+          molotovsUsed,
+          flashUsed,
+          utilitiesTotal,
+          airdrops: Number(r.airdrops || 0),
+          rescues: Number(r.rescues || 0),
+          distDrove,
+          distWalk,
+          totalDist,
+          won: isWwcd,
+          score: totalPoints,
+        };
+
+        if (!replaceExisting) {
+          // One result row per (game, team) — DB-enforced, race-safe upsert.
+          await tx.matchTeamResult.upsert({
+            where: {
+              matchGameId_teamId: { matchGameId, teamId: r.teamId },
+            },
+            update: payload,
+            create: {
+              matchGameId,
+              teamId: r.teamId,
+              ...payload,
+            },
+          });
+          continue;
+        }
+
+        await tx.matchTeamResult.create({
+          data: {
+            matchGameId,
+            teamId: r.teamId,
+            ...payload,
+          },
+        });
+      }
+    });
 
     // Automatically set match status to COMPLETED once full team scorecards are saved
     if (matchId) {
@@ -593,84 +592,91 @@ async function importBatchPlayerStatsAction(formData: FormData) {
   try {
     rows = JSON.parse(rowsJson);
   } catch {
-    rows = [];
+    redirect(`/admin/matches?error=json&field=player-stats${matchId ? `&edit=${matchId}` : ''}`);
   }
 
   if (rows.length > 0) {
-    if (replaceExisting) {
-      await prisma.matchPlayerStat.deleteMany({ where: { matchGameId } });
-    }
-
-    for (const r of rows) {
-      if (!r.playerId) continue;
-      const playerElims = Number(r.playerElims || r.elims || 0);
-
-      const smokesUsed = Number(r.smokesUsed || 0);
-      const grenadesUsed = Number(r.grenadesUsed || 0);
-      const molotovsUsed = Number(r.molotovsUsed || 0);
-      const flashUsed = Number(r.flashUsed || 0);
-      const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
-
-      const distDrove = Number(r.distDrove || 0);
-      const distWalk = Number(r.distWalk || 0);
-      const totalDist = computeTotalDistance({ distDrove, distWalk });
-
-      const payload = {
-        teamId: r.teamId || null,
-        shortCode: r.shortCode || null,
-        role: r.role || null,
-        mp: Number(r.mp || 1),
-        playerElims,
-        teamRank: Number(r.teamRank || 0),
-        teamWwcd: r.teamWwcd === true,
-        teamPlacePoints: Number(r.teamPlacePoints || 0),
-        teamElimsPoints: Number(r.teamElimsPoints || 0),
-        teamBonusPoints: Number(r.teamBonusPoints || 0),
-        teamTotalPoints: Number(r.teamTotalPoints || 0),
-        damage: Number(r.damage || 0),
-        survivalTime: Number(r.survivalTime || 0),
-        healing: Number(r.healing || 0),
-        damageReceived: Number(r.damageReceived || 0),
-        headshots: Number(r.headshots || 0),
-        assists: Number(r.assists || 0),
-        knockouts: Number(r.knockouts || 0),
-        longestElim: Number(r.longestElim || 0),
-        vehicleElims: Number(r.vehicleElims || 0),
-        grenadeElims: Number(r.grenadeElims || 0),
-        smokesUsed,
-        grenadesUsed,
-        molotovsUsed,
-        flashUsed,
-        utilitiesTotal,
-        airdrops: Number(r.airdrops || 0),
-        rescues: Number(r.rescues || 0),
-        distDrove,
-        distWalk,
-        totalDist,
-        isMvp: r.isMvp === true,
-        playerPowerplay: Number(r.playerPowerplay || 0),
-        kills: playerElims,
-      };
-
-      if (!replaceExisting) {
-        const existing = await prisma.matchPlayerStat.findFirst({
-          where: { matchGameId, playerId: r.playerId },
-          select: { id: true },
-        });
-        if (existing) {
-          await prisma.matchPlayerStat.update({ where: { id: existing.id }, data: payload });
-          continue;
-        }
+    await prisma.$transaction(async (tx) => {
+      if (replaceExisting) {
+        await tx.matchPlayerStat.deleteMany({ where: { matchGameId } });
       }
 
-      await prisma.matchPlayerStat.create({
-        data: {
-          matchGameId,
-          playerId: r.playerId,
-          ...payload,
-        },
-      });
-    }
+      for (const r of rows) {
+        if (!r.playerId) continue;
+        const playerElims = Number(r.playerElims || r.elims || 0);
+
+        const smokesUsed = Number(r.smokesUsed || 0);
+        const grenadesUsed = Number(r.grenadesUsed || 0);
+        const molotovsUsed = Number(r.molotovsUsed || 0);
+        const flashUsed = Number(r.flashUsed || 0);
+        const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
+
+        const distDrove = Number(r.distDrove || 0);
+        const distWalk = Number(r.distWalk || 0);
+        const totalDist = computeTotalDistance({ distDrove, distWalk });
+
+        const payload = {
+          teamId: r.teamId || null,
+          shortCode: r.shortCode || null,
+          role: r.role || null,
+          mp: Number(r.mp || 1),
+          playerElims,
+          teamRank: Number(r.teamRank || 0),
+          teamWwcd: r.teamWwcd === true,
+          teamPlacePoints: Number(r.teamPlacePoints || 0),
+          teamElimsPoints: Number(r.teamElimsPoints || 0),
+          teamBonusPoints: Number(r.teamBonusPoints || 0),
+          teamTotalPoints: Number(r.teamTotalPoints || 0),
+          damage: Number(r.damage || 0),
+          survivalTime: Number(r.survivalTime || 0),
+          healing: Number(r.healing || 0),
+          damageReceived: Number(r.damageReceived || 0),
+          headshots: Number(r.headshots || 0),
+          assists: Number(r.assists || 0),
+          knockouts: Number(r.knockouts || 0),
+          longestElim: Number(r.longestElim || 0),
+          vehicleElims: Number(r.vehicleElims || 0),
+          grenadeElims: Number(r.grenadeElims || 0),
+          smokesUsed,
+          grenadesUsed,
+          molotovsUsed,
+          flashUsed,
+          utilitiesTotal,
+          airdrops: Number(r.airdrops || 0),
+          rescues: Number(r.rescues || 0),
+          distDrove,
+          distWalk,
+          totalDist,
+          isMvp: r.isMvp === true,
+          playerPowerplay: Number(r.playerPowerplay || 0),
+          kills: playerElims,
+        };
+
+        if (!replaceExisting) {
+          // One stat row per (game, player) — DB-enforced, race-safe upsert.
+          await tx.matchPlayerStat.upsert({
+            where: {
+              matchGameId_playerId: { matchGameId, playerId: r.playerId },
+            },
+            update: payload,
+            create: {
+              matchGameId,
+              playerId: r.playerId,
+              ...payload,
+            },
+          });
+          continue;
+        }
+
+        await tx.matchPlayerStat.create({
+          data: {
+            matchGameId,
+            playerId: r.playerId,
+            ...payload,
+          },
+        });
+      }
+    });
   }
 
   revalidatePath('/admin/matches');
@@ -683,9 +689,9 @@ async function importBatchPlayerStatsAction(formData: FormData) {
 export default async function AdminMatchesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; error?: string; tournamentId?: string; stage?: string; openNew?: string }>;
+  searchParams: Promise<{ edit?: string; error?: string; field?: string; tournamentId?: string; stage?: string; openNew?: string }>;
 }) {
-  const { edit, error, tournamentId, stage, openNew } = await searchParams;
+  const { edit, error, field, tournamentId, stage, openNew } = await searchParams;
 
   const [tournaments, games, teams, players, allMatchesList] = await Promise.all([
     prisma.tournament.findMany({
@@ -706,6 +712,11 @@ export default async function AdminMatchesPage({
       select: { id: true, ign: true, role: true, currentTeamId: true, currentTeam: { select: { tag: true } } },
     }),
     prisma.match.findMany({
+      where: {
+        ...(tournamentId ? { tournamentId } : {}),
+        ...(stage ? { stageId: stage } : {}),
+      },
+      take: tournamentId ? 200 : 100,
       orderBy: { scheduledAt: 'desc' },
       include: {
         tournament: { select: { id: true, name: true, slug: true } },
@@ -746,14 +757,22 @@ export default async function AdminMatchesPage({
       })
     : null;
 
-  // Fetch sibling matches in the same tournament for quick standings reuse / cloning
+  // Fetch sibling matches in the same tournament for quick standings reuse / cloning.
+  // Only the first game of each match is consumed by the mapping below — take: 1
+  // keeps the query from dragging in every game's full stat rows.
   const otherTournamentMatches = editing?.tournamentId
     ? await prisma.match.findMany({
         where: { tournamentId: editing.tournamentId },
         orderBy: { matchNumber: 'asc' },
-        include: {
+        select: {
+          id: true,
+          format: true,
+          matchNumber: true,
+          mapName: true,
           games: {
-            include: {
+            take: 1,
+            orderBy: { sequence: 'asc' },
+            select: {
               teamResults: { include: { team: { select: { name: true, tag: true } } } },
               playerStats: { include: { player: { select: { ign: true } }, team: { select: { name: true, tag: true } } } },
             },
@@ -774,11 +793,13 @@ export default async function AdminMatchesPage({
   const activeMatchGame = editing?.games[0];
 
   let tournamentPointsMatrix: any = undefined;
-  let tournamentKillMultiplier = 1;
-  if (editing?.tournament?.formatDetails && typeof editing.tournament.formatDetails === 'object') {
-    const fd = editing.tournament.formatDetails as any;
+  const editingFormatDetails = editing?.tournament?.formatDetails;
+  // Reads every historical kill-multiplier key (killPointsPerElim, killMultiplier,
+  // killPoints, killPointsMultiplier) so old tournaments keep scoring correctly.
+  const tournamentKillMultiplier = readKillMultiplier(editingFormatDetails);
+  if (editingFormatDetails && typeof editingFormatDetails === 'object') {
+    const fd = editingFormatDetails as any;
     if (fd.placementPoints) tournamentPointsMatrix = fd.placementPoints;
-    if (fd.killPointsMultiplier != null) tournamentKillMultiplier = Number(fd.killPointsMultiplier) || 1;
   }
 
   // Pre-selected tournament object if adding from tournament/stage shortcut
@@ -822,6 +843,12 @@ export default async function AdminMatchesPage({
       {error === 'delete-failed' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           The record could not be deleted — it was already removed or is still referenced by another entry.
+        </p>
+      )}
+      {error === 'json' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          An uploaded data payload{field ? ` (${field})` : ''} could not be parsed, so nothing was
+          imported. Fix the JSON in the importer and try again.
         </p>
       )}
 

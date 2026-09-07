@@ -232,6 +232,49 @@ export function computeTotalPoints(data: {
   );
 }
 
+/**
+ * Admin-configured scoring details (stored as tournament.formatDetails JSON).
+ * `killPointsPerElim` is the canonical kill-multiplier key; the other three
+ * are historical keys that still appear on older/imported tournaments.
+ */
+export interface TournamentFormatDetails {
+  pointsSystem?: string;
+  placementPoints?: Record<number, number> | null;
+  killPointsPerElim?: number;
+  killPoints?: number;
+  killMultiplier?: number;
+  killPointsMultiplier?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Resolve the kill/finish-points multiplier from tournament formatDetails.
+ * Accepts an object or a JSON string and checks every historical key
+ * (killPointsPerElim → killMultiplier → killPoints → killPointsMultiplier)
+ * so tournaments configured before the key was unified keep scoring correctly.
+ */
+export function readKillMultiplier(fd: unknown, fallback = 1): number {
+  if (fd == null) return fallback;
+  let obj: unknown = fd;
+  if (typeof fd === 'string') {
+    try {
+      obj = JSON.parse(fd);
+    } catch {
+      return fallback;
+    }
+  }
+  if (typeof obj !== 'object' || obj === null) return fallback;
+  const rec = obj as Record<string, unknown>;
+  for (const key of ['killPointsPerElim', 'killMultiplier', 'killPoints', 'killPointsMultiplier']) {
+    const raw = rec[key];
+    if (raw !== undefined && raw !== null && raw !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+  }
+  return fallback;
+}
+
 export interface PointsSystemPreset {
   id: string;
   name: string;
@@ -618,3 +661,25 @@ export function calculateTournamentFraggers(
     rank: index + 1,
   }));
 }
+
+/**
+ * Parses survival time from seconds (number or string), MM:SS, or HH:MM:SS format.
+ * Returns duration in seconds.
+ */
+export function parseSurvivalSeconds(val: unknown, fallback = 0): number {
+  if (val == null) return fallback;
+  const s = String(val).trim();
+  if (!s) return fallback;
+  if (s.includes(':')) {
+    const parts = s.split(':').map((p) => parseInt(p, 10) || 0);
+    if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    }
+    if (parts.length === 2) {
+      return parts[0] * 60 + parts[1];
+    }
+  }
+  const n = Number(s);
+  return !isNaN(n) ? Math.round(n) : fallback;
+}
+

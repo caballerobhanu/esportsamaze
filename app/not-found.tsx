@@ -4,7 +4,7 @@ import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 
 export const metadata: Metadata = {
-  title: 'Page Not Found — Esports Amaze',
+  title: 'Page Not Found — eSportsAmaze',
 };
 
 export default function NotFound() {

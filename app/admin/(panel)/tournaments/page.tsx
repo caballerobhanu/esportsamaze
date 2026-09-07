@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save, Copy } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
@@ -31,6 +31,7 @@ import { TournamentFinalRankingsInput } from '@/components/admin/tournament-fina
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
+import { TournamentLiquipediaImporter } from '@/components/admin/tournament-liquipedia-importer';
 import { matchStageLabel } from '@/lib/standings-config';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
 
@@ -39,6 +40,20 @@ export const dynamic = 'force-dynamic';
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
+
+/**
+ * Parse a JSON form field. A malformed payload aborts the whole save with a
+ * visible error — silently dropping admin-entered data (or, worse, feeding an
+ * empty parsed list into the squads delete sweep) is never acceptable.
+ */
+function parseJsonField<T>(raw: string | null | undefined, field: string): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    redirect(`/admin/tournaments?error=json&field=${encodeURIComponent(field)}`);
+  }
+}
 
 async function saveTournament(formData: FormData) {
   'use server';
@@ -84,51 +99,24 @@ async function saveTournament(formData: FormData) {
     : [];
 
   // Prize pool distribution JSON (multi-stage or flat)
-  let prizeDistribution: any = null;
-  const prizeDistRaw = fStr(formData, 'prizeDistribution');
-  if (prizeDistRaw) {
-    try {
-      prizeDistribution = JSON.parse(prizeDistRaw);
-    } catch {
-      prizeDistribution = null;
-    }
-  }
+  const prizeDistribution = parseJsonField<any>(fStr(formData, 'prizeDistribution'), 'prize distribution');
 
   // Qualifications / Seeded Events JSON
-  let qualifications: any = null;
-  const qualsRaw = fStr(formData, 'qualificationsJson');
-  if (qualsRaw) {
-    try {
-      qualifications = JSON.parse(qualsRaw);
-    } catch {
-      qualifications = null;
-    }
-  }
+  const qualifications = parseJsonField<any>(fStr(formData, 'qualificationsJson'), 'qualifications');
 
   // Team Final Rankings JSON
-  let teamRankingsList: Array<{
-    teamId: string;
-    rank: number;
-    prizeWon?: number;
-    qualifications?: string[];
-  }> = [];
-  const teamRankingsRaw = fStr(formData, 'teamRankingsJson');
-  if (teamRankingsRaw) {
-    try {
-      teamRankingsList = JSON.parse(teamRankingsRaw);
-    } catch {}
-  }
+  const teamRankingsList = parseJsonField<
+    Array<{
+      teamId: string;
+      rank: number;
+      prizeWon?: number;
+      qualifications?: string[];
+    }>
+  >(fStr(formData, 'teamRankingsJson'), 'final rankings') ?? [];
 
   // Format details JSON (points system, placement points, kill points multiplier, featured stage)
-  let formatDetails: any = null;
   const formatDetailsRaw = fStr(formData, 'formatDetailsJson') || fStr(formData, 'formatDetails');
-  if (formatDetailsRaw) {
-    try {
-      formatDetails = JSON.parse(formatDetailsRaw);
-    } catch {
-      formatDetails = { description: formatDetailsRaw };
-    }
-  }
+  let formatDetails = parseJsonField<any>(formatDetailsRaw, 'points system');
 
   const featuredStage = fStr(formData, 'featuredStage')?.trim() || null;
   if (featuredStage || formatDetails) {
@@ -139,39 +127,25 @@ async function saveTournament(formData: FormData) {
   }
 
   // Standings display configuration (logo mode, overall tab, filters, columns, zones, per-stage)
-  let standingsConfig: any = null;
-  const standingsConfigRaw = fStr(formData, 'standingsConfigJson');
-  if (standingsConfigRaw) {
-    try {
-      standingsConfig = JSON.parse(standingsConfigRaw);
-    } catch {
-      standingsConfig = null;
-    }
-  }
+  const standingsConfig = parseJsonField<any>(fStr(formData, 'standingsConfigJson'), 'standings config');
 
   // Participating squads (seeds, rosters, event logo overrides)
-  let squadsSubmitted = false;
-  let squadsList: Array<{
-    teamId: string;
-    seed?: number | null;
-    seedLabel?: string | null;
-    seedTournamentId?: string | null;
-    roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean; isStaff?: boolean }>;
-    eventLogoUrl?: string | null;
-    eventLogoDarkUrl?: string | null;
-    shortName?: string | null;
-    displayName?: string | null;
-    country?: string | null;
-  }> = [];
   const squadsRaw = fStr(formData, 'squadsJson');
-  if (squadsRaw) {
-    squadsSubmitted = true;
-    try {
-      squadsList = JSON.parse(squadsRaw);
-    } catch {
-      squadsList = [];
-    }
-  }
+  const squadsSubmitted = Boolean(squadsRaw);
+  const squadsList = parseJsonField<
+    Array<{
+      teamId: string;
+      seed?: number | null;
+      seedLabel?: string | null;
+      seedTournamentId?: string | null;
+      roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean; isStaff?: boolean }>;
+      eventLogoUrl?: string | null;
+      eventLogoDarkUrl?: string | null;
+      shortName?: string | null;
+      displayName?: string | null;
+      country?: string | null;
+    }>
+  >(squadsRaw, 'squads') ?? [];
 
   // Parse Sponsors from sponsorsJson (with typeahead and customizable tier labels)
   let sponsorLinks: Array<{ sponsorId: string; tier: string | null }> = [];
@@ -444,150 +418,153 @@ async function saveTournament(formData: FormData) {
 
   let tournamentId = id;
 
-  if (id) {
-    const existing = await prisma.tournament.findUnique({
-      where: { id },
-      select: { imageUrl: true, imageDarkUrl: true, bannerUrl: true },
-    });
-
-    await prisma.tournament.update({
-      where: { id },
-      data: {
-        ...commonData,
-        game: { connect: { id: gameId } },
-        winnerTeam: winnerTeamId ? { connect: { id: winnerTeamId } } : { disconnect: true },
-        runnerUpTeam: runnerUpTeamId ? { connect: { id: runnerUpTeamId } } : { disconnect: true },
-        imageUrl: imageUpload ?? fOpt(formData, 'imageUrl') ?? existing?.imageUrl ?? null,
-        imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl') ?? existing?.imageDarkUrl ?? null,
-        bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
-      },
-    });
-
-    // Update relations
-    await prisma.tournamentOrganizer.deleteMany({ where: { tournamentId: id } });
-    if (organizerLinks.length > 0) {
-      await prisma.tournamentOrganizer.createMany({
-        data: organizerLinks.map((ol) => ({
-          tournamentId: id,
-          organizerId: ol.organizerId,
-          role: ol.role,
-        })),
+  // The save touches the tournament row plus organizers, sponsors, venues,
+  // squads and final rankings. Run it as one transaction so a mid-way failure
+  // can never leave a half-updated tournament (or wiped relations) behind.
+  await prisma.$transaction(async (tx) => {
+    if (id) {
+      const existing = await tx.tournament.findUnique({
+        where: { id },
+        select: { imageUrl: true, imageDarkUrl: true, bannerUrl: true },
       });
-    }
 
-    await prisma.tournamentSponsor.deleteMany({ where: { tournamentId: id } });
-    if (sponsorLinks.length > 0) {
-      await prisma.tournamentSponsor.createMany({
-        data: sponsorLinks.map((sl) => ({
-          tournamentId: id,
-          sponsorId: sl.sponsorId,
-          tier: sl.tier,
-        })),
+      await tx.tournament.update({
+        where: { id },
+        data: {
+          ...commonData,
+          game: { connect: { id: gameId } },
+          winnerTeam: winnerTeamId ? { connect: { id: winnerTeamId } } : { disconnect: true },
+          runnerUpTeam: runnerUpTeamId ? { connect: { id: runnerUpTeamId } } : { disconnect: true },
+          imageUrl: imageUpload ?? fOpt(formData, 'imageUrl') ?? existing?.imageUrl ?? null,
+          imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl') ?? existing?.imageDarkUrl ?? null,
+          bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
+        },
       });
-    }
 
-    await prisma.tournamentVenue.deleteMany({ where: { tournamentId: id } });
-    if (venueLinks.length > 0) {
-      await prisma.tournamentVenue.createMany({
-        data: venueLinks.map((vl) => ({
-          tournamentId: id,
-          venueId: vl.venueId,
-          stageName: vl.stageName,
-        })),
-      });
-    }
-  } else {
-    const created = await prisma.tournament.create({
-      data: {
-        ...commonData,
-        game: { connect: { id: gameId } },
-        ...(winnerTeamId ? { winnerTeam: { connect: { id: winnerTeamId } } } : {}),
-        ...(runnerUpTeamId ? { runnerUpTeam: { connect: { id: runnerUpTeamId } } } : {}),
-        imageUrl: imageUpload ?? fOpt(formData, 'imageUrl'),
-        imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl'),
-        bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
-        organizers: {
-          create: organizerLinks.map((ol) => ({
+      // Update relations
+      await tx.tournamentOrganizer.deleteMany({ where: { tournamentId: id } });
+      if (organizerLinks.length > 0) {
+        await tx.tournamentOrganizer.createMany({
+          data: organizerLinks.map((ol) => ({
+            tournamentId: id,
             organizerId: ol.organizerId,
             role: ol.role,
           })),
-        },
-        sponsors: {
-          create: sponsorLinks.map((sl) => ({
+        });
+      }
+
+      await tx.tournamentSponsor.deleteMany({ where: { tournamentId: id } });
+      if (sponsorLinks.length > 0) {
+        await tx.tournamentSponsor.createMany({
+          data: sponsorLinks.map((sl) => ({
+            tournamentId: id,
             sponsorId: sl.sponsorId,
             tier: sl.tier,
           })),
-        },
-        venues: {
-          create: venueLinks.map((vl) => ({ venueId: vl.venueId, stageName: vl.stageName })),
-        },
-      },
-    });
-    tournamentId = created.id;
-  }
-
-  // Participating squads: seeds, rosters and event logo overrides (runs before rankings
-  // so the rankings block can still attach finalRank/prizeWon to the same rows)
-  if (squadsSubmitted && tournamentId) {
-    for (let i = 0; i < squadsList.length; i++) {
-      const squad = squadsList[i];
-      if (!squad?.teamId) continue;
-      const [logoLight, logoDark] = await Promise.all([
-        saveUploadedFile(formData.get(`squadLogoLight${i}`), 'squad-logo-light'),
-        saveUploadedFile(formData.get(`squadLogoDark${i}`), 'squad-logo-dark'),
-      ]);
-      const data = {
-        seed: squad.seed ?? null,
-        seedLabel: squad.seedLabel ?? null,
-        seedTournamentId: squad.seedTournamentId ?? null,
-        rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p) => ({
-          playerId: p.playerId ?? null,
-          ign: String(p.ign ?? ''),
-          role: p.role ?? null,
-          captain: !!p.captain,
-          isStaff: !!p.isStaff,
-        })),
-        logoUrl: logoLight ?? (squad.eventLogoUrl || null),
-        logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
-        shortName: squad.shortName ?? null,
-        displayName: squad.displayName ?? null,
-        country: squad.country ?? null,
-      };
-      const existing = await prisma.tournamentTeam.findFirst({
-        where: { tournamentId, teamId: squad.teamId },
-      });
-      if (existing) {
-        await prisma.tournamentTeam.update({ where: { id: existing.id }, data });
-      } else {
-        await prisma.tournamentTeam.create({
-          data: { tournamentId, teamId: squad.teamId, finalRank: null, prizeWon: null, ...data },
         });
       }
-    }
-    const protectedIds = [
-      ...squadsList.map((s) => s.teamId).filter(Boolean),
-      ...teamRankingsList.map((r) => r.teamId).filter(Boolean),
-    ];
-    await prisma.tournamentTeam.deleteMany({
-      where: { tournamentId, teamId: { notIn: protectedIds } },
-    });
-  }
 
-  // Update or insert TournamentTeam records for final event rankings
-  if (teamRankingsList.length > 0 && tournamentId) {
-    for (const r of teamRankingsList) {
-      if (!r.teamId) continue;
-      const existingTT = await prisma.tournamentTeam.findFirst({
-        where: { tournamentId, teamId: r.teamId },
-      });
-      if (existingTT) {
-        await prisma.tournamentTeam.update({
-          where: { id: existingTT.id },
-          data: { finalRank: r.rank, prizeWon: r.prizeWon || 0 },
+      await tx.tournamentVenue.deleteMany({ where: { tournamentId: id } });
+      if (venueLinks.length > 0) {
+        await tx.tournamentVenue.createMany({
+          data: venueLinks.map((vl) => ({
+            tournamentId: id,
+            venueId: vl.venueId,
+            stageName: vl.stageName,
+          })),
         });
-      } else {
-        await prisma.tournamentTeam.create({
-          data: {
+      }
+    } else {
+      const created = await tx.tournament.create({
+        data: {
+          ...commonData,
+          game: { connect: { id: gameId } },
+          ...(winnerTeamId ? { winnerTeam: { connect: { id: winnerTeamId } } } : {}),
+          ...(runnerUpTeamId ? { runnerUpTeam: { connect: { id: runnerUpTeamId } } } : {}),
+          imageUrl: imageUpload ?? fOpt(formData, 'imageUrl'),
+          imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl'),
+          bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
+          organizers: {
+            create: organizerLinks.map((ol) => ({
+              organizerId: ol.organizerId,
+              role: ol.role,
+            })),
+          },
+          sponsors: {
+            create: sponsorLinks.map((sl) => ({
+              sponsorId: sl.sponsorId,
+              tier: sl.tier,
+            })),
+          },
+          venues: {
+            create: venueLinks.map((vl) => ({ venueId: vl.venueId, stageName: vl.stageName })),
+          },
+        },
+      });
+      tournamentId = created.id;
+    }
+
+    // Participating squads: seeds, rosters and event logo overrides (runs before rankings
+    // so the rankings block can still attach finalRank/prizeWon to the same rows)
+    if (squadsSubmitted && tournamentId) {
+      for (let i = 0; i < squadsList.length; i++) {
+        const squad = squadsList[i];
+        if (!squad?.teamId) continue;
+        const [logoLight, logoDark] = await Promise.all([
+          saveUploadedFile(formData.get(`squadLogoLight${i}`), 'squad-logo-light'),
+          saveUploadedFile(formData.get(`squadLogoDark${i}`), 'squad-logo-dark'),
+        ]);
+        const data = {
+          seed: squad.seed ?? null,
+          seedLabel: squad.seedLabel ?? null,
+          seedTournamentId: squad.seedTournamentId ?? null,
+          rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p) => ({
+            playerId: p.playerId ?? null,
+            ign: String(p.ign ?? ''),
+            role: p.role ?? null,
+            captain: !!p.captain,
+            isStaff: !!p.isStaff,
+          })),
+          logoUrl: logoLight ?? (squad.eventLogoUrl || null),
+          logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
+          shortName: squad.shortName ?? null,
+          displayName: squad.displayName ?? null,
+          country: squad.country ?? null,
+        };
+        // One squad row per (tournament, team) — DB-enforced, race-safe upsert.
+        await tx.tournamentTeam.upsert({
+          where: {
+            tournamentId_teamId: { tournamentId, teamId: squad.teamId },
+          },
+          update: data,
+          create: {
+            tournamentId,
+            teamId: squad.teamId,
+            finalRank: null,
+            prizeWon: null,
+            ...data,
+          },
+        });
+      }
+      const protectedIds = [
+        ...squadsList.map((s) => s.teamId).filter(Boolean),
+        ...teamRankingsList.map((r) => r.teamId).filter(Boolean),
+      ];
+      await tx.tournamentTeam.deleteMany({
+        where: { tournamentId, teamId: { notIn: protectedIds } },
+      });
+    }
+
+    // Update or insert TournamentTeam records for final event rankings
+    if (teamRankingsList.length > 0 && tournamentId) {
+      for (const r of teamRankingsList) {
+        if (!r.teamId) continue;
+        await tx.tournamentTeam.upsert({
+          where: {
+            tournamentId_teamId: { tournamentId, teamId: r.teamId },
+          },
+          update: { finalRank: r.rank, prizeWon: r.prizeWon || 0 },
+          create: {
             tournamentId,
             teamId: r.teamId,
             finalRank: r.rank,
@@ -597,8 +574,9 @@ async function saveTournament(formData: FormData) {
         });
       }
     }
-  }
+  });
 
+  updateTag('tournaments-list');
   revalidatePath('/api/tournaments');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
@@ -617,6 +595,7 @@ async function deleteTournament(formData: FormData) {
       redirect('/admin/tournaments?error=delete-failed');
     }
   }
+  updateTag('tournaments-list');
   revalidatePath('/api/tournaments');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
@@ -704,6 +683,7 @@ async function duplicateTournament(formData: FormData) {
     },
   });
 
+  updateTag('tournaments-list');
   revalidatePath('/api/tournaments');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
@@ -714,34 +694,39 @@ async function duplicateTournament(formData: FormData) {
 export default async function AdminTournamentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; error?: string }>;
+  searchParams: Promise<{ edit?: string; error?: string; field?: string }>;
 }) {
-  const { edit, error } = await searchParams;
+  const { edit, error, field } = await searchParams;
 
   const [games, organizers, sponsors, venues, teams, tournaments, players] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
     prisma.organizer.findMany({ orderBy: { name: 'asc' } }),
     prisma.sponsor.findMany({ orderBy: { name: 'asc' } }),
     prisma.venue.findMany({ orderBy: { name: 'asc' } }),
-    prisma.team.findMany({ orderBy: { name: 'asc' } }),
+    prisma.team.findMany({
+      orderBy: { name: 'asc' },
+      // Pickers only render id/name/tag (+logo in final rankings)
+      select: { id: true, name: true, tag: true, logoUrl: true },
+    }),
     prisma.tournament.findMany({
+      take: 100,
       orderBy: { startDate: 'desc' },
-      include: {
+      // The list rows and importer pickers only need identity + summary fields;
+      // the full match/team graph is fetched per-tournament in the `edit` query below.
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        tier: true,
+        region: true,
+        status: true,
+        eventType: true,
+        gameMode: true,
+        startDate: true,
+        endDate: true,
+        prizePool: true,
+        currency: true,
         game: { select: { name: true } },
-        organizers: { include: { organizer: true } },
-        sponsors: { include: { sponsor: true } },
-        venues: { include: { venue: true } },
-        matches: {
-          include: {
-            games: {
-              include: {
-                teamResults: {
-                  include: { team: { select: { id: true, name: true, tag: true, logoUrl: true } } },
-                },
-              },
-            },
-          },
-        },
       },
     }),
     prisma.player.findMany({
@@ -936,6 +921,15 @@ export default async function AdminTournamentsPage({
           The tournament could not be deleted — it is still referenced by other records.
         </p>
       )}
+      {error === 'json' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          A structured field ({field || 'JSON payload'}) could not be parsed, so nothing was saved.
+          Re-open the editor and re-submit that section.
+        </p>
+      )}
+
+      {/* ⚡ 1-Click Liquipedia Tournament Setup Importer */}
+      <TournamentLiquipediaImporter games={games} allTeams={teams} />
 
       {/* Create / Edit form */}
       <details

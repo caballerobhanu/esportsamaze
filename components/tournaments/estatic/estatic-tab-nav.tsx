@@ -33,7 +33,7 @@ export function EstaticTabNav({ slug, activeTab }: { slug: string; activeTab: st
   const CurrentIcon = currentTabObj.icon;
 
   return (
-    <div className="sticky top-10 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-[#070b14]/95 sm:top-12">
+    <div className="sticky top-14 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-[#070b14]/95">
       <div className="mx-auto max-w-[1200px] px-4 py-3 sm:px-6">
         {/* Mobile: Interactive Dropdown */}
         <div className="sm:hidden w-full">
@@ -59,8 +59,8 @@ export function EstaticTabNav({ slug, activeTab }: { slug: string; activeTab: st
         </div>
 
         {/* Desktop: Sleek Capsule Tab Dock */}
-        <nav className="hidden sm:flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
-          <div className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-slate-100/70 p-1.5 dark:border-white/10 dark:bg-white/5 backdrop-blur-md shadow-xs">
+        <nav className="hidden sm:flex items-center justify-center overflow-x-auto no-scrollbar">
+          <div className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-slate-200/80 bg-slate-100/70 p-1.5 dark:border-white/10 dark:bg-white/5 backdrop-blur-md shadow-xs">
             {PREVIEW_TABS.map((t) => {
               const active = normalizedActiveTab === t.id;
               const Icon = t.icon;

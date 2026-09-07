@@ -18,8 +18,22 @@ export default async function AdminMatchMatrixPage({
   const { tournamentId, stage, view } = await searchParams;
   const activeView = view || 'json'; // Default to zero-selection Universal JSON/Excel view
 
-  const [rawTournaments, allTeams] = await Promise.all([
-    prisma.tournament.findMany({
+  // The heavy tournament→matches→games graph is only consumed by the matrix
+  // grid (which needs it client-side for tournament switching). The default
+  // JSON importer view only needs light reference data, so skip the deep
+  // query entirely there instead of serializing every match into the payload.
+  const allTeams = await prisma.team.findMany({
+    select: { id: true, name: true, tag: true },
+    orderBy: { name: 'asc' },
+  });
+
+  let tournaments: MatrixTournamentOption[] = [];
+  let referenceTournaments: { id: string; name: string; slug: string }[];
+
+  if (activeView === 'matrix') {
+    const fullTournaments = await prisma.tournament.findMany({
+      where: tournamentId ? { id: tournamentId } : undefined,
+      take: tournamentId ? 1 : 25,
       orderBy: { startDate: 'desc' },
       select: {
         id: true,
@@ -101,30 +115,32 @@ export default async function AdminMatchMatrixPage({
           },
         },
       },
-    }),
-    prisma.team.findMany({
-      select: { id: true, name: true, tag: true },
-      orderBy: { name: 'asc' },
-    }),
-  ]);
+    });
 
-  const tournaments: MatrixTournamentOption[] = rawTournaments.map((t) => ({
-    id: t.id,
-    name: t.name,
-    slug: t.slug,
-    game: t.game,
-    formatDetails: t.formatDetails,
-    stages: t.stages,
-    teams: t.teams,
-    matches: t.matches.map((m) => ({
-      ...m,
-      scheduledAt: m.scheduledAt.toISOString(),
-      status: m.status as any,
-    })),
-  }));
+    tournaments = fullTournaments.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      game: t.game,
+      formatDetails: t.formatDetails,
+      stages: t.stages,
+      teams: t.teams,
+      matches: t.matches.map((m) => ({
+        ...m,
+        scheduledAt: m.scheduledAt.toISOString(),
+        status: m.status as any,
+      })),
+    }));
+    referenceTournaments = fullTournaments.map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
+  } else {
+    referenceTournaments = await prisma.tournament.findMany({
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true, slug: true },
+    });
+  }
 
   const referenceData = {
-    tournaments: rawTournaments.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
+    tournaments: referenceTournaments,
     teams: allTeams,
   };
 

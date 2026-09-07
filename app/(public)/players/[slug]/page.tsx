@@ -44,13 +44,15 @@ const socialIcons: Record<string, typeof Globe> = {
 };
 
 function socialHref(key: string, value: string) {
-  if (/^https?:\/\//.test(value)) return value;
-  const handle = value.replace(/^@/, '');
+  const clean = value.trim();
+  if (/^(javascript|data|vbscript):/i.test(clean)) return '#';
+  if (/^https?:\/\//i.test(clean)) return clean;
+  const handle = clean.replace(/^@/, '');
   if (key === 'instagram') return `https://instagram.com/${handle}`;
   if (key === 'youtube') return `https://youtube.com/@${handle}`;
   if (key === 'twitter' || key === 'x') return `https://twitter.com/${handle}`;
   if (key === 'discord') return `https://discord.gg/${handle}`;
-  return value;
+  return `https://${clean}`;
 }
 
 function calcAge(date: Date | null) {
@@ -129,10 +131,10 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
       select: { ign: true },
     });
     return {
-      title: player ? `${player.ign} — Player Profile | Esports Amaze` : 'Player Profile | Esports Amaze',
+      title: player ? `${player.ign} — Player Profile | eSportsAmaze` : 'Player Profile | eSportsAmaze',
     };
   } catch {
-    return { title: 'Player Profile | Esports Amaze' };
+    return { title: 'Player Profile | eSportsAmaze' };
   }
 }
 

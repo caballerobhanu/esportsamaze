@@ -11,8 +11,12 @@ export async function GET(request: NextRequest) {
     if (gameSlug && gameSlug !== 'all') {
       where.game = { slug: gameSlug };
     }
+    const validStatuses = ['SCHEDULED', 'LIVE', 'COMPLETED', 'POSTPONED'];
     if (status) {
-      where.status = status;
+      const normalizedStatus = status.trim().toUpperCase();
+      if (validStatuses.includes(normalizedStatus)) {
+        where.status = normalizedStatus;
+      }
     }
 
     const matches = await prisma.match.findMany({

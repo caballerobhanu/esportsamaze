@@ -22,6 +22,8 @@ import {
 import {
   getPlacementPoints,
   computeTotalPoints,
+  parseWwcd,
+  readKillMultiplier,
 } from '@/lib/tournament-math';
 import { saveMultiMatchMatrixAction, type MatchMatrixSavePayload } from '@/app/admin/(panel)/matches/matrix/actions';
 
@@ -170,13 +172,10 @@ export function MultiMatchMatrixGrid({
     return undefined;
   }, [selectedTourney]);
 
-  const killMultiplier = React.useMemo(() => {
-    if (selectedTourney?.formatDetails && typeof selectedTourney.formatDetails === 'object') {
-      const fd = selectedTourney.formatDetails;
-      return Number(fd.killPointsPerElim || fd.killMultiplier) || 1;
-    }
-    return 1;
-  }, [selectedTourney]);
+  const killMultiplier = React.useMemo(
+    () => readKillMultiplier(selectedTourney?.formatDetails),
+    [selectedTourney]
+  );
 
   // Extract participating teams
   const participatingTeams = React.useMemo(() => {
@@ -260,6 +259,7 @@ export function MultiMatchMatrixGrid({
           const key = `${m.id}_${tr.teamId}`;
           initial[key] = {
             rank: tr.rank,
+            wwcd: tr.wwcd,
             elims: tr.elimsPoints != null ? Math.round(tr.elimsPoints / killMultiplier) : 0,
             damage: tr.damage || 0,
             bonusPoints: tr.bonusPoints || 0,
@@ -278,7 +278,7 @@ export function MultiMatchMatrixGrid({
 
   // Handle cell value change
   const handleCellChange = React.useCallback(
-    (matchId: string, teamId: string, field: keyof CellData, value: number | '') => {
+    (matchId: string, teamId: string, field: keyof CellData, value: number | '' | boolean) => {
       const key = `${matchId}_${teamId}`;
       setMatrixState((prev) => {
         const existing = prev[key] || {
@@ -296,6 +296,9 @@ export function MultiMatchMatrixGrid({
           [key]: {
             ...existing,
             [field]: value,
+            ...(field === 'rank' && typeof value === 'number' && existing.wwcd === undefined
+              ? { wwcd: value === 1 }
+              : {}),
             isModified: true,
           },
         };
@@ -372,7 +375,8 @@ export function MultiMatchMatrixGrid({
           const tot = pp + ep + bonus;
 
           stats.matchesPlayed += 1;
-          if (rank === 1) stats.wwcds += 1;
+          const isWwcd = cell.wwcd !== undefined ? Boolean(cell.wwcd) : rank === 1;
+          if (isWwcd) stats.wwcds += 1;
           stats.placePoints += pp;
           stats.elimsPoints += ep;
           stats.bonusPoints += bonus;
@@ -451,7 +455,7 @@ export function MultiMatchMatrixGrid({
         else if (t.includes('team') || t.includes('name') || t.includes('tag') || t.includes('clan')) colTeam = idx;
         else if (t.includes('elim') || t.includes('kill') || t === 'kp' || t === 'finishes' || t === 'pts') colElims = idx;
         else if (t.includes('dmg') || t.includes('damage')) colDamage = idx;
-        else if (t.includes('wwcd') || t.includes('chicken') || t === 'win' || t === 'won') colWwcd = idx;
+        else if (t.includes('wwcd') || t.includes('chicken') || t === 'win' || t === 'won' || t.includes('team_wwcd')) colWwcd = idx;
       });
     }
 
@@ -472,13 +476,27 @@ export function MultiMatchMatrixGrid({
         if (colElims !== -1 && !isNaN(Number(tokens[colElims])) && tokens[colElims] !== '') elims = Number(tokens[colElims]);
         if (colDamage !== -1 && !isNaN(Number(tokens[colDamage])) && tokens[colDamage] !== '') damage = Number(tokens[colDamage]);
         if (colWwcd !== -1 && tokens[colWwcd] !== undefined && tokens[colWwcd] !== '') {
-          const w = tokens[colWwcd].trim().toLowerCase();
-          isWwcd = w === '1' || w === 'true' || w === 'yes' || w === 'wwcd' || w === 'won';
+          isWwcd = parseWwcd(tokens[colWwcd], rank);
         }
       } else {
         // Positional fallback analysis:
-        // Case 1: [Rank, Team, Elims, Damage] or [Rank, Team, Elims]
-        if (tokens.length >= 3 && !isNaN(Number(tokens[0])) && isNaN(Number(tokens[1]))) {
+        // Case 1A: [Rank, Team, WWCD, Elims, Damage] or [Rank, Team, WWCD, Elims]
+        if (
+          tokens.length >= 4 &&
+          !isNaN(Number(tokens[0])) &&
+          isNaN(Number(tokens[1])) &&
+          (tokens[2] === '0' ||
+            tokens[2] === '1' ||
+            ['true', 'false', 'yes', 'no', 'wwcd', 'won'].includes(tokens[2].toLowerCase()))
+        ) {
+          rank = Number(tokens[0]);
+          teamRaw = tokens[1];
+          isWwcd = parseWwcd(tokens[2], rank);
+          elims = Number(tokens[3]) || 0;
+          damage = tokens[4] ? Number(tokens[4]) || 0 : 0;
+        }
+        // Case 1B: [Rank, Team, Elims, Damage] or [Rank, Team, Elims]
+        else if (tokens.length >= 3 && !isNaN(Number(tokens[0])) && isNaN(Number(tokens[1]))) {
           rank = Number(tokens[0]);
           teamRaw = tokens[1];
           elims = Number(tokens[2]) || 0;
@@ -612,7 +630,36 @@ export function MultiMatchMatrixGrid({
           rescues: '',
         };
 
-        if (tokens.length >= 2) {
+        if (tokens.length >= 3) {
+          const rankVal = Number(tokens[0]);
+          let elimsVal = Number(tokens[1]);
+          let wwcdVal: boolean | undefined = undefined;
+
+          if (
+            tokens[1] === '0' ||
+            tokens[1] === '1' ||
+            ['true', 'false', 'yes', 'no', 'wwcd'].includes(tokens[1].toLowerCase())
+          ) {
+            // [Rank, WWCD, Elims]
+            wwcdVal = parseWwcd(tokens[1]);
+            elimsVal = Number(tokens[2]);
+          } else if (
+            tokens[2] === '0' ||
+            tokens[2] === '1' ||
+            ['true', 'false', 'yes', 'no', 'wwcd'].includes(tokens[2].toLowerCase())
+          ) {
+            // [Rank, Elims, WWCD]
+            wwcdVal = parseWwcd(tokens[2]);
+          }
+
+          next[key] = {
+            ...existing,
+            rank: isNaN(rankVal) ? existing.rank : rankVal,
+            elims: isNaN(elimsVal) ? existing.elims : elimsVal,
+            ...(wwcdVal !== undefined ? { wwcd: wwcdVal } : {}),
+            isModified: true,
+          };
+        } else if (tokens.length >= 2) {
           // Two values copied: Rank & Elims
           const rankVal = Number(tokens[0]);
           const elimsVal = Number(tokens[1]);
@@ -646,8 +693,8 @@ export function MultiMatchMatrixGrid({
 
   // Copy Clean Spreadsheet Template with Team Names
   const handleCopySpreadsheetTemplate = () => {
-    const header = 'Rank\tTeam Name\tElims\tDamage';
-    const rows = visibleTeams.map((t, i) => `${i + 1}\t${t.name}\t0\t0`).join('\n');
+    const header = 'Rank\tTeam Name\tWWCD\tElims\tDamage';
+    const rows = visibleTeams.map((t, i) => `${i + 1}\t${t.name}\t${i === 0 ? 1 : 0}\t0\t0`).join('\n');
     const fullText = `${header}\n${rows}`;
 
     navigator.clipboard.writeText(fullText);
@@ -674,6 +721,7 @@ export function MultiMatchMatrixGrid({
         next[key] = {
           ...existing,
           rank: idx + 1,
+          wwcd: idx === 0,
           elims: existing.elims === '' ? 0 : existing.elims,
           isModified: true,
         };
@@ -714,6 +762,8 @@ export function MultiMatchMatrixGrid({
               rank,
               wwcd: isWwcd,
               placePoints,
+              // Raw kill count — the server applies the kill multiplier exactly once.
+              elims,
               elimsPoints,
               bonusPoints: bonus,
               totalPoints,
@@ -1090,13 +1140,15 @@ export function MultiMatchMatrixGrid({
                         const cell = matrixState[key] || { rank: '', elims: '', isModified: false };
                         const points = getComputedMatchPoints(m.id, team.id);
 
+                        const isWwcdWinner = cell.wwcd !== undefined ? Boolean(cell.wwcd) : cell.rank === 1;
+
                         return (
                           <td
                             key={m.id}
                             className={`p-2 border-r border-slate-100 dark:border-slate-800/80 transition-colors ${
                               cell.isModified
                                 ? 'bg-amber-500/5 dark:bg-amber-500/10'
-                                : cell.rank === 1
+                                : isWwcdWinner
                                 ? 'bg-emerald-500/5 dark:bg-emerald-500/10'
                                 : ''
                             }`}
@@ -1116,15 +1168,23 @@ export function MultiMatchMatrixGrid({
                                     handleCellChange(m.id, team.id, 'rank', val);
                                   }}
                                   className={`w-full px-1.5 py-1 text-center font-bold text-xs rounded-md border focus:outline-none focus:ring-2 focus:ring-(--ed-blue) ${
-                                    cell.rank === 1
+                                    isWwcdWinner
                                       ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200'
                                   }`}
                                 />
-                                {cell.rank === 1 && (
-                                  <span className="absolute -top-1.5 -right-1 text-[10px]" title="WWCD / #1">
+                                {isWwcdWinner && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCellChange(m.id, team.id, 'wwcd', !isWwcdWinner);
+                                    }}
+                                    className="absolute -top-1.5 -right-1 text-[10px] cursor-pointer hover:scale-125 transition-transform select-none"
+                                    title="WWCD Winner 🍗 (Click to toggle)"
+                                  >
                                     🍗
-                                  </span>
+                                  </button>
                                 )}
                               </div>
 
@@ -1322,7 +1382,7 @@ export function MultiMatchMatrixGrid({
                       {parsedPreviewRows.map((r, i) => (
                         <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                           <td className="py-1.5 px-3 font-bold">
-                            #{r.rank} {r.rank === 1 && '🍗'}
+                            #{r.rank} {r.wwcd && '🍗'}
                           </td>
                           <td className="py-1.5 px-3 font-semibold text-slate-800 dark:text-slate-100">
                             {r.matchedTeamName}
@@ -1412,6 +1472,35 @@ export function MultiMatchMatrixGrid({
 
               return (
                 <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="col-span-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        🍗 WWCD Winner (Match Victory)
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        Mark team as match winner (sets wwcd = 1 in database)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleCellChange(
+                          activeCellDetail.matchId,
+                          activeCellDetail.teamId,
+                          'wwcd',
+                          !(cell.wwcd !== undefined ? cell.wwcd : cell.rank === 1)
+                        )
+                      }
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                        (cell.wwcd !== undefined ? cell.wwcd : cell.rank === 1)
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      {(cell.wwcd !== undefined ? cell.wwcd : cell.rank === 1) ? '🍗 WWCD: YES' : 'WWCD: NO'}
+                    </button>
+                  </div>
+
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
                       Placement Rank

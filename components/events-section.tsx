@@ -95,7 +95,7 @@ function EventLogo({ event }: { event: EventCardData }) {
 
   if (showLight || showDark) {
     return (
-      <div className="relative w-14 h-14 rounded-full overflow-hidden ring-2 ring-white/60 dark:ring-white/10 shadow-sm shrink-0 bg-slate-50 dark:bg-black/40">
+      <div className="relative w-12 h-12 rounded-full overflow-hidden ring-1 ring-[var(--ed-hair)] shrink-0 bg-slate-50 dark:bg-black/40">
         {showLight && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -125,10 +125,10 @@ function EventLogo({ event }: { event: EventCardData }) {
   return (
     <div
       className={cn(
-        'w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm bg-gradient-to-br from-[#0A5FC4] via-blue-600 to-slate-900'
+        'w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--ed-blue)] via-blue-700 to-slate-800'
       )}
     >
-      <span className="text-base font-black text-white drop-shadow">
+      <span className="text-sm font-bold text-white">
         {initials || event.gameName.slice(0, 2).toUpperCase()}
       </span>
     </div>
@@ -161,25 +161,25 @@ export function EventsSection() {
   const visible = events ? selectEvents(events, tab) : [];
 
   return (
-    <section className="border-b border-slate-200 bg-white/70 backdrop-blur-md dark:border-white/10 dark:bg-[#0b1220]/70">
+    <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)]">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-3.5 space-y-3">
         {/* Header: label + tab toggle on the right */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#0A5FC4]" />
-            <h2 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <span className="h-2 w-2 rounded-full bg-[var(--ed-magenta)]" />
+            <h2 className="ed-label text-[var(--ed-ink)]">
               Tournament Circuit
             </h2>
           </div>
 
-          <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
+          <div className="flex items-center rounded-full bg-[var(--ed-sand)] p-1">
             <button
               onClick={() => setTab('active')}
               className={cn(
                 'px-3.5 py-1 rounded-full text-xs font-bold transition-all',
                 tab === 'active'
-                  ? 'bg-white text-[#0A5FC4] shadow-sm dark:bg-[#152033] dark:text-blue-300'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  ? 'bg-[var(--ed-surface)] text-[var(--ed-blue)]'
+                  : 'text-[var(--ed-stone)] hover:text-[var(--ed-ink)]'
               )}
               aria-pressed={tab === 'active'}
             >
@@ -190,8 +190,8 @@ export function EventsSection() {
               className={cn(
                 'px-3.5 py-1 rounded-full text-xs font-bold transition-all',
                 tab === 'past'
-                  ? 'bg-white text-[#0A5FC4] shadow-sm dark:bg-[#152033] dark:text-blue-300'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  ? 'bg-[var(--ed-surface)] text-[var(--ed-blue)]'
+                  : 'text-[var(--ed-stone)] hover:text-[var(--ed-ink)]'
               )}
               aria-pressed={tab === 'past'}
             >
@@ -206,34 +206,34 @@ export function EventsSection() {
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="min-w-[140px] sm:min-w-[156px] h-[152px] rounded-2xl border border-slate-200 bg-white/60 dark:border-white/10 dark:bg-[#0e1726]/60 animate-pulse"
+                className="min-w-[140px] sm:min-w-[156px] h-[144px] rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)]/60 animate-pulse"
               />
             ))}
           </div>
         ) : visible.length === 0 ? (
-          <p className="py-6 text-center text-xs text-slate-400">
+          <p className="py-6 text-center text-xs text-[var(--ed-stone)]">
             No {tab === 'active' ? 'active or upcoming' : 'past'} events right now.
           </p>
         ) : (
-          <div className="flex gap-3 overflow-x-auto snap-x pb-1 [scrollbar-width:thin]">
+          <div className="rail pb-1">
             {visible.map((event) => {
               const cardClasses =
-                'group min-w-[140px] sm:min-w-[156px] snap-start rounded-2xl border border-slate-200 bg-white p-4 flex flex-col items-center text-center gap-2.5 cursor-pointer hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0e1726] transition-all';
+                'group min-w-[140px] sm:min-w-[156px] rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4 flex flex-col items-center text-center gap-2.5 cursor-pointer hover:border-[var(--ed-blue)] transition-colors';
               const inner = (
                 <>
                   <EventLogo event={event} />
 
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 min-h-[2rem] group-hover:text-[#0A5FC4] dark:group-hover:text-blue-400 transition-colors">
+                  <h3 className="text-xs font-bold text-[var(--ed-ink)] leading-snug line-clamp-2 min-h-[2rem] group-hover:text-[var(--ed-blue)] transition-colors">
                     {event.name}
                   </h3>
 
-                  <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 max-w-full">
+                  <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--ed-stone)] max-w-full">
                     <span
                       className={cn(
                         'w-1.5 h-1.5 rounded-full shrink-0',
                         event.status === 'ONGOING' &&
                           'bg-rose-500 animate-ping',
-                        event.status === 'UPCOMING' && 'bg-[#0A5FC4] dark:bg-blue-400',
+                        event.status === 'UPCOMING' && 'bg-[var(--ed-blue)]',
                         event.status === 'COMPLETED' && 'bg-slate-400'
                       )}
                     />

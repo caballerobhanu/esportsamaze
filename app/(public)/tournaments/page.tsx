@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Tournaments Hub | Esports Amaze — Official Standings, Matches & Stats',
+  title: 'Tournaments Hub | eSportsAmaze — Official Standings, Matches & Stats',
   description:
     'Discover official BGMI, Valorant, CS2, MLBB, and Free Fire esports tournaments. Track live scorecards, match schedules, prize pools, and championship standings.',
 };

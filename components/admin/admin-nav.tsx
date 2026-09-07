@@ -13,6 +13,10 @@ import {
   Swords,
   BarChart3,
   FileSpreadsheet,
+  Newspaper,
+  MessagesSquare,
+  Images,
+  Tags,
   LogOut,
   Menu,
   X,
@@ -20,6 +24,10 @@ import {
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/news', label: 'News & Articles', icon: Newspaper },
+  { href: '/admin/comments', label: 'Comments', icon: MessagesSquare },
+  { href: '/admin/tags', label: 'Tag Manager', icon: Tags },
+  { href: '/admin/media', label: 'Media Library', icon: Images },
   { href: '/admin/games', label: 'Games', icon: Gamepad2 },
   { href: '/admin/tournaments', label: 'Tournaments', icon: Trophy },
   { href: '/admin/matches', label: 'Matches', icon: Swords },
@@ -70,7 +78,7 @@ function Brand({ onClose }: { onClose?: () => void }) {
         <span className="px-2 py-0.5 rounded bg-(--ed-blue) text-[10px] font-black uppercase tracking-widest text-white">
           Admin
         </span>
-        <span className="text-xs font-bold text-slate-300">Esports Amaze</span>
+        <span className="text-xs font-bold text-slate-300">eSportsAmaze</span>
       </span>
       {onClose && (
         <button

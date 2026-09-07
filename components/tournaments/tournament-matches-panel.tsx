@@ -312,11 +312,11 @@ function MatchScorecard({
             </span>
           )}
 
-          {match.streamUrl && (
+          {match.streamUrl && /^https?:\/\//i.test(match.streamUrl) && (
             <a
               href={match.streamUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="flex items-center gap-1 rounded-lg bg-rose-600 text-white px-3 py-1 text-xs font-bold uppercase hover:bg-rose-700 transition-colors shadow-xs"
             >

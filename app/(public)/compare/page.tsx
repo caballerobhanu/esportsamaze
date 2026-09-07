@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Head-to-Head Comparison | Esports Amaze',
+  title: 'Head-to-Head Comparison | eSportsAmaze',
   description: 'Compare esports teams and players side-by-side with match history, rankings, win rates, and direct head-to-head records.',
 };
 

@@ -9,6 +9,8 @@ import {
   compareFraggerStandings,
   calculateTournamentStandings,
   calculateTournamentFraggers,
+  parseSurvivalSeconds,
+  parseWwcd,
 } from '../lib/tournament-math';
 
 test('computeTotalPoints sums place, elims and bonus', () => {
@@ -73,4 +75,31 @@ test('calculateTournamentFraggers ranks by elims then damage then headshots', ()
     { playerId: 'p3', player: { id: 'p3', ign: 'P3' }, playerElims: 6, damage: 500, headshots: 0 },
   ]);
   assert.deepEqual(fraggers.map((f) => f.playerId), ['p3', 'p2', 'p1']);
+});
+
+test('parseSurvivalSeconds correctly parses seconds, MM:SS, and HH:MM:SS formats', () => {
+  assert.equal(parseSurvivalSeconds(120), 120);
+  assert.equal(parseSurvivalSeconds('120'), 120);
+  assert.equal(parseSurvivalSeconds('24:15'), 1455);
+  assert.equal(parseSurvivalSeconds('00:24:15'), 1455);
+  assert.equal(parseSurvivalSeconds('01:10:05'), 4205);
+  assert.equal(parseSurvivalSeconds(null, 1680), 1680);
+});
+
+test('parseWwcd accurately parses 1, "1", 0, "0", boolean, and fallback rank', () => {
+  assert.equal(parseWwcd(1, 2), true);
+  assert.equal(parseWwcd('1', 2), true);
+  assert.equal(parseWwcd(true, 2), true);
+  assert.equal(parseWwcd('true', 2), true);
+  assert.equal(parseWwcd('yes', 2), true);
+  assert.equal(parseWwcd('wwcd', 2), true);
+  assert.equal(parseWwcd(0, 1), false);
+  assert.equal(parseWwcd('0', 1), false);
+  assert.equal(parseWwcd(false, 1), false);
+  assert.equal(parseWwcd('false', 1), false);
+  assert.equal(parseWwcd('no', 1), false);
+  assert.equal(parseWwcd(undefined, 1), true);
+  assert.equal(parseWwcd(undefined, 2), false);
+  assert.equal(parseWwcd('', 1), true);
+  assert.equal(parseWwcd('', 2), false);
 });

@@ -6,9 +6,9 @@ import { ArrowRight, CalendarDays, Globe2, ShieldCheck, Users } from 'lucide-rea
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Teams Hub | Esports Amaze — Rosters, Profiles & Tournament History',
+  title: 'Teams Hub | eSportsAmaze — Rosters, Profiles & Tournament History',
   description:
-    'Browse every esports team in the Esports Amaze wiki — verified rosters, regional info, and tournament history for BGMI, PUBG Mobile and more.',
+    'Browse every esports team in the eSportsAmaze wiki — verified rosters, regional info, and tournament history for BGMI, PUBG Mobile and more.',
 };
 
 async function getTeamsDirectoryData() {
@@ -53,7 +53,7 @@ export default async function TeamsPage() {
             Teams
           </h1>
           <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-            Every organization in the Esports Amaze verified database — explore active rosters,
+            Every organization in the eSportsAmaze verified database — explore active rosters,
             trophy cabinets, match histories, and publisher circuit records.
           </p>
         </div>

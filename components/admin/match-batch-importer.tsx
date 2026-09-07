@@ -16,8 +16,21 @@ import {
   Plus,
   RefreshCw,
   Info,
+  Globe,
+  Camera,
+  UploadCloud,
+  Loader2,
 } from 'lucide-react';
-import { getPlacementPoints, computeTotalPoints, computeUtilitiesTotal, computeTotalDistance } from '@/lib/tournament-math';
+import {
+  getPlacementPoints,
+  computeTotalPoints,
+  computeUtilitiesTotal,
+  computeTotalDistance,
+  parseSurvivalSeconds,
+  parseWwcd,
+} from '@/lib/tournament-math';
+import { parseLiquipediaText, type ParsedLiquipediaMatch } from '@/lib/liquipedia-parser';
+import { fetchLiquipediaMatchAction } from '@/app/admin/(panel)/matches/matrix/actions';
 
 interface TeamOption {
   id: string;
@@ -71,7 +84,7 @@ export function MatchBatchImporter({
   otherMatches = [],
 }: MatchBatchImporterProps) {
   const [activeTab, setActiveTab] = React.useState<'teams' | 'players'>('teams');
-  const [pasteMode, setPasteMode] = React.useState<'excel' | 'json'>('excel');
+  const [pasteMode, setPasteMode] = React.useState<'excel' | 'json' | 'liquipedia' | 'ocr'>('excel');
   const [rawText, setRawText] = React.useState('');
   const [replaceExisting, setReplaceExisting] = React.useState(true);
   const [copiedTemplate, setCopiedTemplate] = React.useState(false);
@@ -79,6 +92,19 @@ export function MatchBatchImporter({
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [selectedCloneMatchId, setSelectedCloneMatchId] = React.useState<string>('');
   const [cloneMode, setCloneMode] = React.useState<'reset' | 'exact'>('reset');
+
+  // Liquipedia importer state
+  const [liquipediaUrl, setLiquipediaUrl] = React.useState('');
+  const [isFetchingLiquipedia, setIsFetchingLiquipedia] = React.useState(false);
+  const [liquipediaMatches, setLiquipediaMatches] = React.useState<ParsedLiquipediaMatch[]>([]);
+  const [selectedLiquipediaMatchIdx, setSelectedLiquipediaMatchIdx] = React.useState(0);
+
+  // Scorecard OCR state
+  const [ocrImage, setOcrImage] = React.useState<string | null>(null);
+  const [isScanningOcr, setIsScanningOcr] = React.useState(false);
+  const [ocrProgress, setOcrProgress] = React.useState(0);
+  const [ocrStatus, setOcrStatus] = React.useState<string>('');
+  const [rawOcrText, setRawOcrText] = React.useState('');
 
   // Parsed rows state
   const [parsedTeamRows, setParsedTeamRows] = React.useState<any[]>([]);
@@ -152,7 +178,7 @@ export function MatchBatchImporter({
           const rows = json.map((item: any, idx: number) => {
             const matchedTeam = findMatchingTeam(item.team || item.teamName || item.tag || item.shortCode || '');
             const rank = Number(item.rank || idx + 1);
-            const isWwcd = item.wwcd === true || rank === 1;
+            const isWwcd = parseWwcd(item.wwcd ?? item.team_wwcd ?? item.teamWwcd, rank);
             const placePoints =
               item.placePoints != null ? Number(item.placePoints) : getPlacementPoints(rank, pointsMatrix);
             const elimsPoints = Number(item.elimsPoints || item.elims || item.kills || 0) * killMultiplier;
@@ -235,6 +261,7 @@ export function MatchBatchImporter({
       let colGrenades = -1;
       let colMolotovs = -1;
       let colRescues = -1;
+      let colWwcd = -1;
 
       if (hasHeader) {
         firstLineTokens.forEach((t, idx) => {
@@ -250,6 +277,7 @@ export function MatchBatchImporter({
           else if (t.includes('grenade') || t === 'nade') colGrenades = idx;
           else if (t.includes('molotov') || t === 'moly') colMolotovs = idx;
           else if (t.includes('rescue') || t.includes('revive')) colRescues = idx;
+          else if (t.includes('wwcd') || t.includes('chicken') || t === 'win' || t === 'won') colWwcd = idx;
         });
       }
 
@@ -268,6 +296,7 @@ export function MatchBatchImporter({
         let grenades = 0;
         let molotovs = 0;
         let rescues = 0;
+        let isWwcd: boolean | undefined = undefined;
 
         if (hasHeader && colTeam !== -1) {
           rawTeam = tokens[colTeam] || '';
@@ -277,18 +306,15 @@ export function MatchBatchImporter({
           if (colTotal !== -1 && !isNaN(Number(tokens[colTotal]))) totalPts = Number(tokens[colTotal]);
           if (colDamage !== -1 && !isNaN(Number(tokens[colDamage]))) damage = Number(tokens[colDamage]);
           if (colSurvival !== -1) {
-            const rawS = tokens[colSurvival];
-            if (rawS?.includes(':')) {
-              const [m, s] = rawS.split(':').map(Number);
-              survival = (m || 0) * 60 + (s || 0);
-            } else if (!isNaN(Number(rawS))) {
-              survival = Number(rawS);
-            }
+            survival = parseSurvivalSeconds(tokens[colSurvival], 1680);
           }
           if (colSmokes !== -1 && !isNaN(Number(tokens[colSmokes]))) smokes = Number(tokens[colSmokes]);
           if (colGrenades !== -1 && !isNaN(Number(tokens[colGrenades]))) grenades = Number(tokens[colGrenades]);
           if (colMolotovs !== -1 && !isNaN(Number(tokens[colMolotovs]))) molotovs = Number(tokens[colMolotovs]);
           if (colRescues !== -1 && !isNaN(Number(tokens[colRescues]))) rescues = Number(tokens[colRescues]);
+          if (colWwcd !== -1 && tokens[colWwcd] !== undefined && tokens[colWwcd] !== '') {
+            isWwcd = parseWwcd(tokens[colWwcd], rank);
+          }
         } else {
           // Positional fallback:
           let offset = 0;
@@ -307,7 +333,9 @@ export function MatchBatchImporter({
           if (tokens[offset] != null && !isNaN(Number(tokens[offset]))) damage = Number(tokens[offset++]);
         }
 
-        const isWwcd = rank === 1;
+        if (isWwcd === undefined) {
+          isWwcd = rank === 1;
+        }
         const finalPlacePts = placePts != null ? placePts : getPlacementPoints(rank, pointsMatrix);
         const finalElimsPts = elims * killMultiplier;
         const finalTotalPts = totalPts != null ? totalPts : finalPlacePts + finalElimsPts;
@@ -384,14 +412,7 @@ export function MatchBatchImporter({
             const isMvp = item.isMvp === true || item.mvp === true;
             const powerplay = Number(item.playerPowerplay || item.powerplay || 0);
 
-            // 5 elements
-            let survivalTime = 0;
-            if (typeof item.survivalTime === 'string' && item.survivalTime.includes(':')) {
-              const [m, s] = item.survivalTime.split(':').map(Number);
-              survivalTime = (m || 0) * 60 + (s || 0);
-            } else {
-              survivalTime = Number(item.survivalTime || item.survival || item.time || 0);
-            }
+            const survivalTime = parseSurvivalSeconds(item.survivalTime || item.survival || item.time || 0);
 
             const healing = Number(item.healing || item.heal || 0);
             const damageReceived = Number(item.damageReceived || item.dmgReceived || item.damageTaken || item.dmgRec || 0);
@@ -526,13 +547,7 @@ export function MatchBatchImporter({
             isMvp = mvpVal === 'yes' || mvpVal === 'true' || mvpVal === '1' || mvpVal === 'mvp' || mvpVal === '⭐';
           }
           if (colSurvival !== -1) {
-            const rawS = tokens[colSurvival];
-            if (rawS?.includes(':')) {
-              const [m, s] = rawS.split(':').map(Number);
-              survivalTime = (m || 0) * 60 + (s || 0);
-            } else if (!isNaN(Number(rawS))) {
-              survivalTime = Number(rawS);
-            }
+            survivalTime = parseSurvivalSeconds(tokens[colSurvival], 0);
           }
           if (colHealing !== -1 && !isNaN(Number(tokens[colHealing]))) healing = Number(tokens[colHealing]);
           if (colDmgRec !== -1 && !isNaN(Number(tokens[colDmgRec]))) damageReceived = Number(tokens[colDmgRec]);
@@ -674,14 +689,191 @@ export function MatchBatchImporter({
     }
   };
 
+  // -------------------------------------------------------------
+  // Liquipedia Handler
+  // -------------------------------------------------------------
+  const applyLiquipediaMatchToRows = React.useCallback(
+    (match: ParsedLiquipediaMatch) => {
+      const rows = match.rows.map((r, idx) => {
+        const rank = r.rank || idx + 1;
+        const matchedTeam = findMatchingTeam(r.rawTeam);
+        const placePts = r.placePoints != null ? r.placePoints : getPlacementPoints(rank, pointsMatrix);
+        const elimsPts = (r.elims || 0) * killMultiplier;
+        const totalPts = r.totalPoints != null ? r.totalPoints : placePts + elimsPts;
+
+        return {
+          rawInput: r.rawTeam,
+          teamId: matchedTeam?.id || '',
+          teamName: matchedTeam?.name || r.rawTeam,
+          shortCode: matchedTeam?.tag || '',
+          rank,
+          wwcd: r.wwcd !== undefined ? Boolean(r.wwcd) : rank === 1,
+          placePoints: placePts,
+          elimsPoints: elimsPts,
+          bonusPoints: 0,
+          totalPoints: totalPts,
+          damage: r.damage || 0,
+          survivalTime: 1680,
+          healing: 0,
+          damageReceived: 0,
+          headshots: 0,
+          assists: 0,
+          knockouts: 0,
+          longestElim: 0,
+          vehicleElims: 0,
+          grenadeElims: 0,
+          smokesUsed: 0,
+          grenadesUsed: 0,
+          molotovsUsed: 0,
+          flashUsed: 0,
+          airdrops: 0,
+          rescues: 0,
+          distDrove: 0,
+          distWalk: 0,
+          isMatched: Boolean(matchedTeam),
+        };
+      });
+
+      setParsedTeamRows(rows);
+    },
+    [findMatchingTeam, pointsMatrix, killMultiplier]
+  );
+
+  const handleFetchLiquipedia = async () => {
+    if (!liquipediaUrl.trim()) {
+      setErrorMsg('Please enter a Liquipedia tournament or match URL.');
+      return;
+    }
+    setErrorMsg(null);
+    setIsFetchingLiquipedia(true);
+    try {
+      const res = await fetchLiquipediaMatchAction(liquipediaUrl);
+      if (!res.success) {
+        setErrorMsg(res.message);
+        if (res.rawText) {
+          setRawText(res.rawText);
+        }
+      } else {
+        setLiquipediaMatches(res.matches);
+        setSelectedLiquipediaMatchIdx(0);
+        if (res.matches.length > 0) {
+          applyLiquipediaMatchToRows(res.matches[0]);
+        }
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to fetch from Liquipedia.');
+    } finally {
+      setIsFetchingLiquipedia(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // Scorecard Screenshot OCR Handler
+  // -------------------------------------------------------------
+  const handleOcrFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select a valid image file (PNG, JPEG, WebP).');
+      return;
+    }
+    setErrorMsg(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setOcrImage(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const runOcrScan = async () => {
+    if (!ocrImage) {
+      setErrorMsg('Please upload or paste a scorecard image first.');
+      return;
+    }
+
+    setErrorMsg(null);
+    setIsScanningOcr(true);
+    setOcrProgress(5);
+    setOcrStatus('Initializing OCR engine...');
+
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng', 1, {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            setOcrStatus('Scanning scorecard text...');
+            setOcrProgress(Math.round(m.progress * 100));
+          } else {
+            setOcrStatus(m.status);
+          }
+        },
+      });
+
+      setOcrStatus('Analyzing scorecard rows...');
+      const ret = await worker.recognize(ocrImage);
+      await worker.terminate();
+
+      const text = ret.data.text;
+      setRawOcrText(text);
+
+      // Parse the recognized text as tabular lines
+      const parsedMatches = parseLiquipediaText(text);
+      if (parsedMatches.length > 0 && parsedMatches[0].rows.length > 0) {
+        applyLiquipediaMatchToRows(parsedMatches[0]);
+        setOcrStatus(`OCR Complete! Extracted ${parsedMatches[0].rows.length} team entries.`);
+      } else {
+        setRawText(text);
+        setOcrStatus('OCR complete. Text copied to box below for inspection.');
+      }
+    } catch (err: any) {
+      setErrorMsg(`OCR Scan failed: ${err.message || String(err)}`);
+    } finally {
+      setIsScanningOcr(false);
+    }
+  };
+
+  // Listen for clipboard Ctrl+V when in OCR mode
+  React.useEffect(() => {
+    if (pasteMode !== 'ocr') return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            handleOcrFile(blob);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [pasteMode]);
+
   // Trigger parsing whenever text or tab changes
   React.useEffect(() => {
+    if (pasteMode === 'liquipedia') {
+      if (rawText.trim()) {
+        const parsed = parseLiquipediaText(rawText);
+        if (parsed.length > 0 && parsed[0].rows.length > 0) {
+          applyLiquipediaMatchToRows(parsed[0]);
+        }
+      }
+      return;
+    }
+    if (pasteMode === 'ocr') {
+      return;
+    }
+
     if (activeTab === 'teams') {
       parseTeamData(rawText);
     } else {
       parsePlayerData(rawText);
     }
-  }, [rawText, activeTab, pasteMode, parseTeamData, parsePlayerData]);
+  }, [rawText, activeTab, pasteMode, parseTeamData, parsePlayerData, applyLiquipediaMatchToRows]);
 
   // -------------------------------------------------------------
   // Copy Templates & Sample Data
@@ -1046,8 +1238,8 @@ export function MatchBatchImporter({
 
       {/* Format Switcher & Quick Helper Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800/80 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Input Format:</span>
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Input Mode:</span>
           <button
             type="button"
             onClick={() => setPasteMode('excel')}
@@ -1058,7 +1250,7 @@ export function MatchBatchImporter({
             }`}
           >
             <Table className="w-3.5 h-3.5" />
-            <span>Excel / Sheets (TSV / CSV)</span>
+            <span>Excel / TSV</span>
           </button>
           <button
             type="button"
@@ -1070,29 +1262,57 @@ export function MatchBatchImporter({
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>JSON Array</span>
+            <span>JSON</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPasteMode('liquipedia')}
+            className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+              pasteMode === 'liquipedia'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-400" />
+            <span>🌐 Liquipedia Importer</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPasteMode('ocr')}
+            className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
+              pasteMode === 'ocr'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5 text-emerald-400" />
+            <span>📷 Scorecard OCR Reader</span>
           </button>
         </div>
 
         {/* Quick actions: Copy Template, Load Sample, Export */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={copyExcelTemplate}
-            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-(--ed-blue) transition-colors font-medium flex items-center gap-1 text-[11px]"
-            title="Copy column header row for Excel"
-          >
-            {copiedTemplate ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-            <span>{copiedTemplate ? 'Headers Copied!' : 'Copy Excel Headers'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={loadSampleData}
-            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition-colors font-medium flex items-center gap-1 text-[11px]"
-          >
-            <Sparkles className="w-3 h-3 text-amber-500" />
-            <span>Load Sample Data</span>
-          </button>
+          {pasteMode !== 'ocr' && (
+            <>
+              <button
+                type="button"
+                onClick={copyExcelTemplate}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-(--ed-blue) transition-colors font-medium flex items-center gap-1 text-[11px]"
+                title="Copy column header row for Excel"
+              >
+                {copiedTemplate ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedTemplate ? 'Headers Copied!' : 'Copy Headers'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={loadSampleData}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition-colors font-medium flex items-center gap-1 text-[11px]"
+              >
+                <Sparkles className="w-3 h-3 text-amber-500" />
+                <span>Load Sample</span>
+              </button>
+            </>
+          )}
           {(existingTeamResults.length > 0 || existingPlayerStats.length > 0) && (
             <button
               type="button"
@@ -1106,35 +1326,250 @@ export function MatchBatchImporter({
         </div>
       </div>
 
-      {/* Paste Box */}
-      <div className="space-y-1.5">
-        <label className="block text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center justify-between">
-          <span>
-            Paste {activeTab === 'teams' ? 'Team Standings' : 'Player Fragger Stats'} (
-            {pasteMode === 'excel' ? 'Select & Copy Cells from Excel / Google Sheets' : 'JSON Array'}):
-          </span>
-          <span className="text-[10px] font-normal text-slate-400">
-            {activeTab === 'teams'
-              ? `${parsedTeamRows.length} team row(s) detected`
-              : `${parsedPlayerRows.length} player row(s) detected`}
-          </span>
-        </label>
-        <textarea
-          rows={5}
-          value={rawText}
-          onChange={(e) => setRawText(e.target.value)}
-          placeholder={
-            activeTab === 'teams'
-              ? pasteMode === 'excel'
-                ? `Paste Excel columns directly here (e.g. Rank \\t Team \\t PlacePts \\t Elims \\t Damage...)\nExample:\n1\tTeam Soul\t10\t12\t22\t2450\n2\tGodLike\t6\t8\t14\t1820`
-                : `[\n  { "rank": 1, "team": "Team Soul", "placePoints": 10, "elimsPoints": 12, "damage": 2450, "wwcd": true },\n  { "rank": 2, "team": "GodLike", "placePoints": 6, "elimsPoints": 8, "damage": 1820 }\n]`
-              : pasteMode === 'excel'
-              ? `Paste Excel columns directly here (e.g. Player \\t Team \\t Elims \\t Damage \\t Headshots \\t Assists \\t Knocks \\t Powerplay \\t LongestElim \\t MVP \\t Survival \\t Healing \\t DmgReceived \\t VehicleElims \\t GrenadeElims)\nExample:\nMortal\tTeam Soul\t5\t1120\t3\t2\t4\t2\t245.5\tYes\t28:00\t350\t420\t1\t2`
-              : `[\n  { "player": "Mortal", "team": "Team Soul", "elims": 5, "damage": 1120, "headshots": 3, "survivalTime": 1680, "healing": 350, "damageReceived": 420, "vehicleElims": 1, "grenadeElims": 2, "isMvp": true }\n]`
-          }
-          className="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-(--ed-blue) focus:bg-white dark:focus:bg-slate-900 transition-all"
-        />
-      </div>
+      {/* ─── LIQUIPEDIA IMPORTER PANEL ─── */}
+      {pasteMode === 'liquipedia' && (
+        <div className="space-y-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                <Globe className="w-4 h-4" /> 1-Click Liquipedia Tournament & Match Parser
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Enter any Liquipedia tournament or match URL to extract standings, or paste wikitext/HTML table below.
+              </p>
+            </div>
+            <span className="text-[10px] font-normal text-slate-400 self-start sm:self-auto">
+              {parsedTeamRows.length} team row(s) detected
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <input
+              type="url"
+              value={liquipediaUrl}
+              onChange={(e) => setLiquipediaUrl(e.target.value)}
+              placeholder="https://liquipedia.net/pubgmobile/... or /apexlegends/..."
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleFetchLiquipedia();
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleFetchLiquipedia}
+              disabled={isFetchingLiquipedia}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0 cursor-pointer"
+            >
+              {isFetchingLiquipedia ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Fetching...</span>
+                </>
+              ) : (
+                <>
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Fetch from Liquipedia</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Multiple Matches Discovered */}
+          {liquipediaMatches.length > 1 && (
+            <div className="space-y-1.5 pt-2 border-t border-blue-500/10">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Multiple Matches / Maps Discovered ({liquipediaMatches.length}):
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {liquipediaMatches.map((m, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSelectedLiquipediaMatchIdx(idx);
+                      applyLiquipediaMatchToRows(m);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                      selectedLiquipediaMatchIdx === idx
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {m.matchName} ({m.rows.length} teams)
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Manual Wikitext or Table Paste Fallback */}
+          <div className="space-y-1 pt-2 border-t border-blue-500/10">
+            <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span>Or Paste Raw Liquipedia Wikitext / Table Data Manually:</span>
+              <span className="text-[9px] text-slate-400 font-normal">Supports {`{{MatchMaps}}`}, {`{{Scoreboard}}`} & HTML tables</span>
+            </label>
+            <textarea
+              rows={3}
+              value={rawText}
+              onChange={(e) => setRawText(e.target.value)}
+              placeholder="Paste raw Liquipedia wikitext or HTML table here..."
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ─── SCREENSHOT OCR READER PANEL ─── */}
+      {pasteMode === 'ocr' && (
+        <div className="space-y-3 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <Camera className="w-4 h-4" /> Scorecard Screenshot OCR Reader
+              </h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Upload a tournament broadcast scorecard or press <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-mono text-[10px]">Ctrl+V</kbd> to paste directly from your clipboard.
+              </p>
+            </div>
+            <span className="text-[10px] font-normal text-slate-400 self-start sm:self-auto">
+              {parsedTeamRows.length} team row(s) detected
+            </span>
+          </div>
+
+          {/* Hidden File Input */}
+          <input
+            id="scorecard-ocr-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/bmp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleOcrFile(file);
+            }}
+          />
+
+          {!ocrImage ? (
+            <label
+              htmlFor="scorecard-ocr-input"
+              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-emerald-500/30 hover:border-emerald-500/60 rounded-xl cursor-pointer bg-white/50 dark:bg-slate-900/40 hover:bg-emerald-500/5 transition-all text-center group"
+            >
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <UploadCloud className="w-6 h-6" />
+              </div>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                Click to browse or drop scorecard screenshot
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Supports PNG, JPG, WebP. You can also press <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Ctrl+V</span> anywhere!
+              </p>
+            </label>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-col md:flex-row items-center gap-4 bg-white/70 dark:bg-slate-900/70 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ocrImage}
+                  alt="Scorecard preview"
+                  className="max-h-44 max-w-full md:max-w-xs object-contain rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs"
+                />
+                <div className="flex-1 space-y-2.5 w-full">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-500" /> Scorecard Image Ready
+                    </span>
+                    <label
+                      htmlFor="scorecard-ocr-input"
+                      className="text-[11px] font-semibold text-slate-500 hover:text-emerald-600 dark:text-slate-400 cursor-pointer underline"
+                    >
+                      Change image
+                    </label>
+                  </div>
+
+                  {isScanningOcr ? (
+                    <div className="space-y-1.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                        <span className="flex items-center gap-1.5">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          {ocrStatus || 'Scanning...'}
+                        </span>
+                        <span>{ocrProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-emerald-500 h-full transition-all duration-200 rounded-full"
+                          style={{ width: `${ocrProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={runOcrScan}
+                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{rawOcrText ? 'Re-scan Scorecard' : 'Scan & Extract Data'}</span>
+                      </button>
+                      {ocrStatus && (
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          {ocrStatus}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {rawOcrText && (
+                    <details className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                      <summary className="cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 font-medium">
+                        View Raw Recognized OCR Text
+                      </summary>
+                      <pre className="mt-1.5 p-2 rounded bg-slate-100 dark:bg-slate-950 font-mono text-[10px] overflow-x-auto max-h-32">
+                        {rawOcrText}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── EXCEL / JSON STANDARD PASTE BOX ─── */}
+      {(pasteMode === 'excel' || pasteMode === 'json') && (
+        <div className="space-y-1.5">
+          <label className="block text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center justify-between">
+            <span>
+              Paste {activeTab === 'teams' ? 'Team Standings' : 'Player Fragger Stats'} (
+              {pasteMode === 'excel' ? 'Select & Copy Cells from Excel / Google Sheets' : 'JSON Array'}):
+            </span>
+            <span className="text-[10px] font-normal text-slate-400">
+              {activeTab === 'teams'
+                ? `${parsedTeamRows.length} team row(s) detected`
+                : `${parsedPlayerRows.length} player row(s) detected`}
+            </span>
+          </label>
+          <textarea
+            rows={5}
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            placeholder={
+              activeTab === 'teams'
+                ? pasteMode === 'excel'
+                  ? `Paste Excel columns directly here (e.g. Rank \\t Team \\t PlacePts \\t Elims \\t Damage...)\nExample:\n1\tTeam Soul\t10\t12\t22\t2450\n2\tGodLike\t6\t8\t14\t1820`
+                  : `[\n  { "rank": 1, "team": "Team Soul", "placePoints": 10, "elimsPoints": 12, "damage": 2450, "wwcd": true },\n  { "rank": 2, "team": "GodLike", "placePoints": 6, "elimsPoints": 8, "damage": 1820 }\n]`
+                : pasteMode === 'excel'
+                ? `Paste Excel columns directly here (e.g. Player \\t Team \\t Elims \\t Damage \\t Headshots \\t Assists \\t Knocks \\t Powerplay \\t LongestElim \\t MVP \\t Survival \\t Healing \\t DmgReceived \\t VehicleElims \\t GrenadeElims)\nExample:\nMortal\tTeam Soul\t5\t1120\t3\t2\t4\t2\t245.5\tYes\t28:00\t350\t420\t1\t2`
+                : `[\n  { "player": "Mortal", "team": "Team Soul", "elims": 5, "damage": 1120, "headshots": 3, "survivalTime": 1680, "healing": 350, "damageReceived": 420, "vehicleElims": 1, "grenadeElims": 2, "isMvp": true }\n]`
+            }
+            className="w-full px-3.5 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-(--ed-blue) focus:bg-white dark:focus:bg-slate-900 transition-all"
+          />
+        </div>
+      )}
 
       {/* Error Banner */}
       {errorMsg && (
