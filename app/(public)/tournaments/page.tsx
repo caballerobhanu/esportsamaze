@@ -6,7 +6,7 @@ import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
 import { formatDate } from '@/lib/utils';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'Tournaments Hub | eSportsAmaze — Official Standings, Matches & Stats',
@@ -18,7 +18,24 @@ async function getTournamentsDirectoryData() {
   try {
     const [tournaments, games] = await Promise.all([
       prisma.tournament.findMany({
-        include: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          tier: true,
+          status: true,
+          series: true,
+          season: true,
+          eventType: true,
+          gameMode: true,
+          startDate: true,
+          endDate: true,
+          prizePool: true,
+          currency: true,
+          usdRate: true,
+          imageUrl: true,
+          imageDarkUrl: true,
+          winner: true,
           game: { select: { name: true, slug: true } },
           venues: { include: { venue: { select: { name: true, city: true, country: true } } } },
           organizers: { include: { organizer: { select: { name: true } } } },

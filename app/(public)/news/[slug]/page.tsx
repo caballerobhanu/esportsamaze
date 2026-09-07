@@ -12,6 +12,7 @@ export async function generateStaticParams() {
   const articles = await prisma.article.findMany({
     where: { status: 'PUBLISHED', deletedAt: null },
     select: { slug: true },
+    orderBy: { publishedAt: 'desc' },
     take: 100,
   });
   return articles.map((a) => ({ slug: a.slug }));
@@ -116,16 +117,16 @@ export default async function ArticleDetailPage({
   }
 
   const [relatedArticles, adjacent, mostRead, comments, commentCount] = await Promise.all([
-    getRelatedArticles(article.slug, article.category, 3),
-    getAdjacentArticles(article.publishedAt),
-    getMostRead(30, 5),
+    getRelatedArticles(article.slug, article.category, 3).catch(() => []),
+    getAdjacentArticles(article.publishedAt).catch(() => ({ prev: null, next: null })),
+    getMostRead(30, 5).catch(() => []),
     prisma.comment.findMany({
       where: { articleId: article.id, status: 'APPROVED' },
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: { id: true, authorName: true, body: true, createdAt: true },
-    }),
-    prisma.comment.count({ where: { articleId: article.id, status: 'APPROVED' } }),
+    }).catch(() => []),
+    prisma.comment.count({ where: { articleId: article.id, status: 'APPROVED' } }).catch(() => 0),
   ]);
 
   const categoryMeta = getCategoryMeta(article.category);

@@ -10,6 +10,7 @@
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import path from 'path';
 import prisma from '../lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 /** All DateTime columns across the schema — ISO strings from JSON must be revived. */
 const DATE_FIELDS = new Set([
@@ -59,12 +60,12 @@ function findSnapshot(): string {
   );
 }
 
-async function insertMany(
+async function insertMany<T>(
   label: string,
   rows: Record<string, unknown>[] | undefined,
-  run: (data: Record<string, unknown>[]) => Promise<unknown>
+  run: (data: T[]) => Promise<unknown>
 ) {
-  const data = reviveDates(rows ?? []);
+  const data = reviveDates(rows ?? []) as unknown as T[];
   if (data.length === 0) {
     console.log(`⏭  ${label}: 0 rows`);
     return;
@@ -73,7 +74,7 @@ async function insertMany(
   console.log(`✅ ${label}: ${data.length} rows`);
 }
 
-async function main() {
+export async function main() {
   console.log('🎮 Esports Amaze — snapshot restore seed');
 
   const snapshotPath = findSnapshot();
@@ -109,32 +110,32 @@ async function main() {
   await prisma.game.deleteMany({});
 
   // 2. Restore in dependency order (parents before children; explicit IDs preserve every relation)
-  await insertMany('Games', snapshot.games, (d) => prisma.game.createMany({ data: d as never }));
-  await insertMany('Organizers', snapshot.organizers, (d) => prisma.organizer.createMany({ data: d as never }));
-  await insertMany('Sponsors', snapshot.sponsors, (d) => prisma.sponsor.createMany({ data: d as never }));
-  await insertMany('Venues', snapshot.venues, (d) => prisma.venue.createMany({ data: d as never }));
-  await insertMany('Teams', snapshot.teams, (d) => prisma.team.createMany({ data: d as never }));
-  await insertMany('Players', snapshot.players, (d) => prisma.player.createMany({ data: d as never }));
-  await insertMany('Transfers', snapshot.transfers, (d) => prisma.transfer.createMany({ data: d as never }));
-  await insertMany('Tournaments', snapshot.tournaments, (d) => prisma.tournament.createMany({ data: d as never }));
-  await insertMany('Tournament Stages', snapshot.tournamentStages, (d) => prisma.tournamentStage.createMany({ data: d as never }));
-  await insertMany('Tournament Groups', snapshot.tournamentGroups, (d) => prisma.tournamentGroup.createMany({ data: d as never }));
-  await insertMany('Tournament Teams', snapshot.tournamentTeams, (d) => prisma.tournamentTeam.createMany({ data: d as never }));
-  await insertMany('Tournament Organizers', snapshot.tournamentOrganizers, (d) => prisma.tournamentOrganizer.createMany({ data: d as never }));
-  await insertMany('Tournament Sponsors', snapshot.tournamentSponsors, (d) => prisma.tournamentSponsor.createMany({ data: d as never }));
-  await insertMany('Tournament Venues', snapshot.tournamentVenues, (d) => prisma.tournamentVenue.createMany({ data: d as never }));
-  await insertMany('Matches', snapshot.matches, (d) => prisma.match.createMany({ data: d as never }));
-  await insertMany('Match Games', snapshot.matchGames, (d) => prisma.matchGame.createMany({ data: d as never }));
-  await insertMany('Match Team Results', snapshot.matchTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d as never }));
-  await insertMany('Match Player Stats', snapshot.matchPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d as never }));
-  await insertMany('Team Rankings', snapshot.teamRankings, (d) => prisma.teamRanking.createMany({ data: d as never }));
-  await insertMany('Player Rankings', snapshot.playerRankings, (d) => prisma.playerRanking.createMany({ data: d as never }));
-  await insertMany('Ranking Transfer Rules', snapshot.rankingTransferRules, (d) => prisma.rankingTransferRule.createMany({ data: d as never }));
-  await insertMany('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d as never }));
-  await insertMany('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d as never }));
-  await insertMany('Article Revisions', snapshot.articleRevisions, (d) => prisma.articleRevision.createMany({ data: d as never }));
-  await insertMany('Comments', snapshot.comments, (d) => prisma.comment.createMany({ data: d as never }));
-  await insertMany('Article Reactions', snapshot.articleReactions, (d) => prisma.articleReaction.createMany({ data: d as never }));
+  await insertMany<Prisma.GameCreateManyInput>('Games', snapshot.games, (d) => prisma.game.createMany({ data: d }));
+  await insertMany<Prisma.OrganizerCreateManyInput>('Organizers', snapshot.organizers, (d) => prisma.organizer.createMany({ data: d }));
+  await insertMany<Prisma.SponsorCreateManyInput>('Sponsors', snapshot.sponsors, (d) => prisma.sponsor.createMany({ data: d }));
+  await insertMany<Prisma.VenueCreateManyInput>('Venues', snapshot.venues, (d) => prisma.venue.createMany({ data: d }));
+  await insertMany<Prisma.TeamCreateManyInput>('Teams', snapshot.teams, (d) => prisma.team.createMany({ data: d }));
+  await insertMany<Prisma.PlayerCreateManyInput>('Players', snapshot.players, (d) => prisma.player.createMany({ data: d }));
+  await insertMany<Prisma.TransferCreateManyInput>('Transfers', snapshot.transfers, (d) => prisma.transfer.createMany({ data: d }));
+  await insertMany<Prisma.TournamentCreateManyInput>('Tournaments', snapshot.tournaments, (d) => prisma.tournament.createMany({ data: d }));
+  await insertMany<Prisma.TournamentStageCreateManyInput>('Tournament Stages', snapshot.tournamentStages, (d) => prisma.tournamentStage.createMany({ data: d }));
+  await insertMany<Prisma.TournamentGroupCreateManyInput>('Tournament Groups', snapshot.tournamentGroups, (d) => prisma.tournamentGroup.createMany({ data: d }));
+  await insertMany<Prisma.TournamentTeamCreateManyInput>('Tournament Teams', snapshot.tournamentTeams, (d) => prisma.tournamentTeam.createMany({ data: d }));
+  await insertMany<Prisma.TournamentOrganizerCreateManyInput>('Tournament Organizers', snapshot.tournamentOrganizers, (d) => prisma.tournamentOrganizer.createMany({ data: d }));
+  await insertMany<Prisma.TournamentSponsorCreateManyInput>('Tournament Sponsors', snapshot.tournamentSponsors, (d) => prisma.tournamentSponsor.createMany({ data: d }));
+  await insertMany<Prisma.TournamentVenueCreateManyInput>('Tournament Venues', snapshot.tournamentVenues, (d) => prisma.tournamentVenue.createMany({ data: d }));
+  await insertMany<Prisma.MatchCreateManyInput>('Matches', snapshot.matches, (d) => prisma.match.createMany({ data: d }));
+  await insertMany<Prisma.MatchGameCreateManyInput>('Match Games', snapshot.matchGames, (d) => prisma.matchGame.createMany({ data: d }));
+  await insertMany<Prisma.MatchTeamResultCreateManyInput>('Match Team Results', snapshot.matchTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d }));
+  await insertMany<Prisma.MatchPlayerStatCreateManyInput>('Match Player Stats', snapshot.matchPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d }));
+  await insertMany<Prisma.TeamRankingCreateManyInput>('Team Rankings', snapshot.teamRankings, (d) => prisma.teamRanking.createMany({ data: d }));
+  await insertMany<Prisma.PlayerRankingCreateManyInput>('Player Rankings', snapshot.playerRankings, (d) => prisma.playerRanking.createMany({ data: d }));
+  await insertMany<Prisma.RankingTransferRuleCreateManyInput>('Ranking Transfer Rules', snapshot.rankingTransferRules, (d) => prisma.rankingTransferRule.createMany({ data: d }));
+  await insertMany<Prisma.MediaAssetCreateManyInput>('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d }));
+  await insertMany<Prisma.ArticleCreateManyInput>('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d }));
+  await insertMany<Prisma.ArticleRevisionCreateManyInput>('Article Revisions', snapshot.articleRevisions, (d) => prisma.articleRevision.createMany({ data: d }));
+  await insertMany<Prisma.CommentCreateManyInput>('Comments', snapshot.comments, (d) => prisma.comment.createMany({ data: d }));
+  await insertMany<Prisma.ArticleReactionCreateManyInput>('Article Reactions', snapshot.articleReactions, (d) => prisma.articleReaction.createMany({ data: d }));
 
   console.log('🎉 Restore complete — database matches the snapshot exactly.');
 }

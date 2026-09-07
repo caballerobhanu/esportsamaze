@@ -49,7 +49,7 @@ import type {
   TeamPerformanceRow,
 } from '@/components/tournaments/tournament-statistics-panel';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 180;
 
 async function getTournamentData(rawSlug: string) {
   try {

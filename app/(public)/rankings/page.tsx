@@ -5,7 +5,7 @@ import { loadTransferRules } from '@/lib/ranking-rules';
 import { computeTeamRankings, computePlayerRankings } from '@/lib/krafton-rankings';
 import { ArrowRight, BarChart3, Clock3, ShieldCheck, Swords, Trophy } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 900;
 
 export const metadata: Metadata = {
   title: 'KRAFTON Rankings | eSportsAmaze — Official Team & Player Power Rankings',

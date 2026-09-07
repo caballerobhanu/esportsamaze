@@ -14,6 +14,8 @@ const EXT_BY_MIME: Record<string, string> = {
   'image/svg+xml': 'svg',
 };
 
+export const ALLOWED_IMAGE_MIMES = Object.keys(EXT_BY_MIME).join(',');
+
 /**
  * Validates file buffer magic bytes to ensure the content matches its claimed image type.
  */

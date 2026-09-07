@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { getVisitorLocalCurrency, formatAmountInCurrency } from '@/lib/geo-currency';
-import { formatPrizePool, CURRENCY_SYMBOLS } from '@/lib/utils';
+import { CURRENCY_SYMBOLS } from '@/lib/utils';
 import { getCurrencyUsdRate } from '@/lib/tournament-math';
 import { Globe, DollarSign } from 'lucide-react';
 

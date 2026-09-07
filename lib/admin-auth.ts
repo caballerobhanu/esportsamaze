@@ -2,17 +2,22 @@ import { cookies, headers } from 'next/headers';
 import crypto from 'crypto';
 
 const COOKIE_NAME = 'ea_admin';
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
 function getAdminSecret(): string {
-  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
-  if (!secret) {
+  const customSecret = process.env.ADMIN_SESSION_SECRET;
+  if (customSecret) return customSecret;
+
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
     if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1') {
       return 'changeme';
     }
     throw new Error('FATAL: ADMIN_PASSWORD or ADMIN_SESSION_SECRET must be configured. Set ALLOW_DEV_AUTH=1 only for local offline dev.');
   }
-  return secret;
+
+  // Derive high-entropy 256-bit secret so raw password is never exposed as HMAC key
+  return crypto.createHash('sha256').update(`ea_admin_salt:${password}`).digest('hex');
 }
 
 // ---------------------------------------------------------------- session token
@@ -80,23 +85,8 @@ function pruneRecent(times: number[], now: number): number[] {
 }
 
 export async function clientIp(): Promise<string> {
-  try {
-    const h = await headers();
-    // Prefer the proxy-owned x-real-ip; otherwise take the LAST x-forwarded-for
-    // entry (the hop added by the nearest trusted proxy). The leftmost entry is
-    // client-controlled and trivially spoofable when the app is directly
-    // reachable, so it must never be used as the limiting key.
-    const realIp = h.get('x-real-ip')?.trim();
-    if (realIp) return realIp;
-    const xff = h.get('x-forwarded-for');
-    if (xff) {
-      const hops = xff.split(',').map((s) => s.trim()).filter(Boolean);
-      if (hops.length > 0) return hops[hops.length - 1];
-    }
-    return 'unknown';
-  } catch {
-    return 'unknown';
-  }
+  const { getClientIp } = await import('@/lib/rate-limiter');
+  return getClientIp();
 }
 
 export function isLoginBlocked(ip: string): boolean {
@@ -120,6 +110,7 @@ export function recordFailedLogin(ip: string): void {
 
 export function clearFailedLogins(ip: string): void {
   failedLogins.delete(ip);
+  globalFailures = [];
 }
 
 // ---------------------------------------------------------------- session
@@ -142,7 +133,7 @@ export async function grantAdminSession(): Promise<void> {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: 60 * 60 * 24, // 24 hours
     secure: process.env.NODE_ENV === 'production',
   });
 }

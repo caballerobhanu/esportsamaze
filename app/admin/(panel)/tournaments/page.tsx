@@ -5,7 +5,7 @@ import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save,
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
-import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug } from '@/lib/admin-forms';
+import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import {
   TOURNAMENT_TIERS,
@@ -82,15 +82,9 @@ async function saveTournament(formData: FormData) {
     saveUploadedFile(formData.get('bannerFile'), 'tournament-banner'),
   ]);
 
-  // Derived or selected status
-  const manualStatus = fStr(formData, 'status');
-  const status = (manualStatus && manualStatus !== 'AUTO'
-    ? manualStatus
-    : deriveTournamentStatus(startDate, endDate)) as
-    | 'UPCOMING'
-    | 'ONGOING'
-    | 'COMPLETED'
-    | 'CANCELED';
+  // Derived or selected status (validated against Prisma TournamentStatus enum)
+  const manualStatus = fTournamentStatus(formData, 'status');
+  const status = manualStatus ?? deriveTournamentStatus(startDate, endDate);
 
   // Multi-countries parsing
   const countriesInput = fStr(formData, 'countries');
@@ -414,7 +408,7 @@ async function saveTournament(formData: FormData) {
     endDate,
     winner,
     runnerUp,
-    liquipedia: fOpt(formData, 'liquipedia'),
+    liquipedia: fUrl(formData, 'liquipedia'),
     socialLinks: fSocials(formData),
     formatDetails,
     standingsConfig,
@@ -1358,7 +1352,7 @@ export default async function AdminTournamentsPage({
                 <input
                   type="file"
                   name="imageFile"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                   className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
                 />
               </div>
@@ -1373,7 +1367,7 @@ export default async function AdminTournamentsPage({
                 <input
                   type="file"
                   name="imageDarkFile"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                   className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
                 />
               </div>
@@ -1384,7 +1378,7 @@ export default async function AdminTournamentsPage({
                 <input
                   type="file"
                   name="bannerFile"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                   className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
                 />
               </div>

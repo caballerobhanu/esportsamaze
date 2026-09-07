@@ -716,7 +716,7 @@ export function matchDayLabel(scheduledAt: Date | string | null | undefined): st
   if (!scheduledAt) return '1';
   const d = typeof scheduledAt === 'string' ? new Date(scheduledAt) : scheduledAt;
   if (isNaN(d.getTime())) return '1';
-  return String(d.getDate());
+  return String(d.getUTCDate());
 }
 
 export function matchDayKey(date: Date): string {
@@ -764,6 +764,53 @@ export interface StandingsStageSummary {
   completedMatchesCount: number;
 }
 
+/**
+ * Flattens prize distribution rows from any supported shape:
+ * 1. Flat array of prize rank items: `[{ rank: 1, prize: 1000 }, ...]`
+ * 2. Array of stage objects: `[{ stageName: 'Finals', ranks: [...] }, ...]`
+ * 3. Structured object with `stages`: `{ stages: [{ ranks: [...] }] }`
+ */
+export function flattenPrizeRanks(prizeDistribution: unknown): Array<Record<string, unknown>> {
+  if (!prizeDistribution) return [];
+
+  // Case 1: Array (either flat ranks or stage objects with .ranks)
+  if (Array.isArray(prizeDistribution)) {
+    const list: Array<Record<string, unknown>> = [];
+    for (const item of prizeDistribution) {
+      if (!item || typeof item !== 'object') continue;
+      const stageRanks = (item as Record<string, unknown>).ranks;
+      if (Array.isArray(stageRanks)) {
+        for (const r of stageRanks) {
+          if (r && typeof r === 'object') list.push(r as Record<string, unknown>);
+        }
+      } else {
+        list.push(item as Record<string, unknown>);
+      }
+    }
+    return list;
+  }
+
+  // Case 2: Object with `stages: [...]`
+  if (typeof prizeDistribution === 'object') {
+    const stages = (prizeDistribution as Record<string, unknown>).stages;
+    if (Array.isArray(stages)) {
+      const list: Array<Record<string, unknown>> = [];
+      for (const st of stages) {
+        if (!st || typeof st !== 'object') continue;
+        const ranks = (st as Record<string, unknown>).ranks;
+        if (Array.isArray(ranks)) {
+          for (const r of ranks) {
+            if (r && typeof r === 'object') list.push(r as Record<string, unknown>);
+          }
+        }
+      }
+      return list;
+    }
+  }
+
+  return [];
+}
+
 export function resolvePrizeRecipients(
   prizeDistribution: unknown,
   teamsById: Map<string, any>,
@@ -773,7 +820,7 @@ export function resolvePrizeRecipients(
   winner: any | null;
   runnerUp: any | null;
 } {
-  const rows = asArray(prizeDistribution);
+  const rows = flattenPrizeRanks(prizeDistribution);
   let winner: any | null = null;
   let runnerUp: any | null = null;
 

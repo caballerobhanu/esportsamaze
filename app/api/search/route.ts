@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { publishedVisibility } from '@/lib/news-queries';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,20 @@ export interface SearchResultItem {
 }
 
 export async function GET(request: NextRequest) {
+  const ip = await getClientIp();
+  const rl = checkRateLimit('api:search', ip, { windowMs: 60_000, maxRequests: 60 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many search requests. Please slow down.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil(rl.resetMs / 1000)),
+        },
+      }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get('q') || '').trim().slice(0, 100);
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '5', 10) || 5, 1), 20);

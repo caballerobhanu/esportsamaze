@@ -118,9 +118,10 @@ function parseUniversalDateAndTime(
     cleanTime = `${cleanTime} ${cleanTz}`;
   }
 
-  let year = new Date().getFullYear();
-  let month = new Date().getMonth() + 1; // 1-indexed
-  let day = new Date().getDate();
+  const now = new Date();
+  let year = now.getUTCFullYear();
+  let month = now.getUTCMonth() + 1; // 1-indexed
+  let day = now.getUTCDate();
 
   if (dateStr != null && String(dateStr).trim() !== '') {
     const s = String(dateStr).trim();
@@ -1481,6 +1482,9 @@ export async function bulkUniversalPlayerMatchImportAction(
           revalidatePath(`/tournaments/${t.slug}`);
         }
       }
+      revalidatePath('/tournaments');
+      revalidatePath('/admin/matches');
+      revalidatePath('/');
     } catch {
       // Ignored when invoked in background/script contexts
     }

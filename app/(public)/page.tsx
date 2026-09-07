@@ -20,7 +20,7 @@ import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
 import { itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 120;
 
 export default async function HomePage() {
   // 1. Featured Tournament: ONLY live/ongoing tournaments (status = 'ONGOING') with completed matches
@@ -163,7 +163,21 @@ export default async function HomePage() {
   const tournaments = await prisma.tournament.findMany({
     orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
     take: 4,
-    include: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      status: true,
+      tier: true,
+      prizePool: true,
+      currency: true,
+      usdRate: true,
+      startDate: true,
+      endDate: true,
+      eventType: true,
+      legacyVenue: true,
+      legacyLocation: true,
+      legacyOrganizer: true,
       game: { select: { name: true } },
       venues: { include: { venue: true } },
       organizers: { include: { organizer: true } },
@@ -178,14 +192,14 @@ export default async function HomePage() {
       player: { select: { ign: true, firstName: true, lastName: true, slug: true, role: true } },
       team: { select: { name: true, tag: true, slug: true } },
     },
-  });
+  }).catch(() => []);
 
   // 6. Database counts for the closing stats band — real numbers, nothing projected
   const [tournamentsCount, teamsCount, matchesCount, playersCount] = await Promise.all([
-    prisma.tournament.count(),
-    prisma.team.count(),
-    prisma.match.count(),
-    prisma.player.count({ where: { isPlayer: true } }),
+    prisma.tournament.count().catch(() => 0),
+    prisma.team.count().catch(() => 0),
+    prisma.match.count().catch(() => 0),
+    prisma.player.count({ where: { isPlayer: true } }).catch(() => 0),
   ]);
 
   // 7. Editorial pool feeding every magazine block (lead, latest, picks, brief)

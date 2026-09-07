@@ -163,7 +163,7 @@ export default async function AdminSponsorsPage({
               <input
                 type="file"
                 name="logoFile"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                 className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
               />
             </div>

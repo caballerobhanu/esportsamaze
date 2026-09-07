@@ -8,6 +8,7 @@ import { organizationJsonLd, websiteJsonLd, serializeJsonLd } from '@/lib/seo';
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
+  display: 'swap',
 });
 
 // AdSense only loads when a publisher client is configured.

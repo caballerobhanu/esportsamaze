@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export async function GET(request: NextRequest) {
+  const ip = await getClientIp();
+  const rl = checkRateLimit('api:matches', ip, { windowMs: 60_000, maxRequests: 120 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded. Please try again later.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil(rl.resetMs / 1000)),
+        },
+      }
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const gameSlug = searchParams.get('game');
   const status = searchParams.get('status');

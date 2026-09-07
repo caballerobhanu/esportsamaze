@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { publishedVisibility } from '@/lib/news-queries';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
 /** Card data for the client-side "Saved stories" page (published articles only). */
 export async function GET(req: NextRequest) {
-  const slugsParam = new URL(req.url).searchParams.get('slugs') ?? '';
+  const ip = await getClientIp();
+  const rl = checkRateLimit('api:news:by-slugs', ip, { windowMs: 60_000, maxRequests: 60 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
+  const slugsParam = (new URL(req.url).searchParams.get('slugs') ?? '').slice(0, 2000);
   const slugs = slugsParam
     .split(',')
-    .map((s) => s.trim())
+    .map((s) => s.trim().slice(0, 100))
     .filter(Boolean)
-    .slice(0, 50);
+    .slice(0, 30);
 
   if (slugs.length === 0) {
     return NextResponse.json({ articles: [] });

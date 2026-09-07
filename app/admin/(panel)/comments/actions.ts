@@ -15,6 +15,14 @@ function revalidateComment(articleSlug: string | null) {
   }
 }
 
+function safeReturnStatus(formData: FormData): string {
+  const raw = fStr(formData, 'returnStatus').toUpperCase();
+  if (['ALL', 'PENDING', 'APPROVED', 'REJECTED'].includes(raw)) {
+    return raw;
+  }
+  return '';
+}
+
 export async function setCommentStatus(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
 
@@ -32,7 +40,8 @@ export async function setCommentStatus(formData: FormData) {
 
   await prisma.comment.update({ where: { id }, data: { status } });
   revalidateComment(comment.article.slug);
-  redirect(`/admin/comments?${fStr(formData, 'returnStatus') ? `status=${fStr(formData, 'returnStatus')}&` : ''}updated=1`);
+  const ret = safeReturnStatus(formData);
+  redirect(`/admin/comments?${ret ? `status=${encodeURIComponent(ret)}&` : ''}updated=1`);
 }
 
 export async function deleteComment(formData: FormData) {
@@ -48,5 +57,6 @@ export async function deleteComment(formData: FormData) {
   await prisma.comment.delete({ where: { id } });
 
   revalidateComment(comment?.article.slug ?? null);
-  redirect(`/admin/comments?${fStr(formData, 'returnStatus') ? `status=${fStr(formData, 'returnStatus')}&` : ''}deleted=1`);
+  const ret = safeReturnStatus(formData);
+  redirect(`/admin/comments?${ret ? `status=${encodeURIComponent(ret)}&` : ''}deleted=1`);
 }

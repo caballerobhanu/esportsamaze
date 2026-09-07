@@ -143,7 +143,7 @@ export function MediaPickerDialog({ open, onClose, onPick, title = 'Media librar
           <input
             ref={fileRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
             className="hidden"
             onChange={(e) => handleUpload(e.target.files?.[0])}
           />

@@ -13,6 +13,7 @@ import {
   getPlayerBasePoints,
 } from '@/lib/krafton-rankings';
 import { Combobox } from '@/components/admin/combobox';
+import { flattenPrizeRanks } from '@/lib/standings-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -211,23 +212,18 @@ async function generateFromTournament(formData: FormData) {
   }
 
   // 3. Award flags from the prize distribution's PLAYER recipients
-  const dist = Array.isArray(tournament.prizeDistribution) ? tournament.prizeDistribution : [];
-  for (const stage of dist) {
-    const ranks = (stage && typeof stage === 'object' && Array.isArray((stage as { ranks?: unknown[] }).ranks)
-      ? (stage as { ranks: unknown[] }).ranks
-      : []) as Array<{ recipientType?: string; playerId?: string; playerName?: string; rank?: string }>;
-    for (const r of ranks) {
-      if (!r || r.recipientType !== 'PLAYER') continue;
-      const kind = classifyAward(String(r.rank ?? ''));
-      if (!kind) continue;
-      let player = r.playerId ? playerById.get(r.playerId) : undefined;
-      if (!player) {
-        const nameKey = (r.playerName ?? '').trim().toLowerCase();
-        player = nameKey ? playerByName.get(nameKey) : undefined;
-      }
-      if (!player) continue;
-      ensure(player.id).flags[kind] = 1;
+  const prizeRows = flattenPrizeRanks(tournament.prizeDistribution);
+  for (const r of prizeRows) {
+    if (!r || r.recipientType !== 'PLAYER') continue;
+    const kind = classifyAward(String(r.rank ?? ''));
+    if (!kind) continue;
+    let player = r.playerId ? playerById.get(String(r.playerId)) : undefined;
+    if (!player) {
+      const nameKey = (typeof r.playerName === 'string' ? r.playerName : '').trim().toLowerCase();
+      player = nameKey ? playerByName.get(nameKey) : undefined;
     }
+    if (!player) continue;
+    ensure(player.id).flags[kind] = 1;
   }
 
   // 4. Persist player rows (skip already-present; skip rows with no finishes AND no awards)

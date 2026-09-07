@@ -36,7 +36,7 @@ async function countsFor(articleId: string, sessionId: string) {
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const sessionId = new URL(req.url).searchParams.get('sessionId') ?? '';
+  const sessionId = (new URL(req.url).searchParams.get('sessionId') ?? '').trim().slice(0, 64);
 
   const article = await prisma.article.findFirst({
     where: { slug, ...publishedVisibility() },

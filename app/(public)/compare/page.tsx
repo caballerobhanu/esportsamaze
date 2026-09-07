@@ -42,12 +42,12 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       select: { id: true, name: true, slug: true, logoUrl: true, tag: true },
       orderBy: { name: 'asc' },
       take: 200,
-    }),
+    }).catch(() => []),
     prisma.player.findMany({
       select: { id: true, ign: true, slug: true, avatarUrl: true, currentTeam: { select: { name: true } } },
       orderBy: { ign: 'asc' },
       take: 200,
-    }),
+    }).catch(() => []),
   ]);
 
   if (!isPlayerMode) {

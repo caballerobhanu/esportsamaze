@@ -26,6 +26,7 @@ import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency'
 import { EarningsAmount } from '@/components/players/earnings-amount';
 import { RecentFormChart } from '@/components/players/recent-form-chart';
 import { loadTransferRules } from '@/lib/ranking-rules';
+import { flattenPrizeRanks } from '@/lib/standings-config';
 
 interface PlayerPageProps {
   params: Promise<{ slug: string }>;
@@ -96,23 +97,14 @@ interface PrizeRankEntry {
 
 /** Individual (PLAYER-recipient) cash awards for this player from a tournament's prize distribution JSON. */
 function extractIndividualPrizes(prizeDistribution: unknown, playerId: string, ign: string) {
-  const stages = Array.isArray(prizeDistribution)
-    ? prizeDistribution
-    : prizeDistribution && typeof prizeDistribution === 'object' && Array.isArray((prizeDistribution as { stages?: unknown[] }).stages)
-      ? (prizeDistribution as { stages: unknown[] }).stages
-      : [];
+  const rows = flattenPrizeRanks(prizeDistribution);
   const out: { label: string; amount: number }[] = [];
-  for (const stage of stages) {
-    const ranks = (stage && typeof stage === 'object' && Array.isArray((stage as { ranks?: unknown[] }).ranks)
-      ? (stage as { ranks: unknown[] }).ranks
-      : []) as PrizeRankEntry[];
-    for (const r of ranks) {
-      if (!r || r.recipientType !== 'PLAYER') continue;
-      const isMe = r.playerId ? r.playerId === playerId : (r.playerName ?? '').trim().toLowerCase() === ign.toLowerCase();
-      if (!isMe) continue;
-      const amount = Number(r.prize ?? 0);
-      if (amount > 0) out.push({ label: String(r.rank ?? 'Cash prize'), amount });
-    }
+  for (const r of rows) {
+    if (!r || r.recipientType !== 'PLAYER') continue;
+    const isMe = r.playerId ? r.playerId === playerId : (typeof r.playerName === 'string' ? r.playerName : '').trim().toLowerCase() === ign.toLowerCase();
+    if (!isMe) continue;
+    const amount = Number(r.prize ?? 0);
+    if (amount > 0) out.push({ label: String(r.rank ?? 'Cash prize'), amount });
   }
   return out;
 }
@@ -200,17 +192,17 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   if (!player) notFound();
 
   const [standing, prevPlayer, nextPlayer, allStats, transfers] = await Promise.all([
-    getStanding(player.ign),
+    getStanding(player.ign).catch(() => null),
     prisma.player.findFirst({
       where: { id: { lt: player.id } },
       orderBy: { id: 'desc' },
       select: { slug: true, ign: true },
-    }),
+    }).catch(() => null),
     prisma.player.findFirst({
       where: { id: { gt: player.id } },
       orderBy: { id: 'asc' },
       select: { slug: true, ign: true },
-    }),
+    }).catch(() => null),
     // Full match-by-match history (powers the form chart, career totals and teammates matrix)
     prisma.matchPlayerStat.findMany({
       where: { playerId: player.id },
@@ -235,12 +227,12 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
           },
         },
       },
-    }),
+    }).catch(() => []),
     prisma.transfer.findMany({
       where: { playerId: player.id },
       orderBy: { date: 'desc' },
       include: { team: { select: { id: true, name: true, tag: true, slug: true } } },
-    }),
+    }).catch(() => []),
   ]);
 
   // Scope squad participations to candidate teams and tournaments associated with this player

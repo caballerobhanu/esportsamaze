@@ -2,11 +2,24 @@ import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { publishedVisibility } from '@/lib/news-queries';
+import { ARTICLE_CATEGORIES } from '@/lib/news';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
+
+const VALID_CATEGORIES = new Set<string>(ARTICLE_CATEGORIES.map((c) => c.value));
 
 export async function GET(request: Request) {
+  const ip = await getClientIp();
+  const rl = checkRateLimit('api:news', ip, { windowMs: 60_000, maxRequests: 120 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(rl.resetMs / 1000)) } }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
+    const categoryRaw = searchParams.get('category')?.trim().toUpperCase();
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 50);
     const featured = searchParams.get('featured');
 
@@ -14,8 +27,8 @@ export async function GET(request: Request) {
       ...publishedVisibility(),
     };
 
-    if (category && category !== 'ALL') {
-      whereClause.category = category;
+    if (categoryRaw && categoryRaw !== 'ALL' && VALID_CATEGORIES.has(categoryRaw)) {
+      whereClause.category = categoryRaw;
     }
 
     if (featured === 'true') {

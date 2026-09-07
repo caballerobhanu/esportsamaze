@@ -55,16 +55,16 @@ export async function saveArticle(formData: FormData) {
   if (!(await isAdmin())) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
-  const title = fStr(formData, 'title');
+  const title = fStr(formData, 'title').slice(0, 200);
   const category = fStr(formData, 'category') || 'GENERAL';
   const rawContent = fStr(formData, 'content');
   const content = DOMPurify.sanitize(rawContent, {
     ADD_ATTR: ['target', 'rel'],
   });
   const rawExcerpt = fStr(formData, 'excerpt') || null;
-  const excerpt = rawExcerpt ? DOMPurify.sanitize(rawExcerpt, { ALLOWED_TAGS: [] }).trim() : null;
-  const authorName = fStr(formData, 'authorName') || 'eSportsAmaze Staff';
-  const authorRole = fStr(formData, 'authorRole') || 'Editor';
+  const excerpt = rawExcerpt ? DOMPurify.sanitize(rawExcerpt, { ALLOWED_TAGS: [] }).trim().slice(0, 500) : null;
+  const authorName = (fStr(formData, 'authorName') || 'eSportsAmaze Staff').slice(0, 80);
+  const authorRole = (fStr(formData, 'authorRole') || 'Editor').slice(0, 80);
   const statusRaw = fStr(formData, 'status');
   const status = ARTICLE_STATUSES.find((s) => s === statusRaw) ? statusRaw : 'DRAFT';
   const featured = formData.get('featured') === 'on';
@@ -72,9 +72,9 @@ export async function saveArticle(formData: FormData) {
   const tournamentId = fOpt(formData, 'tournamentId');
   const teamId = fOpt(formData, 'teamId');
 
-  const metaTitle = fOpt(formData, 'metaTitle');
-  const metaDescription = fOpt(formData, 'metaDescription');
-  const focusKeyword = fOpt(formData, 'focusKeyword');
+  const metaTitle = fOpt(formData, 'metaTitle')?.slice(0, 100) || null;
+  const metaDescription = fOpt(formData, 'metaDescription')?.slice(0, 300) || null;
+  const focusKeyword = fOpt(formData, 'focusKeyword')?.slice(0, 100) || null;
 
   const tagsRaw = fStr(formData, 'tags');
   const tags = tagsRaw

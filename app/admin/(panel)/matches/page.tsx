@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, Swords, Crosshair, Trophy, Shield, Users, Flame, Sparkles, Save, Radio, Globe, MapPin, Tv } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
-import { fStr, fOpt, fDate, fNum } from '@/lib/admin-forms';
+import { fStr, fOpt, fDate, fNum, fMatchStatus, fUrl, sanitizeUrl } from '@/lib/admin-forms';
 import {
   STAGE_TYPES,
   BGMI_PUBGM_MAPS,
@@ -98,11 +98,11 @@ async function updateMatchStatus(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
-  const status = fStr(formData, 'status');
-  if (id && status && ['SCHEDULED', 'LIVE', 'COMPLETED', 'POSTPONED'].includes(status)) {
+  const status = fMatchStatus(formData, 'status');
+  if (id && status) {
     await prisma.match.update({
       where: { id },
-      data: { status: status as any },
+      data: { status },
     });
     revalidatePath('/admin/matches');
     revalidatePath('/tournaments');
@@ -142,11 +142,17 @@ async function saveMatch(formData: FormData) {
     }
   }
 
-  // Determine primary streamUrl
-  let streamUrl = fOpt(formData, 'streamUrl');
+  // Determine primary streamUrl & sanitize vods
+  let streamUrl = fUrl(formData, 'streamUrl');
+  if (Array.isArray(vods)) {
+    vods = vods.map((v: any) => ({
+      ...v,
+      url: sanitizeUrl(v?.url) || '',
+    }));
+  }
   if (!streamUrl && Array.isArray(vods) && vods.length > 0) {
     const mainVod = vods.find((v: any) => v.type === 'MAIN') || vods[0];
-    if (mainVod?.url) streamUrl = mainVod.url;
+    if (mainVod?.url) streamUrl = sanitizeUrl(mainVod.url);
   }
 
   const format = `Match ${matchNumber} (${mapName})${stageName ? ` · ${stageName}` : ''}${
@@ -178,11 +184,7 @@ async function saveMatch(formData: FormData) {
     mapName,
     matchType,
     format,
-    status: (fStr(formData, 'status') || 'SCHEDULED') as
-      | 'SCHEDULED'
-      | 'LIVE'
-      | 'COMPLETED'
-      | 'POSTPONED',
+    status: fMatchStatus(formData, 'status', 'SCHEDULED'),
     scheduledAt,
     matchTime,
     streamUrl: streamUrl || null,

@@ -10,9 +10,14 @@ const MAX_PER_WINDOW = 30;
 const WINDOW_MS = 60 * 1000;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const contentType = req.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().includes('application/json')) {
+    return NextResponse.json({ error: 'Unsupported content type' }, { status: 415 });
+  }
+
   const { slug } = await params;
 
   // Rate-limit per IP so the counter can't be inflated by scripted POSTs,

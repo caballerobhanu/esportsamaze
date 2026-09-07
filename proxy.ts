@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server';
  * (this file runs on the edge runtime, so it uses Web Crypto).
  */
 const COOKIE_NAME = 'ea_admin';
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
 async function hmacHex(data: string, key: string): Promise<string> {
   const enc = new TextEncoder();
@@ -44,18 +44,33 @@ async function isValidSessionToken(token: string, secret: string): Promise<boole
   const nowSec = Math.floor(Date.now() / 1000);
   if (nowSec - iat > SESSION_TTL_SECONDS || iat > nowSec + 60) return false;
   const expected = await hmacHex(`admin-session:${iatPart}`, secret);
-  return safeEqual(token.slice(dot + 1), expected);
+  const given = token.slice(dot + 1);
+  return safeEqual(given, expected);
+}
+
+async function getEdgeAdminSecret(): Promise<string | null> {
+  const customSecret = process.env.ADMIN_SESSION_SECRET;
+  if (customSecret) return customSecret;
+
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    return process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1'
+      ? 'changeme'
+      : null;
+  }
+
+  // Derive matching SHA-256 hex digest using Web Crypto
+  const msgUint8 = new TextEncoder().encode(`ea_admin_salt:${password}`);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function hasValidSession(token: string | undefined): Promise<boolean> {
   if (!token) return false;
-  const secret = process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD;
-  if (!secret) {
-    // Fail closed: only permit dev-only fallback if explicit ALLOW_DEV_AUTH=1 in dev
-    return process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1'
-      ? isValidSessionToken(token, 'changeme')
-      : false;
-  }
+  const secret = await getEdgeAdminSecret();
+  if (!secret) return false;
   return isValidSessionToken(token, secret);
 }
 
