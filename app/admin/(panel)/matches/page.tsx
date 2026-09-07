@@ -561,6 +561,9 @@ async function importBatchTeamResultsAction(formData: FormData) {
           },
         });
       }
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
 
     // Automatically set match status to COMPLETED once full team scorecards are saved
@@ -676,6 +679,9 @@ async function importBatchPlayerStatsAction(formData: FormData) {
           },
         });
       }
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
   }
 

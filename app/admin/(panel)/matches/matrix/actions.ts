@@ -599,6 +599,9 @@ export async function bulkUniversalMatchImportAction(
 
         totalInsertedResults++;
       }
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
 
     try {
@@ -758,6 +761,9 @@ export async function saveMultiMatchMatrixAction(
 
         totalUpdatedMatches++;
       }
+    }, {
+      maxWait: 15000,
+      timeout: 60000,
     });
 
     try {
@@ -991,8 +997,10 @@ export async function bulkUniversalPlayerMatchImportAction(
 
     // Whole import runs as one transaction: a failure halfway through rolls
     // back every row instead of committing a partial player dataset.
-    await prisma.$transaction(async (tx) => {
-      const heavyByTournamentId = new Map<string, { stages: any[]; teams: any[]; matches: any[] }>();
+    await prisma.$transaction(
+      async (tx) => {
+        const teamResultsCache = new Map<string, any>();
+        const heavyByTournamentId = new Map<string, { stages: any[]; teams: any[]; matches: any[] }>();
       const loadHeavy = async (tournamentId: string) => {
         if (!heavyByTournamentId.has(tournamentId)) {
           const full = await tx.tournament.findUnique({
@@ -1299,12 +1307,17 @@ export async function bulkUniversalPlayerMatchImportAction(
         }
 
         // 6. Cascade / Non-destructive Team Result Check (Requirement 3)
-        const existingTeamResult = await tx.matchTeamResult.findFirst({
-          where: {
-            matchGameId,
-            teamId: matchedTeam.id,
-          },
-        });
+        const teamResultKey = `${matchGameId}_${matchedTeam.id}`;
+        let existingTeamResult = teamResultsCache.get(teamResultKey);
+        if (existingTeamResult === undefined) {
+          existingTeamResult = await tx.matchTeamResult.findFirst({
+            where: {
+              matchGameId,
+              teamId: matchedTeam.id,
+            },
+          });
+          teamResultsCache.set(teamResultKey, existingTeamResult || null);
+        }
 
       const teamRank = Number(row.team_rank || row.teamRank) || (existingTeamResult ? existingTeamResult.rank : 1);
       const isTeamWwcd = parseWwcd(row.team_wwcd ?? row.teamWwcd ?? row.wwcd, teamRank);
@@ -1331,7 +1344,7 @@ export async function bulkUniversalPlayerMatchImportAction(
 
         if (!existingTeamResult) {
           // Create new team result record if not previously entered
-          await tx.matchTeamResult.create({
+          const newTeamResult = await tx.matchTeamResult.create({
             data: {
               matchGameId,
               teamId: matchedTeam.id,
@@ -1364,9 +1377,10 @@ export async function bulkUniversalPlayerMatchImportAction(
               totalDist: Number(row.total_dist || row.totalDist) || 0,
             },
           });
+          teamResultsCache.set(teamResultKey, newTeamResult);
         } else if (row.team_rank != null || row.team_wwcd != null || row.team_place != null) {
           // Update team result gently without overwriting unrelated fields
-          await tx.matchTeamResult.update({
+          const updatedTeamResult = await tx.matchTeamResult.update({
             where: { id: existingTeamResult.id },
             data: {
               rank: teamRank,
@@ -1376,6 +1390,7 @@ export async function bulkUniversalPlayerMatchImportAction(
               totalPoints: teamTotalPoints,
             },
           });
+          teamResultsCache.set(teamResultKey, updatedTeamResult);
         }
 
         // 7. Upsert Player Stats into MatchPlayerStat
@@ -1451,6 +1466,9 @@ export async function bulkUniversalPlayerMatchImportAction(
 
         totalInsertedPlayerStats++;
       }
+    }, {
+      maxWait: 20000,
+      timeout: 120000,
     });
 
     try {

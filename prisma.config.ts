@@ -8,5 +8,8 @@ export default defineConfig({
   },
   datasource: {
     url: env('DATABASE_URL'),
+    // Optional: only needed for local `migrate dev` / `migrate diff` runs.
+    // Plain process.env (not env()) so every other command works without it.
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
   },
 });
