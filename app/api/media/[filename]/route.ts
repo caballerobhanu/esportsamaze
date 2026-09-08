@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
+import { isForeignReferer } from '@/lib/anti-scrape';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
@@ -14,9 +15,14 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ filename: string }> }
 ) {
+  // Hotlink protection: allow direct access & same-origin; block cross-site embeds
+  if (isForeignReferer(request)) {
+    return new NextResponse('Forbidden: Cross-site hotlinking is forbidden', { status: 403 });
+  }
+
   const { filename } = await params;
 
   // Prevent path traversal

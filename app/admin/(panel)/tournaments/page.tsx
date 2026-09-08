@@ -575,7 +575,6 @@ async function saveTournament(formData: FormData) {
   });
 
   updateTag('tournaments-list');
-  revalidatePath('/api/tournaments');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
@@ -594,7 +593,6 @@ async function deleteTournament(formData: FormData) {
     }
   }
   updateTag('tournaments-list');
-  revalidatePath('/api/tournaments');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');
@@ -682,7 +680,6 @@ async function duplicateTournament(formData: FormData) {
   });
 
   updateTag('tournaments-list');
-  revalidatePath('/api/tournaments');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/tournaments');

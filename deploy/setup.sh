@@ -122,6 +122,8 @@ if [ ! -f ".env" ]; then
         exit 1
     fi
 fi
+chmod 600 .env
+echo "✅ Enforced strict permissions: .env set to chmod 600 (owner read/write only)."
 
 echo "=============================================================================="
 echo ">>> [9/11] Starting PostgreSQL Database Container..."

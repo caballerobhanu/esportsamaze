@@ -4,11 +4,11 @@ services:
     container_name: esportsamaze_postgres
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
-      POSTGRES_DB: esportsamaze
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: ${POSTGRES_DB:-esportsamaze}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_to_a_strong_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -71,31 +71,9 @@ function TeamLogo({ name, logos }: { name: string; logos: RankingsResponse['logo
 }
 
 export function KraftonRankings({ initialData }: { initialData?: RankingsResponse }) {
-  const [data, setData] = React.useState<RankingsResponse | null>(() => initialData ?? null);
-  const [failed, setFailed] = React.useState(false);
-
-  React.useEffect(() => {
-    if (initialData) return; // Already hydrated by server
-    let cancelled = false;
-    fetch('/api/rankings')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: { data?: RankingsResponse } & RankingsResponse) => {
-        if (!cancelled && json) {
-          setData(json.data ?? json);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [initialData]);
-
-  const loading = data === null && !failed;
+  const data = initialData ?? null;
+  const failed = false;
+  const loading = false;
   const empty =
     !loading &&
     !failed &&

@@ -11,7 +11,8 @@ function createPrismaClient() {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('FATAL: DATABASE_URL environment variable is missing in production environment.');
     }
-    const devFallback = 'postgresql://postgres:password123@localhost:5433/esportsamaze?schema=public';
+    const devPassword = process.env.POSTGRES_PASSWORD || 'postgres';
+    const devFallback = `postgresql://postgres:${devPassword}@127.0.0.1:5433/esportsamaze?schema=public`;
     return new PrismaClient({
       adapter: new PrismaPg({ connectionString: devFallback }),
       log: ['query', 'error', 'warn'],

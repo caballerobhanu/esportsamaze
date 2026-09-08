@@ -9,17 +9,26 @@ set -euo pipefail
 cd /var/www/esportsamaze
 
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "master")
-echo ">>> [1/5] Pulling latest changes from Git (branch: $CURRENT_BRANCH)..."
+echo ">>> [1/7] Pulling latest changes from Git (branch: $CURRENT_BRANCH)..."
 if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
     echo "Setting upstream tracking to origin/$CURRENT_BRANCH..."
     git branch --set-upstream-to="origin/$CURRENT_BRANCH" "$CURRENT_BRANCH" 2>/dev/null || true
 fi
 git pull origin "$CURRENT_BRANCH"
 
-echo ">>> [2/6] Installing dependencies via npm ci (exact lockfile sync)..."
+echo ">>> [2/7] Installing dependencies & verifying secrets permissions..."
 npm ci --prefer-offline
+if [ -f .env ]; then
+    chmod 600 .env
+fi
 
-echo ">>> [3/6] Pre-migration database backup & test suite validation..."
+echo ">>> [3/7] Scanning dependencies for security vulnerabilities (npm audit)..."
+npm audit --omit=dev --audit-level=high || {
+    echo "⚠️ WARNING: npm audit detected high/critical vulnerabilities in production dependencies."
+    echo "Review vulnerabilities using 'npm audit' before proceeding with public launch."
+}
+
+echo ">>> [4/7] Pre-migration database backup & test suite validation..."
 mkdir -p /var/backups/esportsamaze
 BACKUP_TIMESTAMP=$(date +"%Y-%m-%d_%H%M%S")
 if docker ps --format '{{.Names}}' | grep -q "esportsamaze_postgres"; then
@@ -28,14 +37,14 @@ if docker ps --format '{{.Names}}' | grep -q "esportsamaze_postgres"; then
 fi
 npm test
 
-echo ">>> [4/6] Generating Prisma client & applying migrations..."
+echo ">>> [5/7] Generating Prisma client & applying migrations..."
 npx prisma generate
 npx prisma migrate deploy
 
-echo ">>> [5/6] Building Next.js production bundle..."
+echo ">>> [6/7] Building Next.js production bundle..."
 npm run build
 
-echo ">>> [6/6] Reloading PM2 workers with zero downtime & health check..."
+echo ">>> [7/7] Reloading PM2 workers with zero downtime & health check..."
 pm2 reload deploy/ecosystem.config.cjs --update-env
 pm2 save
 

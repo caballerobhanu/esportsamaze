@@ -210,33 +210,14 @@ function EventLogo({ event }: { event: EventCardData }) {
   );
 }
 
-export function EventsSection({ initialTournaments }: { initialTournaments?: RawTournamentRow[] }) {
+export function EventsSection({ initialTournaments = [] }: { initialTournaments?: RawTournamentRow[] }) {
   const [tab, setTab] = React.useState<EventTab>('active');
-  const [events, setEvents] = React.useState<EventCardData[] | null>(() =>
-    initialTournaments ? initialTournaments.map(normalizeEvent) : null
+  const events = React.useMemo(
+    () => initialTournaments.map(normalizeEvent),
+    [initialTournaments]
   );
 
-  React.useEffect(() => {
-    if (initialTournaments) return; // Hydrated by server
-    let cancelled = false;
-    fetch('/api/tournaments')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: { data?: RawTournamentRow[] }) => {
-        if (cancelled) return;
-        setEvents((json?.data ?? []).map(normalizeEvent));
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [initialTournaments]);
-
-  const visible = events ? selectEvents(events, tab) : [];
+  const visible = selectEvents(events, tab);
 
   return (
     <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)]">

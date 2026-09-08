@@ -311,7 +311,6 @@ export async function createTournamentFromImportAction(
 
     // Revalidate public tags and paths
     updateTag('tournaments-list');
-    revalidatePath('/api/tournaments');
     revalidatePath('/');
     revalidatePath('/admin/tournaments');
     revalidatePath('/tournaments');
