@@ -31,6 +31,7 @@ import {
 } from '@/lib/tournament-math';
 import { parseLiquipediaText, type ParsedLiquipediaMatch } from '@/lib/liquipedia-parser';
 import { fetchLiquipediaMatchAction } from '@/app/admin/(panel)/matches/matrix/actions';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 interface TeamOption {
   id: string;
@@ -133,10 +134,11 @@ export function MatchBatchImporter({
       });
       if (partialName) return partialName;
 
-      // 4. Tag partial match
+      // 4. Tag word-token match (prevent "QS" from matching inside "naqsh")
+      const words = clean.split(/[\s\-_\/]+/).filter(Boolean);
       return allTeams.find((t) => {
         const tTag = (t.tag || '').toLowerCase();
-        return tTag && clean.includes(tTag);
+        return Boolean(tTag && tTag.length >= 2 && words.includes(tTag));
       });
     },
     [allTeams]
@@ -146,19 +148,50 @@ export function MatchBatchImporter({
     (ign: string, teamHint?: string): PlayerOption | undefined => {
       if (!ign) return undefined;
       const clean = ign.trim().toLowerCase();
-      // First exact match
+      const cleanTeam = (teamHint || '').trim().toLowerCase();
+
+      // 1. If teamHint provided, look for exact IGN on THAT specific team first
+      if (cleanTeam) {
+        const teamPlayer = allPlayers.find(
+          (p) =>
+            p.ign.toLowerCase() === clean &&
+            (p.currentTeam?.tag?.toLowerCase() === cleanTeam ||
+              p.currentTeamId === teamHint ||
+              allTeams.find((t) => t.id === p.currentTeamId)?.name.toLowerCase() === cleanTeam)
+        );
+        if (teamPlayer) return teamPlayer;
+      }
+
+      // 2. Exact match
       const exact = allPlayers.find((p) => p.ign.toLowerCase() === clean);
       if (exact) return exact;
 
-      // Second match without team tags (e.g. "SoulMortal" -> "Mortal")
+      // 3. Match without team tags (e.g. "SoulMortal" -> "Mortal")
       const sub = allPlayers.find((p) => {
         const pIgn = p.ign.toLowerCase();
         return clean.includes(pIgn) || pIgn.includes(clean);
       });
       return sub;
     },
-    [allPlayers]
+    [allPlayers, allTeams]
   );
+
+  const teamSelectOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return allTeams.map((t) => ({
+      value: t.id,
+      label: t.name,
+      subtitle: t.tag ? `[${t.tag}]` : undefined,
+      imageUrl: t.logoUrl || undefined,
+    }));
+  }, [allTeams]);
+
+  const playerSelectOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return allPlayers.map((p) => ({
+      value: p.id,
+      label: p.ign,
+      subtitle: p.currentTeam?.tag ? `[${p.currentTeam.tag}]` : undefined,
+    }));
+  }, [allPlayers]);
 
   // -------------------------------------------------------------
   // Parse Excel / TSV / CSV / JSON for Team Results
@@ -1621,23 +1654,19 @@ export function MatchBatchImporter({
                     <td className="py-1.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
                       {r.rawInput}
                     </td>
-                    <td className="py-1.5 px-3">
-                      <select
+                    <td className="py-1.5 px-3 min-w-[220px]">
+                      <SearchableSelect
+                        options={teamSelectOptions}
                         value={r.teamId}
-                        onChange={(e) => updateParsedTeamRow(idx, { teamId: e.target.value })}
-                        className={`w-full px-2 py-1 rounded-lg text-xs border font-medium cursor-pointer ${
+                        onChange={(val) => updateParsedTeamRow(idx, { teamId: val })}
+                        placeholder="⚠️ Select Matching Team…"
+                        size="admin"
+                        triggerClassName={
                           r.teamId
-                            ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 font-bold'
-                            : 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-                        }`}
-                      >
-                        <option value="">⚠️ Select Matching Team…</option>
-                        {allTeams.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name} {t.tag ? `[${t.tag}]` : ''}
-                          </option>
-                        ))}
-                      </select>
+                            ? '!border-emerald-500/40 !bg-emerald-500/5 !text-emerald-700 dark:!text-emerald-300 font-bold'
+                            : '!border-amber-500 !bg-amber-50 dark:!bg-amber-950/40 !text-amber-800 dark:!text-amber-300'
+                        }
+                      />
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono">{r.placePoints}</td>
                     <td className="py-1.5 px-2 text-center font-mono">{r.elimsPoints}</td>
@@ -1710,37 +1739,28 @@ export function MatchBatchImporter({
                     <td className="py-1.5 px-3 font-semibold text-slate-700 dark:text-slate-300">
                       {r.rawPlayer}
                     </td>
-                    <td className="py-1.5 px-3">
-                      <select
+                    <td className="py-1.5 px-3 min-w-[210px]">
+                      <SearchableSelect
+                        options={playerSelectOptions}
                         value={r.playerId}
-                        onChange={(e) => updateParsedPlayerRow(idx, { playerId: e.target.value })}
-                        className={`w-full px-2 py-1 rounded-lg text-xs border font-medium cursor-pointer ${
+                        onChange={(val) => updateParsedPlayerRow(idx, { playerId: val })}
+                        placeholder="⚠️ Select Matching Player…"
+                        size="admin"
+                        triggerClassName={
                           r.playerId
-                            ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300 font-bold'
-                            : 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
-                        }`}
-                      >
-                        <option value="">⚠️ Select Matching Player…</option>
-                        {allPlayers.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.ign} {p.currentTeam?.tag ? `[${p.currentTeam.tag}]` : ''}
-                          </option>
-                        ))}
-                      </select>
+                            ? '!border-emerald-500/40 !bg-emerald-500/5 !text-emerald-700 dark:!text-emerald-300 font-bold'
+                            : '!border-amber-500 !bg-amber-50 dark:!bg-amber-950/40 !text-amber-800 dark:!text-amber-300'
+                        }
+                      />
                     </td>
-                    <td className="py-1.5 px-3">
-                      <select
+                    <td className="py-1.5 px-3 min-w-[190px]">
+                      <SearchableSelect
+                        options={teamSelectOptions}
                         value={r.teamId}
-                        onChange={(e) => updateParsedPlayerRow(idx, { teamId: e.target.value })}
-                        className="w-full px-2 py-1 rounded-lg text-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 cursor-pointer"
-                      >
-                        <option value="">(Optional Team)</option>
-                        {allTeams.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(val) => updateParsedPlayerRow(idx, { teamId: val })}
+                        placeholder="(Optional Team)"
+                        size="admin"
+                      />
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono font-black text-rose-600 dark:text-rose-400">
                       {r.playerElims}

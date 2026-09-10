@@ -147,6 +147,16 @@ body {
   --ed-magenta: #e0518f;
 }
 
+/* Team crest plate — neutral "light from above" paper gradient.
+   Subtle, theme-aware and free of per-team colour noise. */
+.team-plate {
+  background-image: linear-gradient(165deg, var(--ed-sand) 0%, var(--ed-surface) 100%);
+}
+
+.dark .team-plate {
+  background-image: linear-gradient(165deg, var(--ed-surface) 0%, var(--ed-canvas) 100%);
+}
+
 .font-display {
   font-family: var(--font-sans);
 }
@@ -285,6 +295,15 @@ body {
 }
 .article-body img {
   @apply my-6 w-full rounded-xl border border-[var(--ed-hair)];
+}
+.article-body figure {
+  @apply my-6 w-full;
+}
+.article-body figure img {
+  @apply my-0 w-full rounded-xl border border-[var(--ed-hair)];
+}
+.article-body figcaption {
+  @apply mt-2 text-center text-xs italic text-[var(--ed-stone)];
 }
 .article-body pre {
   @apply my-5 overflow-x-auto rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-4 text-[13px] leading-relaxed;

@@ -74,15 +74,34 @@ export function itemListJsonLd(articles: Array<{ slug: string; title: string }>)
   };
 }
 
+export function faqPageJsonLd(faqs: Array<{ question: string; answer: string }>) {
+  if (!faqs || faqs.length === 0) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((f) => ({
+      '@type': 'Question',
+      name: f.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.answer,
+      },
+    })),
+  };
+}
+
 export function newsArticleJsonLd(article: {
   slug: string;
   title: string;
+  subHeadline?: string | null;
   excerpt: string | null;
   metaDescription?: string | null;
   coverImage: string | null;
+  coverImageAlt?: string | null;
   ogImage?: string | null;
   category: string;
   tags: string[];
+  secondaryKeywords?: string[];
   authorName: string;
   authorRole: string | null;
   publishedAt: Date;
@@ -91,12 +110,24 @@ export function newsArticleJsonLd(article: {
   wordCount?: number;
 }) {
   const image = article.ogImage || article.coverImage;
+  const allKeywords = Array.from(
+    new Set([...article.tags, ...(article.secondaryKeywords || [])].filter(Boolean))
+  );
   return {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
     headline: article.title,
+    ...(article.subHeadline ? { alternativeHeadline: article.subHeadline } : {}),
     description: article.metaDescription || article.excerpt || undefined,
-    ...(image ? { image: [image] } : {}),
+    ...(image
+      ? {
+          image: {
+            '@type': 'ImageObject',
+            url: image,
+            ...(article.coverImageAlt ? { description: article.coverImageAlt } : {}),
+          },
+        }
+      : {}),
     datePublished: article.publishedAt.toISOString(),
     dateModified: article.updatedAt.toISOString(),
     author: [
@@ -113,7 +144,7 @@ export function newsArticleJsonLd(article: {
     },
     mainEntityOfPage: { '@type': 'WebPage', '@id': absoluteUrl(`/news/${article.slug}`) },
     articleSection: article.category,
-    ...(article.tags.length > 0 ? { keywords: article.tags.join(', ') } : {}),
+    ...(allKeywords.length > 0 ? { keywords: allKeywords.join(', ') } : {}),
     ...(article.wordCount ? { wordCount: article.wordCount } : {}),
     inLanguage: 'en',
     isAccessibleForFree: true,

@@ -8,6 +8,7 @@ import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
+import { PlayersManagerTable } from '@/components/admin/players-manager-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,8 +110,9 @@ export default async function AdminPlayersPage({
     prisma.player.findMany({
       orderBy: { ign: 'asc' },
       include: {
-        currentTeam: { select: { name: true, tag: true } },
-        game: { select: { name: true } },
+        currentTeam: { select: { id: true, name: true, tag: true } },
+        game: { select: { id: true, name: true } },
+        _count: { select: { matchStats: true, transferHistory: true } },
       },
     }),
   ]);
@@ -318,73 +320,7 @@ export default async function AdminPlayersPage({
       </details>
 
       {/* List */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead>
-            <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50 dark:bg-[#080d17]">
-              <th className="py-2.5 px-3 text-left">IGN</th>
-              <th className="py-2.5 px-3 text-left">Team</th>
-              <th className="py-2.5 px-3 text-left hidden sm:table-cell">Role</th>
-              <th className="py-2.5 px-3 text-left hidden md:table-cell">Game</th>
-              <th className="py-2.5 px-3 text-left">Status</th>
-              <th className="py-2.5 px-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-            {players.map((p) => (
-              <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
-                <td className="py-2.5 px-3 font-bold">
-                  {p.ign}
-                  {p.staffRole && (
-                    <span className="ml-2 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-indigo-500">
-                      {p.staffRole}
-                    </span>
-                  )}
-                  {!p.isPlayer && (
-                    <span className="ml-1.5 rounded bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500">
-                      Staff only
-                    </span>
-                  )}
-                </td>
-                <td className="py-2.5 px-3 text-slate-500">{p.currentTeam?.name ?? '—'}</td>
-                <td className="py-2.5 px-3 text-slate-500 hidden sm:table-cell">{p.role ?? '—'}</td>
-                <td className="py-2.5 px-3 text-slate-500 hidden md:table-cell">{p.game?.name ?? '—'}</td>
-                <td className="py-2.5 px-3">
-                  <span className="text-[10px] font-black uppercase">{p.status}</span>
-                </td>
-                <td className="py-2.5 px-3">
-                  <span className="flex items-center justify-end gap-1.5">
-                    <Link
-                      href={`/admin/players?edit=${p.id}`}
-                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
-                      aria-label={`Edit ${p.ign}`}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Link>
-                    <form action={deletePlayer}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <button
-                        type="submit"
-                        className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors"
-                        aria-label={`Delete ${p.ign}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {players.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
-                  No players yet — add the first one above.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <PlayersManagerTable players={players as any} deletePlayerAction={deletePlayer} />
     </div>
   );
 }

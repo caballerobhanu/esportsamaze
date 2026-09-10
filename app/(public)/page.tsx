@@ -73,7 +73,7 @@ export default async function HomePage() {
     },
     orderBy: [{ scheduledAt: 'desc' }, { matchNumber: 'desc' }],
     include: {
-      tournament: { select: { id: true, name: true, slug: true } },
+      tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true } },
       stage: { select: { id: true, name: true } },
       games: {
         include: {
@@ -192,6 +192,7 @@ export default async function HomePage() {
     include: {
       player: { select: { ign: true, firstName: true, lastName: true, slug: true, role: true } },
       team: { select: { name: true, tag: true, slug: true } },
+      fromTeam: { select: { name: true, tag: true, slug: true } },
     },
   }).catch(() => []);
 
@@ -257,6 +258,7 @@ export default async function HomePage() {
         id: true,
         slug: true,
         name: true,
+        shortName: true,
         status: true,
         startDate: true,
         endDate: true,
@@ -266,6 +268,7 @@ export default async function HomePage() {
           select: {
             name: true,
             logoUrl: true,
+            logoDarkUrl: true,
           },
         },
         stages: {
@@ -467,7 +470,23 @@ export default async function HomePage() {
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-2.5 text-xs">
-                          {move.type === 'LEFT' ? (
+                          {move.fromTeam ? (
+                            <>
+                              <Link
+                                href={`/teams/${encodeURIComponent(move.fromTeam.slug || move.fromTeam.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                                className="font-bold transition-colors hover:text-[var(--ed-blue)]"
+                              >
+                                {move.fromTeam.name}
+                              </Link>
+                              <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
+                              <Link
+                                href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                                className="font-bold transition-colors hover:text-[var(--ed-blue)]"
+                              >
+                                {move.team.name}
+                              </Link>
+                            </>
+                          ) : move.type === 'LEFT' ? (
                             <>
                               <span className="font-bold text-[var(--ed-ink)]">{move.team.name}</span>
                               <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />

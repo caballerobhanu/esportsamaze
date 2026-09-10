@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Award,
 } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 export const metadata: Metadata = {
   title: 'Head-to-Head Comparison | eSportsAmaze',
@@ -181,36 +182,40 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
               <input type="hidden" name="type" value="teams" />
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Select Team A</label>
-                <select
+                <SearchableSelect
                   name="teamA"
                   defaultValue={slugA || ''}
-                  className="w-full px-4 py-2.5 text-sm font-bold rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-[#0A5FC4] dark:border-white/10 dark:bg-[#141e33] dark:text-white"
-                >
-                  {teamsList.map((t) => (
-                    <option key={`a-${t.id}`} value={t.slug || t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select Team A..."
+                  searchPlaceholder="Search team (e.g. SouL, GodL, Entity)..."
+                  options={teamsList.map((t) => ({
+                    value: t.slug || t.id,
+                    label: t.name,
+                    subtitle: t.tag || undefined,
+                    imageUrl: t.logoUrl || undefined,
+                  }))}
+                />
               </div>
 
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Select Team B</label>
-                <div className="flex gap-2">
-                  <select
-                    name="teamB"
-                    defaultValue={slugB || ''}
-                    className="flex-1 px-4 py-2.5 text-sm font-bold rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-[#0A5FC4] dark:border-white/10 dark:bg-[#141e33] dark:text-white"
-                  >
-                    {teamsList.map((t) => (
-                      <option key={`b-${t.id}`} value={t.slug || t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1 min-w-0">
+                    <SearchableSelect
+                      name="teamB"
+                      defaultValue={slugB || ''}
+                      placeholder="Select Team B..."
+                      searchPlaceholder="Search team (e.g. SouL, GodL, Entity)..."
+                      options={teamsList.map((t) => ({
+                        value: t.slug || t.id,
+                        label: t.name,
+                        subtitle: t.tag || undefined,
+                        imageUrl: t.logoUrl || undefined,
+                      }))}
+                    />
+                  </div>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 rounded-2xl bg-[#0A5FC4] text-white text-xs font-black uppercase tracking-wider hover:bg-blue-600 transition-colors shadow-sm"
+                    className="px-6 py-2.5 rounded-2xl bg-[#0A5FC4] text-white text-xs font-black uppercase tracking-wider hover:bg-blue-600 transition-colors shadow-sm shrink-0 h-[42px] cursor-pointer"
                   >
                     Compare
                   </button>
@@ -645,36 +650,40 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
             <input type="hidden" name="type" value="players" />
             <div>
               <label className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Select Player A</label>
-              <select
+              <SearchableSelect
                 name="playerA"
                 defaultValue={slugA || ''}
-                className="w-full px-4 py-2.5 text-sm font-bold rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-[#0A5FC4] dark:border-white/10 dark:bg-[#141e33] dark:text-white"
-              >
-                {playersList.map((p) => (
-                  <option key={`pa-${p.id}`} value={p.slug || p.id}>
-                    {p.ign} {p.currentTeam ? `(${p.currentTeam.name})` : ''}
-                  </option>
-                ))}
-              </select>
+                placeholder="Select Player A..."
+                searchPlaceholder="Search player IGN (e.g. Jonathan, Manya)..."
+                options={playersList.map((p) => ({
+                  value: p.slug || p.id,
+                  label: p.ign,
+                  subtitle: p.currentTeam?.name || undefined,
+                  imageUrl: p.avatarUrl || undefined,
+                }))}
+              />
             </div>
 
             <div>
               <label className="text-xs font-black uppercase tracking-wider text-slate-400 mb-1.5 block">Select Player B</label>
-              <div className="flex gap-2">
-                <select
-                  name="playerB"
-                  defaultValue={slugB || ''}
-                  className="flex-1 px-4 py-2.5 text-sm font-bold rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:border-[#0A5FC4] dark:border-white/10 dark:bg-[#141e33] dark:text-white"
-                >
-                  {playersList.map((p) => (
-                    <option key={`pb-${p.id}`} value={p.slug || p.id}>
-                      {p.ign} {p.currentTeam ? `(${p.currentTeam.name})` : ''}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex gap-2 items-center">
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    name="playerB"
+                    defaultValue={slugB || ''}
+                    placeholder="Select Player B..."
+                    searchPlaceholder="Search player IGN (e.g. Jonathan, Manya)..."
+                    options={playersList.map((p) => ({
+                      value: p.slug || p.id,
+                      label: p.ign,
+                      subtitle: p.currentTeam?.name || undefined,
+                      imageUrl: p.avatarUrl || undefined,
+                    }))}
+                  />
+                </div>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-2xl bg-[#0A5FC4] text-white text-xs font-black uppercase tracking-wider hover:bg-blue-600 transition-colors shadow-sm"
+                  className="px-6 py-2.5 rounded-2xl bg-[#0A5FC4] text-white text-xs font-black uppercase tracking-wider hover:bg-blue-600 transition-colors shadow-sm shrink-0 h-[42px] cursor-pointer"
                 >
                   Compare
                 </button>

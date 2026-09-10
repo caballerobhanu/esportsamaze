@@ -16,6 +16,7 @@ import {
   Shield,
   Star,
 } from 'lucide-react';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 export interface PrizeRankItem {
   rank: string; // e.g. "1st", "2nd", "Tournament MVP", "Fan Favourite"
@@ -150,6 +151,29 @@ export function TournamentPrizeDistributionInput({
 
   const [rawMode, setRawMode] = React.useState(false);
   const [rawText, setRawText] = React.useState('');
+
+  const teamOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return allTeams.map((t) => ({
+      value: t.id,
+      label: t.name,
+      subtitle: t.tag ? `[${t.tag}]` : undefined,
+      imageUrl: t.logoUrl || undefined,
+    }));
+  }, [allTeams]);
+
+  const playerOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return allPlayers.map((p) => {
+      const realName = p.name || (p as any).firstName;
+      const teamTag = p.currentTeam?.tag ? `[${p.currentTeam.tag}]` : '';
+      const subtitle = [realName, teamTag ? p.currentTeam?.name || teamTag : null].filter(Boolean).join(' • ');
+      return {
+        value: p.id,
+        label: p.ign,
+        subtitle: subtitle || undefined,
+        imageUrl: p.avatarUrl || undefined,
+      };
+    });
+  }, [allPlayers]);
 
   const syncToJson = (currStages: PrizeStageItem[]) => {
     return JSON.stringify({ stages: currStages });
@@ -499,40 +523,43 @@ export function TournamentPrizeDistributionInput({
                       {/* Assigned Winner (Team or Player Dropdown) */}
                       <div className="col-span-12 sm:col-span-3">
                         {isPlayer ? (
-                          <select
+                          <SearchableSelect
+                            options={playerOptions}
                             value={rankItem.playerId || ''}
-                            onChange={(e) => updateRank(sIdx, rIdx, 'playerId', e.target.value)}
-                            className={`w-full px-2 py-1 rounded border text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-(--ed-blue) ${
+                            onChange={(val) => {
+                              const pObj = allPlayers.find((p) => p.id === val);
+                              updateRank(sIdx, rIdx, 'playerId', val);
+                              if (pObj) {
+                                updateRank(sIdx, rIdx, 'playerName', pObj.ign);
+                              }
+                            }}
+                            placeholder="— Select Player (TBA) —"
+                            size="admin"
+                            triggerClassName={
                               rankItem.playerId
-                                ? 'border-purple-500/40 bg-purple-500/10 text-purple-900 dark:text-purple-200'
-                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500'
-                            }`}
-                          >
-                            <option value="">— Select Player (TBA) —</option>
-                            {allPlayers.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.ign} {p.currentTeam?.tag ? `[${p.currentTeam.tag}]` : ''}{' '}
-                                {p.name || (p as any).firstName ? `(${(p as any).firstName || p.name})` : ''}
-                              </option>
-                            ))}
-                          </select>
+                                ? '!border-purple-500/40 !bg-purple-500/10 !text-purple-900 dark:!text-purple-200'
+                                : undefined
+                            }
+                          />
                         ) : (
-                          <select
+                          <SearchableSelect
+                            options={teamOptions}
                             value={rankItem.teamId || ''}
-                            onChange={(e) => updateRank(sIdx, rIdx, 'teamId', e.target.value)}
-                            className={`w-full px-2 py-1 rounded border text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-(--ed-blue) ${
+                            onChange={(val) => {
+                              const tObj = allTeams.find((t) => t.id === val);
+                              updateRank(sIdx, rIdx, 'teamId', val);
+                              if (tObj) {
+                                updateRank(sIdx, rIdx, 'teamName', tObj.name);
+                              }
+                            }}
+                            placeholder="— Select Team (TBA) —"
+                            size="admin"
+                            triggerClassName={
                               rankItem.teamId
-                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-300'
-                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500'
-                            }`}
-                          >
-                            <option value="">— Select Team (TBA) —</option>
-                            {allTeams.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name} {t.tag ? `(${t.tag})` : ''}
-                              </option>
-                            ))}
-                          </select>
+                                ? '!border-emerald-500/40 !bg-emerald-500/10 !text-emerald-900 dark:!text-emerald-300'
+                                : undefined
+                            }
+                          />
                         )}
                       </div>
 

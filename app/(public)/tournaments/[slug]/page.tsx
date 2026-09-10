@@ -70,6 +70,7 @@ async function getTournamentData(rawSlug: string) {
       },
       include: {
         game: true,
+        games: { include: { game: { select: { id: true, name: true, slug: true } } }, orderBy: { position: 'asc' } },
         organizers: { include: { organizer: true } },
         sponsors: { include: { sponsor: true } },
         venues: { include: { venue: true } },
@@ -107,15 +108,84 @@ async function getTournamentData(rawSlug: string) {
               include: {
                 teamResults: {
                   orderBy: { rank: 'asc' },
-                  include: {
-                    team: { select: { id: true, name: true, tag: true, slug: true, logoUrl: true, imageDarkUrl: true } },
+                  select: {
+                    id: true,
+                    matchGameId: true,
+                    teamId: true,
+                    shortCode: true,
+                    mp: true,
+                    rank: true,
+                    wwcd: true,
+                    placePoints: true,
+                    elimsPoints: true,
+                    bonusPoints: true,
+                    totalPoints: true,
+                    damage: true,
+                    survivalTime: true,
+                    healing: true,
+                    damageReceived: true,
+                    headshots: true,
+                    assists: true,
+                    knockouts: true,
+                    longestElim: true,
+                    vehicleElims: true,
+                    grenadeElims: true,
+                    utilitiesTotal: true,
+                    rescues: true,
+                    totalDist: true,
+                    team: {
+                      select: {
+                        id: true,
+                        name: true,
+                        tag: true,
+                        slug: true,
+                        logoUrl: true,
+                        imageDarkUrl: true,
+                      },
+                    },
                   },
                 },
                 playerStats: {
                   orderBy: { playerElims: 'desc' },
-                  include: {
-                    player: { select: { id: true, ign: true, slug: true } },
-                    team: { select: { id: true, name: true, tag: true, slug: true, logoUrl: true, imageDarkUrl: true } },
+                  select: {
+                    id: true,
+                    matchGameId: true,
+                    playerId: true,
+                    teamId: true,
+                    role: true,
+                    shortCode: true,
+                    playerElims: true,
+                    playerPowerplay: true,
+                    damage: true,
+                    survivalTime: true,
+                    healing: true,
+                    damageReceived: true,
+                    headshots: true,
+                    assists: true,
+                    knockouts: true,
+                    longestElim: true,
+                    grenadeElims: true,
+                    rescues: true,
+                    utilitiesTotal: true,
+                    totalDist: true,
+                    isMvp: true,
+                    player: {
+                      select: {
+                        id: true,
+                        ign: true,
+                        slug: true,
+                      },
+                    },
+                    team: {
+                      select: {
+                        id: true,
+                        name: true,
+                        tag: true,
+                        slug: true,
+                        logoUrl: true,
+                        imageDarkUrl: true,
+                      },
+                    },
                   },
                 },
               },
@@ -168,10 +238,10 @@ export default async function TournamentDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ tab?: string; matchId?: string }>;
+  searchParams: Promise<{ tab?: string; matchId?: string; stage?: string }>;
 }) {
   const { slug } = await params;
-  const { tab } = await searchParams;
+  const { tab, matchId, stage } = await searchParams;
   const activeTab = tab || 'overview';
 
   const tournament = await getTournamentData(slug);
@@ -209,10 +279,26 @@ export default async function TournamentDetailPage({
   const overallStandings = calculateTournamentStandings(allTeamResults);
   const overallFraggers = calculateTournamentFraggers(allPlayerStats);
 
-  const stageGroups: StageGroup[] = Array.from(matchesByStage.entries())
+  const sortedStageEntries = Array.from(matchesByStage.entries())
     .map(([stageName, stageMatches]) => ({
       stageName,
       maxScheduledAt: Math.max(...stageMatches.map((m) => m.scheduledAt.getTime())),
+      stageMatches,
+    }))
+    .sort((a, b) => b.maxScheduledAt - a.maxScheduledAt);
+
+  const defaultStageName = sortedStageEntries[0]?.stageName || '';
+  const activeStageName = stage
+    ? (sortedStageEntries.find((s) => s.stageName.toLowerCase() === stage.toLowerCase())?.stageName || defaultStageName)
+    : defaultStageName;
+
+  const isMatchesTab = activeTab === 'matches';
+
+  const stageGroups: StageGroup[] = sortedStageEntries.map(({ stageName, stageMatches }) => {
+    const isStageActive = isMatchesTab && stageName === activeStageName;
+
+    return {
+      stageName,
       matches: stageMatches.map((m) => ({
         id: m.id,
         format: m.format,
@@ -223,12 +309,48 @@ export default async function TournamentDetailPage({
         scheduledAt: m.scheduledAt,
         matchTime: m.matchTime,
         streamUrl: m.streamUrl,
-        teamResults: resultsByMatch.get(m.id)!,
-        playerStats: m.games.flatMap((g) => g.playerStats),
+        // Only serialize full 16-team results for matches in the active stage to avoid megabyte-scale payload
+        teamResults: isStageActive ? (resultsByMatch.get(m.id) || []) : [],
+        // playerStats is not needed for match scorecards — keep empty to save 12,000+ objects
+        playerStats: [],
       })),
-    }))
-    .sort((a, b) => b.maxScheduledAt - a.maxScheduledAt)
-    .map(({ stageName, matches }) => ({ stageName, matches }));
+    };
+  });
+
+  const latestCompletedMatch = tournament.matches
+    .filter((m) => m.status === 'COMPLETED' && (resultsByMatch.get(m.id)?.length || 0) > 0)
+    .sort((a, b) => (b.overallMatchNumber ?? b.matchNumber ?? 0) - (a.overallMatchNumber ?? a.matchNumber ?? 0))[0];
+
+  const overviewMatches = tournament.matches.map((m) => ({
+    id: m.id,
+    format: m.format,
+    matchNumber: m.matchNumber,
+    overallMatchNumber: m.overallMatchNumber,
+    mapName: m.mapName,
+    status: m.status,
+    scheduledAt: m.scheduledAt,
+    matchTime: m.matchTime,
+    streamUrl: m.streamUrl,
+    teamResults: m.id === latestCompletedMatch?.id ? (resultsByMatch.get(m.id) || []) : [],
+    playerStats: [],
+  }));
+
+  const progressionMatches = activeTab === 'progression'
+    ? tournament.matches.map((m) => ({
+        id: m.id,
+        stage: m.stage ? { name: m.stage.name } : null,
+        games: [{
+          teamResults: (resultsByMatch.get(m.id) || []).map((r) => ({
+            teamId: r.teamId,
+            rank: r.rank,
+            wwcd: r.wwcd,
+            placePoints: r.placePoints,
+            elimsPoints: r.elimsPoints,
+            totalPoints: r.totalPoints,
+          })),
+        }],
+      }))
+    : [];
 
   const stageFirstDays = new Map<string, string>();
   for (const [stageName, stageMatches] of matchesByStage) {
@@ -238,20 +360,6 @@ export default async function TournamentDetailPage({
     );
     stageFirstDays.set(stageName, matchDayKey(min));
   }
-
-  /* ── standings payloads: per-match metadata + team meta for the client panel ── */
-  const standingsMatches: StandingsMatchLite[] = tournament.matches.map((m) => ({
-    id: m.id,
-    stageName: matchStageLabel(m),
-    matchNumber: m.matchNumber ?? null,
-    overallMatchNumber: m.overallMatchNumber ?? null,
-    day: matchRelativeDayKey(m.scheduledAt, stageFirstDays.get(matchStageLabel(m))!),
-    mapName: m.mapName ?? null,
-    groupName: m.groupName ?? null,
-    scheduledAt: m.scheduledAt.toISOString(),
-    status: m.status,
-    results: resultsByMatch.get(m.id)!,
-  }));
 
   const stageSummaries: StandingsStageSummary[] = stagesData.map(
     ({ stageName, matchesCount, completedMatchesCount }) => ({
@@ -272,17 +380,49 @@ export default async function TournamentDetailPage({
       countryCode: countryCodeFor(tt.country ?? tt.team.region),
     };
   }
-  for (const m of standingsMatches) {
-    for (const r of m.results) {
-      if (!teamsMeta[r.teamId] && r.team) {
-        teamsMeta[r.teamId] = {
-          name: r.team.name,
-          tag: r.team.tag,
-          logoUrl: r.team.logoUrl,
-        };
+  for (const m of tournament.matches) {
+    for (const g of m.games) {
+      for (const r of g.teamResults) {
+        if (!teamsMeta[r.teamId] && r.team) {
+          teamsMeta[r.teamId] = {
+            name: r.team.name,
+            tag: r.team.tag,
+            logoUrl: r.team.logoUrl,
+          };
+        }
       }
     }
   }
+
+  /* ── standings payloads: per-match metadata for the client panel (only on standings tab) ── */
+  const standingsMatches: StandingsMatchLite[] = activeTab === 'standings'
+    ? tournament.matches.map((m) => {
+        const rawResults = resultsByMatch.get(m.id) || [];
+        return {
+          id: m.id,
+          stageName: matchStageLabel(m),
+          matchNumber: m.matchNumber ?? null,
+          overallMatchNumber: m.overallMatchNumber ?? null,
+          day: matchRelativeDayKey(m.scheduledAt, stageFirstDays.get(matchStageLabel(m))!),
+          mapName: m.mapName ?? null,
+          groupName: m.groupName ?? null,
+          scheduledAt: m.scheduledAt.toISOString(),
+          status: m.status,
+          results: rawResults.map((r) => ({
+            teamId: r.teamId,
+            rank: r.rank,
+            wwcd: r.wwcd,
+            placePoints: r.placePoints,
+            elimsPoints: r.elimsPoints,
+            bonusPoints: r.bonusPoints || 0,
+            totalPoints: r.totalPoints,
+            damage: r.damage || 0,
+            headshots: r.headshots || 0,
+            assists: r.assists || 0,
+          })),
+        };
+      })
+    : [];
 
   /* ── enriched teams: stage and group participation for teams tab ── */
   const stagesOrder: string[] = stagesData.map((s) => s.stageName);
@@ -351,16 +491,7 @@ export default async function TournamentDetailPage({
     };
   });
 
-  /* ── player match stats & score matrix data ── */
-  const matchesHeaderList = tournament.matches.map((m) => ({
-    id: m.id,
-    matchNumber: m.matchNumber ?? 1,
-    overallMatchNumber: m.overallMatchNumber ?? null,
-    mapName: m.mapName || 'Erangel',
-    stageName: matchStageLabel(m),
-    groupName: m.groupName || null,
-    status: m.status,
-  }));
+  /* ── tournament days mapping ── */
 
   // ── Overall Tournament Days (Day 1 to Day N sequentially across all matches) ──
   const distinctMatchDates = Array.from(
@@ -403,92 +534,95 @@ export default async function TournamentDetailPage({
   const allowKnockouts = userIsAdmin || activeMetrics.has('knockouts');
   const allowSurvival = userIsAdmin || activeMetrics.has('survivalTime');
 
+  const isStatsTab = activeTab === 'statistics' || activeTab === 'fraggers';
   const playerMap = new Map<string, PlayerPerformanceRow>();
 
-  for (const m of tournament.matches) {
-    const stageName = matchStageLabel(m);
-    const mapName = m.mapName?.trim() || 'Erangel';
-    const matchDay = dateToOverallDay.get(matchDayKey(m.scheduledAt)) || '1';
+  if (isStatsTab) {
+    for (const m of tournament.matches) {
+      const stageName = matchStageLabel(m);
+      const mapName = m.mapName?.trim() || 'Erangel';
+      const matchDay = dateToOverallDay.get(matchDayKey(m.scheduledAt)) || '1';
 
-    for (const g of m.games) {
-      for (const ps of g.playerStats) {
-        if (!ps.player) continue;
-        const pId = ps.playerId;
-        if (!playerMap.has(pId)) {
-          const tTeam = tournament.teams.find((tt) => tt.teamId === ps.teamId);
-          const pSlug = ps.player?.slug || null;
-          const tSlug = tTeam?.team?.slug || ps.team?.slug || null;
-          playerMap.set(pId, {
-            playerId: pId,
-            playerSlug: pSlug,
-            ign: ps.player.ign,
-            teamId: ps.teamId,
-            teamSlug: tSlug,
-            teamName: tTeam?.displayName || ps.team?.name || tTeam?.team?.name || 'Unknown Team',
-            teamTag: tTeam?.shortName || ps.shortCode || ps.team?.tag || null,
-            teamLogo: tTeam?.logoUrl || ps.team?.logoUrl || null,
-            teamLogoDark: tTeam?.logoDarkUrl || ps.team?.imageDarkUrl || null,
-            role: ps.role || null,
-            matchesPlayed: 0,
-            totalElims: 0,
-            totalPowerplay: 0,
-            totalDamage: 0,
-            totalHeadshots: 0,
-            totalAssists: 0,
-            totalKnockouts: 0,
-            totalSurvivalTime: 0,
-            totalHealing: 0,
-            totalDamageReceived: 0,
-            totalUtilities: 0,
-            totalDist: 0,
-            totalMvps: 0,
-            avgElims: 0,
-            maxElims: 0,
-            zeroElimsMatches: 0,
-            fivePlusElimsMatches: 0,
-            matchStats: {},
-          });
+      for (const g of m.games) {
+        for (const ps of g.playerStats) {
+          if (!ps.player) continue;
+          const pId = ps.playerId;
+          if (!playerMap.has(pId)) {
+            const tTeam = tournament.teams.find((tt) => tt.teamId === ps.teamId);
+            const pSlug = ps.player?.slug || null;
+            const tSlug = tTeam?.team?.slug || ps.team?.slug || null;
+            playerMap.set(pId, {
+              playerId: pId,
+              playerSlug: pSlug,
+              ign: ps.player.ign,
+              teamId: ps.teamId,
+              teamSlug: tSlug,
+              teamName: tTeam?.displayName || ps.team?.name || tTeam?.team?.name || 'Unknown Team',
+              teamTag: tTeam?.shortName || ps.shortCode || ps.team?.tag || null,
+              teamLogo: tTeam?.logoUrl || ps.team?.logoUrl || null,
+              teamLogoDark: tTeam?.logoDarkUrl || ps.team?.imageDarkUrl || null,
+              role: ps.role || null,
+              matchesPlayed: 0,
+              totalElims: 0,
+              totalPowerplay: 0,
+              totalDamage: 0,
+              totalHeadshots: 0,
+              totalAssists: 0,
+              totalKnockouts: 0,
+              totalSurvivalTime: 0,
+              totalHealing: 0,
+              totalDamageReceived: 0,
+              totalUtilities: 0,
+              totalDist: 0,
+              totalMvps: 0,
+              avgElims: 0,
+              maxElims: 0,
+              zeroElimsMatches: 0,
+              fivePlusElimsMatches: 0,
+              matchStats: {},
+            });
+          }
+
+          const pRow = playerMap.get(pId)!;
+          pRow.matchesPlayed += 1;
+          pRow.totalElims += ps.playerElims || 0;
+          pRow.totalPowerplay += ps.playerPowerplay || 0;
+          if (allowDamage) pRow.totalDamage += ps.damage || 0;
+          if (allowHeadshots) pRow.totalHeadshots += ps.headshots || 0;
+          if (allowAssists) pRow.totalAssists += ps.assists || 0;
+          if (allowKnockouts) pRow.totalKnockouts += ps.knockouts || 0;
+          if (allowSurvival) pRow.totalSurvivalTime += ps.survivalTime || 0;
+          if (allowHealing) pRow.totalHealing += ps.healing || 0;
+          if (allowDamageReceived) pRow.totalDamageReceived += ps.damageReceived || 0;
+          if (allowUtilities) pRow.totalUtilities += ps.utilitiesTotal || 0;
+          if (allowTotalDist) pRow.totalDist += ps.totalDist || 0;
+          if (ps.isMvp) pRow.totalMvps += 1;
+
+          const elimsCount = ps.playerElims || 0;
+          pRow.maxElims = Math.max(pRow.maxElims || 0, elimsCount);
+          if (elimsCount === 0) pRow.zeroElimsMatches = (pRow.zeroElimsMatches || 0) + 1;
+          if (elimsCount >= 5) pRow.fivePlusElimsMatches = (pRow.fivePlusElimsMatches || 0) + 1;
+
+          const mStat: any = {
+            stageName,
+            playerElims: ps.playerElims || 0,
+          };
+          if (mapName) mStat.mapName = mapName;
+          if (matchDay) mStat.day = matchDay;
+          if (ps.playerPowerplay) mStat.playerPowerplay = ps.playerPowerplay;
+          if (ps.isMvp) mStat.isMvp = true;
+          if (allowDamage && ps.damage) mStat.damage = ps.damage;
+          if (allowHeadshots && ps.headshots) mStat.headshots = ps.headshots;
+          if (allowAssists && ps.assists) mStat.assists = ps.assists;
+          if (allowKnockouts && ps.knockouts) mStat.knockouts = ps.knockouts;
+          if (allowSurvival && ps.survivalTime) mStat.survivalTime = ps.survivalTime;
+          if (allowHealing && ps.healing) mStat.healing = ps.healing;
+          if (allowDamageReceived && ps.damageReceived) mStat.damageReceived = ps.damageReceived;
+          if (allowUtilities && ps.utilitiesTotal) mStat.utilities = ps.utilitiesTotal;
+          if (allowTotalDist && ps.totalDist) mStat.totalDist = ps.totalDist;
+
+          pRow.matchStats[m.id] = mStat;
         }
-
-        const pRow = playerMap.get(pId)!;
-        pRow.matchesPlayed += 1;
-        pRow.totalElims += ps.playerElims || 0;
-        pRow.totalPowerplay += ps.playerPowerplay || 0;
-        if (allowDamage) pRow.totalDamage += ps.damage || 0;
-        if (allowHeadshots) pRow.totalHeadshots += ps.headshots || 0;
-        if (allowAssists) pRow.totalAssists += ps.assists || 0;
-        if (allowKnockouts) pRow.totalKnockouts += ps.knockouts || 0;
-        if (allowSurvival) pRow.totalSurvivalTime += ps.survivalTime || 0;
-        if (allowHealing) pRow.totalHealing += ps.healing || 0;
-        if (allowDamageReceived) pRow.totalDamageReceived += ps.damageReceived || 0;
-        if (allowUtilities) pRow.totalUtilities += ps.utilitiesTotal || 0;
-        if (allowTotalDist) pRow.totalDist += ps.totalDist || 0;
-        if (ps.isMvp) pRow.totalMvps += 1;
-
-        const elimsCount = ps.playerElims || 0;
-        pRow.maxElims = Math.max(pRow.maxElims || 0, elimsCount);
-        if (elimsCount === 0) pRow.zeroElimsMatches = (pRow.zeroElimsMatches || 0) + 1;
-        if (elimsCount >= 5) pRow.fivePlusElimsMatches = (pRow.fivePlusElimsMatches || 0) + 1;
-
-        pRow.matchStats[m.id] = {
-          matchId: m.id,
-          mapName,
-          stageName,
-          groupName: m.groupName || null,
-          day: matchDay,
-          playerElims: ps.playerElims || 0,
-          playerPowerplay: ps.playerPowerplay || 0,
-          damage: allowDamage ? (ps.damage || 0) : 0,
-          headshots: allowHeadshots ? (ps.headshots || 0) : 0,
-          assists: allowAssists ? (ps.assists || 0) : 0,
-          knockouts: allowKnockouts ? (ps.knockouts || 0) : 0,
-          survivalTime: allowSurvival ? (ps.survivalTime || 0) : 0,
-          healing: allowHealing ? (ps.healing || 0) : 0,
-          damageReceived: allowDamageReceived ? (ps.damageReceived || 0) : 0,
-          utilities: allowUtilities ? (ps.utilitiesTotal || 0) : 0,
-          totalDist: allowTotalDist ? (ps.totalDist || 0) : 0,
-          isMvp: ps.isMvp,
-        };
       }
     }
   }
@@ -852,6 +986,13 @@ export default async function TournamentDetailPage({
                 <span className="rounded-full bg-[#0A5FC4]/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
                   {tournament.game?.name || 'Battle Royale'}
                 </span>
+                {(tournament.games ?? [])
+                  .filter((g) => g.game.id !== tournament.gameId)
+                  .map((g) => (
+                    <span key={g.game.slug} className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                      {g.game.name}
+                    </span>
+                  ))}
                 {tournament.tier && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
                     <Crown className="h-3.5 w-3.5" /> {tournament.tier.toLowerCase().includes('tier') ? tournament.tier : `Tier ${tournament.tier}`}
@@ -965,7 +1106,7 @@ export default async function TournamentDetailPage({
               featuredStageName={featuredStageName}
               featuredStandings={featuredStandings}
               overallFraggers={overallFraggers}
-              matches={stageGroups.flatMap((g) => g.matches)}
+              matches={overviewMatches}
               teamsCount={tournament.teams.length}
               resolvedWinner={resolvedWinner}
               resolvedRunnerUp={resolvedRunnerUp}
@@ -985,15 +1126,24 @@ export default async function TournamentDetailPage({
             <EstaticMatchesPanel
               stageGroups={stageGroups}
               matchColumns={standingsConfig.matchColumns}
+              tournamentSlug={slug}
+              activeStageName={activeStageName}
+              initialMatchId={matchId}
             />
           )}
 
           {activeTab === 'progression' && (
             <EstaticProgressionPanel
-              tournament={tournament}
+              tournament={{
+                id: tournament.id,
+                name: tournament.name,
+                slug: tournament.slug,
+                formatDetails: tournament.formatDetails,
+                qualifications: tournament.qualifications,
+              }}
               stages={tournament.stages}
               teams={enrichedTeams}
-              matches={tournament.matches}
+              matches={progressionMatches}
               teamPerformanceRows={teamPerformanceRows}
               standingsConfig={standingsConfig}
             />

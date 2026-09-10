@@ -12,8 +12,9 @@ import {
   Users,
   Banknote,
   Crosshair,
-  ChevronDown,
 } from 'lucide-react';
+
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const PREVIEW_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -32,30 +33,36 @@ export function EstaticTabNav({ slug, activeTab }: { slug: string; activeTab: st
   const currentTabObj = PREVIEW_TABS.find((t) => t.id === normalizedActiveTab) || PREVIEW_TABS[0];
   const CurrentIcon = currentTabObj.icon;
 
+  const [selectedTab, setSelectedTab] = React.useState(normalizedActiveTab);
+
+  React.useEffect(() => {
+    setSelectedTab(normalizedActiveTab);
+  }, [normalizedActiveTab]);
+
+  const tabOptions = PREVIEW_TABS.map((t) => ({
+    value: t.id,
+    label: t.label,
+    icon: t.icon,
+  }));
+
+  const handleMobileSelect = (nextTab: string) => {
+    setSelectedTab(nextTab);
+    window.location.assign(`/tournaments/${encodeURIComponent(slug)}?tab=${nextTab}`);
+  };
+
   return (
     <div className="sticky top-14 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-[#070b14]/95">
-      <div className="mx-auto max-w-[1200px] px-4 py-3 sm:px-6">
-        {/* Mobile: Interactive Dropdown */}
-        <div className="sm:hidden w-full">
-          <div className="relative">
-            <div className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#0A5FC4] dark:text-blue-300">
-              <CurrentIcon className="h-4 w-4" />
-            </div>
-            <select
-              value={normalizedActiveTab}
-              onChange={(e) => {
-                router.push(`/tournaments/${slug}?tab=${e.target.value}`);
-              }}
-              className="w-full appearance-none rounded-2xl border border-slate-200 bg-slate-100/90 py-3 pl-10 pr-10 text-xs font-black uppercase tracking-wider text-slate-900 shadow-sm focus:border-[#0A5FC4] focus:outline-none dark:border-white/10 dark:bg-[#0b1220] dark:text-white cursor-pointer"
-            >
-              {PREVIEW_TABS.map((t) => (
-                <option key={t.id} value={t.id} className="bg-white text-slate-900 dark:bg-[#0b1220] dark:text-white">
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          </div>
+      <div className="mx-auto max-w-[1200px] px-4 py-2.5 sm:px-6 sm:py-3">
+        {/* Mobile: Clean Searchable Dropdown */}
+        <div className="sm:hidden">
+          <SearchableSelect
+            options={tabOptions}
+            value={selectedTab}
+            onChange={handleMobileSelect}
+            searchPlaceholder="Search tabs (e.g. Standings, Matches)..."
+            showSearch={true}
+            size="md"
+          />
         </div>
 
         {/* Desktop: Sleek Capsule Tab Dock */}

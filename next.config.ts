@@ -2,12 +2,12 @@ import type { NextConfig } from "next";
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline';
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.instagram.com https://platform.twitter.com https://*.twimg.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
   img-src 'self' data: blob: https:;
   media-src 'self' https: data:;
-  frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com;
+  frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.instagram.com https://instagram.com https://platform.twitter.com https://twitter.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';

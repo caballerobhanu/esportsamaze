@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { computeWordCount, getCategoryMeta, isVisibleArticle } from '@/lib/news';
 import { getAdjacentArticles, getMostRead, getRelatedArticles } from '@/lib/news-queries';
-import { absoluteUrl, breadcrumbJsonLd, newsArticleJsonLd } from '@/lib/seo';
+import { absoluteUrl, breadcrumbJsonLd, faqPageJsonLd, newsArticleJsonLd } from '@/lib/seo';
 import { ArticleView } from '@/components/news/article-view';
 
 export const revalidate = 60;
@@ -98,6 +98,17 @@ const articleInclude = {
       },
     },
   },
+  player: {
+    select: {
+      id: true,
+      ign: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      avatarUrl: true,
+      currentTeam: { select: { name: true, tag: true, logoUrl: true } },
+    },
+  },
 };
 
 export default async function ArticleDetailPage({
@@ -131,16 +142,20 @@ export default async function ArticleDetailPage({
 
   const categoryMeta = getCategoryMeta(article.category);
   const wordCount = computeWordCount(article.content);
+  const faqs = (article.faqs as any) ?? [];
 
   const jsonLd = newsArticleJsonLd({
     slug: article.slug,
     title: article.title,
+    subHeadline: article.subHeadline,
     excerpt: article.excerpt,
     metaDescription: article.metaDescription,
     coverImage: article.coverImage,
+    coverImageAlt: article.coverImageAlt,
     ogImage: article.ogImage,
     category: categoryMeta.label,
     tags: article.tags,
+    secondaryKeywords: article.secondaryKeywords,
     authorName: article.authorName,
     authorRole: article.authorRole,
     publishedAt: article.publishedAt,
@@ -148,12 +163,26 @@ export default async function ArticleDetailPage({
     readTimeMinutes: article.readTimeMinutes,
     wordCount,
   });
-  const breadcrumbs = breadcrumbJsonLd([
+  const breadcrumbItems: Array<{ name: string; path: string }> = [
     { name: 'Home', path: '/' },
     { name: 'News', path: '/news' },
-    { name: categoryMeta.label, path: `/news/category/${article.category.toLowerCase()}` },
-    { name: article.title, path: `/news/${article.slug}` },
-  ]);
+  ];
+  if (categoryMeta.parts && categoryMeta.parts.length > 1) {
+    categoryMeta.parts.forEach((part) => {
+      breadcrumbItems.push({
+        name: part,
+        path: `/news/category/${encodeURIComponent(part.toLowerCase())}`,
+      });
+    });
+  } else {
+    breadcrumbItems.push({
+      name: categoryMeta.label,
+      path: `/news/category/${article.category.toLowerCase()}`,
+    });
+  }
+  breadcrumbItems.push({ name: article.title, path: `/news/${article.slug}` });
+  const breadcrumbs = breadcrumbJsonLd(breadcrumbItems);
+  const faqJsonLd = faqs.length > 0 ? faqPageJsonLd(faqs) : null;
 
   return (
     <ArticleView
@@ -162,6 +191,7 @@ export default async function ArticleDetailPage({
       adjacent={adjacent}
       mostRead={mostRead}
       jsonLd={jsonLd}
+      faqJsonLd={faqJsonLd}
       breadcrumbs={breadcrumbs}
       comments={comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
       commentCount={commentCount}

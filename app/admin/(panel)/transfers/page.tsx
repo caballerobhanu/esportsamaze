@@ -30,6 +30,7 @@ async function saveTransfer(formData: FormData) {
 
   const id = fStr(formData, 'id');
   const playerId = fStr(formData, 'playerId');
+  const fromTeamId = fStr(formData, 'fromTeamId') || null;
   const teamId = fStr(formData, 'teamId');
   const date = fDate(formData, 'date');
   if (!playerId || !teamId || !date) {
@@ -38,6 +39,7 @@ async function saveTransfer(formData: FormData) {
 
   const data = {
     playerId,
+    fromTeamId,
     teamId,
     type: (fStr(formData, 'type') || 'JOINED') as
       | 'JOINED'
@@ -71,6 +73,17 @@ async function saveTransfer(formData: FormData) {
   });
   if (!laterMove) {
     if (data.type === 'JOINED' || data.type === 'LOANED') {
+      const player = await prisma.player.findUnique({
+        where: { id: playerId },
+        select: { currentTeamId: true },
+      });
+      // Team→team move: if the player is still marked with the old team, detach first.
+      if (data.fromTeamId && player?.currentTeamId === data.fromTeamId) {
+        await prisma.player.update({
+          where: { id: playerId },
+          data: { currentTeamId: null },
+        });
+      }
       await prisma.player.update({
         where: { id: playerId },
         data: { currentTeamId: teamId },
@@ -143,6 +156,7 @@ export default async function AdminTransfersPage({
       include: {
         player: { select: { ign: true, slug: true } },
         team: { select: { name: true, tag: true, slug: true } },
+        fromTeam: { select: { name: true, tag: true, slug: true } },
       },
     }),
   ]);
@@ -217,6 +231,17 @@ export default async function AdminTransfersPage({
                 defaultValue={source?.playerId ?? ''}
                 placeholder="Type a player IGN…"
                 ariaLabel="Player"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>From Team</label>
+              <Combobox
+                name="fromTeamId"
+                options={teamOptions}
+                defaultValue={source?.fromTeamId ?? ''}
+                placeholder="Previous team (optional)…"
+                emptyOptionLabel="— Unspecified —"
+                ariaLabel="From Team"
               />
             </div>
             <div>
@@ -299,7 +324,17 @@ export default async function AdminTransfersPage({
                     <span className="font-bold">{tr.player.ign}</span>
                   )}
                 </td>
-                <td className="py-2.5 px-3 text-slate-500">{tr.team.name}</td>
+                <td className="py-2.5 px-3 text-slate-500">
+                  {tr.fromTeam ? (
+                    <>
+                      <span>{tr.fromTeam.name}</span>
+                      <span className="text-slate-400 mx-1">→</span>
+                      <span className="font-semibold text-(--ed-ink)">{tr.team.name}</span>
+                    </>
+                  ) : (
+                    tr.team.name
+                  )}
+                </td>
                 <td className="py-2.5 px-3 text-center">
                   <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${TYPE_STYLES[tr.type] ?? ''}`}>
                     {tr.type}

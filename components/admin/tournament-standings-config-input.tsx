@@ -40,17 +40,20 @@ import {
   Flame,
   Calendar,
   Crosshair,
+  Copy,
 } from 'lucide-react';
 
 export interface AdminStageDetail {
   name: string;
   matchCount: number;
+  groups?: string[];
   matches?: {
     id: string;
     format: string;
     matchNumber?: number | null;
     overallMatchNumber?: number | null;
     mapName?: string | null;
+    groupName?: string | null;
   }[];
 }
 
@@ -84,7 +87,7 @@ function ZonesEditor({
   return (
     <div className="space-y-2">
       {zones.map((z, i) => (
-        <div key={i} className="grid grid-cols-[4rem_4rem_1fr_10.5rem_7.5rem_auto] gap-2 items-center">
+        <div key={i} className="grid grid-cols-[3.5rem_3.5rem_1fr_9rem_7rem_6.5rem_auto] gap-1.5 items-center">
           <input
             type="number"
             min={1}
@@ -114,7 +117,7 @@ function ZonesEditor({
           <input
             className={inputCls}
             value={z.label}
-            placeholder="e.g. Top 6 to Grand Finals"
+            placeholder="e.g. Top 4 to Round 2 Group A"
             onChange={(e) =>
               onChange(zones.map((row, idx) => (idx === i ? { ...row, label: e.target.value } : row)))
             }
@@ -122,17 +125,20 @@ function ZonesEditor({
 
           {/* Linked Target Stage Dropdown */}
           <select
-            className={`${inputCls} font-semibold`}
+            className={`${inputCls} font-semibold text-xs`}
             value={z.targetStageName || ''}
             onChange={(e) => {
               const val = e.target.value;
               onChange(
                 zones.map((row, idx) => {
                   if (idx !== i) return row;
-                  const newLabel =
-                    (!row.label || row.label.startsWith('Top ') || row.label.startsWith('Advance to ')) && val
-                      ? `Top ${row.to - row.from + 1} to ${val}`
-                      : row.label;
+                  const prefix =
+                    row.label && row.label.includes(' to ')
+                      ? row.label.split(' to ')[0]
+                      : `Top ${row.to - row.from + 1}`;
+                  const newLabel = val
+                    ? `${prefix} to ${val}${row.targetGroupName ? ` (${row.targetGroupName})` : ''}`
+                    : row.label;
                   return {
                     ...row,
                     targetStageName: val || undefined,
@@ -141,15 +147,43 @@ function ZonesEditor({
                 })
               );
             }}
-            title="Link this qualification zone to an actual tournament stage (e.g. Grand Finals)"
+            title="Link this qualification zone to an actual tournament stage (e.g. Round 2)"
           >
-            <option value="">🎯 Link Stage (None)</option>
+            <option value="">🎯 Link Stage</option>
             {stageNames.map((s) => (
               <option key={s} value={s}>
                 ➔ {s}
               </option>
             ))}
           </select>
+
+          {/* Linked Target Group Input */}
+          <input
+            className={`${inputCls} text-xs`}
+            value={z.targetGroupName || ''}
+            placeholder="Target Grp"
+            title="Optional target group in that stage (e.g. Group A)"
+            onChange={(e) => {
+              const val = e.target.value;
+              onChange(
+                zones.map((row, idx) => {
+                  if (idx !== i) return row;
+                  const prefix =
+                    row.label && row.label.includes(' to ')
+                      ? row.label.split(' to ')[0]
+                      : `Top ${row.to - row.from + 1}`;
+                  const newLabel = row.targetStageName
+                    ? `${prefix} to ${row.targetStageName}${val ? ` (${val})` : ''}`
+                    : row.label;
+                  return {
+                    ...row,
+                    targetGroupName: val || undefined,
+                    label: newLabel || row.label,
+                  };
+                })
+              );
+            }}
+          />
 
           <select
             className={inputCls}
@@ -214,6 +248,8 @@ function TabGroupsEditor({
   onChange: (groups: StandingsTabGroup[]) => void;
 }) {
   const [selectedStageToAdd, setSelectedStageToAdd] = React.useState<Record<string, string>>({});
+  const [activeGroupZoneMap, setActiveGroupZoneMap] = React.useState<Record<string, string>>({});
+  const [newGroupInputMap, setNewGroupInputMap] = React.useState<Record<string, string>>({});
 
   const addSubDivision = () => {
     const defaultName =
@@ -576,16 +612,335 @@ function TabGroupsEditor({
                             </div>
                           )}
 
-                          {/* Qualification Zones for this Item */}
-                          <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-1.5">
-                            <label className="text-[10px] font-bold uppercase text-slate-500">
-                              Advancement / Qualification Zones for this Sub-Tab:
-                            </label>
-                            <ZonesEditor
-                              zones={item.zones || []}
-                              stageNames={stageNames}
-                              onChange={(updatedZones) => updateItem(gIdx, iIdx, { zones: updatedZones })}
-                            />
+                          {/* Tier 3: Group Sub-Tabs Configuration */}
+                          <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-3">
+                            <div className="flex flex-wrap items-center gap-4">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-800 dark:text-slate-200 select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(item.enableGroupSubTabs)}
+                                  onChange={(e) => updateItem(gIdx, iIdx, { enableGroupSubTabs: e.target.checked })}
+                                  className="rounded text-(--ed-blue)"
+                                />
+                                <span>🛡️ Enable Group Sub-Tabs (Groups A, B, C, D...)</span>
+                              </label>
+
+                              {item.enableGroupSubTabs && (
+                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-500 select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.showOverallInGroupTabs !== false}
+                                    onChange={(e) => updateItem(gIdx, iIdx, { showOverallInGroupTabs: e.target.checked })}
+                                    className="rounded text-(--ed-blue)"
+                                  />
+                                  <span>⭐ Include Combined Overall (64 Teams) Tab</span>
+                                </label>
+                              )}
+                            </div>
+
+                            {item.enableGroupSubTabs ? (
+                              (() => {
+                                const itemKey = item.id || `item-${gIdx}-${iIdx}`;
+                                const stageTarget = item.stageName || item.label;
+                                const matchedStage = stagesInfo.find(
+                                  (s) => s.name.toLowerCase() === stageTarget.toLowerCase()
+                                );
+                                const fromStage = matchedStage?.groups || [];
+                                const fromMatches = (matchedStage?.matches || [])
+                                  .map((m) => m.groupName?.trim())
+                                  .filter((g): g is string => Boolean(g));
+                                const fromConfig = Object.keys(item.groupZones || {});
+                                const detectedSet = new Set([...fromStage, ...fromMatches, ...fromConfig]);
+                                const detectedGroups = detectedSet.size > 0
+                                  ? Array.from(detectedSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                                  : ['Group A', 'Group B', 'Group C', 'Group D'];
+
+                                const itemGroups = item.groups && item.groups.length > 0 ? item.groups : detectedGroups;
+                                const rawActiveKey = activeGroupZoneMap[itemKey] || (item.showOverallInGroupTabs !== false ? 'OVERALL' : (itemGroups[0] || 'Group A'));
+                                const effectiveZoneKey =
+                                  rawActiveKey !== 'OVERALL' && !itemGroups.includes(rawActiveKey)
+                                    ? (item.showOverallInGroupTabs !== false ? 'OVERALL' : (itemGroups[0] || 'Group A'))
+                                    : rawActiveKey;
+
+                                return (
+                                  <div className="p-3.5 rounded-xl border border-blue-500/20 bg-blue-50/30 dark:bg-blue-950/10 space-y-3">
+                                    {/* Active Groups Management */}
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                                          Configured Groups in &quot;{item.label}&quot;:
+                                        </label>
+                                        <span className="text-[10px] text-slate-400">
+                                          {itemGroups.length} Groups Configured
+                                        </span>
+                                      </div>
+
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        {itemGroups.map((grp) => (
+                                          <span
+                                            key={grp}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs"
+                                          >
+                                            <span>🛡️ {grp}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const filtered = itemGroups.filter((g) => g !== grp);
+                                                const nextGroupZones = { ...(item.groupZones || {}) };
+                                                delete nextGroupZones[grp];
+                                                updateItem(gIdx, iIdx, {
+                                                  groups: filtered,
+                                                  groupZones: nextGroupZones,
+                                                });
+                                                if (effectiveZoneKey === grp) {
+                                                  setActiveGroupZoneMap((prev) => ({
+                                                    ...prev,
+                                                    [itemKey]: item.showOverallInGroupTabs !== false ? 'OVERALL' : (filtered[0] || 'Group A'),
+                                                  }));
+                                                }
+                                              }}
+                                              className="text-slate-400 hover:text-rose-500 p-0.5 ml-0.5 transition-colors cursor-pointer"
+                                              title={`Remove ${grp}`}
+                                            >
+                                              ✕
+                                            </button>
+                                          </span>
+                                        ))}
+
+                                        {/* Add Group input */}
+                                        <div className="flex items-center gap-1 ml-1">
+                                          <input
+                                            className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-28 focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
+                                            placeholder="e.g. Group E"
+                                            value={newGroupInputMap[itemKey] || ''}
+                                            onChange={(e) =>
+                                              setNewGroupInputMap((prev) => ({ ...prev, [itemKey]: e.target.value }))
+                                            }
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const val = (newGroupInputMap[itemKey] || '').trim();
+                                                if (val && !itemGroups.includes(val)) {
+                                                  updateItem(gIdx, iIdx, { groups: [...itemGroups, val] });
+                                                  setNewGroupInputMap((prev) => ({ ...prev, [itemKey]: '' }));
+                                                  setActiveGroupZoneMap((prev) => ({ ...prev, [itemKey]: val }));
+                                                }
+                                              }
+                                            }}
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const val = (newGroupInputMap[itemKey] || '').trim();
+                                              if (val && !itemGroups.includes(val)) {
+                                                updateItem(gIdx, iIdx, { groups: [...itemGroups, val] });
+                                                setNewGroupInputMap((prev) => ({ ...prev, [itemKey]: '' }));
+                                                setActiveGroupZoneMap((prev) => ({ ...prev, [itemKey]: val }));
+                                              }
+                                            }}
+                                            className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                                          >
+                                            + Add
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Group-Wise Zones Pill Selector */}
+                                    <div className="space-y-2 pt-2 border-t border-blue-500/10">
+                                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
+                                        Select View / Group To Configure Advancement Zones:
+                                      </label>
+
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        {item.showOverallInGroupTabs !== false && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveGroupZoneMap((prev) => ({ ...prev, [itemKey]: 'OVERALL' }))}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                                              effectiveZoneKey === 'OVERALL'
+                                                ? 'bg-(--ed-blue) border-(--ed-blue) text-white shadow-sm'
+                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                                            }`}
+                                          >
+                                            <span>⭐ Combined Overall</span>
+                                            <span
+                                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                                                effectiveZoneKey === 'OVERALL'
+                                                  ? 'bg-white/20 text-white'
+                                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                              }`}
+                                            >
+                                              {(item.zones || []).length} zones
+                                            </span>
+                                          </button>
+                                        )}
+
+                                        {itemGroups.map((grp) => {
+                                          const isSelected = effectiveZoneKey === grp;
+                                          const groupZoneCount = (item.groupZones?.[grp] || []).length;
+                                          const hasCustomZones = groupZoneCount > 0;
+
+                                          return (
+                                            <button
+                                              type="button"
+                                              key={grp}
+                                              onClick={() => setActiveGroupZoneMap((prev) => ({ ...prev, [itemKey]: grp }))}
+                                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                                                isSelected
+                                                  ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                                                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
+                                              }`}
+                                            >
+                                              <span>🛡️ {grp}</span>
+                                              <span
+                                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                                                  isSelected
+                                                    ? 'bg-white/20 text-white'
+                                                    : hasCustomZones
+                                                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                                }`}
+                                              >
+                                                {hasCustomZones ? `${groupZoneCount} zones` : 'fallback'}
+                                              </span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* Editor Context Title & Quick Copy Actions */}
+                                    <div className="pt-2 border-t border-blue-500/10 flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <h5 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                          {effectiveZoneKey === 'OVERALL' ? (
+                                            <>⭐ Combined Overall 64-Team Qualification Zones</>
+                                          ) : (
+                                            <>🛡️ Specific Qualification Zones for &quot;{effectiveZoneKey}&quot;</>
+                                          )}
+                                        </h5>
+                                        <p className="text-[11px] text-slate-500">
+                                          {effectiveZoneKey === 'OVERALL'
+                                            ? 'These rules apply when viewing the Combined Overall table.'
+                                            : `Rules configured here apply exclusively when viewing standings for ${effectiveZoneKey}. If empty, it falls back to the Overall zones.`}
+                                        </p>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5">
+                                        {effectiveZoneKey !== 'OVERALL' ? (
+                                          <>
+                                            {/* Duplicate from Overall into this group */}
+                                            {(item.zones || []).length > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const nextGroupZones = {
+                                                    ...(item.groupZones || {}),
+                                                    [effectiveZoneKey]: JSON.parse(JSON.stringify(item.zones || [])),
+                                                  };
+                                                  updateItem(gIdx, iIdx, { groupZones: nextGroupZones });
+                                                }}
+                                                className="px-2 py-1 rounded-md text-[10px] font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1 cursor-pointer"
+                                                title="Copy the Overall zones into this group as a starting template"
+                                              >
+                                                <Copy className="w-3 h-3" /> Duplicate Overall Zones
+                                              </button>
+                                            )}
+
+                                            {/* Copy this group's zones to all other groups */}
+                                            {(item.groupZones?.[effectiveZoneKey] || []).length > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const currentGroupZones = item.groupZones?.[effectiveZoneKey] || [];
+                                                  const nextGroupZones = { ...(item.groupZones || {}) };
+                                                  for (const g of itemGroups) {
+                                                    nextGroupZones[g] = JSON.parse(JSON.stringify(currentGroupZones));
+                                                  }
+                                                  updateItem(gIdx, iIdx, { groupZones: nextGroupZones });
+                                                }}
+                                                className="px-2 py-1 rounded-md text-[10px] font-bold border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-700 dark:text-blue-300 flex items-center gap-1 cursor-pointer"
+                                                title="Copy this group's zones to all other groups in this stage"
+                                              >
+                                                <Copy className="w-3 h-3" /> Copy to All Groups
+                                              </button>
+                                            )}
+
+                                            {/* Clear this group's zones */}
+                                            {(item.groupZones?.[effectiveZoneKey] || []).length > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const nextGroupZones = { ...(item.groupZones || {}) };
+                                                  delete nextGroupZones[effectiveZoneKey];
+                                                  updateItem(gIdx, iIdx, { groupZones: nextGroupZones });
+                                                }}
+                                                className="px-2 py-1 rounded-md text-[10px] font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 cursor-pointer"
+                                                title="Clear custom zones for this group and use fallback"
+                                              >
+                                                Clear Custom Zones
+                                              </button>
+                                            )}
+                                          </>
+                                        ) : (
+                                          (item.zones || []).length > 0 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const currentOverallZones = item.zones || [];
+                                                const nextGroupZones = { ...(item.groupZones || {}) };
+                                                for (const g of itemGroups) {
+                                                  nextGroupZones[g] = JSON.parse(JSON.stringify(currentOverallZones));
+                                                }
+                                                updateItem(gIdx, iIdx, { groupZones: nextGroupZones });
+                                              }}
+                                              className="px-2 py-1 rounded-md text-[10px] font-bold border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-700 dark:text-blue-300 flex items-center gap-1 cursor-pointer"
+                                              title="Copy overall zones to all groups"
+                                            >
+                                              <Copy className="w-3 h-3" /> Copy Overall to All Groups
+                                            </button>
+                                          )
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* The Active Zones Editor */}
+                                    <ZonesEditor
+                                      zones={
+                                        effectiveZoneKey === 'OVERALL'
+                                          ? item.zones || []
+                                          : item.groupZones?.[effectiveZoneKey] || []
+                                      }
+                                      stageNames={stageNames}
+                                      onChange={(updatedZones) => {
+                                        if (effectiveZoneKey === 'OVERALL') {
+                                          updateItem(gIdx, iIdx, { zones: updatedZones });
+                                        } else {
+                                          const nextGroupZones = {
+                                            ...(item.groupZones || {}),
+                                            [effectiveZoneKey]: updatedZones,
+                                          };
+                                          updateItem(gIdx, iIdx, { groupZones: nextGroupZones });
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              /* Standard Single-Stage Zones Editor */
+                              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-1.5">
+                                <label className="text-[10px] font-bold uppercase text-slate-500">
+                                  Advancement / Qualification Zones for this Sub-Tab:
+                                </label>
+                                <ZonesEditor
+                                  zones={item.zones || []}
+                                  stageNames={stageNames}
+                                  onChange={(updatedZones) => updateItem(gIdx, iIdx, { zones: updatedZones })}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

@@ -49,6 +49,17 @@ export default async function ArticlePreviewPage({
           },
         },
       },
+      player: {
+        select: {
+          id: true,
+          ign: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          avatarUrl: true,
+          currentTeam: { select: { name: true, tag: true, logoUrl: true } },
+        },
+      },
     },
   });
 

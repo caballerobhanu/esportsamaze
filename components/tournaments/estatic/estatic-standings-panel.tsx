@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Scale,
 } from 'lucide-react';
 import { calculateTournamentStandings, type AggregatedTeamStanding } from '@/lib/tournament-math';
 import {
@@ -23,6 +24,7 @@ import {
   zoneForRank,
   STANDINGS_COLUMN_DEFS,
   type StandingsConfig,
+  type StandingsStageConfig,
   type StandingsColumnKey,
   type StandingsMatchLite,
   type StandingsTeamMeta,
@@ -33,6 +35,7 @@ import {
   type ZoneColor,
 } from '@/lib/standings-config';
 import { ThemeLogo } from './theme-logo';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 type SortKey =
   | 'rank'
@@ -364,44 +367,17 @@ export function EstaticStandingsPanel({
     return resultMap;
   }, [activeNavItem, activeCustomTab, hasTabGroups, tabGroups, customTabs, matches, config]);
 
-  const stageCfg = React.useMemo(() => {
-    if (activeNavItem) {
-      if (activeNavItem.type === 'CUSTOM_TAB' || activeNavItem.type === 'OVERALL') {
-        return {
-          mode: 'STAGE' as const,
-          groupMode: 'CUMULATIVE' as const,
-          filters: config.filters,
-          zones: activeNavItem.zones && activeNavItem.zones.length > 0 ? activeNavItem.zones : config.zones,
-        };
-      }
-      const stgName = activeNavItem.stageName || activeNavItem.label;
-      const base = getStageConfig(config, stgName);
-      return {
-        ...base,
-        zones: activeNavItem.zones && activeNavItem.zones.length > 0 ? activeNavItem.zones : base.zones,
-      };
-    }
+  const [activeGroupSubTab, setActiveGroupSubTab] = React.useState<string>('OVERALL');
 
-    if (activeCustomTab) {
-      return {
-        mode: 'STAGE' as const,
-        groupMode: 'CUMULATIVE' as const,
-        filters: config.filters,
-        zones: activeCustomTab.zones && activeCustomTab.zones.length > 0 ? activeCustomTab.zones : config.zones,
-      };
+  React.useEffect(() => {
+    if (activeNavItem?.enableGroupSubTabs && activeNavItem.showOverallInGroupTabs === false) {
+      setActiveGroupSubTab(activeNavItem.groups?.[0] || 'FIRST');
+    } else {
+      setActiveGroupSubTab('OVERALL');
     }
-    if (activeId === 'OVERALL') {
-      return {
-        mode: 'STAGE' as const,
-        groupMode: 'CUMULATIVE' as const,
-        filters: config.filters,
-        zones: config.zones,
-      };
-    }
-    return getStageConfig(config, activeId);
-  }, [activeNavItem, activeCustomTab, activeId, config]);
+  }, [activeId, activeNavItem]);
 
-  const scopeMatches = React.useMemo(() => {
+  const rawStageMatches = React.useMemo(() => {
     let result: StandingsMatchLite[] = [];
     if (activeNavItem) {
       if (activeNavItem.type === 'OVERALL') {
@@ -435,17 +411,128 @@ export function EstaticStandingsPanel({
           );
     } else if (activeId === 'OVERALL') {
       result = matches;
-    } else if (stageCfg.mode === 'CUMULATIVE') {
-      const order = stages.map((s) => s.stageName);
-      const idx = order.indexOf(activeId);
-      const through = new Set(order.slice(0, idx === -1 ? order.length : idx + 1));
-      result = matches.filter((m) => through.has(m.stageName));
     } else {
-      result = matches.filter((m) => m.stageName === activeId);
+      const mode = getStageConfig(config, activeId).mode;
+      if (mode === 'CUMULATIVE') {
+        const order = stages.map((s) => s.stageName);
+        const idx = order.indexOf(activeId);
+        const through = new Set(order.slice(0, idx === -1 ? order.length : idx + 1));
+        result = matches.filter((m) => through.has(m.stageName));
+      } else {
+        result = matches.filter((m) => m.stageName === activeId);
+      }
     }
 
     return result;
-  }, [activeNavItem, activeCustomTab, activeId, matches, stages, stageCfg.mode]);
+  }, [activeNavItem, activeCustomTab, activeId, matches, stages, config]);
+
+  // Detected group sub-tabs
+  const availableGroups = React.useMemo(() => {
+    if (!activeNavItem?.enableGroupSubTabs) return [];
+    if (activeNavItem.groups && activeNavItem.groups.length > 0) {
+      return activeNavItem.groups;
+    }
+    const set = new Set<string>();
+    for (const m of rawStageMatches) {
+      if (m.groupName && m.groupName.trim()) {
+        set.add(m.groupName.trim());
+      }
+    }
+    if (activeNavItem.groupZones) {
+      for (const k of Object.keys(activeNavItem.groupZones)) {
+        if (k && k.trim()) set.add(k.trim());
+      }
+    }
+    if (set.size > 0) {
+      return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
+    return ['Group A', 'Group B', 'Group C', 'Group D'];
+  }, [activeNavItem, rawStageMatches]);
+
+  const effectiveGroupSubTab = React.useMemo(() => {
+    if (!activeNavItem?.enableGroupSubTabs || availableGroups.length === 0) return 'OVERALL';
+    if (activeGroupSubTab === 'FIRST' && availableGroups.length > 0) return availableGroups[0];
+    if (activeGroupSubTab !== 'OVERALL' && !availableGroups.includes(activeGroupSubTab)) {
+      return activeNavItem.showOverallInGroupTabs === false ? availableGroups[0] : 'OVERALL';
+    }
+    return activeGroupSubTab;
+  }, [activeNavItem, availableGroups, activeGroupSubTab]);
+
+  const scopeMatches = React.useMemo(() => {
+    if (effectiveGroupSubTab === 'OVERALL') {
+      if (activeNavItem?.groupName) {
+        return rawStageMatches.filter(
+          (m) => m.groupName?.trim().toLowerCase() === activeNavItem.groupName?.trim().toLowerCase()
+        );
+      }
+      return rawStageMatches;
+    }
+    const target = effectiveGroupSubTab.trim().toLowerCase();
+    const targetPlain = target.replace(/^group\s*/i, '');
+    return rawStageMatches.filter((m) => {
+      if (!m.groupName) return false;
+      const mGrp = m.groupName.trim().toLowerCase();
+      const mGrpPlain = mGrp.replace(/^group\s*/i, '');
+      return mGrp === target || mGrpPlain === targetPlain;
+    });
+  }, [rawStageMatches, effectiveGroupSubTab, activeNavItem?.groupName]);
+
+  const stageCfg = React.useMemo(() => {
+    let baseCfg: StandingsStageConfig;
+    if (activeNavItem) {
+      if (activeNavItem.type === 'CUSTOM_TAB' || activeNavItem.type === 'OVERALL') {
+        baseCfg = {
+          mode: 'STAGE' as const,
+          groupMode: 'CUMULATIVE' as const,
+          filters: config.filters,
+          zones: activeNavItem.zones && activeNavItem.zones.length > 0 ? activeNavItem.zones : config.zones,
+        };
+      } else {
+        const stgName = activeNavItem.stageName || activeNavItem.label;
+        const base = getStageConfig(config, stgName);
+        baseCfg = {
+          ...base,
+          zones: activeNavItem.zones && activeNavItem.zones.length > 0 ? activeNavItem.zones : base.zones,
+        };
+      }
+    } else if (activeCustomTab) {
+      baseCfg = {
+        mode: 'STAGE' as const,
+        groupMode: 'CUMULATIVE' as const,
+        filters: config.filters,
+        zones: activeCustomTab.zones && activeCustomTab.zones.length > 0 ? activeCustomTab.zones : config.zones,
+      };
+    } else if (activeId === 'OVERALL') {
+      baseCfg = {
+        mode: 'STAGE' as const,
+        groupMode: 'CUMULATIVE' as const,
+        filters: config.filters,
+        zones: config.zones,
+      };
+    } else {
+      baseCfg = getStageConfig(config, activeId);
+    }
+
+    if (
+      effectiveGroupSubTab !== 'OVERALL' &&
+      activeNavItem?.groupZones
+    ) {
+      const target = effectiveGroupSubTab.trim().toLowerCase();
+      const targetPlain = target.replace(/^group\s*/i, '');
+      const matchKey = Object.keys(activeNavItem.groupZones).find((k) => {
+        const kLower = k.trim().toLowerCase();
+        return kLower === target || kLower.replace(/^group\s*/i, '') === targetPlain;
+      });
+      if (matchKey && activeNavItem.groupZones[matchKey]?.length > 0) {
+        return {
+          ...baseCfg,
+          zones: activeNavItem.groupZones[matchKey],
+        };
+      }
+    }
+
+    return baseCfg;
+  }, [activeNavItem, activeCustomTab, activeId, config, effectiveGroupSubTab]);
 
   const options = React.useMemo(() => {
     const days = [...new Set(scopeMatches.map((m) => m.day))].sort((a, b) => Number(a) - Number(b));
@@ -588,14 +675,18 @@ export function EstaticStandingsPanel({
         {/* Mobile: Stages & Sub-views Dropdowns */}
         {hasTabGroups && (
           <div className="space-y-2.5 sm:hidden">
-            <div className="relative">
+            <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">
                 Select Stage:
               </span>
-              <select
+              <SearchableSelect
+                size="sm"
+                options={tabGroups.map((grp) => ({
+                  value: grp.id,
+                  label: `${grp.name} (${grp.items.length})`,
+                }))}
                 value={activeGroupId}
-                onChange={(e) => {
-                  const grpId = e.target.value;
+                onChange={(grpId) => {
                   setActiveGroupId(grpId);
                   const grp = tabGroups.find((g) => g.id === grpId);
                   if (grp && grp.items.length > 0) {
@@ -605,39 +696,32 @@ export function EstaticStandingsPanel({
                   setMap('');
                   setGroup('');
                 }}
-                className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-3 pr-8 text-xs font-black uppercase tracking-wider text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
-              >
-                {tabGroups.map((grp) => (
-                  <option key={grp.id} value={grp.id} className="bg-white text-slate-900 dark:bg-[#0b1220] dark:text-white">
-                    {grp.name} ({grp.items.length})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-7 h-4 w-4 text-slate-400" />
+                showSearch={tabGroups.length > 4}
+                searchPlaceholder="Search stage..."
+              />
             </div>
 
             {activeGroup && activeGroup.items.length > 1 && (
-              <div className="relative">
+              <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1 block">
                   Select Sub-view:
                 </span>
-                <select
+                <SearchableSelect
+                  size="sm"
+                  options={activeGroup.items.map((item) => ({
+                    value: item.id,
+                    label: item.label,
+                  }))}
                   value={activeId}
-                  onChange={(e) => {
-                    setActiveId(e.target.value);
+                  onChange={(itemId) => {
+                    setActiveId(itemId);
                     setDay('');
                     setMap('');
                     setGroup('');
                   }}
-                  className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-3 pr-8 text-xs font-bold text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                >
-                  {activeGroup.items.map((item) => (
-                    <option key={item.id} value={item.id} className="bg-white text-slate-900 dark:bg-[#0b1220] dark:text-white">
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-7 h-4 w-4 text-slate-400" />
+                  showSearch={activeGroup.items.length > 4}
+                  searchPlaceholder="Search sub-view..."
+                />
               </div>
             )}
           </div>
@@ -710,6 +794,61 @@ export function EstaticStandingsPanel({
                     }`}
                   >
                     {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Desktop & Mobile: Tier 3 Group Sub-Tabs within Active Stage (e.g. Groups A, B, C, D) */}
+        {availableGroups.length > 0 && activeNavItem?.enableGroupSubTabs && (
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2 border-t border-slate-100 dark:border-white/10">
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300 mr-2 shrink-0">
+              Groups:
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {activeNavItem.showOverallInGroupTabs !== false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveGroupSubTab('OVERALL');
+                    setDay('');
+                    setMap('');
+                    setGroup('');
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                    effectiveGroupSubTab === 'OVERALL'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'border border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                  }`}
+                >
+                  ⭐ Combined Overall ({rawStageMatches.length}m)
+                </button>
+              )}
+              {availableGroups.map((grpName) => {
+                const active = effectiveGroupSubTab === grpName;
+                const grpMatchCount = rawStageMatches.filter((m) => m.groupName === grpName).length;
+                return (
+                  <button
+                    key={grpName}
+                    type="button"
+                    onClick={() => {
+                      setActiveGroupSubTab(grpName);
+                      setDay('');
+                      setMap('');
+                      setGroup('');
+                    }}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                      active
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'border border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                    }`}
+                  >
+                    <span>🛡️ {grpName}</span>
+                    {grpMatchCount > 0 && (
+                      <span className="text-[9px] opacity-75 font-mono">({grpMatchCount}m)</span>
+                    )}
                   </button>
                 );
               })}
@@ -816,7 +955,7 @@ export function EstaticStandingsPanel({
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
               Advancement Zones:
             </span>
-            {effectiveZones.map((z, idx) => {
+            {effectiveZones.map((z: ZoneRule, idx: number) => {
               const zStyle = getZoneStyle(z);
               return (
                 <div key={idx} className="inline-flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
@@ -846,7 +985,7 @@ export function EstaticStandingsPanel({
               <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10 dark:bg-white/5">
                 {/* Rank # */}
                 <th
-                  className="py-3 sm:py-3.5 pl-3 sm:pl-5 w-10 sm:w-14 text-center cursor-pointer"
+                  className="py-2.5 sm:py-3.5 pl-2.5 sm:pl-5 w-8 sm:w-14 text-center cursor-pointer"
                   onClick={() => toggleSort('rank')}
                 >
                   <span className="inline-flex items-center gap-0.5">
@@ -855,54 +994,62 @@ export function EstaticStandingsPanel({
                 </th>
 
                 {/* Squad */}
-                <th className="py-3 sm:py-3.5 pl-2 sm:pl-4 min-w-[140px] sm:min-w-[240px]">
+                <th className="py-2.5 sm:py-3.5 pl-1.5 sm:pl-4 min-w-[75px] sm:min-w-[240px]">
                   Squad
                 </th>
 
-                {/* MP */}
-                <th className="py-3 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-10 sm:w-14" onClick={() => toggleSort('matchesPlayed')}>
+                {/* MP (M on mobile) */}
+                <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-7 sm:w-14" onClick={() => toggleSort('matchesPlayed')}>
                   <span className="inline-flex items-center gap-0.5">
-                    MP {sortKey === 'matchesPlayed' && (sortDir === 'asc' ? '▲' : '▼')}
+                    <span className="sm:hidden">M</span>
+                    <span className="hidden sm:inline">MP</span>
+                    {sortKey === 'matchesPlayed' && (sortDir === 'asc' ? '▲' : '▼')}
                   </span>
                 </th>
 
-                {/* WWCD */}
-                <th className="py-3 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-12 sm:w-16" onClick={() => toggleSort('wwcd')}>
+                {/* WWCD (W on mobile) */}
+                <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-7 sm:w-16" onClick={() => toggleSort('wwcd')}>
                   <span className="inline-flex items-center gap-0.5">
-                    WWCD {sortKey === 'wwcd' && (sortDir === 'asc' ? '▲' : '▼')}
+                    <span className="sm:hidden">W</span>
+                    <span className="hidden sm:inline">WWCD</span>
+                    {sortKey === 'wwcd' && (sortDir === 'asc' ? '▲' : '▼')}
                   </span>
                 </th>
 
-                {/* Place Pts */}
-                <th className="hidden md:table-cell py-3 sm:py-3.5 px-2 text-center cursor-pointer" onClick={() => toggleSort('placementPoints')}>
+                {/* Elims Pts (E on mobile) */}
+                <th className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center cursor-pointer w-8 sm:w-16" onClick={() => toggleSort('eliminationPoints')}>
                   <span className="inline-flex items-center gap-0.5">
-                    Place {sortKey === 'placementPoints' && (sortDir === 'asc' ? '▲' : '▼')}
+                    <span className="sm:hidden">E</span>
+                    <span className="hidden sm:inline">Elims</span>
+                    {sortKey === 'eliminationPoints' && (sortDir === 'asc' ? '▲' : '▼')}
                   </span>
                 </th>
 
-                {/* Elims Pts */}
-                <th className="hidden sm:table-cell py-3 sm:py-3.5 px-2 text-center cursor-pointer" onClick={() => toggleSort('eliminationPoints')}>
+                {/* Place Pts (P on mobile) */}
+                <th className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center cursor-pointer w-8 sm:w-16" onClick={() => toggleSort('placementPoints')}>
                   <span className="inline-flex items-center gap-0.5">
-                    Elims {sortKey === 'eliminationPoints' && (sortDir === 'asc' ? '▲' : '▼')}
+                    <span className="sm:hidden">P</span>
+                    <span className="hidden sm:inline">Place</span>
+                    {sortKey === 'placementPoints' && (sortDir === 'asc' ? '▲' : '▼')}
                   </span>
                 </th>
 
                 {/* Bonus Pts */}
-                <th className="hidden lg:table-cell py-3 sm:py-3.5 px-2 text-center cursor-pointer" onClick={() => toggleSort('bonusPoints')}>
+                <th className="hidden lg:table-cell py-2.5 sm:py-3.5 px-2 text-center cursor-pointer" onClick={() => toggleSort('bonusPoints')}>
                   <span className="inline-flex items-center gap-0.5">
                     Bonus {sortKey === 'bonusPoints' && (sortDir === 'asc' ? '▲' : '▼')}
                   </span>
                 </th>
 
                 {/* Total Points */}
-                <th className="py-3 sm:py-3.5 pr-3 sm:pr-6 text-right cursor-pointer w-16 sm:w-24" onClick={() => toggleSort('totalPoints')}>
+                <th className="py-2.5 sm:py-3.5 pr-2.5 sm:pr-6 text-right cursor-pointer w-12 sm:w-24" onClick={() => toggleSort('totalPoints')}>
                   <span className="inline-flex items-center gap-0.5">
                     Total {sortKey === 'totalPoints' && (sortDir === 'asc' ? '▲' : '▼')}
                   </span>
                 </th>
 
                 {/* Recent Form */}
-                <th className="hidden lg:table-cell py-3 sm:py-3.5 pr-5 pl-3 text-center min-w-[120px]">
+                <th className="hidden lg:table-cell py-2.5 sm:py-3.5 pr-5 pl-3 text-center min-w-[120px]">
                   Form
                 </th>
               </tr>
@@ -1006,17 +1153,32 @@ export function EstaticStandingsPanel({
                               <span className="truncate">{zone.label}</span>
                             </span>
                           )}
+
+                          {/* Tiebreaker Explanation Badge */}
+                          {team.tiebreaker?.isTied && (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-tight border cursor-help shadow-2xs transition-transform hover:scale-105 ${
+                                team.tiebreaker.won
+                                  ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-amber-500/15 border-amber-500/35 text-amber-700 dark:text-amber-300'
+                              }`}
+                              title={team.tiebreaker.reason}
+                            >
+                              <Scale className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate">{team.tiebreaker.shortBadge}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
 
-                    {/* MP */}
-                    <td className="py-2.5 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
+                    {/* MP (M on mobile) */}
+                    <td className="py-2 sm:py-3 px-1 sm:px-3 text-center font-bold text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
                       {team.matchesPlayed}
                     </td>
 
-                    {/* WWCD */}
-                    <td className="py-2.5 sm:py-3 text-center font-black text-amber-500">
+                    {/* WWCD (W on mobile) */}
+                    <td className="py-2 sm:py-3 px-1 sm:px-3 text-center font-black text-amber-500 text-xs sm:text-sm">
                       {team.wwcd > 0 ? (
                         <span className="inline-flex items-center gap-0.5 text-[11px] sm:text-xs">
                           {team.wwcd}
@@ -1026,24 +1188,24 @@ export function EstaticStandingsPanel({
                       )}
                     </td>
 
-                    {/* Place Pts */}
-                    <td className="hidden md:table-cell py-2.5 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
-                      {team.placementPoints}
-                    </td>
-
-                    {/* Elims Pts */}
-                    <td className="hidden sm:table-cell py-2.5 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
+                    {/* Elims Pts (E on mobile) */}
+                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-center font-bold text-slate-700 dark:text-slate-200 text-xs sm:text-sm">
                       {team.eliminationPoints}
                     </td>
 
+                    {/* Place Pts (P on mobile) */}
+                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-center font-bold text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
+                      {team.placementPoints}
+                    </td>
+
                     {/* Bonus Pts */}
-                    <td className="hidden lg:table-cell py-2.5 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
+                    <td className="hidden lg:table-cell py-2 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
                       {team.bonusPoints || 0}
                     </td>
 
                     {/* Total Points */}
-                    <td className="py-2.5 sm:py-3 pr-3 sm:pr-6 text-right">
-                      <span className="text-sm sm:text-base font-black text-[#0A5FC4] dark:text-blue-300">
+                    <td className="py-2 sm:py-3 pr-2.5 sm:pr-6 text-right">
+                      <span className="text-xs sm:text-base font-black text-[#0A5FC4] dark:text-blue-300">
                         {team.totalPoints}
                       </span>
                     </td>

@@ -410,11 +410,13 @@ export function MultiMatchMatrixGrid({
       });
       if (exact) return exact;
 
-      // 2. Contains match
+      // 2. Contains match with word-boundary for tags
+      const words = clean.split(/[\s\-_\/]+/).filter(Boolean);
       const partial = participatingTeams.find((pt) => {
         const n = pt.name.toLowerCase();
         const tag = (pt.tag || '').toLowerCase();
-        return n.includes(clean) || clean.includes(n) || (tag && clean.includes(tag));
+        const tagMatch = Boolean(tag && tag.length >= 2 && words.includes(tag));
+        return n.includes(clean) || clean.includes(n) || tagMatch;
       });
       if (partial) return partial;
 

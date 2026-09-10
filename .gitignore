@@ -57,3 +57,7 @@ AGENTS.md
 # tokens & private data
 *cline-tokens*
 data/cline-tokens.json
+
+# dev logs & scratch
+dev-server.log
+scratch/

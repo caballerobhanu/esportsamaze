@@ -11,6 +11,7 @@ interface EventCardData {
   id: string;
   slug?: string;
   name: string;
+  shortName?: string | null;
   status: EventStatus;
   startDate: string;
   endDate: string;
@@ -24,12 +25,13 @@ export interface RawTournamentRow {
   id: string;
   slug: string;
   name: string;
+  shortName?: string | null;
   status: EventStatus;
   startDate: string | Date;
   endDate: string | Date;
   imageUrl?: string | null;
   imageDarkUrl?: string | null;
-  game: { name: string; logoUrl: string | null } | null;
+  game: { name: string; logoUrl: string | null; logoDarkUrl: string | null } | null;
   stages: { sequence: number; name: string }[];
 }
 
@@ -53,20 +55,15 @@ function normalizeEvent(raw: RawTournamentRow): EventCardData {
     id: raw.id,
     slug: raw.slug,
     name: raw.name,
+    shortName: raw.shortName ?? null,
     status,
     startDate: String(raw.startDate),
     endDate: String(raw.endDate),
     gameName: raw.game?.name ?? '',
     logoUrl: raw.imageUrl ?? raw.game?.logoUrl ?? null,
-    logoDarkUrl: raw.imageDarkUrl ?? null,
+    logoDarkUrl: raw.imageDarkUrl ?? raw.game?.logoDarkUrl ?? null,
     stageName,
   };
-}
-
-function formatDateRange(start: string, end: string) {
-  const s = new Date(start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const e = new Date(end).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  return `${s} — ${e}`;
 }
 
 function selectEvents(all: EventCardData[], tab: EventTab): EventCardData[] {
@@ -86,127 +83,60 @@ function selectEvents(all: EventCardData[], tab: EventTab): EventCardData[] {
   return past;
 }
 
-function EventCard({ event }: { event: EventCardData }) {
-  const isLive = event.status === 'ONGOING';
-  const isUpcoming = event.status === 'UPCOMING';
-
-  const href = event.slug ? `/tournaments/${event.slug}` : `/tournaments/${event.id}`;
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'group flex flex-col justify-between p-3 rounded-lg border transition-all',
-        'bg-[var(--ed-card)] hover:border-[var(--ed-magenta)] hover:shadow-xs',
-        isLive
-          ? 'border-[var(--ed-magenta)]/40 bg-[var(--ed-magenta)]/[0.02]'
-          : 'border-[var(--ed-hair)]'
-      )}
-    >
-      <div className="flex items-start gap-2.5">
-        <EventLogo event={event} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 mb-1">
-            {isLive && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--ed-magenta)] uppercase tracking-wider">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--ed-magenta)] animate-pulse" />
-                Live
-              </span>
-            )}
-            {isUpcoming && (
-              <span className="text-[10px] font-bold text-[var(--ed-muted)] uppercase tracking-wider">
-                Upcoming
-              </span>
-            )}
-            <span className="text-[10px] text-[var(--ed-subtle)] truncate">
-              {event.gameName}
-            </span>
-          </div>
-
-          <h3 className="text-xs font-bold text-[var(--ed-ink)] line-clamp-1 group-hover:text-[var(--ed-magenta)] transition-colors">
-            {event.name}
-          </h3>
-
-          <p className="text-[11px] text-[var(--ed-muted)] mt-0.5 truncate">
-            {event.stageName}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-2.5 pt-2 border-t border-[var(--ed-hair)] flex items-center justify-between text-[10px] text-[var(--ed-subtle)]">
-        <span>{formatDateRange(event.startDate, event.endDate)}</span>
-        <span className="font-semibold text-[var(--ed-muted)] group-hover:text-[var(--ed-magenta)] transition-colors">
-          View &rarr;
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-function EventLogo({ event }: { event: EventCardData }) {
-  const logo = event.logoDarkUrl || event.logoUrl;
-  if (logo) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={logo}
-        alt={event.name}
-        className="w-8 h-8 rounded-md object-contain shrink-0 bg-[var(--ed-sand)] p-0.5"
-        loading="lazy"
-      />
-    );
-  }
-
-  const initials = event.name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('');
-
-  // deployed); drop a broken variant and fall back to the other one/initials.
+function EventLogo({
+  event,
+  className = 'h-14 w-14',
+}: {
+  event: EventCardData;
+  className?: string;
+}) {
+  // Track broken images so a failed variant falls back to the other one / initials.
   const [failed, setFailed] = React.useState({ light: false, dark: false });
+
   const showLight = Boolean(event.logoUrl) && !failed.light;
   const showDark = Boolean(event.logoDarkUrl) && !failed.dark;
 
-  if (showLight || showDark) {
+  if (!showLight && !showDark) {
+    const initials = event.name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('');
+
+    // Placeholder monogram — no circle, ink→blue plate like the emblem box.
     return (
-      <div className="relative w-12 h-12 rounded-full overflow-hidden ring-1 ring-[var(--ed-hair)] shrink-0 bg-slate-50 dark:bg-black/40">
-        {showLight && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={event.logoUrl ?? undefined}
-            alt={showDark ? '' : event.name}
-            onError={() => setFailed((f) => ({ ...f, light: true }))}
-            className={`absolute inset-0 w-full h-full object-contain p-1 ${
-              showDark ? 'dark:hidden' : ''
-            }`}
-          />
-        )}
-        {showDark && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={event.logoDarkUrl ?? undefined}
-            alt={event.name}
-            onError={() => setFailed((f) => ({ ...f, dark: true }))}
-            className={`absolute inset-0 w-full h-full object-contain p-1 ${
-              showLight ? 'hidden dark:block' : ''
-            }`}
-          />
-        )}
+      <div
+        className={cn('flex items-center justify-center rounded-xl', className)}
+        style={{ backgroundImage: 'linear-gradient(135deg, var(--ed-blue), var(--ed-ink))' }}
+      >
+        <span className="text-2xl font-black leading-none text-white">
+          {initials || event.gameName.slice(0, 2).toUpperCase()}
+        </span>
       </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        'w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-gradient-to-br from-[var(--ed-blue)] via-blue-700 to-slate-800'
+    <>
+      {showLight && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={event.logoUrl ?? undefined}
+          alt={showDark ? '' : event.name}
+          onError={() => setFailed((f) => ({ ...f, light: true }))}
+          className={cn(className, 'shrink-0 object-contain dark:hidden')}
+        />
       )}
-    >
-      <span className="text-sm font-bold text-white">
-        {initials || event.gameName.slice(0, 2).toUpperCase()}
-      </span>
-    </div>
+      {showDark && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={event.logoDarkUrl ?? undefined}
+          alt={event.name}
+          onError={() => setFailed((f) => ({ ...f, dark: true }))}
+          className={cn(className, 'hidden shrink-0 object-contain dark:block')}
+        />
+      )}
+    </>
   );
 }
 
@@ -265,7 +195,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="min-w-[140px] sm:min-w-[156px] h-[144px] rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)]/60 animate-pulse"
+                className="aspect-[3/4] w-[132px] sm:w-[148px] shrink-0 rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-sand)]/60 animate-pulse"
               />
             ))}
           </div>
@@ -276,33 +206,86 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
         ) : (
           <div className="rail pb-1">
             {visible.map((event) => {
-              const cardClasses =
-                'group min-w-[140px] sm:min-w-[156px] rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4 flex flex-col items-center text-center gap-2.5 cursor-pointer hover:border-[var(--ed-blue)] transition-colors';
+              const isLive = event.status === 'ONGOING';
+              const isUpcoming = event.status === 'UPCOMING';
+
+              // Logo plate — full-bleed square with a soft brand wash
+              const plateStyle =
+                event.status === 'ONGOING'
+                  ? {
+                      backgroundImage:
+                        'radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--ed-magenta) 22%, var(--ed-sand)), var(--ed-sand) 78%)',
+                    }
+                  : event.status === 'UPCOMING'
+                    ? {
+                        backgroundImage:
+                          'radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--ed-blue) 22%, var(--ed-sand)), var(--ed-sand) 78%)',
+                      }
+                    : {
+                        backgroundImage:
+                          'linear-gradient(180deg, var(--ed-sand) 0%, var(--ed-canvas) 100%)',
+                      };
+
+              // Bottom band — different backdrop with the short name
+              const bandStyle =
+                event.status === 'ONGOING'
+                  ? {
+                      backgroundImage:
+                        'linear-gradient(90deg, var(--ed-magenta), color-mix(in oklab, var(--ed-magenta) 55%, var(--ed-blue)))',
+                    }
+                  : event.status === 'UPCOMING'
+                    ? {
+                        backgroundImage:
+                          'linear-gradient(90deg, var(--ed-blue), color-mix(in oklab, var(--ed-blue) 55%, var(--ed-ink)))',
+                      }
+                    : {
+                        backgroundImage:
+                          'linear-gradient(90deg, color-mix(in oklab, var(--ed-stone) 38%, var(--ed-sand)), var(--ed-sand))',
+                      };
+
+              const bandTextClass =
+                event.status === 'ONGOING' || event.status === 'UPCOMING'
+                  ? 'text-white'
+                  : 'text-[var(--ed-ink)]';
+
+              const cardClasses = cn(
+                'group relative aspect-[3/4] w-[132px] sm:w-[148px] shrink-0 overflow-hidden rounded-2xl flex flex-col cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md'
+              );
+
               const inner = (
                 <>
-                  <EventLogo event={event} />
-
-                  <h3 className="text-xs font-bold text-[var(--ed-ink)] leading-snug line-clamp-2 min-h-[2rem] group-hover:text-[var(--ed-blue)] transition-colors">
-                    {event.name}
-                  </h3>
-
-                  <span className="mt-auto inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--ed-stone)] max-w-full">
-                    <span
-                      className={cn(
-                        'w-1.5 h-1.5 rounded-full shrink-0',
-                        event.status === 'ONGOING' &&
-                          'bg-rose-500 animate-ping',
-                        event.status === 'UPCOMING' && 'bg-[var(--ed-blue)]',
-                        event.status === 'COMPLETED' && 'bg-slate-400'
-                      )}
+                  {/* Top 3/4 — full-bleed logo plate (no circle, no border) */}
+                  <div
+                    className="relative aspect-square w-full flex items-center justify-center p-4"
+                    style={plateStyle}
+                  >
+                    <EventLogo
+                      event={event}
+                      className="h-full w-full group-hover:scale-105 transition-transform duration-200"
                     />
-                    <span className="truncate">{event.stageName}</span>
-                  </span>
+                  </div>
+
+                  {/* Bottom 1/4 — short name on a contrasting ribbon */}
+                  <div
+                    className={cn('flex min-h-0 flex-1 items-center justify-center px-1.5 relative overflow-hidden', bandTextClass)}
+                    style={bandStyle}
+                  >
+                    <span className="truncate text-[10px] font-black uppercase tracking-wide">
+                      {event.shortName || event.name}
+                    </span>
+                  </div>
+
+                  {isLive && (
+                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[var(--ed-magenta)] ring-2 ring-white/70 animate-pulse z-10" />
+                  )}
+                  {isUpcoming && (
+                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[var(--ed-blue)] z-10" />
+                  )}
                 </>
               );
 
               return event.slug ? (
-                <Link key={event.id} href={`/tournaments/${event.slug}`} className={cardClasses}>
+                <Link key={event.id} href={`/tournaments/${event.slug}`} className={cardClasses} title={event.name}>
                   {inner}
                 </Link>
               ) : (

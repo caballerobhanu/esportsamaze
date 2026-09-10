@@ -85,3 +85,68 @@ export function formatDate(date: string | Date): string {
     timeZone: 'UTC',
   }).format(new Date(date));
 }
+
+/**
+ * Resolves a concise short name for tournament badges, cards, and compact mobile views.
+ * Prioritizes the explicit custom shortName, falling back to series + season or known acronyms.
+ */
+export function getTournamentShortName(tournament: {
+  name: string;
+  shortName?: string | null;
+  series?: string | null;
+  season?: string | null;
+}): string {
+  if (tournament.shortName && tournament.shortName.trim()) {
+    return tournament.shortName.trim();
+  }
+
+  if (tournament.series && tournament.season) {
+    const s = tournament.season.replace(/Edition|Season\s*/i, '').trim();
+    if (s.toLowerCase().startsWith(tournament.series.toLowerCase())) {
+      return s;
+    }
+    return `${tournament.series} ${s}`.trim();
+  }
+  if (tournament.series) {
+    return tournament.series;
+  }
+
+  const n = tournament.name;
+  const yearMatch = n.match(/\b(20\d\d)\b/);
+  const year = yearMatch ? yearMatch[1] : '';
+
+  if (/Battlegrounds\s+Mobile\s+India\s+Master\s+Series/i.test(n)) {
+    return `BGMS ${year}`.trim();
+  }
+  if (/Battlegrounds\s+Mobile\s+India\s+Series/i.test(n)) {
+    return `BGIS ${year}`.trim();
+  }
+  if (/Battlegrounds\s+Mobile\s+India\s+Pro\s+Series/i.test(n)) {
+    return `BMPS ${year}`.trim();
+  }
+  if (/PUBG\s+Mobile\s+Global\s+Championship/i.test(n)) {
+    return `PMGC ${year}`.trim();
+  }
+  if (/PUBG\s+Mobile\s+World\s+Cup/i.test(n)) {
+    return `PMWC ${year}`.trim();
+  }
+  if (/PUBG\s+Mobile\s+Super\s+League/i.test(n)) {
+    return `PMSL ${year}`.trim();
+  }
+  if (/PUBG\s+Mobile\s+Club\s+Open/i.test(n)) {
+    return `PMCO ${year}`.trim();
+  }
+
+  if (n.length <= 16) return n;
+
+  const words = n.split(/\s+/).filter(Boolean);
+  if (words.length <= 2) return n;
+
+  const acronym = words
+    .filter((w) => !/^(of|the|and|in|for|de|la)$/i.test(w))
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+
+  return year ? `${acronym} ${year}` : acronym;
+}

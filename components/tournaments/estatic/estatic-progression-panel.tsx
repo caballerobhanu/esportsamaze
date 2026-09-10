@@ -100,8 +100,8 @@ interface EstaticProgressionPanelProps {
     stageId?: string | null;
     stage?: { name: string } | null;
     groupName?: string | null;
-    status: string;
-    scheduledAt: any;
+    status?: string;
+    scheduledAt?: any;
     games: Array<{
       teamResults: Array<{
         teamId: string;

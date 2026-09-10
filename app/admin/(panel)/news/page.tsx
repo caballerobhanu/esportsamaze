@@ -17,6 +17,7 @@ import {
   ChevronRight,
   RotateCcw,
   Trash,
+  Copy,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
@@ -29,6 +30,7 @@ import {
   restoreArticleById,
   purgeArticleById,
   bulkArticleAction,
+  duplicateArticleById,
 } from './actions';
 import { BulkSelectAll } from '@/components/admin/bulk-select-all';
 import { ActionIconButton } from '@/components/admin/action-icon-button';
@@ -50,6 +52,10 @@ function statusBadgeCls(status: string): string {
       return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
     case 'SCHEDULED':
       return 'bg-amber-500/10 text-amber-600 dark:text-amber-400';
+    case 'PENDING_REVIEW':
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
+    case 'PRIVATE':
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400';
     default:
       return 'bg-slate-500/10 text-slate-500 dark:text-slate-400';
   }
@@ -68,6 +74,7 @@ export default async function AdminNewsPage({
     restoredArticle?: string;
     purged?: string;
     bulk?: string;
+    duplicated?: string;
   }>;
 }) {
   if (!(await isAdmin())) redirect('/admin/login');
@@ -82,6 +89,7 @@ export default async function AdminNewsPage({
     restoredArticle,
     purged,
     bulk,
+    duplicated,
   } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
   const isTrashView = filterStatus === 'TRASHED';
@@ -188,12 +196,14 @@ export default async function AdminNewsPage({
       {(trashed === '1' ||
         restoredArticle === '1' ||
         purged === '1' ||
-        bulk === '1') && (
+        bulk === '1' ||
+        duplicated === '1') && (
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
           {trashed === '1' && 'Article moved to trash.'}
           {restoredArticle === '1' && 'Article restored from trash.'}
           {purged === '1' && 'Article permanently deleted.'}
           {bulk === '1' && 'Bulk action applied.'}
+          {duplicated === '1' && 'Article duplicated into a fresh draft copy.'}
         </div>
       )}
 
@@ -504,6 +514,14 @@ export default async function AdminNewsPage({
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Link>
+                            <ActionIconButton
+                              action={duplicateArticleById}
+                              arg={art.id}
+                              title="Duplicate to Draft"
+                              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-(--ed-blue) dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </ActionIconButton>
                             <ActionIconButton
                               action={trashArticleById}
                               arg={art.id}

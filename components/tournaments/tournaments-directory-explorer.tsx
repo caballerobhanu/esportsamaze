@@ -2,9 +2,10 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Search, Trophy, Calendar, MapPin, Users, ArrowRight, Banknote } from 'lucide-react';
+import { Search, Trophy, Calendar, MapPin, ArrowRight, Banknote } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
+import { GameLogo } from '@/components/ui/game-capsule';
 
 export interface TournamentDirectoryItem {
   id: string;
@@ -24,7 +25,8 @@ export interface TournamentDirectoryItem {
   imageUrl?: string | null;
   imageDarkUrl?: string | null;
   winner?: string | null;
-  game: { name: string; slug: string };
+  game: { name: string; slug: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null };
+  games?: { game: { name: string; slug: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null } }[];
   venues?: { venue: { name: string; city?: string | null; country?: string | null } }[];
   organizers?: { organizer: { name: string } }[];
   _count: {
@@ -49,7 +51,7 @@ export function TournamentsDirectoryExplorer({
   games,
 }: {
   tournaments: TournamentDirectoryItem[];
-  games: { name: string; slug: string }[];
+  games: { name: string; slug: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null }[];
 }) {
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('ALL');
@@ -62,7 +64,7 @@ export function TournamentsDirectoryExplorer({
       if (q) {
         const matchesName = t.name.toLowerCase().includes(q);
         const matchesSeries = t.series?.toLowerCase().includes(q);
-        const matchesGame = t.game.name.toLowerCase().includes(q);
+        const matchesGame = t.game.name.toLowerCase().includes(q) || (t.game.shortName || '').toLowerCase().includes(q);
         const matchesOrg = t.organizers?.some((o) => o.organizer.name.toLowerCase().includes(q));
         const matchesVenue = t.venues?.some((v) => v.venue.name.toLowerCase().includes(q) || v.venue.city?.toLowerCase().includes(q));
         if (!matchesName && !matchesSeries && !matchesGame && !matchesOrg && !matchesVenue) {
@@ -74,8 +76,12 @@ export function TournamentsDirectoryExplorer({
         return false;
       }
 
-      if (gameFilter !== 'ALL' && t.game.slug !== gameFilter) {
-        return false;
+      if (gameFilter !== 'ALL') {
+        const involved = t.game.slug === gameFilter ||
+          (t.games?.some((g) => g.game.slug === gameFilter) ?? false);
+        if (!involved) {
+          return false;
+        }
       }
 
       if (tierFilter !== 'ALL' && !(t.tier ?? '').startsWith(tierFilter)) {
@@ -142,8 +148,10 @@ export function TournamentsDirectoryExplorer({
                 key={g.slug}
                 onClick={() => setGameFilter(g.slug)}
                 className={`ed-chip transition-colors ${gameFilter === g.slug ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
+                title={g.name}
               >
-                {g.name}
+                <GameLogo game={g} className="h-3.5 w-3.5" />
+                {g.shortName || g.name}
               </button>
             ))}
           </div>
@@ -210,8 +218,23 @@ export function TournamentsDirectoryExplorer({
 
                     <div className="flex items-center gap-1.5">
                       {t.tier && <span className="ed-chip px-2 py-0.5 text-[11px] text-(--ed-stone)">{t.tier}</span>}
-                      <span className="ed-chip px-2 py-0.5 text-[11px] text-(--ed-stone)">{t.game.name}</span>
                     </div>
+                  </div>
+
+                  {/* Ecosystem chips — primary + cross-region participants */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="ed-chip border-(--ed-blue)/25 bg-(--ed-blue)/10 px-2 py-0.5 text-[11px] text-(--ed-blue)" title={t.game.name}>
+                      <GameLogo game={t.game} className="h-3 w-3" />
+                      {t.game.shortName || t.game.name}
+                    </span>
+                    {(t.games ?? [])
+                      .filter((g) => g.game.slug !== t.game.slug)
+                      .map((g) => (
+                        <span key={g.game.slug} className="ed-chip px-2 py-0.5 text-[11px] text-(--ed-stone)" title={g.game.name}>
+                          <GameLogo game={g.game} className="h-3 w-3" />
+                          {g.game.shortName || g.game.name}
+                        </span>
+                      ))}
                   </div>
 
                   <div className="mt-5 flex items-start gap-4">

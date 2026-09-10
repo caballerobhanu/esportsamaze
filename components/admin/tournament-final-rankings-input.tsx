@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Trophy, Award, Shield, Sparkles, Plus, Trash2, ArrowUpRight, Calculator, Layers, ArrowDown } from 'lucide-react';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 export interface FinalTeamRankingItem {
   teamId: string;
@@ -184,6 +185,15 @@ export function TournamentFinalRankingsInput({
   const [selectedStage, setSelectedStage] = React.useState(availableStages[0] || '');
 
   const [selectedTeamId, setSelectedTeamId] = React.useState('');
+
+  const teamOptions: SearchableSelectOption[] = React.useMemo(() => {
+    return allTeams.map((t) => ({
+      value: t.id,
+      label: t.name,
+      subtitle: t.tag ? `[${t.tag}]` : undefined,
+      imageUrl: t.logoUrl || undefined,
+    }));
+  }, [allTeams]);
 
   // Import a stage lobby and start from rank 1 (or override existing)
   const importStageAsPrimary = (stageName: string) => {
@@ -504,19 +514,19 @@ export function TournamentFinalRankingsInput({
       )}
 
       {/* Add team dropdown for manual additions */}
-      <div className="flex items-center gap-2 pt-1">
-        <select
+      <div className="flex items-center gap-2 pt-1 max-w-sm">
+        <SearchableSelect
+          options={teamOptions}
           value={selectedTeamId}
-          onChange={(e) => addTeam(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
-        >
-          <option value="">+ Manually add a team to rankings…</option>
-          {allTeams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name} {t.tag ? `(${t.tag})` : ''}
-            </option>
-          ))}
-        </select>
+          onChange={(val) => {
+            if (val) {
+              addTeam(val);
+              setSelectedTeamId('');
+            }
+          }}
+          placeholder="+ Manually add a team to rankings…"
+          size="admin"
+        />
       </div>
     </div>
   );

@@ -609,8 +609,31 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                     href={`/teams/${player.currentTeam.slug}`}
                     className="mt-7 inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-extrabold transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A5FC4] text-xs text-white">
-                      {player.currentTeam.tag?.slice(0, 3) || 'TM'}
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                      {player.currentTeam.logoUrl || player.currentTeam.imageDarkUrl ? (
+                        <>
+                          {player.currentTeam.logoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={player.currentTeam.logoUrl}
+                              alt=""
+                              className="max-h-full max-w-full object-contain dark:hidden"
+                            />
+                          )}
+                          {player.currentTeam.imageDarkUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={player.currentTeam.imageDarkUrl}
+                              alt=""
+                              className={`max-h-full max-w-full object-contain ${player.currentTeam.logoUrl ? 'hidden dark:block' : ''}`}
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-[10px] font-black text-[#0A5FC4] dark:text-blue-300">
+                          {player.currentTeam.tag?.slice(0, 3) || 'TM'}
+                        </span>
+                      )}
                     </span>
                     <span>{player.currentTeam.name}</span>
                     <ArrowRight className="h-4 w-4 text-slate-400" />

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath, updateTag } from 'next/cache';
 import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save, Copy } from 'lucide-react';
+import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
@@ -32,6 +33,7 @@ import { TournamentPointsSystemInput } from '@/components/admin/tournament-point
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
 import { TournamentLiquipediaImporter } from '@/components/admin/tournament-liquipedia-importer';
+import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
 import { matchStageLabel } from '@/lib/standings-config';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
 
@@ -136,7 +138,15 @@ async function saveTournament(formData: FormData) {
       seed?: number | null;
       seedLabel?: string | null;
       seedTournamentId?: string | null;
-      roster?: Array<{ playerId?: string | null; ign: string; role?: string | null; captain?: boolean; isStaff?: boolean }>;
+      roster?: Array<{
+        playerId?: string | null;
+        ign: string;
+        role?: string | null;
+        captain?: boolean;
+        isStaff?: boolean;
+        staffRole?: string | null;
+        statusTag?: string | null;
+      }>;
       eventLogoUrl?: string | null;
       eventLogoDarkUrl?: string | null;
       shortName?: string | null;
@@ -387,11 +397,15 @@ async function saveTournament(formData: FormData) {
   const commonData = {
     name,
     slug,
+    shortName: fOpt(formData, 'shortName'),
     series: fOpt(formData, 'series'),
     season: fOpt(formData, 'season'),
     seriesValue: fNum(formData, 'seriesValue'),
     tier: fStr(formData, 'tier') || 'A-Tier',
-    rankingIncluded: formData.get('rankingIncluded') === 'on',
+    rankingIncluded: (() => {
+      const vals = formData.getAll('rankingIncluded').map(String);
+      return vals.includes('true') || vals.includes('on');
+    })(),
     status,
     eventType: fStr(formData, 'eventType') || 'LAN',
     gameMode: fStr(formData, 'gameMode') || 'Squads TPP',
@@ -516,12 +530,14 @@ async function saveTournament(formData: FormData) {
           seed: squad.seed ?? null,
           seedLabel: squad.seedLabel ?? null,
           seedTournamentId: squad.seedTournamentId ?? null,
-          rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p) => ({
+          rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p: any) => ({
             playerId: p.playerId ?? null,
             ign: String(p.ign ?? ''),
             role: p.role ?? null,
             captain: !!p.captain,
             isStaff: !!p.isStaff,
+            staffRole: p.staffRole ?? (p.isStaff ? p.role ?? 'Coach' : null),
+            statusTag: p.statusTag ?? null,
           })),
           logoUrl: logoLight ?? (squad.eventLogoUrl || null),
           logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
@@ -543,6 +559,69 @@ async function saveTournament(formData: FormData) {
             ...data,
           },
         });
+
+        // Automated Transfer History Logging
+        const roster = Array.isArray(squad.roster) ? squad.roster : [];
+        for (const p of roster) {
+          let playerId = p.playerId;
+          if (!playerId && p.ign) {
+            const found = await tx.player.findFirst({
+              where: { ign: { equals: p.ign.trim(), mode: 'insensitive' } },
+              select: { id: true, currentTeamId: true },
+            });
+            if (found) {
+              playerId = found.id;
+            }
+          }
+
+          if (playerId) {
+            const player = await tx.player.findUnique({
+              where: { id: playerId },
+              select: { id: true, currentTeamId: true },
+            });
+
+            if (player && player.currentTeamId !== squad.teamId) {
+              const prevTeamId = player.currentTeamId;
+              const transferType =
+                p.statusTag === 'LOANED'
+                  ? 'LOANED'
+                  : p.statusTag === 'BENCHED'
+                  ? 'BENCHED'
+                  : 'JOINED';
+
+              // Avoid duplicate logs if already logged for this team
+              const existingTransfer = await tx.transfer.findFirst({
+                where: {
+                  playerId: player.id,
+                  teamId: squad.teamId,
+                  fromTeamId: prevTeamId,
+                },
+              });
+
+              if (!existingTransfer) {
+                await tx.transfer.create({
+                  data: {
+                    playerId: player.id,
+                    fromTeamId: prevTeamId,
+                    teamId: squad.teamId,
+                    type: transferType,
+                    staffRole: p.isStaff ? p.staffRole || p.role || 'Staff' : null,
+                    date: startDate || new Date(),
+                    notes: `Tournament roster entry for ${name}`,
+                  },
+                });
+              }
+
+              // Update player's active team
+              await tx.player.update({
+                where: { id: player.id },
+                data: {
+                  currentTeamId: squad.teamId,
+                },
+              });
+            }
+          }
+        }
       }
       const protectedIds = [
         ...squadsList.map((s) => s.teamId).filter(Boolean),
@@ -577,7 +656,15 @@ async function saveTournament(formData: FormData) {
   updateTag('tournaments-list');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
+  revalidatePath('/admin/tournaments', 'page');
+  revalidatePath('/admin/tournaments', 'layout');
+  revalidatePath('/admin/rankings');
+  revalidatePath('/admin/rankings', 'page');
+  revalidatePath('/rankings');
   revalidatePath('/tournaments');
+  revalidatePath('/admin/players');
+  revalidatePath('/players');
+  revalidatePath('/teams');
   redirect('/admin/tournaments');
 }
 
@@ -617,20 +704,27 @@ async function duplicateTournament(formData: FormData) {
   });
   if (!source) redirect('/admin/tournaments');
 
-  const slug = await uniqueSlug(`${source.slug}-copy`, async (s) => {
+  const customName = fStr(formData, 'name');
+  const newName = customName || `${source.name} (Copy)`;
+
+  const slug = await uniqueSlug(fStr(formData, 'slug') || newName, async (s) => {
     const clash = await prisma.tournament.findFirst({ where: { slug: s }, select: { id: true } });
     return Boolean(clash);
   });
 
+  const includeStages = formData.has('includeStages') ? formData.get('includeStages') === 'true' : true;
+  const includeTeams = formData.has('includeTeams') ? formData.get('includeTeams') === 'true' : true;
+
   const created = await prisma.tournament.create({
     data: {
       gameId: source.gameId,
-      name: `${source.name} (Copy)`,
+      name: newName,
       slug,
       series: source.series,
       season: source.season,
       seriesValue: source.seriesValue,
       tier: source.tier,
+      rankingIncluded: source.rankingIncluded,
       status: 'UPCOMING',
       eventType: source.eventType,
       gameMode: source.gameMode,
@@ -655,27 +749,37 @@ async function duplicateTournament(formData: FormData) {
       organizers: { create: source.organizers.map((o) => ({ organizerId: o.organizerId, role: o.role })) },
       sponsors: { create: source.sponsors.map((s) => ({ sponsorId: s.sponsorId, tier: s.tier })) },
       venues: { create: source.venues.map((v) => ({ venueId: v.venueId, stageName: v.stageName })) },
-      stages: {
-        create: source.stages.map((s) => ({
-          name: s.name,
-          sequence: s.sequence,
-          formatType: s.formatType,
-          stageType: s.stageType,
-          groups: { create: s.groups.map((g) => ({ name: g.name })) },
-        })),
-      },
-      teams: {
-        create: source.teams.map((tt) => ({
-          team: { connect: { id: tt.teamId } },
-          seed: tt.seed,
-          rosterJson: tt.rosterJson as Prisma.InputJsonValue,
-          logoUrl: tt.logoUrl,
-          logoDarkUrl: tt.logoDarkUrl,
-          shortName: tt.shortName,
-          displayName: tt.displayName,
-          country: tt.country,
-        })),
-      },
+      ...(includeStages
+        ? {
+            stages: {
+              create: source.stages.map((s) => ({
+                name: s.name,
+                sequence: s.sequence,
+                formatType: s.formatType,
+                stageType: s.stageType,
+                groups: { create: s.groups.map((g) => ({ name: g.name })) },
+              })),
+            },
+          }
+        : {}),
+      ...(includeTeams
+        ? {
+            teams: {
+              create: source.teams.map((tt) => ({
+                team: { connect: { id: tt.teamId } },
+                seed: tt.seed,
+                seedLabel: tt.seedLabel,
+                seedTournamentId: tt.seedTournamentId,
+                rosterJson: tt.rosterJson as Prisma.InputJsonValue,
+                logoUrl: tt.logoUrl,
+                logoDarkUrl: tt.logoDarkUrl,
+                shortName: tt.shortName,
+                displayName: tt.displayName,
+                country: tt.country,
+              })),
+            },
+          }
+        : {}),
     },
   });
 
@@ -712,6 +816,7 @@ export default async function AdminTournamentsPage({
         id: true,
         name: true,
         slug: true,
+        shortName: true,
         tier: true,
         region: true,
         status: true,
@@ -721,7 +826,14 @@ export default async function AdminTournamentsPage({
         endDate: true,
         prizePool: true,
         currency: true,
+        rankingIncluded: true,
         game: { select: { name: true } },
+        _count: {
+          select: {
+            stages: true,
+            teams: true,
+          },
+        },
       },
     }),
     prisma.player.findMany({
@@ -818,6 +930,8 @@ export default async function AdminTournamentsPage({
               role: (entry as { role?: string | null }).role ?? null,
               captain: !!((entry as { captain?: boolean }).captain ?? false),
               isStaff: !!((entry as { isStaff?: boolean }).isStaff ?? false),
+              staffRole: (entry as { staffRole?: string | null }).staffRole ?? null,
+              statusTag: (entry as { statusTag?: any }).statusTag ?? null,
             }
       ),
       eventLogoUrl: tt.logoUrl,
@@ -835,15 +949,21 @@ export default async function AdminTournamentsPage({
     const matchingMatches = (editing?.matches || []).filter(
       (m) => matchStageLabel(m).toLowerCase() === sName.toLowerCase()
     );
+    const stageGroups = Array.from(
+      new Set(matchingMatches.map((m) => m.groupName?.trim()).filter((g): g is string => Boolean(g)))
+    ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
     return {
       name: sName,
       matchCount: matchingMatches.length,
+      groups: stageGroups,
       matches: matchingMatches.map((m) => ({
         id: m.id,
         matchNumber: m.matchNumber,
         overallMatchNumber: m.overallMatchNumber,
         mapName: m.mapName || 'Erangel',
         format: m.format,
+        groupName: m.groupName || null,
       })),
     };
   });
@@ -851,6 +971,12 @@ export default async function AdminTournamentsPage({
   const existingRegions = Array.from(
     new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
   );
+
+  const teamComboboxOptions = teams.map((t) => ({
+    value: t.id,
+    label: t.name,
+    keywords: t.tag || undefined,
+  }));
 
   // Group matches by stage and compute Stage-Aware Standings
   const stageStandingsMap: Record<
@@ -929,7 +1055,7 @@ export default async function AdminTournamentsPage({
       {/* Create / Edit form */}
       <details
         id="tournament-editor"
-        key={editing?.id || 'collapsed-mode'}
+        key={editing ? `${editing.id}-${editing.updatedAt.getTime()}` : 'collapsed-mode'}
         open={Boolean(editing)}
         className="group scroll-mt-6"
       >
@@ -939,7 +1065,7 @@ export default async function AdminTournamentsPage({
         </summary>
 
         <form
-          key={editing?.id || 'new'}
+          key={editing ? `${editing.id}-${editing.updatedAt.getTime()}-${editing.rankingIncluded}` : 'new'}
           action={saveTournament}
           className="mt-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm p-6 space-y-6"
         >
@@ -958,6 +1084,15 @@ export default async function AdminTournamentsPage({
                   required
                   defaultValue={editing?.name ?? ''}
                   placeholder="Battlegrounds Mobile India Series 2026"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Custom Short Name (e.g. for badges &amp; cards)</label>
+                <input
+                  name="shortName"
+                  defaultValue={editing?.shortName ?? ''}
+                  placeholder="e.g. BGMS 2026, BGIS 2024"
                   className={inputCls}
                 />
               </div>
@@ -1020,13 +1155,17 @@ export default async function AdminTournamentsPage({
               </div>
               <div className="flex items-end pb-1.5">
                 <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <input type="hidden" name="rankingIncluded" value="false" />
                   <input
+                    key={`rankingIncluded-${editing?.id ?? 'new'}-${editing?.rankingIncluded ? 'true' : 'false'}`}
                     type="checkbox"
                     name="rankingIncluded"
-                    defaultChecked={editing?.rankingIncluded ?? true}
+                    value="true"
+                    defaultChecked={editing ? Boolean(editing.rankingIncluded) : true}
+                    autoComplete="off"
                     className="h-4 w-4 rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
                   />
-                  Counts toward KRAFTON rankings
+                  <span>Counts toward KRAFTON rankings</span>
                 </label>
               </div>
               <div>
@@ -1213,29 +1352,25 @@ export default async function AdminTournamentsPage({
               </div>
               <div>
                 <label className={labelCls}>Winner Team (Champion)</label>
-                <select name="winnerTeamId" defaultValue={editing?.winnerTeamId ?? ''} className={inputCls}>
-                  <option value="">— tournament not decided yet —</option>
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+                <Combobox
+                  name="winnerTeamId"
+                  options={teamComboboxOptions}
+                  defaultValue={editing?.winnerTeamId ?? ''}
+                  emptyOptionLabel="— tournament not decided yet —"
+                  placeholder="Type to search champion team…"
+                  ariaLabel="Winner Team"
+                />
               </div>
               <div>
                 <label className={labelCls}>Runner-Up Team</label>
-                <select
+                <Combobox
                   name="runnerUpTeamId"
+                  options={teamComboboxOptions}
                   defaultValue={editing?.runnerUpTeamId ?? ''}
-                  className={inputCls}
-                >
-                  <option value="">— tournament not decided yet —</option>
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+                  emptyOptionLabel="— tournament not decided yet —"
+                  placeholder="Type to search runner-up team…"
+                  ariaLabel="Runner-Up Team"
+                />
               </div>
               <div>
                 <label className={labelCls}>Official Event Page URL (Optional)</label>
@@ -1472,7 +1607,22 @@ export default async function AdminTournamentsPage({
             {tournaments.map((t) => (
               <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
                 <td className="py-3 px-3">
-                  <span className="font-bold block max-w-[280px] truncate">{t.name}</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold block max-w-[280px] truncate">{t.name}</span>
+                    {t.shortName && (
+                      <span className="px-1.5 py-0.5 rounded bg-[#0A5FC4]/10 text-[#0A5FC4] text-[10px] font-black uppercase">
+                        {t.shortName}
+                      </span>
+                    )}
+                    {!t.rankingIncluded && (
+                      <span
+                        className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-bold uppercase tracking-wider"
+                        title="Excluded from KRAFTON rankings"
+                      >
+                        Rankings Excluded
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-slate-400 font-mono">
                     {t.slug} · {t.game.name}
                   </span>
@@ -1518,21 +1668,21 @@ export default async function AdminTournamentsPage({
                     </Link>
                     <Link
                       href={`/admin/tournaments?edit=${t.id}#tournament-editor`}
+                      prefetch={false}
                       className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
                       title="Edit Tournament"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Link>
-                    <form action={duplicateTournament}>
-                      <input type="hidden" name="id" value={t.id} />
-                      <button
-                        type="submit"
-                        className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-indigo-500 transition-colors"
-                        title="Duplicate Tournament"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
+                    <TournamentCloneDialog
+                      tournament={{
+                        id: t.id,
+                        name: t.name,
+                        stageCount: (t as any)._count?.stages,
+                        squadCount: (t as any)._count?.teams,
+                      }}
+                      duplicateTournamentAction={duplicateTournament}
+                    />
                     <form action={deleteTournament}>
                       <input type="hidden" name="id" value={t.id} />
                       <button

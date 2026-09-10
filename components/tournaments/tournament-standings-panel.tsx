@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   EyeOff,
   Eye,
+  Scale,
 } from 'lucide-react';
 import { calculateTournamentStandings, type AggregatedTeamStanding } from '@/lib/tournament-math';
 import {
@@ -879,6 +880,21 @@ export function TournamentStandingsPanel({
                       className={`ml-auto ${isEstatic ? 'inline-flex' : 'hidden lg:inline-flex'} text-[10px] font-black uppercase px-2 py-0.5 rounded-full items-center gap-1 border ${zStyle.bgSoft} ${zStyle.text} border-current/20`}
                     >
                       {zone.label}
+                    </span>
+                  )}
+
+                  {/* Tiebreaker Explanation Badge */}
+                  {team.tiebreaker?.isTied && (
+                    <span
+                      className={`ml-auto ${isEstatic ? 'inline-flex' : 'hidden lg:inline-flex'} text-[9px] font-black px-2 py-0.5 rounded-full items-center gap-1 border cursor-help shadow-2xs transition-transform hover:scale-105 ${
+                        team.tiebreaker.won
+                          ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-amber-500/15 border-amber-500/35 text-amber-700 dark:text-amber-300'
+                      }`}
+                      title={team.tiebreaker.reason}
+                    >
+                      <Scale className="w-2.5 h-2.5 shrink-0" />
+                      <span>{team.tiebreaker.shortBadge}</span>
                     </span>
                   )}
                 </div>

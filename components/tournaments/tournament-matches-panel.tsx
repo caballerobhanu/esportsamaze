@@ -476,9 +476,11 @@ function MatchScorecard({
                   <span className="num font-black text-rose-600 dark:text-rose-400">
                     {f.playerElims} Kills
                   </span>
-                  <span className="num text-(--ed-stone) font-medium">
-                    ({Math.round(f.damage)} dmg)
-                  </span>
+                  {f.damage > 0 && (
+                    <span className="num text-(--ed-stone) font-medium">
+                      ({Math.round(f.damage)} dmg)
+                    </span>
+                  )}
                   {f.isMvp && (
                     <span className="rounded-md bg-amber-500/15 border border-amber-500/30 px-1 text-[9px] font-black uppercase text-amber-700 dark:text-amber-400">
                       MVP
@@ -1050,6 +1052,14 @@ function TournamentMatchesPanelInner({
   const [expandedMatchIds, setExpandedMatchIds] = React.useState<Record<string, boolean>>({});
   const [isAllCollapsed, setIsAllCollapsed] = React.useState(false);
 
+  // Pagination for View Mode C (Show All Matches long list)
+  const MATCHES_PER_PAGE = 10;
+  const [matchesPage, setMatchesPage] = React.useState(1);
+
+  React.useEffect(() => {
+    setMatchesPage(1);
+  }, [activeStage, selectedMap, selectedTeamIds]);
+
   // Floating Popover state (attached directly to button)
   const [showTeamPopover, setShowTeamPopover] = React.useState(false);
   const [teamSearch, setTeamSearch] = React.useState('');
@@ -1582,29 +1592,69 @@ function TournamentMatchesPanelInner({
           />
         </div>
       ) : stageMatchesLatestFirst.length > 0 ? (
-        /* View Mode C: Full Match List with Expand / Collapse Support */
+        /* View Mode C: Full Match List with Pagination & Expand / Collapse Support */
         <div className="space-y-4">
-          {stageMatchesLatestFirst.map((m, idx) => {
-            const isOpen =
-              expandedMatchIds[m.id] !== undefined
-                ? expandedMatchIds[m.id]
-                : isAllCollapsed
-                ? false
-                : idx === 0; // Default first match open, others collapsed
+          {(() => {
+            const totalMatchesPages = Math.max(1, Math.ceil(stageMatchesLatestFirst.length / MATCHES_PER_PAGE));
+            const start = (matchesPage - 1) * MATCHES_PER_PAGE;
+            const paginatedMatches = stageMatchesLatestFirst.slice(start, start + MATCHES_PER_PAGE);
 
             return (
-              <MatchScorecard
-                key={m.id}
-                match={m}
-                selectedTeamIds={selectedTeamIds}
-                visibleColumns={matchColumns}
-                isCollapsible={true}
-                forceOpen={isOpen}
-                onToggleOpen={() => toggleSingleMatchAccordion(m.id)}
-                isAllStages={isAllStages}
-              />
+              <>
+                {paginatedMatches.map((m, idx) => {
+                  const isOpen =
+                    expandedMatchIds[m.id] !== undefined
+                      ? expandedMatchIds[m.id]
+                      : isAllCollapsed
+                      ? false
+                      : idx === 0;
+
+                  return (
+                    <MatchScorecard
+                      key={m.id}
+                      match={m}
+                      selectedTeamIds={selectedTeamIds}
+                      visibleColumns={matchColumns}
+                      isCollapsible={true}
+                      forceOpen={isOpen}
+                      onToggleOpen={() => toggleSingleMatchAccordion(m.id)}
+                      isAllStages={isAllStages}
+                    />
+                  );
+                })}
+
+                {totalMatchesPages > 1 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                    <button
+                      type="button"
+                      disabled={matchesPage <= 1}
+                      onClick={() => setMatchesPage((p) => Math.max(1, p - 1))}
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-30 flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition-colors shadow-2xs"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-(--ed-blue)" />
+                      <span>Previous</span>
+                    </button>
+
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      Page <strong className="text-slate-900 dark:text-white">{matchesPage}</strong> of{' '}
+                      <strong className="text-slate-900 dark:text-white">{totalMatchesPages}</strong>{' '}
+                      ({stageMatchesLatestFirst.length} total matches)
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={matchesPage >= totalMatchesPages}
+                      onClick={() => setMatchesPage((p) => Math.min(totalMatchesPages, p + 1))}
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-30 flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition-colors shadow-2xs"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-4 h-4 text-(--ed-blue)" />
+                    </button>
+                  </div>
+                )}
+              </>
             );
-          })}
+          })()}
         </div>
       ) : (
         <div className="ed-card flex flex-col items-center gap-3 py-20 text-center">

@@ -20,9 +20,10 @@ interface TeamRosterMember {
 interface EnrichedTournamentTeam {
   id: string;
   seed?: number | null;
-  seedGroup?: string | null;
-  seedNotes?: string | null;
-  rosterJson?: any;
+  seedLabel?: string | null;
+  seedTournament?: { id: string; name: string; slug: string } | null;
+  rosterJson?: unknown;
+  logoUrl?: string | null;
   logoDarkUrl?: string | null;
   team: {
     id: string;
@@ -120,7 +121,10 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
         {filteredTeams.map((tt) => {
           const rawRoster = Array.isArray(tt.rosterJson) ? (tt.rosterJson as TeamRosterMember[]) : [];
           const isExpanded = expandedTeamIds.has(tt.id);
-          const seedLabel = tt.seedNotes || (tt.seed ? `Seed #${tt.seed}` : (tt.seedGroup ? `Group ${tt.seedGroup}` : 'Qualified Squad'));
+          const seedLabel =
+            tt.seedLabel ||
+            (tt.seedTournament?.name ? `Seeded via ${tt.seedTournament.name}` : null) ||
+            (tt.seed != null ? `Seed #${tt.seed}` : 'Qualified Squad');
 
           return (
             <div
@@ -134,9 +138,9 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
                     href={`/teams/${tt.team.slug || tt.team.id}`}
                     className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
                   >
-                    {tt.team.logoUrl || tt.team.imageDarkUrl || tt.logoDarkUrl ? (
+                    {tt.team.logoUrl || tt.team.imageDarkUrl || tt.logoDarkUrl || tt.logoUrl ? (
                       <ThemeLogo
-                        lightSrc={tt.team.logoUrl}
+                        lightSrc={tt.logoUrl ?? tt.team.logoUrl}
                         darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
                         alt={tt.team.name}
                         className="object-contain p-1.5"

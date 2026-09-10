@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Clock, Trophy } from 'lucide-react';
+import { getTournamentShortName } from '@/lib/utils';
 
 export interface HighlightMatchData {
   id: string;
@@ -12,6 +13,9 @@ export interface HighlightMatchData {
   status: string;
   tournament: {
     name: string;
+    shortName?: string | null;
+    series?: string | null;
+    season?: string | null;
     slug: string;
   };
   stage?: {
@@ -51,7 +55,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
             href={`/tournaments/${match.tournament.slug}`}
             className="rounded-full bg-[var(--ed-blue)]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[var(--ed-blue)] hover:bg-[var(--ed-blue)]/20 transition-colors"
           >
-            {match.tournament.name.split(' ').slice(0, 2).join(' ')}
+            {getTournamentShortName(match.tournament)}
           </Link>
           <span className="text-sm font-bold uppercase tracking-tight text-[var(--ed-ink)]">
             {matchLabel} · {match.mapName || 'Erangel'}

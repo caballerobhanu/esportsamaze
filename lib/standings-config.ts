@@ -55,6 +55,7 @@ export interface ZoneRule {
   color?: ZoneColor | string;
   targetStageName?: string;
   targetStageId?: string;
+  targetGroupName?: string; // e.g. "Group A" in target stage
 }
 
 export interface StandingsStageConfig {
@@ -92,6 +93,12 @@ export interface StandingsNavigationItem {
   precedenceFromTabIds?: string[];
   precedenceFromTabId?: string; // backwards compatibility
   hidePrecedenceQualified?: boolean;
+  // Tier 3 group sub-tabs configuration
+  enableGroupSubTabs?: boolean;
+  showOverallInGroupTabs?: boolean;
+  groupName?: string;
+  groups?: string[];
+  groupZones?: Record<string, ZoneRule[]>;
 }
 
 export type MatchColumnKey =
@@ -425,6 +432,7 @@ export function normalizeZones(v: unknown): ZoneRule[] {
     const color = row?.color ? String(row.color).trim() : undefined;
     const targetStageName = row?.targetStageName ? String(row.targetStageName).trim() : undefined;
     const targetStageId = row?.targetStageId ? String(row.targetStageId).trim() : undefined;
+    const targetGroupName = row?.targetGroupName ? String(row.targetGroupName).trim() : undefined;
     if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from || !label) continue;
     list.push({
       from: Math.round(from),
@@ -433,6 +441,7 @@ export function normalizeZones(v: unknown): ZoneRule[] {
       ...(color ? { color } : {}),
       ...(targetStageName ? { targetStageName } : {}),
       ...(targetStageId ? { targetStageId } : {}),
+      ...(targetGroupName ? { targetGroupName } : {}),
     });
   }
   return list;
@@ -551,6 +560,16 @@ export function normalizeTabGroups(v: unknown): StandingsTabGroup[] {
       const hidePrecedenceQualified =
         typeof it?.hidePrecedenceQualified === 'boolean' ? it.hidePrecedenceQualified : false;
 
+      const enableGroupSubTabs = Boolean(it?.enableGroupSubTabs);
+      const showOverallInGroupTabs = typeof it?.showOverallInGroupTabs === 'boolean' ? it.showOverallInGroupTabs : true;
+      const groupName = it?.groupName ? String(it.groupName).trim() : undefined;
+      const groups = asArray(it?.groups).map((g) => String(g).trim()).filter(Boolean);
+      const groupZones = it?.groupZones && typeof it.groupZones === 'object'
+        ? (Object.fromEntries(
+            Object.entries(it.groupZones as Record<string, unknown>).map(([k, v]) => [k, normalizeZones(v)])
+          ) as Record<string, ZoneRule[]>)
+        : undefined;
+
       items.push({
         id: itemId,
         type,
@@ -563,6 +582,10 @@ export function normalizeTabGroups(v: unknown): StandingsTabGroup[] {
         ...(excludeEliminatedFromStages.length > 0 ? { excludeEliminatedFromStages } : {}),
         ...(precedenceFromTabIds.length > 0 ? { precedenceFromTabIds } : {}),
         ...(hidePrecedenceQualified ? { hidePrecedenceQualified } : {}),
+        ...(enableGroupSubTabs ? { enableGroupSubTabs: true, showOverallInGroupTabs } : {}),
+        ...(groupName ? { groupName } : {}),
+        ...(groups.length > 0 ? { groups } : {}),
+        ...(groupZones ? { groupZones } : {}),
       });
     }
 

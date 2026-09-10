@@ -64,6 +64,10 @@ export interface BulkUniversalRowInput {
   StageMatch?: number | string;
   Map?: string;
   Group?: string;
+  Type?: string;
+  type?: string;
+  MatchType?: string;
+  matchType?: string;
   team: string;
   rank: number | string;
   wwcd?: boolean | number | string;
@@ -89,7 +93,18 @@ export interface BulkUniversalRowInput {
   rescues?: number | string;
   distDrove?: number | string;
   distWalk?: number | string;
+  isVerified?: boolean | string;
+  isOpenQualifier?: boolean | string;
   [key: string]: any;
+}
+
+function parseMatchType(val: any, fallback: string = 'Online'): 'Online' | 'LAN' | 'Offline' {
+  if (!val) return fallback as any;
+  const s = String(val).trim().toLowerCase();
+  if (s.includes('onl')) return 'Online';
+  if (s.includes('lan')) return 'LAN';
+  if (s.includes('off')) return 'Offline';
+  return (val.trim() || fallback) as any;
 }
 
 export interface BulkUniversalImportResult {
@@ -412,19 +427,43 @@ export async function bulkUniversalMatchImportAction(
           row.TimeFormat || row.timeFormat
         );
 
-        let matchedMatch = tourneyData.matches.find(
-          (m) =>
-            m.matchNumber === matchNum &&
-            (m.stageId === matchedStage!.id || !m.stageId) &&
-            (!groupName || m.groupName === groupName)
-        );
+        // Normalize single group name (e.g. "C" -> "Group C", "Group B" -> "Group B")
+        const formatGrp = (g?: string | null) => {
+          if (!g || !g.trim()) return '';
+          const clean = g.trim().replace(/^group\s*/i, '');
+          return clean ? `Group ${clean}` : '';
+        };
+
+        const currentInputGroup = formatGrp(groupName);
+
+        let matchedMatch = tourneyData.matches.find((m) => {
+          // If overallMatchNumber is specified and matches, it's definitively the exact same tournament match!
+          if (overallMatchNum != null && m.overallMatchNumber != null) {
+            return (
+              m.overallMatchNumber === overallMatchNum &&
+              (m.stageId === matchedStage!.id || !m.stageId)
+            );
+          }
+          // Otherwise match by stage and stage match number
+          if (m.matchNumber === matchNum && (m.stageId === matchedStage!.id || !m.stageId)) {
+            if (m.mapName && mapName && m.mapName.toLowerCase() !== mapName.toLowerCase()) {
+              return false;
+            }
+            return true;
+          }
+          return false;
+        });
 
         let matchGameId: string;
 
         if (!matchedMatch) {
+          const initialGrp = currentInputGroup || groupName || undefined;
           const formatTitle = `Match ${matchNum} (${mapName}) · ${stageRaw}${
             overallMatchNum ? ` · Overall #${overallMatchNum}` : ''
-          }${groupName ? ` (${groupName})` : ''}`;
+          }${initialGrp ? ` (${initialGrp})` : ''}`;
+
+          const rawType = row.Type || row.type || row.MatchType || row.matchType || row.Environment;
+          const resolvedMatchType = parseMatchType(rawType, 'Online');
 
           const newMatch = await tx.match.create({
             data: {
@@ -434,9 +473,9 @@ export async function bulkUniversalMatchImportAction(
               matchNumber: matchNum,
               overallMatchNumber: overallMatchNum,
               stageType: 'GROUPS_WISE',
-              groupName: groupName || undefined,
+              groupName: initialGrp,
               mapName,
-              matchType: 'LAN',
+              matchType: resolvedMatchType,
               format: formatTitle,
               status: 'COMPLETED',
               scheduledAt,
@@ -454,11 +493,42 @@ export async function bulkUniversalMatchImportAction(
           });
 
           matchGameId = newGame.id;
-          tourneyData.matches.push({
+          matchedMatch = {
             ...newMatch,
             games: [newGame],
-          } as any);
+          } as any;
+          tourneyData.matches.push(matchedMatch);
         } else {
+          // If this row brings an additional group into a multi-group match (e.g. Group B playing with Group C)
+          if (currentInputGroup && matchedMatch.groupName) {
+            const existingGroups = (matchedMatch.groupName || '')
+              .split(/[\s,&/+\-]+|vs\.?/i)
+              .map((g: string) => g.trim().replace(/^group\s*/i, ''))
+              .filter(Boolean);
+            const thisClean = currentInputGroup.replace(/^group\s*/i, '').trim();
+
+            if (thisClean && !existingGroups.some((g: string) => g.toLowerCase() === thisClean.toLowerCase())) {
+              const combinedGroups = [...existingGroups, thisClean].sort();
+              const mergedGroupName =
+                combinedGroups.length > 1
+                  ? `Group ${combinedGroups.join(' vs Group ')}`
+                  : `Group ${combinedGroups[0]}`;
+              matchedMatch.groupName = mergedGroupName;
+              const updatedFormat = `Match ${matchedMatch.matchNumber || matchNum} (${matchedMatch.mapName || mapName}) · ${stageRaw}${
+                matchedMatch.overallMatchNumber ? ` · Overall #${matchedMatch.overallMatchNumber}` : ''
+              } (${mergedGroupName})`;
+              matchedMatch.format = updatedFormat;
+
+              await tx.match.update({
+                where: { id: matchedMatch.id },
+                data: {
+                  groupName: mergedGroupName,
+                  format: updatedFormat,
+                },
+              });
+            }
+          }
+
           matchGameId = matchedMatch.games[0]?.id;
           if (!matchGameId) {
             const newGame = await tx.matchGame.create({
@@ -470,7 +540,11 @@ export async function bulkUniversalMatchImportAction(
               },
             });
             matchGameId = newGame.id;
+            matchedMatch.games.push(newGame as any);
           }
+
+          const rawType = row.Type || row.type || row.MatchType || row.matchType || row.Environment;
+          const matchTypeUpdate = rawType ? { matchType: parseMatchType(rawType, matchedMatch.matchType || 'Online') } : {};
 
           await tx.match.update({
             where: { id: matchedMatch.id },
@@ -478,8 +552,9 @@ export async function bulkUniversalMatchImportAction(
               status: 'COMPLETED',
               scheduledAt,
               matchTime,
+              ...matchTypeUpdate,
             },
-          }).catch(() => null);
+          });
         }
 
         affectedMatches.add(matchGameId);
@@ -491,13 +566,16 @@ export async function bulkUniversalMatchImportAction(
           allTeams.find((t) => cleanStr(t.tag || '') === cleanTeamInput);
 
         if (!matchedTeam) {
+          const inputTokens = cleanTeamInput.split(/[\s\-_\/]+/).filter(Boolean);
           const fuzzyCandidates = allTeams.filter((t) => {
             const tn = cleanStr(t.name);
             const tag = cleanStr(t.tag || '');
+            // Token-based match for tags prevents short tags (like "QS") from matching inside words (like "naqsh")
+            const tagMatch = Boolean(tag && tag.length >= 2 && inputTokens.includes(tag));
             return (
               tn.includes(cleanTeamInput) ||
               cleanTeamInput.includes(tn) ||
-              (tag && cleanTeamInput.includes(tag))
+              tagMatch
             );
           });
           if (fuzzyCandidates.length > 1) {
@@ -512,6 +590,13 @@ export async function bulkUniversalMatchImportAction(
           }
         }
 
+        const isQualifier =
+          row.isOpenQualifier === true ||
+          String(row.isOpenQualifier).toLowerCase() === 'true' ||
+          row.isVerified === false ||
+          String(row.isVerified).toLowerCase() === 'false' ||
+          String(row.isVerified).toLowerCase() === 'amateur';
+
         if (!matchedTeam) {
           const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
           matchedTeam = await tx.team.create({
@@ -520,6 +605,8 @@ export async function bulkUniversalMatchImportAction(
               tag: autoTag,
               slug: cleanStr(teamRaw).replace(/\s+/g, '-'),
               gameId: defaultGame.id,
+              isVerified: !isQualifier,
+              status: isQualifier ? 'UNVERIFIED' : 'ACTIVE',
             },
           });
           allTeams.push(matchedTeam);
@@ -869,6 +956,12 @@ export interface BulkUniversalPlayerRowInput {
   totalDist?: number | string;
   playerPowerplay?: number | string;
   isMvp?: boolean | string | number;
+  Type?: string;
+  type?: string;
+  MatchType?: string;
+  matchType?: string;
+  isVerified?: boolean | string;
+  isOpenQualifier?: boolean | string;
   [key: string]: any;
 }
 
@@ -936,7 +1029,7 @@ export async function bulkUniversalPlayerMatchImportAction(
     );
 
     type TeamIdentity = { id: string; name: string; tag: string | null; slug: string | null };
-    type PlayerIdentity = { id: string; ign: string };
+    type PlayerIdentity = { id: string; ign: string; currentTeamId?: string | null };
 
     const [allTournaments, allTeams, allPlayers] = await Promise.all([
       rawTourneyNames.length > 0
@@ -972,7 +1065,7 @@ export async function bulkUniversalPlayerMatchImportAction(
                 { slug: { in: rawPlayerIgns.map((s) => s.toLowerCase().replace(/\s+/g, '-')), mode: 'insensitive' } },
               ],
             },
-            select: { id: true, ign: true },
+            select: { id: true, ign: true, currentTeamId: true },
           })
         : ([] as PlayerIdentity[]),
     ]);
@@ -1121,19 +1214,43 @@ export async function bulkUniversalPlayerMatchImportAction(
           row.TimeFormat || row.timeFormat
         );
 
-        let matchedMatch = tourneyData.matches.find(
-          (m) =>
-            m.matchNumber === matchNum &&
-            (m.stageId === matchedStage!.id || !m.stageId) &&
-            (!groupName || m.groupName === groupName)
-        );
+        // Normalize single group name (e.g. "C" -> "Group C", "Group B" -> "Group B")
+        const formatGrp = (g?: string | null) => {
+          if (!g || !g.trim()) return '';
+          const clean = g.trim().replace(/^group\s*/i, '');
+          return clean ? `Group ${clean}` : '';
+        };
+
+        const currentInputGroup = formatGrp(groupName);
+
+        let matchedMatch = tourneyData.matches.find((m) => {
+          // If overallMatchNumber is specified and matches, it's definitively the exact same tournament match!
+          if (overallMatchNum != null && m.overallMatchNumber != null) {
+            return (
+              m.overallMatchNumber === overallMatchNum &&
+              (m.stageId === matchedStage!.id || !m.stageId)
+            );
+          }
+          // Otherwise match by stage and stage match number
+          if (m.matchNumber === matchNum && (m.stageId === matchedStage!.id || !m.stageId)) {
+            if (m.mapName && mapName && m.mapName.toLowerCase() !== mapName.toLowerCase()) {
+              return false;
+            }
+            return true;
+          }
+          return false;
+        });
 
         let matchGameId: string;
 
         if (!matchedMatch) {
+          const initialGrp = currentInputGroup || groupName || undefined;
           const formatTitle = `Match ${matchNum} (${mapName}) · ${stageRaw}${
             overallMatchNum ? ` · Overall #${overallMatchNum}` : ''
-          }${groupName ? ` (${groupName})` : ''}`;
+          }${initialGrp ? ` (${initialGrp})` : ''}`;
+
+          const rawType = row.Type || row.type || row.MatchType || row.matchType || row.Environment;
+          const resolvedMatchType = parseMatchType(rawType, 'Online');
 
           const newMatch = await tx.match.create({
             data: {
@@ -1143,9 +1260,9 @@ export async function bulkUniversalPlayerMatchImportAction(
               matchNumber: matchNum,
               overallMatchNumber: overallMatchNum,
               stageType: 'GROUPS_WISE',
-              groupName: groupName || undefined,
+              groupName: initialGrp,
               mapName,
-              matchType: 'LAN',
+              matchType: resolvedMatchType,
               format: formatTitle,
               status: 'COMPLETED',
               scheduledAt,
@@ -1163,12 +1280,43 @@ export async function bulkUniversalPlayerMatchImportAction(
           });
 
           matchGameId = newGame.id;
-          tourneyData.matches.push({
+          matchedMatch = {
             ...newMatch,
             games: [newGame],
-          } as any);
+          } as any;
+          tourneyData.matches.push(matchedMatch);
           totalCreatedMatches++;
         } else {
+          // If this row brings an additional group into a multi-group match (e.g. Group B playing with Group C)
+          if (currentInputGroup && matchedMatch.groupName) {
+            const existingGroups = (matchedMatch.groupName || '')
+              .split(/[\s,&/+\-]+|vs\.?/i)
+              .map((g: string) => g.trim().replace(/^group\s*/i, ''))
+              .filter(Boolean);
+            const thisClean = currentInputGroup.replace(/^group\s*/i, '').trim();
+
+            if (thisClean && !existingGroups.some((g: string) => g.toLowerCase() === thisClean.toLowerCase())) {
+              const combinedGroups = [...existingGroups, thisClean].sort();
+              const mergedGroupName =
+                combinedGroups.length > 1
+                  ? `Group ${combinedGroups.join(' vs Group ')}`
+                  : `Group ${combinedGroups[0]}`;
+              matchedMatch.groupName = mergedGroupName;
+              const updatedFormat = `Match ${matchedMatch.matchNumber || matchNum} (${matchedMatch.mapName || mapName}) · ${stageRaw}${
+                matchedMatch.overallMatchNumber ? ` · Overall #${matchedMatch.overallMatchNumber}` : ''
+              } (${mergedGroupName})`;
+              matchedMatch.format = updatedFormat;
+
+              await tx.match.update({
+                where: { id: matchedMatch.id },
+                data: {
+                  groupName: mergedGroupName,
+                  format: updatedFormat,
+                },
+              });
+            }
+          }
+
           matchGameId = matchedMatch.games[0]?.id;
           if (!matchGameId) {
             const newGame = await tx.matchGame.create({
@@ -1180,7 +1328,11 @@ export async function bulkUniversalPlayerMatchImportAction(
               },
             });
             matchGameId = newGame.id;
+            matchedMatch.games.push(newGame as any);
           }
+
+          const rawType = row.Type || row.type || row.MatchType || row.matchType || row.Environment;
+          const matchTypeUpdate = rawType ? { matchType: parseMatchType(rawType, matchedMatch.matchType || 'Online') } : {};
 
           await tx.match
             .update({
@@ -1189,6 +1341,7 @@ export async function bulkUniversalPlayerMatchImportAction(
                 status: 'COMPLETED',
                 scheduledAt,
                 matchTime,
+                ...matchTypeUpdate,
               },
             })
             .catch(() => null);
@@ -1204,13 +1357,15 @@ export async function bulkUniversalPlayerMatchImportAction(
           allTeams.find((t) => cleanStr(t.tag || '') === cleanTeamInput);
 
         if (!matchedTeam) {
+          const inputTokens = cleanTeamInput.split(/[\s\-_\/]+/).filter(Boolean);
           const fuzzyCandidates = allTeams.filter((t) => {
             const tn = cleanStr(t.name);
             const tag = cleanStr(t.tag || '');
+            const tagMatch = Boolean(tag && tag.length >= 2 && inputTokens.includes(tag));
             return (
               tn.includes(cleanTeamInput) ||
               cleanTeamInput.includes(tn) ||
-              (tag && cleanTeamInput.includes(tag))
+              tagMatch
             );
           });
           if (fuzzyCandidates.length > 1) {
@@ -1225,6 +1380,13 @@ export async function bulkUniversalPlayerMatchImportAction(
           }
         }
 
+        const isQualifier =
+          row.isOpenQualifier === true ||
+          String(row.isOpenQualifier).toLowerCase() === 'true' ||
+          row.isVerified === false ||
+          String(row.isVerified).toLowerCase() === 'false' ||
+          String(row.isVerified).toLowerCase() === 'amateur';
+
         if (!matchedTeam) {
           const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
           matchedTeam = await tx.team.create({
@@ -1233,19 +1395,53 @@ export async function bulkUniversalPlayerMatchImportAction(
               tag: autoTag,
               slug: cleanStr(teamRaw).replace(/\s+/g, '-'),
               gameId: defaultGame.id,
+              isVerified: !isQualifier,
+              status: isQualifier ? 'UNVERIFIED' : 'ACTIVE',
             },
           });
           allTeams.push(matchedTeam);
         }
 
         // 5. Match or Auto-Create Lightweight Player
+        // When two players across different teams share the same IGN (e.g. "Shadow"),
+        // prioritize matching the player belonging to this row's team or roster.
         const cleanPlayerIgn = cleanStr(playerRaw);
-        let matchedPlayer = allPlayers.find((p) => {
-          const ign = cleanStr(p.ign);
-          return ign === cleanPlayerIgn;
-        });
 
+        // Check if tournament team roster already has this player's id
+        const existingTourneyTeam = tourneyData.teams.find((tt) => tt.teamId === matchedTeam!.id);
+        let rosterPlayerId: string | undefined;
+        if (existingTourneyTeam) {
+          const roster = Array.isArray(existingTourneyTeam.rosterJson)
+            ? (existingTourneyTeam.rosterJson as any[])
+            : [];
+          const rosterEntry = roster.find((p) => {
+            const ign = typeof p === 'string' ? p : p?.ign;
+            return cleanStr(ign) === cleanPlayerIgn;
+          });
+          if (rosterEntry && typeof rosterEntry === 'object' && rosterEntry.playerId) {
+            rosterPlayerId = rosterEntry.playerId;
+          }
+        }
+
+        let matchedPlayer =
+          (rosterPlayerId ? allPlayers.find((p) => p.id === rosterPlayerId) : undefined) ||
+          allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn && p.currentTeamId === matchedTeam.id);
+
+        // If not matched on this team, check if an unassigned player with this exact IGN exists
         if (!matchedPlayer) {
+          matchedPlayer = allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn && !p.currentTeamId);
+        }
+
+        // Check if an existing player has this exact IGN
+        const playerOnOtherTeam = allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn);
+
+        // In Main Event mode (!isQualifier), if a verified player with this exact IGN exists on another team,
+        // link to them so their career stats span both teams instead of generating duplicate slug spam!
+        if (!matchedPlayer && !isQualifier && playerOnOtherTeam) {
+          matchedPlayer = playerOnOtherTeam;
+        }
+
+        if (!matchedPlayer && (!playerOnOtherTeam || !isQualifier)) {
           const fuzzyPlayers = allPlayers.filter((p) => {
             const ign = cleanStr(p.ign);
             return ign.includes(cleanPlayerIgn) || cleanPlayerIgn.includes(ign);
@@ -1262,22 +1458,26 @@ export async function bulkUniversalPlayerMatchImportAction(
           }
         }
 
+        const defaultPlayerRole = row.role && String(row.role).trim() ? String(row.role).trim() : 'Assaulter';
+
         if (!matchedPlayer) {
           const pSlug = `${cleanPlayerIgn.replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`;
           matchedPlayer = await tx.player.create({
             data: {
               ign: playerRaw.trim(),
               slug: pSlug,
+              role: defaultPlayerRole,
               gameId: defaultGame.id,
               currentTeamId: matchedTeam.id,
+              isVerified: !isQualifier,
+              status: isQualifier ? 'UNVERIFIED' : 'ACTIVE',
             },
           });
-          allPlayers.push(matchedPlayer);
+          allPlayers.push({ id: matchedPlayer.id, ign: matchedPlayer.ign, currentTeamId: matchedTeam.id });
           totalCreatedPlayers++;
         }
 
         // Ensure player is added to tournament squad roster if not already present
-        const existingTourneyTeam = tourneyData.teams.find((tt) => tt.teamId === matchedTeam!.id);
         if (existingTourneyTeam) {
           const roster = Array.isArray(existingTourneyTeam.rosterJson)
             ? (existingTourneyTeam.rosterJson as any[])
@@ -1419,7 +1619,7 @@ export async function bulkUniversalPlayerMatchImportAction(
         const playerStatPayload = {
           teamId: matchedTeam.id,
           shortCode: matchedTeam.tag || matchedTeam.name.slice(0, 3).toUpperCase(),
-          role: row.role ? String(row.role).trim() : undefined,
+          role: row.role && String(row.role).trim() ? String(row.role).trim() : 'Assaulter',
           mp: 1,
           playerElims,
           teamRank,

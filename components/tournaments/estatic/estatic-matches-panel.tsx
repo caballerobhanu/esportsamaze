@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Swords,
@@ -8,6 +9,7 @@ import {
   Clock,
   Trophy,
   Crown,
+  ChevronLeft,
   ChevronRight,
   ExternalLink,
   Flame,
@@ -21,15 +23,39 @@ import { ThemeLogo } from './theme-logo';
 interface EstaticMatchesPanelProps {
   stageGroups: StageGroup[];
   matchColumns?: any;
+  tournamentSlug?: string;
+  activeStageName?: string;
+  initialMatchId?: string;
 }
 
-export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
-  // Current active stage
-  const [selectedStageIdx, setSelectedStageIdx] = useState<number>(0);
+export function EstaticMatchesPanel({
+  stageGroups,
+  tournamentSlug,
+  activeStageName,
+  initialMatchId,
+}: EstaticMatchesPanelProps) {
+  const router = useRouter();
+
+  // Find index of the requested active stage, defaulting to 0
+  const initialStageIdx = useMemo(() => {
+    if (!activeStageName || !stageGroups.length) return 0;
+    const idx = stageGroups.findIndex(
+      (g) => g.stageName.toLowerCase() === activeStageName.toLowerCase()
+    );
+    return idx >= 0 ? idx : 0;
+  }, [stageGroups, activeStageName]);
+
+  const [selectedStageIdx, setSelectedStageIdx] = useState<number>(initialStageIdx);
+
+  // Sync state if activeStageName changes from server
+  useEffect(() => {
+    setSelectedStageIdx(initialStageIdx);
+  }, [initialStageIdx]);
+
   const currentStage = stageGroups[selectedStageIdx] || stageGroups[0];
 
   // Current selected match in stage
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialMatchId || null);
 
   const activeMatch = useMemo(() => {
     if (!currentStage || !currentStage.matches.length) return null;
@@ -39,6 +65,17 @@ export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
     }
     return currentStage.matches[currentStage.matches.length - 1] || currentStage.matches[0];
   }, [currentStage, selectedMatchId]);
+
+  const currentMatchIndex = useMemo(() => {
+    if (!currentStage || !activeMatch) return -1;
+    return currentStage.matches.findIndex((m) => m.id === activeMatch.id);
+  }, [currentStage, activeMatch]);
+
+  const prevMatch = currentMatchIndex > 0 ? currentStage.matches[currentMatchIndex - 1] : null;
+  const nextMatch =
+    currentMatchIndex >= 0 && currentMatchIndex < currentStage.matches.length - 1
+      ? currentStage.matches[currentMatchIndex + 1]
+      : null;
 
   if (!stageGroups || stageGroups.length === 0) {
     return (
@@ -88,6 +125,12 @@ export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
                 onClick={() => {
                   setSelectedStageIdx(idx);
                   setSelectedMatchId(null);
+                  if (tournamentSlug) {
+                    router.push(
+                      `/tournaments/${tournamentSlug}?tab=matches&stage=${encodeURIComponent(g.stageName)}`,
+                      { scroll: false }
+                    );
+                  }
                 }}
                 className={`inline-flex items-center gap-2 whitespace-nowrap rounded-2xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all duration-200 ${
                   active
@@ -136,13 +179,38 @@ export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6 dark:border-white/10">
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <span className="rounded-full bg-[#0A5FC4] px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white">
                   Match #{activeMatch.overallMatchNumber ?? activeMatch.matchNumber}
                 </span>
                 <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                   {activeMatch.status}
                 </span>
+
+                {(prevMatch || nextMatch) && (
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <button
+                      type="button"
+                      disabled={!prevMatch}
+                      onClick={() => prevMatch && setSelectedMatchId(prevMatch.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 disabled:opacity-30 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 cursor-pointer transition-all"
+                      title={prevMatch ? `M${prevMatch.overallMatchNumber ?? prevMatch.matchNumber}` : 'No previous match'}
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                      <span>Prev</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!nextMatch}
+                      onClick={() => nextMatch && setSelectedMatchId(nextMatch.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 disabled:opacity-30 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 cursor-pointer transition-all"
+                      title={nextMatch ? `M${nextMatch.overallMatchNumber ?? nextMatch.matchNumber}` : 'No next match'}
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
               <h3 className="mt-2 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
                 {activeMatch.format || `Match ${activeMatch.matchNumber} — ${activeMatch.mapName || 'Erangel'}`}
@@ -173,7 +241,14 @@ export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
 
           {/* Lobby Results Scorecard */}
           <div className="mt-6 overflow-x-auto">
-            <table className="w-full text-left">
+            {sortedResults.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-xs font-bold text-slate-400">
+                  No scorecard results recorded yet for this match.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
                   <th className="pb-3 w-14 text-center">Rank</th>
@@ -245,6 +320,7 @@ export function EstaticMatchesPanel({ stageGroups }: EstaticMatchesPanelProps) {
                 })}
               </tbody>
             </table>
+            )}
           </div>
         </div>
       )}

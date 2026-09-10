@@ -409,6 +409,16 @@ export interface AggregatedTeamStanding {
   distDrove: number;
   distWalk: number;
   utilitiesTotal: number;
+  tiebreaker?: TiebreakerDetail;
+}
+
+export interface TiebreakerDetail {
+  isTied: boolean;
+  tiedWith: string;
+  type: 'WWCD' | 'PLACEMENT' | 'ELIMS' | 'LAST_MATCH' | 'DAMAGE' | 'EQUAL';
+  won: boolean;
+  reason: string;
+  shortBadge: string;
 }
 
 /**
@@ -564,10 +574,105 @@ export function calculateTournamentStandings(
 
   list.sort((a, b) => compareTeamStandings(a, b));
 
-  return list.map((item, index) => ({
+  const ranked: AggregatedTeamStanding[] = list.map((item, index) => ({
     ...item,
     rank: index + 1,
   }));
+
+  // Detect and annotate tiebreakers
+  for (let i = 0; i < ranked.length; i++) {
+    const current = ranked[i];
+    const prev = i > 0 ? ranked[i - 1] : null;
+    const next = i < ranked.length - 1 ? ranked[i + 1] : null;
+
+    if (next && next.totalPoints === current.totalPoints) {
+      let type: TiebreakerDetail['type'] = 'EQUAL';
+      let reason = '';
+      let shortBadge = '';
+
+      if (current.wwcd !== next.wwcd) {
+        type = 'WWCD';
+        reason = `Ranked #${current.rank} ahead of ${next.teamName} (#${next.rank}) via WWCDs (${current.wwcd} vs ${next.wwcd})`;
+        shortBadge = `TB: ${current.wwcd} vs ${next.wwcd} WWCD`;
+      } else if (current.placementPoints !== next.placementPoints) {
+        type = 'PLACEMENT';
+        const diff = current.placementPoints - next.placementPoints;
+        reason = `Ranked #${current.rank} ahead of ${next.teamName} (#${next.rank}) via Placement Points (${current.placementPoints} vs ${next.placementPoints})`;
+        shortBadge = `TB: +${diff} Place Pts`;
+      } else if (current.eliminationPoints !== next.eliminationPoints) {
+        type = 'ELIMS';
+        const diff = current.eliminationPoints - next.eliminationPoints;
+        reason = `Ranked #${current.rank} ahead of ${next.teamName} (#${next.rank}) via Elimination Points (${current.eliminationPoints} vs ${next.eliminationPoints})`;
+        shortBadge = `TB: +${diff} Elims`;
+      } else if (current.lastMatchRank !== next.lastMatchRank && current.lastMatchRank != null && next.lastMatchRank != null) {
+        type = 'LAST_MATCH';
+        reason = `Ranked #${current.rank} ahead of ${next.teamName} (#${next.rank}) via Last Match placement (#${current.lastMatchRank} vs #${next.lastMatchRank})`;
+        shortBadge = `TB: Last Match #${current.lastMatchRank}`;
+      } else if (Math.round(current.totalDamage) !== Math.round(next.totalDamage)) {
+        type = 'DAMAGE';
+        const diff = Math.round(current.totalDamage - next.totalDamage);
+        reason = `Ranked #${current.rank} ahead of ${next.teamName} (#${next.rank}) via Total Damage (${Math.round(current.totalDamage)} vs ${Math.round(next.totalDamage)})`;
+        shortBadge = `TB: +${diff} Dmg`;
+      } else {
+        type = 'EQUAL';
+        reason = `Tied with ${next.teamName} (#${next.rank}) across all tiebreaker criteria`;
+        shortBadge = `Tied`;
+      }
+
+      current.tiebreaker = {
+        isTied: true,
+        tiedWith: next.teamName,
+        type,
+        won: true,
+        reason,
+        shortBadge,
+      };
+    } else if (prev && prev.totalPoints === current.totalPoints) {
+      let type: TiebreakerDetail['type'] = 'EQUAL';
+      let reason = '';
+      let shortBadge = '';
+
+      if (prev.wwcd !== current.wwcd) {
+        type = 'WWCD';
+        reason = `Ranked #${current.rank} behind ${prev.teamName} (#${prev.rank}) via WWCDs (${current.wwcd} vs ${prev.wwcd})`;
+        shortBadge = `TB: ${current.wwcd} vs ${prev.wwcd} WWCD`;
+      } else if (prev.placementPoints !== current.placementPoints) {
+        type = 'PLACEMENT';
+        const diff = prev.placementPoints - current.placementPoints;
+        reason = `Ranked #${current.rank} behind ${prev.teamName} (#${prev.rank}) via Placement Points (${current.placementPoints} vs ${prev.placementPoints})`;
+        shortBadge = `TB: -${diff} Place Pts`;
+      } else if (prev.eliminationPoints !== current.eliminationPoints) {
+        type = 'ELIMS';
+        const diff = prev.eliminationPoints - current.eliminationPoints;
+        reason = `Ranked #${current.rank} behind ${prev.teamName} (#${prev.rank}) via Elimination Points (${current.eliminationPoints} vs ${prev.eliminationPoints})`;
+        shortBadge = `TB: -${diff} Elims`;
+      } else if (prev.lastMatchRank !== current.lastMatchRank && prev.lastMatchRank != null && current.lastMatchRank != null) {
+        type = 'LAST_MATCH';
+        reason = `Ranked #${current.rank} behind ${prev.teamName} (#${prev.rank}) via Last Match placement (#${current.lastMatchRank} vs #${prev.lastMatchRank})`;
+        shortBadge = `TB: Last Match #${current.lastMatchRank}`;
+      } else if (Math.round(prev.totalDamage) !== Math.round(current.totalDamage)) {
+        type = 'DAMAGE';
+        const diff = Math.round(prev.totalDamage - current.totalDamage);
+        reason = `Ranked #${current.rank} behind ${prev.teamName} (#${prev.rank}) via Total Damage (${Math.round(current.totalDamage)} vs ${Math.round(prev.totalDamage)})`;
+        shortBadge = `TB: -${diff} Dmg`;
+      } else {
+        type = 'EQUAL';
+        reason = `Tied with ${prev.teamName} (#${prev.rank}) across all tiebreaker criteria`;
+        shortBadge = `Tied`;
+      }
+
+      current.tiebreaker = {
+        isTied: true,
+        tiedWith: prev.teamName,
+        type,
+        won: false,
+        reason,
+        shortBadge,
+      };
+    }
+  }
+
+  return ranked;
 }
 
 export interface AggregatedPlayerStat {

@@ -36,7 +36,15 @@ export function TournamentOverviewPanel({
   };
   featuredStageName: string;
   featuredStandings: AggregatedTeamStanding[];
-  overallFraggers: { playerId: string; ign: string; teamName: string; teamTag: string; elims: number; damage: number }[];
+  overallFraggers: {
+    playerId: string;
+    ign: string;
+    teamName: string;
+    teamTag: string;
+    elims: number;
+    damage: number;
+    matchesPlayed?: number;
+  }[];
   matches: OverviewMatchLite[];
   teamsCount: number;
   resolvedWinner?: string | null;

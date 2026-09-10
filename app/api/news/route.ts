@@ -1,13 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { publishedVisibility } from '@/lib/news-queries';
 import { ARTICLE_CATEGORIES } from '@/lib/news';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
+import { isSameOrigin, crossSiteForbiddenResponse } from '@/lib/anti-scrape';
 
 const VALID_CATEGORIES = new Set<string>(ARTICLE_CATEGORIES.map((c) => c.value));
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return crossSiteForbiddenResponse();
+  }
+
   const ip = await getClientIp();
   const rl = checkRateLimit('api:news', ip, { windowMs: 60_000, maxRequests: 120 });
   if (!rl.allowed) {

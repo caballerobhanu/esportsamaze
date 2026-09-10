@@ -14,32 +14,102 @@ export const ARTICLE_CATEGORIES = [
 
 export type ArticleCategory = (typeof ARTICLE_CATEGORIES)[number]['value'];
 
-export function getCategoryMeta(cat: string) {
-  return (
-    ARTICLE_CATEGORIES.find((c) => c.value === cat) ?? {
-      value: cat,
-      label: cat,
-      color: 'text-slate-600 dark:text-slate-400 bg-slate-500/10',
-    }
-  );
+export interface CategoryMeta {
+  value: string;
+  label: string;
+  color: string;
+  parts: string[];
 }
 
-export const ARTICLE_STATUSES = ['DRAFT', 'SCHEDULED', 'PUBLISHED'] as const;
+export function getCategoryMeta(cat: string): CategoryMeta {
+  const normalized = cat.trim();
+  const matched = ARTICLE_CATEGORIES.find((c) => c.value.toLowerCase() === normalized.toLowerCase());
+  if (matched) {
+    return {
+      value: matched.value,
+      label: matched.label,
+      color: matched.color,
+      parts: [matched.label],
+    };
+  }
+
+  // For custom or nested categories (e.g. "BGMI > Rosters" or "Valorant")
+  const parts = parseCategoryHierarchy(normalized);
+  const primaryPart = parts[0] || normalized;
+  const colors = [
+    'text-blue-600 dark:text-blue-400 bg-blue-500/10',
+    'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
+    'text-purple-600 dark:text-purple-400 bg-purple-500/10',
+    'text-amber-600 dark:text-amber-400 bg-amber-500/10',
+    'text-rose-600 dark:text-rose-400 bg-rose-500/10',
+    'text-cyan-600 dark:text-cyan-400 bg-cyan-500/10',
+  ];
+  const charCode = primaryPart.charCodeAt(0) || 0;
+  const color = colors[charCode % colors.length];
+
+  return {
+    value: normalized,
+    label: formatCategoryDisplay(normalized),
+    color,
+    parts,
+  };
+}
+
+/** Parses nested/hierarchical categories like "BGMI > Rosters" or "Tournaments / International" */
+export function parseCategoryHierarchy(cat: string): string[] {
+  if (!cat) return [];
+  return cat
+    .split(/[>/]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Formats a category hierarchy cleanly for display, e.g. "BGMI › Rosters" */
+export function formatCategoryDisplay(cat: string): string {
+  const parts = parseCategoryHierarchy(cat);
+  if (parts.length <= 1) return cat;
+  return parts.join(' › ');
+}
+
+export const ARTICLE_STATUSES = ['DRAFT', 'PENDING_REVIEW', 'PRIVATE', 'SCHEDULED', 'PUBLISHED'] as const;
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];
+
+export interface ArticleFaq {
+  question: string;
+  answer: string;
+}
+
+export function parseArticleFaqs(raw: unknown): ArticleFaq[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((item): item is { question?: unknown; answer?: unknown } => typeof item === 'object' && item !== null)
+      .map((item) => ({
+        question: String(item.question ?? '').trim(),
+        answer: String(item.answer ?? '').trim(),
+      }))
+      .filter((item) => item.question && item.answer);
+  }
+  return [];
+}
 
 /* ── Visibility ─────────────────────────────────────────────────────────── */
 
 /**
  * A story is publicly visible when published, or when it was scheduled and
  * its publish time has passed (status stays SCHEDULED until an admin edits it).
- * Trashed (soft-deleted) stories are never visible.
+ * Private, pending, draft, and trashed (soft-deleted) stories are hidden unless admin.
  */
-export function isVisibleArticle(a: {
-  status: string;
-  publishedAt: Date;
-  deletedAt?: Date | null;
-}): boolean {
+export function isVisibleArticle(
+  a: {
+    status: string;
+    publishedAt: Date;
+    deletedAt?: Date | null;
+  },
+  isAdmin = false
+): boolean {
   if (a.deletedAt) return false;
+  if (isAdmin) return true;
   return a.status === 'PUBLISHED' || (a.status === 'SCHEDULED' && a.publishedAt.getTime() <= Date.now());
 }
 

@@ -14,9 +14,10 @@ export default async function NewArticlePage({
   if (!(await isAdmin())) redirect('/admin/login');
   const { error } = await searchParams;
 
-  const [tournaments, teams] = await Promise.all([
+  const [tournaments, teams, players] = await Promise.all([
     prisma.tournament.findMany({ select: { id: true, name: true }, orderBy: { startDate: 'desc' }, take: 50 }),
     prisma.team.findMany({ select: { id: true, name: true, tag: true }, orderBy: { name: 'asc' } }),
+    prisma.player.findMany({ select: { id: true, ign: true }, orderBy: { ign: 'asc' }, take: 100 }),
   ]);
 
   return (
@@ -36,6 +37,7 @@ export default async function NewArticlePage({
         error={error}
         tournamentOptions={tournaments.map((t) => ({ value: t.id, label: t.name }))}
         teamOptions={teams.map((t) => ({ value: t.id, label: `${t.name}${t.tag ? ` (${t.tag})` : ''}` }))}
+        playerOptions={players.map((p) => ({ value: p.id, label: p.ign }))}
       />
     </div>
   );

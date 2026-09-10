@@ -144,8 +144,9 @@ export default async function TeamPage({ params }: TeamPageProps) {
     }));
 
   // Transfer ledger → players who previously represented this team
+  // (both as destination "teamId" and as the departed team "fromTeamId")
   const transfers = await prisma.transfer.findMany({
-    where: { teamId: team.id },
+    where: { OR: [{ teamId: team.id }, { fromTeamId: team.id }] },
     orderBy: { date: 'desc' },
     include: { player: { select: { id: true, ign: true, slug: true, avatarUrl: true, role: true } } },
   });

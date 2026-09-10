@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, Swords, Crosshair, Trophy, Shield, Users, Flame, Sparkles, Save, Radio, Globe, MapPin, Tv } from 'lucide-react';
+import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fMatchStatus, fUrl, sanitizeUrl } from '@/lib/admin-forms';
@@ -18,6 +19,7 @@ import {
 import { MatchInfoInputs } from '@/components/admin/match-info-inputs';
 import { MatchBatchImporter } from '@/components/admin/match-batch-importer';
 import { MatchGroupedList } from '@/components/admin/match-grouped-list';
+import { MatchInlineScorecardEditor } from '@/components/admin/match-inline-scorecard-editor';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +93,14 @@ async function duplicateMatch(formData: FormData) {
 
   revalidatePath('/admin/matches');
   revalidatePath('/tournaments');
-  redirect(`/admin/matches?edit=${createdMatch.id}#match-editor`);
+  const query = [
+    `edit=${createdMatch.id}`,
+    `tournamentId=${createdMatch.tournamentId}`,
+    createdMatch.stageId ? `stageId=${createdMatch.stageId}` : '',
+  ]
+    .filter(Boolean)
+    .join('&');
+  redirect(`/admin/matches?${query}#match-editor`);
 }
 
 async function updateMatchStatus(formData: FormData) {
@@ -239,13 +248,16 @@ async function saveMatch(formData: FormData) {
 
   revalidatePath('/admin/matches');
   revalidatePath('/tournaments');
-  redirect(`/admin/matches?edit=${matchId}`);
+  const stageParam = linkedStage?.id ? `&stageId=${linkedStage.id}` : '';
+  redirect(`/admin/matches?edit=${matchId}&tournamentId=${tournamentId}${stageParam}#match-editor`);
 }
 
 async function deleteMatch(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
+  const tournamentId = fStr(formData, 'tournamentId');
+  const stageId = fStr(formData, 'stageId');
   if (id) {
     await prisma.matchPlayerStat.deleteMany({
       where: { matchGame: { matchId: id } },
@@ -261,7 +273,54 @@ async function deleteMatch(formData: FormData) {
     }
   }
   revalidatePath('/admin/matches');
-  redirect('/admin/matches');
+  const query = [
+    tournamentId ? `tournamentId=${tournamentId}` : '',
+    stageId && stageId !== 'ALL' ? `stageId=${stageId}` : '',
+  ]
+    .filter(Boolean)
+    .join('&');
+  redirect(query ? `/admin/matches?${query}` : '/admin/matches');
+}
+
+async function bulkDeleteMatches(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const idsRaw = fStr(formData, 'matchIds');
+  const tournamentId = fStr(formData, 'tournamentId');
+  const stageId = fStr(formData, 'stageId');
+  if (idsRaw) {
+    let matchIds: string[] = [];
+    try {
+      matchIds = JSON.parse(idsRaw);
+    } catch {
+      matchIds = idsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (matchIds.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        await tx.matchPlayerStat.deleteMany({
+          where: { matchGame: { matchId: { in: matchIds } } },
+        });
+        await tx.matchTeamResult.deleteMany({
+          where: { matchGame: { matchId: { in: matchIds } } },
+        });
+        await tx.matchGame.deleteMany({
+          where: { matchId: { in: matchIds } },
+        });
+        await tx.match.deleteMany({
+          where: { id: { in: matchIds } },
+        });
+      });
+    }
+  }
+  revalidatePath('/admin/matches');
+  revalidatePath('/tournaments');
+  const query = [
+    tournamentId ? `tournamentId=${tournamentId}` : '',
+    stageId && stageId !== 'ALL' ? `stageId=${stageId}` : '',
+  ]
+    .filter(Boolean)
+    .join('&');
+  redirect(query ? `/admin/matches?${query}` : '/admin/matches');
 }
 
 async function saveTeamResult(formData: FormData) {
@@ -697,11 +756,19 @@ async function importBatchPlayerStatsAction(formData: FormData) {
 export default async function AdminMatchesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; error?: string; field?: string; tournamentId?: string; stage?: string; openNew?: string }>;
+  searchParams: Promise<{
+    edit?: string;
+    error?: string;
+    field?: string;
+    tournamentId?: string;
+    stage?: string;
+    stageId?: string;
+    openNew?: string;
+  }>;
 }) {
-  const { edit, error, field, tournamentId, stage, openNew } = await searchParams;
+  const { edit, error, field, tournamentId, stage, stageId, openNew } = await searchParams;
 
-  const [tournaments, games, teams, players, allMatchesList] = await Promise.all([
+  const [tournaments, games, teams, players] = await Promise.all([
     prisma.tournament.findMany({
       orderBy: { startDate: 'desc' },
       take: 100,
@@ -711,7 +778,15 @@ export default async function AdminMatchesPage({
         slug: true,
         gameId: true,
         prizeDistribution: true,
-        stages: { orderBy: { sequence: 'asc' }, select: { id: true, name: true } },
+        stages: {
+          orderBy: { sequence: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            _count: { select: { matches: true } },
+          },
+        },
+        _count: { select: { matches: true } },
       },
     }),
     prisma.game.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true } }),
@@ -725,25 +800,6 @@ export default async function AdminMatchesPage({
           take: 500,
         })
       : Promise.resolve([]),
-    prisma.match.findMany({
-      where: {
-        ...(tournamentId ? { tournamentId } : {}),
-        ...(stage ? { stageId: stage } : {}),
-      },
-      take: tournamentId ? 200 : 100,
-      orderBy: { scheduledAt: 'desc' },
-      include: {
-        tournament: { select: { id: true, name: true, slug: true } },
-        game: { select: { id: true, name: true, slug: true } },
-        stage: { select: { id: true, name: true } },
-        games: {
-          orderBy: { sequence: 'asc' },
-          include: {
-            _count: { select: { teamResults: true, playerStats: true } },
-          },
-        },
-      },
-    }),
   ]);
 
   const editing = edit
@@ -819,6 +875,59 @@ export default async function AdminMatchesPage({
   // Pre-selected tournament object if adding from tournament/stage shortcut
   const preSelectedTourney = tournamentId ? tournaments.find((t) => t.id === tournamentId) : null;
 
+  const matchPlayerOptions = players.map((p) => ({
+    value: p.id,
+    label: p.ign,
+    keywords: p.currentTeam?.tag ? `[${p.currentTeam.tag}]` : undefined,
+  }));
+
+  const matchTeamOptions = teams.map((t) => ({
+    value: t.id,
+    label: t.name,
+    keywords: t.tag ? `[${t.tag}]` : undefined,
+  }));
+
+  const effectiveTournamentId = tournamentId || editing?.tournamentId;
+  const effectiveStageId = stageId || (stage ? stage : undefined);
+  const selectedTourney = tournaments.find((t) => t.id === effectiveTournamentId);
+  const isLargeTourney = (selectedTourney?._count?.matches ?? 0) > 100;
+  const hasStages = (selectedTourney?.stages?.length ?? 0) > 0;
+
+  // On-demand matches loading:
+  // If no tournament is selected, skip querying matches (near 0ms initial load).
+  // If tournament has >100 matches and no stage is selected, prompt stage selection instead of dragging in 150+ matches.
+  const shouldSkipMatches =
+    !effectiveTournamentId || (isLargeTourney && (!effectiveStageId || effectiveStageId === 'ALL') && hasStages && !edit);
+
+  const allMatchesList = shouldSkipMatches
+    ? []
+    : await prisma.match.findMany({
+        where: {
+          tournamentId: effectiveTournamentId,
+          ...(effectiveStageId && effectiveStageId !== 'ALL'
+            ? {
+                OR: [
+                  { stageId: effectiveStageId },
+                  { stage: { name: effectiveStageId } },
+                ],
+              }
+            : {}),
+        },
+        orderBy: [{ matchNumber: 'asc' }, { scheduledAt: 'asc' }],
+        take: 300,
+        include: {
+          tournament: { select: { id: true, name: true, slug: true } },
+          game: { select: { id: true, name: true, slug: true } },
+          stage: { select: { id: true, name: true } },
+          games: {
+            orderBy: { sequence: 'asc' },
+            include: {
+              _count: { select: { teamResults: true, playerStats: true } },
+            },
+          },
+        },
+      });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -869,8 +978,8 @@ export default async function AdminMatchesPage({
       {/* Match Form */}
       <details
         id="match-editor"
-        key={editing?.id || tournamentId || stage || 'new-match-panel'}
-        open={Boolean(editing || openNew || tournamentId)}
+        key={editing?.id || (openNew ? `open-${openNew}` : 'closed')}
+        open={Boolean(editing || openNew)}
         className="group scroll-mt-6"
       >
         <summary className="cursor-pointer select-none inline-flex items-center gap-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider px-4 py-2.5 transition-colors shadow-sm">
@@ -963,172 +1072,46 @@ export default async function AdminMatchesPage({
               otherMatches={otherTournamentMatches}
             />
 
-            {/* 2.1 Team Results Section */}
-            <div id="team-results" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-1.5">
-                  <Shield className="w-4 h-4" /> 2. Team Match Results ({activeMatchGame.teamResults.length} recorded)
-                </h2>
-              </div>
+            {/* 2. Interactive Inline Scorecard Editor for Team Results & Player Stats */}
+            <MatchInlineScorecardEditor
+              matchId={editing.id}
+              matchGameId={activeMatchGame.id}
+              initialTeamResults={activeMatchGame.teamResults as any}
+              initialPlayerStats={activeMatchGame.playerStats as any}
+              pointsMatrix={tournamentPointsMatrix}
+              killMultiplier={tournamentKillMultiplier}
+            />
 
-              {/* Existing Team Results Table */}
-              {activeMatchGame.teamResults.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                        <th className="py-2 px-2 text-center">Rank</th>
-                        <th className="py-2 px-3 text-left">Team</th>
-                        <th className="py-2 px-2 text-center">Place Pts</th>
-                        <th className="py-2 px-2 text-center">Elims Pts</th>
-                        <th className="py-2 px-2 text-center font-bold text-(--ed-blue)">Total</th>
-                        <th className="py-2 px-2 text-center">Damage</th>
-                        <th className="py-2 px-2 text-center">Smokes</th>
-                        <th className="py-2 px-2 text-center">Rescues</th>
-                        <th className="py-2 px-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {activeMatchGame.teamResults.map((tr) => (
-                        <tr key={tr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          <td className="py-1.5 px-2 text-center font-bold">
-                            #{tr.rank} {tr.wwcd && '🍗'}
-                          </td>
-                          <td className="py-1.5 px-3 font-semibold">
-                            {tr.team.name} {tr.shortCode ? `[${tr.shortCode}]` : ''}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono">{tr.placePoints}</td>
-                          <td className="py-1.5 px-2 text-center font-mono">{tr.elimsPoints}</td>
-                          <td className="py-1.5 px-2 text-center font-mono font-bold text-(--ed-blue) dark:text-blue-400">
-                            {tr.totalPoints}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono">{tr.damage}</td>
-                          <td className="py-1.5 px-2 text-center font-mono">{tr.smokesUsed}</td>
-                          <td className="py-1.5 px-2 text-center font-mono">{tr.rescues}</td>
-                          <td className="py-1.5 px-2 text-right">
-                            <form action={deleteTeamResult} className="inline">
-                              <input type="hidden" name="id" value={tr.id} />
-                              <input type="hidden" name="matchId" value={editing.id} />
-                              <button
-                                type="submit"
-                                className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </form>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* 2.2 Player Stats Section */}
-            <div id="player-stats" className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 flex items-center gap-1.5">
-                  <Users className="w-4 h-4" /> 3. Individual Player Stats ({activeMatchGame.playerStats.length} recorded)
-                </h2>
-              </div>
-
-              {/* Existing Player Stats Table */}
-              {activeMatchGame.playerStats.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800 max-h-80 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                        <th className="py-2 px-3 text-left">Player (IGN)</th>
-                        <th className="py-2 px-3 text-left">Team</th>
-                        <th className="py-2 px-2 text-center font-bold text-rose-500">Elims</th>
-                        <th className="py-2 px-2 text-center">Damage</th>
-                        <th className="py-2 px-2 text-center">Survival</th>
-                        <th className="py-2 px-2 text-center">Healing</th>
-                        <th className="py-2 px-2 text-center">Dmg Rec</th>
-                        <th className="py-2 px-2 text-center">Veh Kills</th>
-                        <th className="py-2 px-2 text-center">Nade Kills</th>
-                        <th className="py-2 px-2 text-center">MVP</th>
-                        <th className="py-2 px-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {activeMatchGame.playerStats.map((ps) => (
-                        <tr key={ps.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          <td className="py-1.5 px-3 font-semibold">
-                            {ps.player.ign} {ps.isMvp && '⭐'}
-                          </td>
-                          <td className="py-1.5 px-3 text-slate-500">
-                            {ps.team?.name || '—'}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono font-bold text-rose-600 dark:text-rose-400">
-                            {ps.playerElims}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono">{ps.damage}</td>
-                          <td className="py-1.5 px-2 text-center font-mono text-slate-400">
-                            {Math.floor(ps.survivalTime / 60)}:{(ps.survivalTime % 60).toString().padStart(2, '0')}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono text-emerald-600 dark:text-emerald-400">
-                            {ps.healing}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono text-amber-600 dark:text-amber-400">
-                            {ps.damageReceived}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono text-purple-600 dark:text-purple-400">
-                            {ps.vehicleElims}
-                          </td>
-                          <td className="py-1.5 px-2 text-center font-mono text-orange-600 dark:text-orange-400">
-                            {ps.grenadeElims}
-                          </td>
-                          <td className="py-1.5 px-2 text-center">{ps.isMvp ? '⭐' : '—'}</td>
-                          <td className="py-1.5 px-2 text-right">
-                            <form action={deletePlayerStat} className="inline">
-                              <input type="hidden" name="id" value={ps.id} />
-                              <input type="hidden" name="matchId" value={editing.id} />
-                              <button
-                                type="submit"
-                                className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </form>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Add/Edit Player Stat Form */}
-              <form action={savePlayerStat} className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3">
+            {/* Manual Single Player Performance Form */}
+            <details className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] p-4 shadow-sm group">
+              <summary className="text-xs font-black uppercase tracking-wider text-slate-500 hover:text-(--ed-blue) cursor-pointer select-none flex items-center gap-1.5">
+                <Plus className="w-4 h-4" /> + Manually Add Individual Player Performance Row
+              </summary>
+              <form action={savePlayerStat} className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-3 space-y-3">
                 <input type="hidden" name="matchGameId" value={activeMatchGame.id} />
                 <p className="text-[11px] font-bold uppercase text-slate-400">
-                  + Add / Update Player Match Performance
+                  + Add Single Player Match Performance
                 </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                   <div className="col-span-2">
                     <label className={labelCls}>Player *</label>
-                    <select name="playerId" required className={inputCls}>
-                      <option value="">Select Player…</option>
-                      {players.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.ign} {p.currentTeam?.tag ? `[${p.currentTeam.tag}]` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <Combobox
+                      name="playerId"
+                      options={matchPlayerOptions}
+                      placeholder="Type player IGN…"
+                      ariaLabel="Player"
+                    />
                   </div>
                   <div className="col-span-2">
                     <label className={labelCls}>Team</label>
-                    <select name="teamId" className={inputCls}>
-                      <option value="">Select Team…</option>
-                      {teams.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Combobox
+                      name="teamId"
+                      options={matchTeamOptions}
+                      emptyOptionLabel="— Select Team —"
+                      placeholder="Type team name…"
+                      ariaLabel="Team"
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>Eliminations *</label>
@@ -1230,7 +1213,7 @@ export default async function AdminMatchesPage({
                   </button>
                 </div>
               </form>
-            </div>
+            </details>
           </div>
         )}
       </details>
@@ -1238,8 +1221,11 @@ export default async function AdminMatchesPage({
       {/* ═══ CATEGORIZED MATCHES UNDER TOURNAMENTS > STAGES ═══ */}
       <MatchGroupedList
         matches={allMatchesList as any}
-        allTournaments={tournaments}
+        allTournaments={tournaments as any}
+        currentTournamentId={effectiveTournamentId}
+        currentStageId={effectiveStageId}
         deleteMatchAction={deleteMatch}
+        bulkDeleteMatchesAction={bulkDeleteMatches}
         duplicateMatchAction={duplicateMatch}
         updateMatchStatusAction={updateMatchStatus}
       />

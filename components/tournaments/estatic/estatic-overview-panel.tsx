@@ -51,7 +51,15 @@ export function EstaticOverviewPanel({
   };
   featuredStageName: string;
   featuredStandings: AggregatedTeamStanding[];
-  overallFraggers: { playerId: string; ign: string; teamName: string; teamTag: string; elims: number; damage: number }[];
+  overallFraggers: {
+    playerId: string;
+    ign: string;
+    teamName: string;
+    teamTag: string;
+    elims: number;
+    damage: number;
+    matchesPlayed?: number;
+  }[];
   matches: OverviewMatchLite[];
   teamsCount: number;
   resolvedWinner?: string | null;
@@ -372,7 +380,10 @@ export function EstaticOverviewPanel({
                       {f.elims} <span className="text-[10px] font-bold text-slate-400 uppercase">kills</span>
                     </div>
                     <div className="text-[10px] font-semibold text-slate-400">
-                      {f.damage.toLocaleString()} dmg
+                      {f.matchesPlayed && f.matchesPlayed > 0
+                        ? (f.elims / f.matchesPlayed).toFixed(2)
+                        : '0.00'}{' '}
+                      avg elim
                     </div>
                   </div>
                 </div>

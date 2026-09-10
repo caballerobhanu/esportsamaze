@@ -3,6 +3,7 @@ import Link from 'next/link';
 import prisma from '@/lib/prisma';
 import { Trophy, Swords, Users, ArrowRight, Flame } from 'lucide-react';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
+import { GameLogo } from '@/components/ui/game-capsule';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
 import { formatDate } from '@/lib/utils';
 
@@ -36,7 +37,11 @@ async function getTournamentsDirectoryData() {
           imageUrl: true,
           imageDarkUrl: true,
           winner: true,
-          game: { select: { name: true, slug: true } },
+          game: { select: { name: true, slug: true, shortName: true, logoUrl: true, logoDarkUrl: true } },
+          games: {
+            include: { game: { select: { name: true, slug: true } } },
+            orderBy: { position: 'asc' },
+          },
           venues: { include: { venue: { select: { name: true, city: true, country: true } } } },
           organizers: { include: { organizer: { select: { name: true } } } },
           _count: {
@@ -49,7 +54,7 @@ async function getTournamentsDirectoryData() {
         orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
       }),
       prisma.game.findMany({
-        select: { name: true, slug: true },
+        select: { name: true, slug: true, shortName: true, logoUrl: true, logoDarkUrl: true },
         orderBy: { name: 'asc' },
       }),
     ]);
@@ -128,15 +133,32 @@ export default async function TournamentsPage() {
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
                       featured.status === 'ONGOING'
                         ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                        : 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
+                        : featured.status === 'COMPLETED'
+                          ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : featured.status === 'CANCELED'
+                            ? 'border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            : 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
                     }`}
                   >
                     {featured.status === 'ONGOING' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />}
-                    {featured.status === 'ONGOING' ? 'Live Tournament' : 'Upcoming Event'}
+                    {featured.status === 'COMPLETED' && <Trophy className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
+                    {featured.status === 'ONGOING'
+                      ? 'Live Tournament'
+                      : featured.status === 'COMPLETED'
+                        ? 'Completed Championship'
+                        : featured.status === 'CANCELED'
+                          ? 'Canceled'
+                          : 'Upcoming Event'}
                   </span>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300">
-                    {featured.game.name}
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                    <GameLogo game={featured.game} className="h-3 w-3" />
+                    {featured.game.shortName?.trim() || featured.game.name}
                   </span>
+                  {featured.winner && featured.status === 'COMPLETED' && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-black tracking-wider text-amber-600 dark:text-amber-400">
+                      🏆 Champion: {featured.winner}
+                    </span>
+                  )}
                 </div>
 
                 <h2 className="text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-3xl">
@@ -145,7 +167,8 @@ export default async function TournamentsPage() {
 
                 <p className="max-w-lg text-sm font-medium text-slate-500 dark:text-slate-400">
                   {featured.series ? `${featured.series} ${featured.season ? `· ${featured.season}` : ''} — ` : ''}
-                  {featured._count.teams} professional teams competing across official match stages.
+                  {featured._count.teams} professional teams{' '}
+                  {featured.status === 'COMPLETED' ? 'competed' : 'competing'} across official match stages.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-500 dark:text-slate-400">
@@ -153,7 +176,11 @@ export default async function TournamentsPage() {
                     {formatDate(featured.startDate)} — {formatDate(featured.endDate)}
                   </span>
                   <span>•</span>
-                  <span>{featured._count.matches} matches scheduled</span>
+                  <span>
+                    {featured.status === 'COMPLETED'
+                      ? `${featured._count.matches} matches played`
+                      : `${featured._count.matches} matches scheduled`}
+                  </span>
                 </div>
               </div>
 

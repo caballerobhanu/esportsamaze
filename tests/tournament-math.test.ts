@@ -68,6 +68,28 @@ test('calculateTournamentStandings aggregates and ranks rows', () => {
   assert.equal(standings[1].rank, 2);
 });
 
+test('calculateTournamentStandings annotates tiebreaker reason when teams are tied on points', () => {
+  const rows = [
+    // Team X and Team Y tied at 30 points, Team X has WWCD
+    { teamId: 'x', team: { id: 'x', name: 'Team X' }, rank: 1, wwcd: true, placePoints: 15, elimsPoints: 15, totalPoints: 30, damage: 1500 },
+    { teamId: 'y', team: { id: 'y', name: 'Team Y' }, rank: 2, wwcd: false, placePoints: 10, elimsPoints: 20, totalPoints: 30, damage: 2000 },
+  ];
+  const standings = calculateTournamentStandings(rows);
+  assert.equal(standings[0].teamId, 'x');
+  assert.equal(standings[0].rank, 1);
+  assert.ok(standings[0].tiebreaker);
+  assert.equal(standings[0].tiebreaker.isTied, true);
+  assert.equal(standings[0].tiebreaker.won, true);
+  assert.equal(standings[0].tiebreaker.type, 'WWCD');
+  assert.ok(standings[0].tiebreaker.shortBadge.includes('WWCD'));
+
+  assert.equal(standings[1].teamId, 'y');
+  assert.equal(standings[1].rank, 2);
+  assert.ok(standings[1].tiebreaker);
+  assert.equal(standings[1].tiebreaker.isTied, true);
+  assert.equal(standings[1].tiebreaker.won, false);
+});
+
 test('calculateTournamentFraggers ranks by elims then damage then headshots', () => {
   const fraggers = calculateTournamentFraggers([
     { playerId: 'p1', player: { id: 'p1', ign: 'P1' }, playerElims: 5, damage: 1000, headshots: 2 },
@@ -103,3 +125,55 @@ test('parseWwcd accurately parses 1, "1", 0, "0", boolean, and fallback rank', (
   assert.equal(parseWwcd('', 1), true);
   assert.equal(parseWwcd('', 2), false);
 });
+
+test('normalizeStandingsConfig preserves group-wise qualification zones and target groups', async () => {
+  const { normalizeStandingsConfig } = await import('../lib/standings-config');
+
+  const raw = {
+    tabGroups: [
+      {
+        id: 'group-1',
+        name: 'Qualifiers',
+        items: [
+          {
+            id: 'item-1',
+            type: 'STAGE_TAB',
+            label: 'Round 1',
+            stageName: 'Round 1',
+            enableGroupSubTabs: true,
+            showOverallInGroupTabs: true,
+            groups: ['Group A', 'Group B', 'Group C', 'Group D'],
+            zones: [
+              { from: 1, to: 16, label: 'Top 16 to Round 2', targetStageName: 'Round 2', color: 'green' },
+            ],
+            groupZones: {
+              'Group A': [
+                { from: 1, to: 12, label: 'Top 12 to Round 2 (Group A)', targetStageName: 'Round 2', targetGroupName: 'Group A', color: 'green' },
+                { from: 13, to: 16, label: 'Bottom 4 to Round 2 (Group B)', targetStageName: 'Round 2', targetGroupName: 'Group B', color: 'blue' },
+              ],
+              'Group B': [
+                { from: 1, to: 4, label: 'Top 4 to Round 2 (Group A)', targetStageName: 'Round 2', targetGroupName: 'Group A', color: 'green' },
+                { from: 5, to: 12, label: 'Next 8 to Round 2 (Group B)', targetStageName: 'Round 2', targetGroupName: 'Group B', color: 'blue' },
+                { from: 13, to: 16, label: 'Bottom 4 to Round 2 (Group C)', targetStageName: 'Round 2', targetGroupName: 'Group C', color: 'yellow' },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const normalized = normalizeStandingsConfig(raw);
+  assert.equal(normalized.tabGroups?.length, 1);
+  const item = normalized.tabGroups?.[0].items[0];
+  assert.equal(item?.enableGroupSubTabs, true);
+  assert.equal(item?.showOverallInGroupTabs, true);
+  assert.deepEqual(item?.groups, ['Group A', 'Group B', 'Group C', 'Group D']);
+  assert.equal(item?.zones?.length, 1);
+  assert.equal(item?.groupZones?.['Group A']?.length, 2);
+  assert.equal(item?.groupZones?.['Group A']?.[0].targetGroupName, 'Group A');
+  assert.equal(item?.groupZones?.['Group A']?.[1].targetGroupName, 'Group B');
+  assert.equal(item?.groupZones?.['Group B']?.length, 3);
+  assert.equal(item?.groupZones?.['Group B']?.[2].targetGroupName, 'Group C');
+});
+

@@ -35,15 +35,31 @@ enum TransferType {
   BENCHED
 }
 
+model GameFamily {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  logoUrl     String?
+  description String?
+  games       Game[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Game {
   id          String       @id @default(cuid())
   slug        String       @unique
   name        String
+  shortName   String?      // Compact display label, e.g. "BGMI" for "Battlegrounds Mobile India" (NOT the slug)
   genre       GameGenre
   developer   String?
   logoUrl     String?
+  logoDarkUrl String?      // Dark-theme variant of the logo (like Team.imageDarkUrl)
   bannerUrl   String?
+  familyId    String?
+  family      GameFamily?  @relation(fields: [familyId], references: [id])
   tournaments Tournament[]
+  tournamentLinks TournamentGame[]
   matches     Match[]
   teams       Team[]
   players     Player[]
@@ -64,10 +80,12 @@ model Team {
   region            String?
   founded           DateTime?
   status            String            @default("ACTIVE")
+  isVerified        Boolean           @default(true)
   sponsors          String?
   socialLinks       Json?
   players           Player[]
   transferHistory   Transfer[]
+  transferHistoryIn Transfer[]        @relation("TransferFromTeam")
   tournamentRosters TournamentTeam[]
   matchResults      MatchTeamResult[]
   matchPlayerStats  MatchPlayerStat[]
@@ -97,6 +115,7 @@ model Player {
   role            String?
   birthDate       DateTime?
   status          String            @default("ACTIVE")
+  isVerified      Boolean           @default(true)
   isPlayer        Boolean           @default(true) // false = staff-only member (never appears in playing rosters)
   staffRole       String?           // Set when the person also serves as support staff: "Head Coach", "Analyst", "Manager"…
   gameId          String?
@@ -107,6 +126,7 @@ model Player {
   transferHistory Transfer[]
   matchStats      MatchPlayerStat[]
   playerRankings  PlayerRanking[]   @relation("PlayerRankingPlayer")
+  articles        Article[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -117,17 +137,21 @@ model Player {
 }
 
 model Transfer {
-  id        String       @id @default(cuid())
-  playerId  String
-  player    Player       @relation(fields: [playerId], references: [id])
-  teamId    String
-  team      Team         @relation(fields: [teamId], references: [id])
-  type      TransferType
-  staffRole String?      // Set when this move is a staff appointment: "Coach", "Analyst"…
-  date      DateTime
-  notes     String?
+  id         String       @id @default(cuid())
+  playerId   String
+  player     Player       @relation(fields: [playerId], references: [id])
+  fromTeamId String?      // Previous team — present when this is a team→team move
+  fromTeam   Team?        @relation("TransferFromTeam", fields: [fromTeamId], references: [id])
+  teamId     String
+  team       Team         @relation(fields: [teamId], references: [id])
+  type       TransferType
+  staffRole  String?      // Set when this move is a staff appointment: "Coach", "Analyst"…
+  date       DateTime
+  notes      String?
 
   @@index([playerId])
+  @@index([fromTeamId])
+  @@index([teamId])
   @@index([date])
 }
 
@@ -207,6 +231,7 @@ model Tournament {
   game              Game                  @relation(fields: [gameId], references: [id])
   name              String
   slug              String                @unique
+  shortName         String?               // Custom short name (e.g. "BGMS 2026", "BGIS 2024")
   series            String?               // Blanket Series (e.g. BGIS, BMPS, PMGC)
   season            String?               // Season / Series Label (e.g. "2026 Edition", "Season 3")
   seriesValue       Int?                  // Priority weight or series index
@@ -253,6 +278,7 @@ model Tournament {
   stages            TournamentStage[]
   teams             TournamentTeam[]
   seededTeams       TournamentTeam[]      @relation("TournamentTeamSeedEvent")
+  games             TournamentGame[]
   matches           Match[]
   teamRankings      TeamRanking[]
   playerRankings    PlayerRanking[]
@@ -264,6 +290,18 @@ model Tournament {
   @@index([name])
   @@index([gameId])
   @@index([series])
+}
+
+model TournamentGame {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  gameId       String
+  game         Game       @relation(fields: [gameId], references: [id])
+  position     Int        @default(0)
+
+  @@unique([tournamentId, gameId])
+  @@index([gameId])
 }
 
 model TeamRanking {
@@ -507,30 +545,42 @@ model Article {
   id              String       @id @default(cuid())
   slug            String       @unique
   title           String
+  subHeadline     String?
   excerpt         String?
+  keyTakeaways    String[]     @default([])
   content         String       @db.Text
   coverImage      String?
+  coverImageAlt   String?
+  coverImageCaption String?
+  coverImageCredit  String?
   category        String       @default("GENERAL") // TOURNAMENTS, ROSTERS, ANALYSIS, INTERVIEWS, GENERAL
+  categories      String[]     @default([])
   tags            String[]     @default([])
   authorName      String       @default("Esports Amaze Staff")
   authorRole      String?      @default("Editor")
   featured        Boolean      @default(false)
-  status          String       @default("PUBLISHED") // DRAFT, SCHEDULED, PUBLISHED
+  status          String       @default("PUBLISHED") // DRAFT, PENDING_REVIEW, PRIVATE, SCHEDULED, PUBLISHED
   readTimeMinutes Int          @default(3)
   publishedAt     DateTime     @default(now())
   views           Int          @default(0)
+  allowComments   Boolean      @default(true)
+  faqs            Json?        // Array of { question: string, answer: string }
 
   // SEO
   metaTitle       String?
   metaDescription String?
   ogImage         String?
   focusKeyword    String?
+  secondaryKeywords String[]   @default([])
 
   tournamentId    String?
   tournament      Tournament?  @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
 
   teamId          String?
   team            Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  playerId        String?
+  player          Player?      @relation(fields: [playerId], references: [id], onDelete: SetNull)
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -546,6 +596,7 @@ model Article {
   @@index([title])
   @@index([tournamentId])
   @@index([teamId])
+  @@index([playerId])
 }
 
 model ArticleRevision {
@@ -553,9 +604,15 @@ model ArticleRevision {
   article         Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   articleId       String
   title           String
+  subHeadline     String?
   excerpt         String?
+  keyTakeaways    String[] @default([])
   content         String   @db.Text
   coverImage      String?
+  coverImageAlt   String?
+  coverImageCaption String?
+  coverImageCredit  String?
+  categories      String[] @default([])
   tags            String[] @default([])
   authorName      String
   authorRole      String?
@@ -563,6 +620,9 @@ model ArticleRevision {
   metaDescription String?
   ogImage         String?
   focusKeyword    String?
+  secondaryKeywords String[] @default([])
+  faqs            Json?
+  playerId        String?
   wordCount       Int      @default(0)
   createdAt       DateTime @default(now())
 

@@ -30,22 +30,22 @@ import {
 import { parseWwcd } from '@/lib/tournament-math';
 
 const USER_EXACT_TEAM_HEADERS =
-  'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tteam\trank\twwcd\tplacePoints\telims\tbonusPoints\ttotalPoints\tsurvivalTime\tdamage\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tairdrops\trescues\tdistDrove\tdistWalk';
+  'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tType\tteam\trank\twwcd\tplacePoints\telims\tbonusPoints\ttotalPoints\tsurvivalTime\tdamage\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tairdrops\trescues\tdistDrove\tdistWalk';
 
 const USER_EXACT_PLAYER_HEADERS =
-  'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tplayer\tteam\trole\telims\tteam_rank\tteam_wwcd\tteam_place\tteam_elims\tteam_total\tdamage\tsurvivalTime\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tutilities\tairdrops\trescues\tdistDrove\tdistWalk\ttotal_dist\tplayerPowerplay\tisMvp';
+  'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tType\tplayer\tteam\trole\telims\tteam_rank\tteam_wwcd\tteam_place\tteam_elims\tteam_total\tdamage\tsurvivalTime\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tutilities\tairdrops\trescues\tdistDrove\tdistWalk\ttotal_dist\tplayerPowerplay\tisMvp';
 
 const SAMPLE_TEAM_EXCEL_DATA = `${USER_EXACT_TEAM_HEADERS}
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tTeam Soul\t1\ttrue\t10\t9\t0\t19\t1680\t1450\t250\t600\t4\t3\t5\t180\t0\t2\t4\t2\t1\t0\t1\t2\t450\t890
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tGodLike Esports\t2\tfalse\t6\t6\t0\t12\t1520\t1100\t180\t750\t2\t2\t4\t120\t0\t1\t3\t1\t0\t0\t0\t1\t320\t750
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tTeam XSpark\t3\tfalse\t5\t4\t0\t9\t1380\t890\t120\t820\t1\t1\t2\t95\t0\t0\t2\t2\t1\t0\t0\t0\t280\t610
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t16:25 IST\t2\t2\tMiramar\tGroup A\tTeam XSpark\t1\ttrue\t10\t8\t0\t18\t1680\t1320\t200\t550\t3\t2\t4\t210\t1\t1\t3\t2\t1\t0\t1\t1\t580\t920`;
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tTeam Soul\t1\ttrue\t10\t9\t0\t19\t1680\t1450\t250\t600\t4\t3\t5\t180\t0\t2\t4\t2\t1\t0\t1\t2\t450\t890
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tGodLike Esports\t2\tfalse\t6\t6\t0\t12\t1520\t1100\t180\t750\t2\t2\t4\t120\t0\t1\t3\t1\t0\t0\t0\t1\t320\t750
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tTeam XSpark\t3\tfalse\t5\t4\t0\t9\t1380\t890\t120\t820\t1\t1\t2\t95\t0\t0\t2\t2\t1\t0\t0\t0\t280\t610
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t16:25 IST\t2\t2\tMiramar\tGroup A\tOnline\tTeam XSpark\t1\ttrue\t10\t8\t0\t18\t1680\t1320\t200\t550\t3\t2\t4\t210\t1\t1\t3\t2\t1\t0\t1\t1\t580\t920`;
 
 const SAMPLE_PLAYER_EXCEL_DATA = `${USER_EXACT_PLAYER_HEADERS}
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tManya\tTeam Soul\tIGL\t4\t1\ttrue\t10\t9\t19\t650\t1680\t100\t200\t2\t1\t3\t180\t0\t1\t2\t1\t1\t0\t4\t1\t1\t150\t450\t600\t2\ttrue
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tNakul\tTeam Soul\tAssaulter\t3\t1\ttrue\t10\t9\t19\t510\t1680\t80\t180\t1\t2\t2\t120\t0\t1\t1\t1\t0\t0\t2\t0\t1\t120\t320\t440\t1\tfalse
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tJonathan\tGodLike Esports\tAssaulter\t4\t2\tfalse\t6\t6\t12\t720\t1520\t90\t350\t2\t1\t3\t140\t0\t1\t2\t1\t0\t0\t3\t0\t0\t180\t420\t600\t1\tfalse
-BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tShadow\tGodLike Esports\tIGL\t2\t2\tfalse\t6\t6\t12\t380\t1520\t90\t400\t0\t1\t1\t90\t0\t0\t1\t0\t0\t0\t1\t0\t1\t140\t330\t470\t0\tfalse`;
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tManya\tTeam Soul\tIGL\t4\t1\ttrue\t10\t9\t19\t650\t1680\t100\t200\t2\t1\t3\t180\t0\t1\t2\t1\t1\t0\t4\t1\t1\t150\t450\t600\t2\ttrue
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tNakul\tTeam Soul\tAssaulter\t3\t1\ttrue\t10\t9\t19\t510\t1680\t80\t180\t1\t2\t2\t120\t0\t1\t1\t1\t0\t0\t2\t0\t1\t120\t320\t440\t1\tfalse
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tJonathan\tGodLike Esports\tAssaulter\t4\t2\tfalse\t6\t6\t12\t720\t1520\t90\t350\t2\t1\t3\t140\t0\t1\t2\t1\t0\t0\t3\t0\t0\t180\t420\t600\t1\tfalse
+BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tShadow\tGodLike Esports\tIGL\t2\t2\tfalse\t6\t6\t12\t380\t1520\t90\t400\t0\t1\t1\t90\t0\t0\t1\t0\t0\t0\t1\t0\t1\t140\t330\t470\t0\tfalse`;
 
 export function BulkJsonMatchImporter({
   referenceData,
@@ -63,6 +63,7 @@ export function BulkJsonMatchImporter({
   const [copiedTemplate, setCopiedTemplate] = React.useState(false);
   const [copiedHeaders, setCopiedHeaders] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isQualifierMode, setIsQualifierMode] = React.useState(false);
   const [importResult, setImportResult] = React.useState<BulkUniversalImportResult | BulkUniversalPlayerImportResult | null>(null);
   const [parseError, setParseError] = React.useState<string | null>(null);
 
@@ -173,6 +174,19 @@ export function BulkJsonMatchImporter({
           case 'groupname':
           case 'group_name':
             colMap['group'] = idx;
+            break;
+          case 'type':
+          case 'matchtype':
+          case 'match_type':
+          case 'environment':
+            colMap['type'] = idx;
+            break;
+          case 'verified':
+          case 'isverified':
+          case 'qualifier':
+          case 'isqualifier':
+          case 'openqualifier':
+            colMap['isverified'] = idx;
             break;
           case 'player':
           case 'ign':
@@ -417,6 +431,8 @@ export function BulkJsonMatchImporter({
             StageMatch: getVal('stagematch', 6) ? Number(getVal('stagematch', 6)) : 1,
             Map: getVal('map', 7) || 'Erangel',
             Group: getVal('group', 8),
+            Type: getVal('type') || getVal('matchtype'),
+            isVerified: getVal('isverified'),
             player: getVal('player', 9) || '',
             team: getVal('team', 10) || '',
             role: getVal('role', 11),
@@ -521,14 +537,19 @@ export function BulkJsonMatchImporter({
     setImportResult(null);
 
     try {
+      const submissionRows = parsedRows.map((r) => ({
+        ...r,
+        ...(isQualifierMode ? { isOpenQualifier: true } : {}),
+      }));
+
       if (importTarget === 'players') {
-        const res = await bulkUniversalPlayerMatchImportAction(parsedRows as BulkUniversalPlayerRowInput[]);
+        const res = await bulkUniversalPlayerMatchImportAction(submissionRows as BulkUniversalPlayerRowInput[]);
         setImportResult(res);
         if (res.success) {
           router.refresh();
         }
       } else {
-        const res = await bulkUniversalMatchImportAction(parsedRows as BulkUniversalRowInput[]);
+        const res = await bulkUniversalMatchImportAction(submissionRows as BulkUniversalRowInput[]);
         setImportResult(res);
         if (res.success) {
           router.refresh();
@@ -569,33 +590,71 @@ export function BulkJsonMatchImporter({
         </div>
 
         {/* Ingestion Target Switcher */}
-        <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 border border-slate-200 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={() => handleTargetSwitch('players')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              importTarget === 'players'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            🎯 Player Match Stats
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTargetSwitch('teams')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              importTarget === 'teams'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            🛡️ Team Scorecards
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Main Event vs Open Qualifier Mode */}
+          <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setIsQualifierMode(false)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                !isQualifierMode
+                  ? 'bg-white dark:bg-slate-900 text-(--ed-blue) dark:text-blue-400 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>🏆 Main Event</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsQualifierMode(true)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                isQualifierMode
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>🛡️ Open Qualifier</span>
+            </button>
+          </div>
+
+          <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => handleTargetSwitch('players')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                importTarget === 'players'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              🎯 Player Match Stats
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTargetSwitch('teams')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                importTarget === 'teams'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              🛡️ Team Scorecards
+            </button>
+          </div>
         </div>
       </div>
+
+      {isQualifierMode && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+          <div>
+            <span className="font-bold block">Open Qualifier Isolation Mode Active</span>
+            New teams and players created from this batch will be tagged as unverified. They will record match scorecards and kills accurately, but will not pollute verified pro directories or hijack established pro names.
+          </div>
+        </div>
+      )}
 
       {/* ── Format & Copy Tools Bar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
