@@ -1469,20 +1469,24 @@ export async function bulkUniversalPlayerMatchImportAction(
           matchedPlayer = playerOnOtherTeam;
         }
 
-        if (!matchedPlayer && (!playerOnOtherTeam || !isQualifier)) {
-          const fuzzyPlayers = allPlayers.filter((p) => {
-            const ign = cleanStr(p.ign);
-            return ign.includes(cleanPlayerIgn) || cleanPlayerIgn.includes(ign);
+        // If still not matched, check only for minor 1-char typo within this specific team's roster (never cross-team)
+        if (!matchedPlayer && existingTourneyTeam) {
+          const roster = Array.isArray(existingTourneyTeam.rosterJson)
+            ? (existingTourneyTeam.rosterJson as any[])
+            : [];
+          const candidate = roster.find((p) => {
+            const ign = cleanStr(typeof p === 'string' ? p : p?.ign);
+            if (!ign || Math.abs(ign.length - cleanPlayerIgn.length) > 1) return false;
+            let diffs = 0;
+            const maxL = Math.max(ign.length, cleanPlayerIgn.length);
+            for (let k = 0; k < maxL; k++) {
+              if (ign[k] !== cleanPlayerIgn[k]) diffs++;
+              if (diffs > 1) return false;
+            }
+            return diffs <= 1;
           });
-          if (fuzzyPlayers.length > 1) {
-            const names = fuzzyPlayers.map((p) => p.ign).join('", "');
-            errors.push(
-              `Row ${rowNum}: Player "${playerRaw}" is ambiguous — matches multiple players ("${names}"). Use exact IGN.`
-            );
-            continue;
-          }
-          if (fuzzyPlayers.length === 1) {
-            matchedPlayer = fuzzyPlayers[0];
+          if (candidate && typeof candidate === 'object' && candidate.playerId) {
+            matchedPlayer = allPlayers.find((p) => p.id === candidate.playerId);
           }
         }
 
