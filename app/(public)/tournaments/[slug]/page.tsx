@@ -339,6 +339,7 @@ export default async function TournamentDetailPage({
     ? tournament.matches.map((m) => ({
         id: m.id,
         stage: m.stage ? { name: m.stage.name } : null,
+        groupName: m.groupName ?? null,
         games: [{
           teamResults: (resultsByMatch.get(m.id) || []).map((r) => ({
             teamId: r.teamId,
@@ -1151,12 +1152,17 @@ export default async function TournamentDetailPage({
 
           {activeTab === 'format' && (
             <EstaticFormatPanel
+              tournament={tournament}
               stages={tournament.stages}
+              matches={tournament.matches}
+              teams={enrichedTeams}
+              standingsConfig={standingsConfig}
               pointsMatrix={formatRules.pointsMatrix}
               killPoints={readKillMultiplier(tournament.formatDetails)}
               gameMode={tournament.gameMode}
               eventType={tournament.eventType}
               device={tournament.device}
+              formatDetails={tournament.formatDetails}
             />
           )}
 

@@ -18,6 +18,9 @@ import {
   HelpCircle,
   Users,
   Swords,
+  XCircle,
+  Loader2,
+  Clock,
 } from 'lucide-react';
 import {
   bulkUniversalMatchImportAction,
@@ -47,6 +50,140 @@ BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnl
 BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tJonathan\tGodLike Esports\tAssaulter\t4\t2\tfalse\t6\t6\t12\t720\t1520\t90\t350\t2\t1\t3\t140\t0\t1\t2\t1\t0\t0\t3\t0\t0\t180\t420\t600\t1\tfalse
 BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tShadow\tGodLike Esports\tIGL\t2\t2\tfalse\t6\t6\t12\t380\t1520\t90\t400\t0\t1\t1\t90\t0\t0\t1\t0\t0\t0\t1\t0\t1\t140\t330\t470\t0\tfalse`;
 
+export interface InfluxProgressState {
+  active: boolean;
+  currentBatch: number;
+  totalBatches: number;
+  processedRows: number;
+  totalRows: number;
+  currentLabel: string;
+  createdMatchesCount: number;
+  insertedResultsCount: number;
+  insertedPlayerStatsCount: number;
+  errors: string[];
+}
+
+/**
+ * Match/Day-aware partitioner:
+ * Ensures matches are NEVER split in half!
+ * Groups by Tournament + Stage + Date (matchdays of ~384 rows).
+ * If no dates exist, groups by complete matches up to the target batch size.
+ */
+export function partitionRowsIntoBatches<T extends Record<string, any>>(
+  rows: T[],
+  targetBatchSize: number = 384
+): Array<{ label: string; rows: T[] }> {
+  if (rows.length <= targetBatchSize) {
+    return [{ label: `Complete batch (${rows.length} rows)`, rows }];
+  }
+
+  // 1. Group rows by Day/Date boundary if Date is present
+  const dateGroups = new Map<string, T[]>();
+  let hasDates = false;
+
+  for (const row of rows) {
+    const d = (row.Date || row.date || '').trim();
+    if (d) hasDates = true;
+    const tourney = (row.Tournament || row.tournament || '').trim();
+    const stage = (row.Stage || row.stage || '').trim();
+    const key = `${tourney}__${stage}__${d || 'nodate'}`;
+
+    if (!dateGroups.has(key)) dateGroups.set(key, []);
+    dateGroups.get(key)!.push(row);
+  }
+
+  // If dataset has distinct dates, each date/stage group forms a natural batch (e.g. 1 matchday = ~384 rows)
+  if (hasDates && dateGroups.size > 1) {
+    const batches: Array<{ label: string; rows: T[] }> = [];
+    for (const [key, groupRows] of dateGroups.entries()) {
+      const parts = key.split('__');
+      const d = parts[2] !== 'nodate' ? parts[2] : 'Matchday';
+      const stage = parts[1] || 'Stage';
+      const tourney = parts[0] || 'Tournament';
+
+      // If a single date has > 768 rows, sub-chunk by matches so matches stay atomic
+      if (groupRows.length > 768) {
+        const matchGroups = new Map<string, T[]>();
+        for (const r of groupRows) {
+          const mNum = r.OverallMatch || r.overallMatch || r.StageMatch || r.stageMatch || r.matchNumber || '1';
+          const mKey = `${mNum}`;
+          if (!matchGroups.has(mKey)) matchGroups.set(mKey, []);
+          matchGroups.get(mKey)!.push(r);
+        }
+
+        let currentSubBatch: T[] = [];
+        let startM = '';
+        let endM = '';
+        for (const [mKey, mRows] of matchGroups.entries()) {
+          if (currentSubBatch.length + mRows.length > targetBatchSize && currentSubBatch.length > 0) {
+            batches.push({
+              label: `${tourney} · ${stage} (${d}) Matches ${startM}–${endM} (${currentSubBatch.length} rows)`,
+              rows: currentSubBatch,
+            });
+            currentSubBatch = [];
+            startM = '';
+          }
+          if (!startM) startM = mKey;
+          endM = mKey;
+          currentSubBatch.push(...mRows);
+        }
+        if (currentSubBatch.length > 0) {
+          batches.push({
+            label: `${tourney} · ${stage} (${d}) Matches ${startM}–${endM} (${currentSubBatch.length} rows)`,
+            rows: currentSubBatch,
+          });
+        }
+      } else {
+        batches.push({
+          label: `${tourney} · ${stage} (${d}) · ${groupRows.length} rows`,
+          rows: groupRows,
+        });
+      }
+    }
+    return batches;
+  }
+
+  // 2. Fallback: Group by Match (all 64 players of a match stay in the same chunk)
+  const matchMap = new Map<string, T[]>();
+  for (const r of rows) {
+    const mNum = r.OverallMatch || r.overallMatch || r.StageMatch || r.stageMatch || r.matchNumber || '1';
+    const tourney = (r.Tournament || r.tournament || '').trim();
+    const stage = (r.Stage || r.stage || '').trim();
+    const key = `${tourney}__${stage}__${mNum}`;
+    if (!matchMap.has(key)) matchMap.set(key, []);
+    matchMap.get(key)!.push(r);
+  }
+
+  const batches: Array<{ label: string; rows: T[] }> = [];
+  let curBatch: T[] = [];
+  let curStartMatch = '';
+  let curEndMatch = '';
+
+  for (const [mKey, mRows] of matchMap.entries()) {
+    const matchLabel = mKey.split('__')[2];
+    if (curBatch.length + mRows.length > targetBatchSize && curBatch.length > 0) {
+      batches.push({
+        label: `Matches ${curStartMatch}–${curEndMatch} (${curBatch.length} rows)`,
+        rows: curBatch,
+      });
+      curBatch = [];
+      curStartMatch = '';
+    }
+    if (!curStartMatch) curStartMatch = matchLabel;
+    curEndMatch = matchLabel;
+    curBatch.push(...mRows);
+  }
+
+  if (curBatch.length > 0) {
+    batches.push({
+      label: `Matches ${curStartMatch}–${curEndMatch} (${curBatch.length} rows)`,
+      rows: curBatch,
+    });
+  }
+
+  return batches;
+}
+
 export function BulkJsonMatchImporter({
   referenceData,
 }: {
@@ -66,6 +203,21 @@ export function BulkJsonMatchImporter({
   const [isQualifierMode, setIsQualifierMode] = React.useState(false);
   const [importResult, setImportResult] = React.useState<BulkUniversalImportResult | BulkUniversalPlayerImportResult | null>(null);
   const [parseError, setParseError] = React.useState<string | null>(null);
+
+  const [progressState, setProgressState] = React.useState<InfluxProgressState>({
+    active: false,
+    currentBatch: 0,
+    totalBatches: 0,
+    processedRows: 0,
+    totalRows: 0,
+    currentLabel: '',
+    createdMatchesCount: 0,
+    insertedResultsCount: 0,
+    insertedPlayerStatsCount: 0,
+    errors: [],
+  });
+
+  const cancelRef = React.useRef(false);
 
   // Switch between Team and Player sample data
   const handleTargetSwitch = (target: 'teams' | 'players') => {
@@ -535,6 +687,7 @@ export function BulkJsonMatchImporter({
     if (parsedRows.length === 0) return;
     setIsSubmitting(true);
     setImportResult(null);
+    cancelRef.current = false;
 
     try {
       const submissionRows = parsedRows.map((r) => ({
@@ -542,19 +695,97 @@ export function BulkJsonMatchImporter({
         ...(isQualifierMode ? { isOpenQualifier: true } : {}),
       }));
 
-      if (importTarget === 'players') {
-        const res = await bulkUniversalPlayerMatchImportAction(submissionRows as BulkUniversalPlayerRowInput[]);
-        setImportResult(res);
-        if (res.success) {
-          router.refresh();
+      // Match/Day-aware partition (~384 rows per batch, matching 1 day of 6 complete matches)
+      const batches = partitionRowsIntoBatches(submissionRows, 384);
+
+      let totalProcessed = 0;
+      let totalCreatedMatches = 0;
+      let totalUpdatedMatches = 0;
+      let totalCreatedPlayers = 0;
+      let totalInsertedStats = 0;
+      const allErrors: string[] = [];
+
+      setProgressState({
+        active: true,
+        currentBatch: 1,
+        totalBatches: batches.length,
+        processedRows: 0,
+        totalRows: submissionRows.length,
+        currentLabel: batches[0]?.label || 'Starting Influx...',
+        createdMatchesCount: 0,
+        insertedResultsCount: 0,
+        insertedPlayerStatsCount: 0,
+        errors: [],
+      });
+
+      for (let i = 0; i < batches.length; i++) {
+        if (cancelRef.current) {
+          allErrors.push(
+            `Influx stopped early by user at batch ${i + 1} of ${batches.length}. Batches processed prior to cancellation were safely saved.`
+          );
+          break;
         }
-      } else {
-        const res = await bulkUniversalMatchImportAction(submissionRows as BulkUniversalRowInput[]);
-        setImportResult(res);
-        if (res.success) {
-          router.refresh();
+
+        const batch = batches[i];
+        setProgressState((prev) => ({
+          ...prev,
+          currentBatch: i + 1,
+          currentLabel: batch.label,
+        }));
+
+        if (importTarget === 'players') {
+          const res = await bulkUniversalPlayerMatchImportAction(batch.rows as BulkUniversalPlayerRowInput[]);
+          totalProcessed += res.processedCount || batch.rows.length;
+          totalCreatedMatches += res.createdMatchesCount || 0;
+          totalUpdatedMatches += res.updatedMatchesCount || 0;
+          totalCreatedPlayers += res.createdPlayersCount || 0;
+          totalInsertedStats += res.insertedPlayerStatsCount || 0;
+          if (res.errors && res.errors.length > 0) {
+            allErrors.push(...res.errors);
+          }
+          if (!res.success && (!res.errors || res.errors.length === 0)) {
+            allErrors.push(res.message || `Batch ${i + 1} failed.`);
+          }
+        } else {
+          const res = await bulkUniversalMatchImportAction(batch.rows as BulkUniversalRowInput[]);
+          totalProcessed += res.insertedCount || batch.rows.length;
+          totalCreatedMatches += res.matchesCount || 0;
+          totalInsertedStats += res.insertedCount || 0;
+          if (res.errors && res.errors.length > 0) {
+            allErrors.push(...res.errors);
+          }
+          if (!res.success && (!res.errors || res.errors.length === 0)) {
+            allErrors.push(res.message || `Batch ${i + 1} failed.`);
+          }
         }
+
+        setProgressState((prev) => ({
+          ...prev,
+          processedRows: totalProcessed,
+          createdMatchesCount: totalCreatedMatches,
+          insertedResultsCount: totalInsertedStats,
+          insertedPlayerStatsCount: totalInsertedStats,
+          errors: allErrors,
+        }));
       }
+
+      const isCompletedCleanly = !cancelRef.current && allErrors.length === 0;
+      setImportResult({
+        success: isCompletedCleanly || totalProcessed > 0,
+        message: cancelRef.current
+          ? `Influx stopped early. Processed ${totalProcessed} of ${submissionRows.length} rows (${batches.length} total batches).`
+          : allErrors.length > 0
+          ? `Processed ${totalProcessed} of ${submissionRows.length} rows with ${allErrors.length} notices/warnings.`
+          : `Universal ${importTarget === 'players' ? 'Player' : 'Team'} Influx Complete! Successfully processed ${totalProcessed} rows across ${batches.length} match batch(es).`,
+        processedCount: totalProcessed,
+        createdMatchesCount: totalCreatedMatches,
+        updatedMatchesCount: totalUpdatedMatches,
+        createdPlayersCount: totalCreatedPlayers,
+        insertedPlayerStatsCount: totalInsertedStats,
+        errors: allErrors,
+      } as any);
+
+      router.refresh();
     } catch (err: any) {
       setImportResult({
         success: false,
@@ -566,6 +797,7 @@ export function BulkJsonMatchImporter({
       } as any);
     } finally {
       setIsSubmitting(false);
+      setProgressState((prev) => ({ ...prev, active: false }));
     }
   };
 
@@ -943,6 +1175,86 @@ export function BulkJsonMatchImporter({
         </div>
       )}
 
+      {/* ── Live Influx Progress Monitor ── */}
+      {(isSubmitting || progressState.active) && progressState.totalBatches > 1 && (
+        <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50/50 dark:bg-blue-950/20 shadow-xs space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
+              </span>
+              <span className="text-xs font-black uppercase tracking-wider text-blue-950 dark:text-blue-200">
+                Batch Influx Active · Batch {progressState.currentBatch} of {progressState.totalBatches}
+              </span>
+              <span className="text-xs text-slate-500 font-mono">
+                ({Math.round(((progressState.processedRows || 0) / (progressState.totalRows || 1)) * 100)}%)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-500 truncate max-w-xs font-mono">
+                {progressState.currentLabel}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  cancelRef.current = true;
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer"
+                title="Stop after current batch completes"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Stop Influx
+              </button>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 h-2.5 rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.max(3, Math.round(((progressState.processedRows || 0) / (progressState.totalRows || 1)) * 100))
+                )}%`,
+              }}
+            />
+          </div>
+
+          {/* Mini Live Influx Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+              <div className="text-[10px] text-slate-500 font-bold uppercase">Rows Processed</div>
+              <div className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                {progressState.processedRows} / {progressState.totalRows}
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+              <div className="text-[10px] text-slate-500 font-bold uppercase">Current Batch</div>
+              <div className="text-xs font-black text-blue-600 dark:text-blue-400 font-mono">
+                {progressState.currentBatch} / {progressState.totalBatches}
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+              <div className="text-[10px] text-slate-500 font-bold uppercase">Matches Created</div>
+              <div className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                {progressState.createdMatchesCount}
+              </div>
+            </div>
+            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+              <div className="text-[10px] text-slate-500 font-bold uppercase">
+                {importTarget === 'players' ? 'Player Stats' : 'Team Results'}
+              </div>
+              <div className="text-xs font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                {progressState.insertedPlayerStatsCount}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Submission Result Banner ── */}
       {importResult && (
         <div
@@ -960,10 +1272,13 @@ export function BulkJsonMatchImporter({
           <div className="space-y-1">
             <p className="text-xs font-bold">{importResult.message}</p>
             {importResult.errors && importResult.errors.length > 0 && (
-              <ul className="text-[11px] list-disc list-inside opacity-80 space-y-0.5">
-                {importResult.errors.slice(0, 5).map((e, i) => (
+              <ul className="text-[11px] list-disc list-inside opacity-80 space-y-0.5 max-h-40 overflow-y-auto">
+                {importResult.errors.slice(0, 10).map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
+                {importResult.errors.length > 10 && (
+                  <li className="font-bold">...and {importResult.errors.length - 10} more notices</li>
+                )}
               </ul>
             )}
           </div>
@@ -981,7 +1296,9 @@ export function BulkJsonMatchImporter({
           {isSubmitting ? (
             <>
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Processing Ingestion…
+              {progressState.totalBatches > 1
+                ? `Ingesting Batch ${progressState.currentBatch}/${progressState.totalBatches}…`
+                : 'Processing Ingestion…'}
             </>
           ) : (
             <>

@@ -24,6 +24,7 @@ import type { TeamPerformanceRow } from '../tournament-statistics-panel';
 export interface StagePerformanceSummary {
   stageId?: string;
   stageName: string;
+  groupName?: string | null;
   sequence: number;
   matchesPlayed: number;
   totalPoints: number;
@@ -227,7 +228,18 @@ export function EstaticProgressionPanel({
   const stageStandingsMap = useMemo(() => {
     const map = new Map<
       string,
-      Map<string, { rank: number; totalPoints: number; wwcd: number; matchesPlayed: number; elims: number; placePoints: number }>
+      Map<
+        string,
+        {
+          rank: number;
+          groupName?: string | null;
+          totalPoints: number;
+          wwcd: number;
+          matchesPlayed: number;
+          elims: number;
+          placePoints: number;
+        }
+      >
     >();
 
     for (const stage of stages) {
@@ -236,25 +248,65 @@ export function EstaticProgressionPanel({
       );
       if (stageMatches.length === 0) continue;
 
-      const teamResults = stageMatches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
-      if (teamResults.length === 0) continue;
+      const distinctGroups = Array.from(
+        new Set(stageMatches.map((m) => m.groupName?.trim()).filter(Boolean))
+      ) as string[];
 
-      const computed = calculateTournamentStandings(teamResults);
       const teamMap = new Map<
         string,
-        { rank: number; totalPoints: number; wwcd: number; matchesPlayed: number; elims: number; placePoints: number }
+        {
+          rank: number;
+          groupName?: string | null;
+          totalPoints: number;
+          wwcd: number;
+          matchesPlayed: number;
+          elims: number;
+          placePoints: number;
+        }
       >();
 
-      for (const st of computed) {
-        teamMap.set(st.teamId, {
-          rank: st.rank,
-          totalPoints: st.totalPoints,
-          wwcd: st.wwcd,
-          matchesPlayed: st.matchesPlayed,
-          elims: st.eliminationPoints,
-          placePoints: st.placementPoints,
-        });
+      if (distinctGroups.length > 1) {
+        // Multi-group stages (e.g. Round 4 with Groups A, B, C, D):
+        // Compute rankings within each group so teams are ranked within their group lobby (e.g. #13 in Grp A)
+        for (const grpName of distinctGroups) {
+          const grpMatches = stageMatches.filter(
+            (m) => (m.groupName || '').trim().toLowerCase() === grpName.toLowerCase()
+          );
+          const grpResults = grpMatches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
+          if (grpResults.length === 0) continue;
+
+          const grpStandings = calculateTournamentStandings(grpResults);
+          for (const st of grpStandings) {
+            teamMap.set(st.teamId, {
+              rank: st.rank,
+              groupName: grpName,
+              totalPoints: st.totalPoints,
+              wwcd: st.wwcd,
+              matchesPlayed: st.matchesPlayed,
+              elims: st.eliminationPoints,
+              placePoints: st.placementPoints,
+            });
+          }
+        }
+      } else {
+        // Single group or overall stage
+        const teamResults = stageMatches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
+        if (teamResults.length > 0) {
+          const computed = calculateTournamentStandings(teamResults);
+          for (const st of computed) {
+            teamMap.set(st.teamId, {
+              rank: st.rank,
+              groupName: distinctGroups[0] || null,
+              totalPoints: st.totalPoints,
+              wwcd: st.wwcd,
+              matchesPlayed: st.matchesPlayed,
+              elims: st.eliminationPoints,
+              placePoints: st.placementPoints,
+            });
+          }
+        }
       }
+
       map.set(stage.name.toLowerCase(), teamMap);
     }
     return map;
@@ -286,6 +338,7 @@ export function EstaticProgressionPanel({
     // 1. Gather all linked qualification zones targeting Grand Finals
     const linkedZoneSources: Array<{
       sourceStageName: string;
+      groupName?: string;
       zone: ZoneRule;
       itemType: 'STAGE' | 'CUSTOM_TAB';
       includeStages?: string[];
@@ -295,6 +348,7 @@ export function EstaticProgressionPanel({
     if (standingsConfig.tabGroups) {
       for (const grp of standingsConfig.tabGroups) {
         for (const item of grp.items) {
+          // Standard item-level zones
           for (const z of item.zones || []) {
             const zTarget = resolveZoneTargetStage(z, stageNames);
             if (zTarget && zTarget.toLowerCase() === targetFinalsStage.toLowerCase()) {
@@ -304,6 +358,23 @@ export function EstaticProgressionPanel({
                 itemType: item.type === 'STAGE' ? 'STAGE' : 'CUSTOM_TAB',
                 includeStages: item.includeStages || (item.stageName ? [item.stageName] : undefined),
               });
+            }
+          }
+          // Tier-3 Group-level zones (e.g. Group A, Group B rules qualifying to Grand Finals)
+          if (item.groupZones && typeof item.groupZones === 'object') {
+            for (const [groupKey, zoneList] of Object.entries(item.groupZones as Record<string, ZoneRule[]>)) {
+              for (const z of (zoneList || []) as ZoneRule[]) {
+                const zTarget = resolveZoneTargetStage(z, stageNames);
+                if (zTarget && zTarget.toLowerCase() === targetFinalsStage.toLowerCase()) {
+                  linkedZoneSources.push({
+                    sourceStageName: item.label || item.stageName || grp.name,
+                    groupName: groupKey,
+                    zone: z,
+                    itemType: item.type === 'STAGE' ? 'STAGE' : 'CUSTOM_TAB',
+                    includeStages: item.includeStages || (item.stageName ? [item.stageName] : undefined),
+                  });
+                }
+              }
             }
           }
         }
@@ -324,6 +395,22 @@ export function EstaticProgressionPanel({
             });
           }
         }
+        if (tab.groupZones && typeof tab.groupZones === 'object') {
+          for (const [groupKey, zoneList] of Object.entries(tab.groupZones as Record<string, ZoneRule[]>)) {
+            for (const z of (zoneList || []) as ZoneRule[]) {
+              const zTarget = resolveZoneTargetStage(z, stageNames);
+              if (zTarget && zTarget.toLowerCase() === targetFinalsStage.toLowerCase()) {
+                linkedZoneSources.push({
+                  sourceStageName: tab.label,
+                  groupName: groupKey,
+                  zone: z,
+                  itemType: 'CUSTOM_TAB',
+                  includeStages: tab.includeStages,
+                });
+              }
+            }
+          }
+        }
       }
     }
 
@@ -331,7 +418,7 @@ export function EstaticProgressionPanel({
     const uniqueSources: typeof linkedZoneSources = [];
     const seenSourceKeys = new Set<string>();
     for (const src of linkedZoneSources) {
-      const key = `${src.sourceStageName.toLowerCase()}:${src.zone.from}-${src.zone.to}`;
+      const key = `${src.sourceStageName.toLowerCase()}:${(src.groupName || 'all').toLowerCase()}:${src.zone.from}-${src.zone.to}`;
       if (!seenSourceKeys.has(key)) {
         seenSourceKeys.add(key);
         uniqueSources.push(src);
@@ -355,6 +442,20 @@ export function EstaticProgressionPanel({
           const stName = m.stage?.name || '';
           return source.includeStages!.some((s) => s.toLowerCase() === stName.toLowerCase());
         });
+      } else if (source.sourceStageName) {
+        sourceMatches = matches.filter((m) => {
+          const stName = m.stage?.name || '';
+          return stName.toLowerCase() === source.sourceStageName.toLowerCase();
+        });
+      }
+
+      if (source.groupName && source.groupName.trim()) {
+        const normGrp = source.groupName.trim().toLowerCase();
+        const plainGrp = normGrp.replace(/^group\s*/i, '');
+        sourceMatches = sourceMatches.filter((m) => {
+          const mg = (m.groupName || '').trim().toLowerCase();
+          return mg === normGrp || mg.replace(/^group\s*/i, '') === plainGrp;
+        });
       }
 
       const teamResults = sourceMatches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
@@ -374,15 +475,16 @@ export function EstaticProgressionPanel({
         const roster = Array.isArray(tt?.rosterJson) ? tt!.rosterJson : [];
 
         // Build route label
+        const groupSuffix = source.groupName ? ` (${source.groupName})` : '';
         const isTargetName =
           !source.zone.label || source.zone.label.toLowerCase() === targetFinalsStage.toLowerCase();
         const routeDesc = isTargetName
-          ? `Top ${source.zone.to} in ${source.sourceStageName} (Rank #${st.rank})`
-          : `${source.zone.label} via ${source.sourceStageName} (Rank #${st.rank})`;
+          ? `Top ${source.zone.to} in ${source.sourceStageName}${groupSuffix} (Rank #${st.rank})`
+          : `${source.zone.label} via ${source.sourceStageName}${groupSuffix} (Rank #${st.rank})`;
 
         // Build chronological stage journey across ALL preceding stages
         const stagesJourney: StagePerformanceSummary[] = [];
-        const qualifyingStageNormalized = source.sourceStageName.toLowerCase();
+        const cleanQualStage = source.sourceStageName.trim().toLowerCase();
 
         for (const s of precedingStages) {
           const stageStandingData = stageStandingsMap.get(s.name.toLowerCase())?.get(st.teamId);
@@ -392,9 +494,9 @@ export function EstaticProgressionPanel({
           const participated = mp > 0;
 
           const isQualStage =
-            s.name.toLowerCase() === qualifyingStageNormalized ||
-            qualifyingStageNormalized.includes(s.name.toLowerCase()) ||
-            s.name.toLowerCase().includes(qualifyingStageNormalized) ||
+            s.name.toLowerCase() === cleanQualStage ||
+            cleanQualStage.includes(s.name.toLowerCase()) ||
+            s.name.toLowerCase().includes(cleanQualStage) ||
             (source.includeStages?.some((stName) => stName.toLowerCase() === s.name.toLowerCase()) ?? false);
 
           let status: 'QUALIFIED' | 'PLAYED' | 'BYPASSED' | 'MISSED';
@@ -408,6 +510,7 @@ export function EstaticProgressionPanel({
           stagesJourney.push({
             stageId: s.id,
             stageName: s.name,
+            groupName: stageStandingData?.groupName ?? null,
             sequence: s.sequence,
             matchesPlayed: mp,
             totalPoints: stageStandingData?.totalPoints ?? stagePerf?.totalPoints ?? 0,
@@ -431,7 +534,7 @@ export function EstaticProgressionPanel({
           country: tt?.country || tt?.team?.region || null,
           slotNumber: results.length + 1,
           routeLabel: routeDesc,
-          sourceStageName: source.sourceStageName,
+          sourceStageName: source.groupName ? `${source.sourceStageName} (${source.groupName})` : source.sourceStageName,
           sourceType: 'ZONE',
           zoneColor: (source.zone.color as string) || 'blue',
           isConfirmed: true,
@@ -441,7 +544,7 @@ export function EstaticProgressionPanel({
           elimsCount: perf?.totalElimsPoints || st.eliminationPoints || 0,
           avgPoints: perf?.avgTotalPoints || Number((st.totalPoints / (st.matchesPlayed || 1)).toFixed(2)),
           stagesJourney,
-          qualifyingStageName: source.sourceStageName,
+          qualifyingStageName: source.groupName ? `${source.sourceStageName} (${source.groupName})` : source.sourceStageName,
           qualifyingStageSequence: conclusionSeq,
           qualifyingRank: st.rank,
           qualifyingZone: { from: source.zone.from, to: source.zone.to },
@@ -1092,6 +1195,11 @@ export function EstaticProgressionPanel({
                                           <div key={st.stageName} className="flex items-center gap-2.5 text-[11px]">
                                             <div className="w-28 truncate font-semibold text-[var(--ed-ink)]">
                                               {st.stageName}
+                                              {st.groupName && (
+                                                <span className="ml-1 text-[9px] font-medium text-[var(--ed-stone)]">
+                                                  ({st.groupName})
+                                                </span>
+                                              )}
                                             </div>
                                             <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-[var(--ed-sand)]">
                                               <div
@@ -1202,12 +1310,18 @@ export function EstaticProgressionPanel({
             {activeTooltip.stage.stageRank && (
               <span className="shrink-0 rounded bg-amber-400 px-1 py-0.5 text-[9px] font-bold text-slate-950">
                 #{activeTooltip.stage.stageRank}
+                {activeTooltip.stage.groupName ? ` (${activeTooltip.stage.groupName})` : ''}
               </span>
             )}
           </div>
 
-          <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-[var(--ed-blue)]">
-            {activeTooltip.stage.stageName}
+          <div className="mt-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-wide text-[var(--ed-blue)]">
+            <span>{activeTooltip.stage.stageName}</span>
+            {activeTooltip.stage.groupName && (
+              <span className="text-[9px] font-semibold text-[var(--ed-stone)]">
+                {activeTooltip.stage.groupName}
+              </span>
+            )}
           </div>
 
           {activeTooltip.stage.participated ? (

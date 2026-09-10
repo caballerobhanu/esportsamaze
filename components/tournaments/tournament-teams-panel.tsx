@@ -54,7 +54,7 @@ export interface TournamentTeamsPanelProps {
   showCountryFlag?: boolean;
 }
 
-type SortOption = 'placement' | 'alphabetical' | 'seed' | 'points';
+type SortOption = 'placement' | 'alphabetical' | 'name_desc' | 'seed' | 'seed_desc' | 'points';
 
 export function TournamentTeamsPanel({
   teams,
@@ -85,6 +85,15 @@ export function TournamentTeamsPanel({
     });
   }, [teams, searchQuery]);
 
+  const getTeamSeedNum = (t: EnrichedTournamentTeam): number => {
+    if (typeof t.seed === 'number' && !isNaN(t.seed)) return t.seed;
+    if (t.seedLabel) {
+      const match = t.seedLabel.match(/#?(\d+)/);
+      if (match) return parseInt(match[1], 10);
+    }
+    return 999999;
+  };
+
   // Sorting Logic (emojis removed per request)
   const sortedTeams = React.useMemo(() => {
     const list = [...filteredTeams];
@@ -95,12 +104,25 @@ export function TournamentTeamsPanel({
         const nameB = b.displayName || b.team.displayName || b.team.name;
         return nameA.localeCompare(nameB);
       });
+    } else if (sortBy === 'name_desc') {
+      list.sort((a, b) => {
+        const nameA = a.displayName || a.team.displayName || a.team.name;
+        const nameB = b.displayName || b.team.displayName || b.team.name;
+        return nameB.localeCompare(nameA);
+      });
     } else if (sortBy === 'seed') {
       list.sort((a, b) => {
-        const hasLabelA = a.seedLabel ? 1 : 0;
-        const hasLabelB = b.seedLabel ? 1 : 0;
-        if (hasLabelA !== hasLabelB) return hasLabelB - hasLabelA;
-        return (a.seed ?? 999) - (b.seed ?? 999);
+        const seedA = getTeamSeedNum(a);
+        const seedB = getTeamSeedNum(b);
+        if (seedA !== seedB) return seedA - seedB;
+        return (a.displayName || a.team.name).localeCompare(b.displayName || b.team.name);
+      });
+    } else if (sortBy === 'seed_desc') {
+      list.sort((a, b) => {
+        const seedA = getTeamSeedNum(a);
+        const seedB = getTeamSeedNum(b);
+        if (seedA !== seedB) return seedB - seedA;
+        return (a.displayName || a.team.name).localeCompare(b.displayName || b.team.name);
       });
     } else if (sortBy === 'points') {
       list.sort((a, b) => (b.totalPointsAcrossTournament || 0) - (a.totalPointsAcrossTournament || 0));
@@ -238,8 +260,10 @@ export function TournamentTeamsPanel({
                 className="h-9 pl-3 pr-8 rounded-lg bg-(--ed-canvas) border border-(--ed-hair) text-xs font-semibold text-(--ed-ink) focus:outline-none focus:border-slate-400 dark:focus:border-slate-500 cursor-pointer appearance-none"
               >
                 <option value="placement">Final Placement</option>
-                <option value="alphabetical">Alphabetical (A - Z)</option>
-                <option value="seed">Seeding &amp; Invites</option>
+                <option value="alphabetical">Name (A → Z)</option>
+                <option value="name_desc">Name (Z → A)</option>
+                <option value="seed">Seed (1 → N)</option>
+                <option value="seed_desc">Seed (N → 1)</option>
                 <option value="points">Total Points</option>
               </select>
               <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -488,31 +512,43 @@ function TeamRowCard({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
               {playingRoster.map((p, i) => {
                 const ign = typeof p === 'string' ? p : p.ign;
-                const role = typeof p === 'string' ? '' : p.role;
+                const role = typeof p === 'string' ? '' : (p as any).staffRole || p.role;
                 const captain = typeof p === 'string' ? false : p.captain;
+                const statusTag = typeof p === 'string' ? null : (p as any).statusTag;
+                const playerId = typeof p === 'string' ? null : (p as any).playerId || (p as any).slug;
+                const targetUrl = playerId ? `/players/${playerId}` : `/players?q=${encodeURIComponent(ign)}`;
 
                 return (
-                  <div
+                  <Link
                     key={i}
-                    className="flex flex-col justify-center px-2.5 py-1.5 rounded-md bg-(--ed-surface) border border-(--ed-hair)/70 text-xs"
+                    href={targetUrl}
+                    className="flex flex-col justify-center px-2.5 py-1.5 rounded-md bg-(--ed-surface) border border-(--ed-hair)/70 text-xs hover:border-(--ed-blue) hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer group/roster"
+                    title={playerId ? `View ${ign}'s career profile` : `Search wiki for ${ign}`}
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-(--ed-ink) truncate">{ign}</span>
-                      {captain && (
-                        <span
-                          className="px-1 py-0.2 rounded text-[9px] font-black uppercase bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 shrink-0"
-                          title="Team Captain"
-                        >
-                          C
-                        </span>
-                      )}
+                      <span className="font-bold text-(--ed-ink) group-hover/roster:text-(--ed-blue) truncate">{ign}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {statusTag && (
+                          <span className="px-1 py-0.2 rounded text-[8px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                            {statusTag}
+                          </span>
+                        )}
+                        {captain && (
+                          <span
+                            className="px-1 py-0.2 rounded text-[9px] font-black uppercase bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400"
+                            title="Team Captain"
+                          >
+                            C
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {role && (
                       <span className="text-[10px] text-(--ed-stone) capitalize truncate mt-0.5">
                         {role}
                       </span>
                     )}
-                  </div>
+                  </Link>
                 );
               })}
             </div>

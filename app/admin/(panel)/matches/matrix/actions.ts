@@ -335,6 +335,8 @@ export async function bulkUniversalMatchImportAction(
         return heavyByTournamentId.get(tournamentId)!;
       };
 
+      const pendingTeamResults: Array<{ matchGameId: string; teamId: string; payload: any }> = [];
+
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const rowNum = i + 1;
@@ -671,21 +673,33 @@ export async function bulkUniversalMatchImportAction(
           score: totalPoints,
         };
 
-        // One result row per (game, team) — enforced by the DB unique constraint,
-        // so upsert is race-safe against double-submits.
-        await tx.matchTeamResult.upsert({
-          where: {
-            matchGameId_teamId: { matchGameId, teamId: matchedTeam.id },
-          },
-          update: payload,
-          create: {
-            matchGameId,
-            teamId: matchedTeam.id,
-            ...payload,
-          },
+        pendingTeamResults.push({
+          matchGameId,
+          teamId: matchedTeam.id,
+          payload,
         });
+      }
 
-        totalInsertedResults++;
+      // Execute batch team result upserts in concurrent chunks of 25
+      const CHUNK_SIZE = 25;
+      for (let c = 0; c < pendingTeamResults.length; c += CHUNK_SIZE) {
+        const slice = pendingTeamResults.slice(c, c + CHUNK_SIZE);
+        await Promise.all(
+          slice.map((item) =>
+            tx.matchTeamResult.upsert({
+              where: {
+                matchGameId_teamId: { matchGameId: item.matchGameId, teamId: item.teamId },
+              },
+              update: item.payload,
+              create: {
+                matchGameId: item.matchGameId,
+                teamId: item.teamId,
+                ...item.payload,
+              },
+            })
+          )
+        );
+        totalInsertedResults += slice.length;
       }
     }, {
       maxWait: 15000,
@@ -1094,6 +1108,9 @@ export async function bulkUniversalPlayerMatchImportAction(
     await prisma.$transaction(
       async (tx) => {
         const teamResultsCache = new Map<string, any>();
+        const preloadedGames = new Set<string>();
+        const pendingTeamResults = new Map<string, { matchGameId: string; teamId: string; payload: any }>();
+        const pendingPlayerStats: Array<{ matchGameId: string; playerId: string; payload: any }> = [];
         const heavyByTournamentId = new Map<string, { stages: any[]; teams: any[]; matches: any[] }>();
       const loadHeavy = async (tournamentId: string) => {
         if (!heavyByTournamentId.has(tournamentId)) {
@@ -1350,6 +1367,17 @@ export async function bulkUniversalPlayerMatchImportAction(
 
         affectedMatches.add(matchGameId);
 
+        if (!preloadedGames.has(matchGameId)) {
+          preloadedGames.add(matchGameId);
+          const existingTRs = await tx.matchTeamResult.findMany({
+            where: { matchGameId },
+            select: { id: true, matchGameId: true, teamId: true, rank: true, placePoints: true, elimsPoints: true },
+          });
+          for (const tr of existingTRs) {
+            teamResultsCache.set(`${tr.matchGameId}_${tr.teamId}`, tr);
+          }
+        }
+
         // 4. Match Team: Exact first, then fuzzy with ambiguity check
         const cleanTeamInput = cleanStr(teamRaw);
         let matchedTeam =
@@ -1510,89 +1538,74 @@ export async function bulkUniversalPlayerMatchImportAction(
         // 6. Cascade / Non-destructive Team Result Check (Requirement 3)
         const teamResultKey = `${matchGameId}_${matchedTeam.id}`;
         let existingTeamResult = teamResultsCache.get(teamResultKey);
-        if (existingTeamResult === undefined) {
-          existingTeamResult = await tx.matchTeamResult.findFirst({
-            where: {
-              matchGameId,
-              teamId: matchedTeam.id,
-            },
-          });
-          teamResultsCache.set(teamResultKey, existingTeamResult || null);
-        }
 
-      const teamRank = Number(row.team_rank || row.teamRank) || (existingTeamResult ? existingTeamResult.rank : 1);
-      const isTeamWwcd = parseWwcd(row.team_wwcd ?? row.teamWwcd ?? row.wwcd, teamRank);
+        const teamRank = Number(row.team_rank || row.teamRank) || (existingTeamResult ? existingTeamResult.rank : 1);
+        const isTeamWwcd = parseWwcd(row.team_wwcd ?? row.teamWwcd ?? row.wwcd, teamRank);
 
-      const teamPlacePoints =
-        row.team_place != null && String(row.team_place).trim() !== ''
-          ? Number(row.team_place)
-          : existingTeamResult
-          ? existingTeamResult.placePoints
-          : getPlacementPoints(teamRank, pointsMatrix);
+        const teamPlacePoints =
+          row.team_place != null && String(row.team_place).trim() !== ''
+            ? Number(row.team_place)
+            : existingTeamResult
+            ? existingTeamResult.placePoints
+            : getPlacementPoints(teamRank, pointsMatrix);
 
-      const teamElimsCount =
-        row.team_elims != null && String(row.team_elims).trim() !== ''
-          ? Number(row.team_elims)
-          : existingTeamResult
-          ? existingTeamResult.elimsPoints / killMultiplier
-          : Number(row.elims || 0);
+        const teamElimsCount =
+          row.team_elims != null && String(row.team_elims).trim() !== ''
+            ? Number(row.team_elims)
+            : existingTeamResult
+            ? existingTeamResult.elimsPoints / killMultiplier
+            : Number(row.elims || 0);
 
-      const teamElimsPoints = teamElimsCount * killMultiplier;
-      const teamTotalPoints =
-        row.team_total != null && String(row.team_total).trim() !== ''
-          ? Number(row.team_total)
-          : computeTotalPoints({ placePoints: teamPlacePoints, elimsPoints: teamElimsPoints, bonusPoints: 0 });
+        const teamElimsPoints = teamElimsCount * killMultiplier;
+        const teamTotalPoints =
+          row.team_total != null && String(row.team_total).trim() !== ''
+            ? Number(row.team_total)
+            : computeTotalPoints({ placePoints: teamPlacePoints, elimsPoints: teamElimsPoints, bonusPoints: 0 });
 
-        if (!existingTeamResult) {
-          // Create new team result record if not previously entered
-          const newTeamResult = await tx.matchTeamResult.create({
-            data: {
-              matchGameId,
-              teamId: matchedTeam.id,
-              shortCode: matchedTeam.tag || matchedTeam.name.slice(0, 3).toUpperCase(),
-              rank: teamRank,
-              wwcd: isTeamWwcd,
-              placePoints: teamPlacePoints,
-              elimsPoints: teamElimsPoints,
-              bonusPoints: 0,
-              totalPoints: teamTotalPoints,
-              survivalTime: Number(row.survivalTime) || 0,
-              damage: Number(row.damage) || 0,
-              healing: Number(row.healing) || 0,
-              damageReceived: Number(row.damageReceived) || 0,
-              headshots: Number(row.headshots) || 0,
-              assists: Number(row.assists) || 0,
-              knockouts: Number(row.knockouts) || 0,
-              longestElim: Number(row.longestElim) || 0,
-              vehicleElims: Number(row.vehicleElims) || 0,
-              grenadeElims: Number(row.grenadeElims) || 0,
-              smokesUsed: Number(row.smokesUsed) || 0,
-              grenadesUsed: Number(row.grenadesUsed) || 0,
-              molotovsUsed: Number(row.molotovsUsed) || 0,
-              flashUsed: Number(row.flashUsed) || 0,
-              utilitiesTotal: Number(row.utilities) || 0,
-              airdrops: Number(row.airdrops) || 0,
-              rescues: Number(row.rescues) || 0,
-              distDrove: Number(row.distDrove) || 0,
-              distWalk: Number(row.distWalk) || 0,
-              totalDist: Number(row.total_dist || row.totalDist) || 0,
-            },
-          });
-          teamResultsCache.set(teamResultKey, newTeamResult);
-        } else if (row.team_rank != null || row.team_wwcd != null || row.team_place != null) {
-          // Update team result gently without overwriting unrelated fields
-          const updatedTeamResult = await tx.matchTeamResult.update({
-            where: { id: existingTeamResult.id },
-            data: {
-              rank: teamRank,
-              wwcd: isTeamWwcd,
-              placePoints: teamPlacePoints,
-              elimsPoints: teamElimsPoints,
-              totalPoints: teamTotalPoints,
-            },
-          });
-          teamResultsCache.set(teamResultKey, updatedTeamResult);
-        }
+        const teamPayload = {
+          shortCode: matchedTeam.tag || matchedTeam.name.slice(0, 3).toUpperCase(),
+          rank: teamRank,
+          wwcd: isTeamWwcd,
+          placePoints: teamPlacePoints,
+          elimsPoints: teamElimsPoints,
+          bonusPoints: 0,
+          totalPoints: teamTotalPoints,
+          survivalTime: Number(row.survivalTime) || 0,
+          damage: Number(row.damage) || 0,
+          healing: Number(row.healing) || 0,
+          damageReceived: Number(row.damageReceived) || 0,
+          headshots: Number(row.headshots) || 0,
+          assists: Number(row.assists) || 0,
+          knockouts: Number(row.knockouts) || 0,
+          longestElim: Number(row.longestElim) || 0,
+          vehicleElims: Number(row.vehicleElims) || 0,
+          grenadeElims: Number(row.grenadeElims) || 0,
+          smokesUsed: Number(row.smokesUsed) || 0,
+          grenadesUsed: Number(row.grenadesUsed) || 0,
+          molotovsUsed: Number(row.molotovsUsed) || 0,
+          flashUsed: Number(row.flashUsed) || 0,
+          utilitiesTotal: Number(row.utilities) || 0,
+          airdrops: Number(row.airdrops) || 0,
+          rescues: Number(row.rescues) || 0,
+          distDrove: Number(row.distDrove) || 0,
+          distWalk: Number(row.distWalk) || 0,
+          totalDist: Number(row.total_dist || row.totalDist) || 0,
+          won: isTeamWwcd,
+          score: teamTotalPoints,
+        };
+
+        // Cache so subsequent players of the same team can inherit values
+        teamResultsCache.set(teamResultKey, {
+          rank: teamRank,
+          placePoints: teamPlacePoints,
+          elimsPoints: teamElimsPoints,
+        });
+
+        pendingTeamResults.set(teamResultKey, {
+          matchGameId,
+          teamId: matchedTeam.id,
+          payload: teamPayload,
+        });
 
         // 7. Upsert Player Stats into MatchPlayerStat
         const playerElims = Number(row.elims || row.kills || 0);
@@ -1652,20 +1665,54 @@ export async function bulkUniversalPlayerMatchImportAction(
           kills: playerElims,
         };
 
-        // One stat row per (game, player) — DB-enforced, race-safe upsert.
-        await tx.matchPlayerStat.upsert({
-          where: {
-            matchGameId_playerId: { matchGameId, playerId: matchedPlayer.id },
-          },
-          update: playerStatPayload,
-          create: {
-            matchGameId,
-            playerId: matchedPlayer.id,
-            ...playerStatPayload,
-          },
+        pendingPlayerStats.push({
+          matchGameId,
+          playerId: matchedPlayer.id,
+          payload: playerStatPayload,
         });
+      }
 
-        totalInsertedPlayerStats++;
+      // Execute batch team result upserts in concurrent chunks of 25
+      const teamResultOps = Array.from(pendingTeamResults.values());
+      const CHUNK_SIZE = 25;
+      for (let c = 0; c < teamResultOps.length; c += CHUNK_SIZE) {
+        const slice = teamResultOps.slice(c, c + CHUNK_SIZE);
+        await Promise.all(
+          slice.map((item) =>
+            tx.matchTeamResult.upsert({
+              where: {
+                matchGameId_teamId: { matchGameId: item.matchGameId, teamId: item.teamId },
+              },
+              update: item.payload,
+              create: {
+                matchGameId: item.matchGameId,
+                teamId: item.teamId,
+                ...item.payload,
+              },
+            })
+          )
+        );
+      }
+
+      // Execute batch player stat upserts in concurrent chunks of 25
+      for (let c = 0; c < pendingPlayerStats.length; c += CHUNK_SIZE) {
+        const slice = pendingPlayerStats.slice(c, c + CHUNK_SIZE);
+        await Promise.all(
+          slice.map((item) =>
+            tx.matchPlayerStat.upsert({
+              where: {
+                matchGameId_playerId: { matchGameId: item.matchGameId, playerId: item.playerId },
+              },
+              update: item.payload,
+              create: {
+                matchGameId: item.matchGameId,
+                playerId: item.playerId,
+                ...item.payload,
+              },
+            })
+          )
+        );
+        totalInsertedPlayerStats += slice.length;
       }
     }, {
       maxWait: 20000,

@@ -37,6 +37,7 @@ const SHOW_OTHER_GAMES = false;
 export const NAV_ITEMS = [
   { label: 'Tournaments', href: '/tournaments' },
   { label: 'Teams', href: '/teams' },
+  { label: 'Players', href: '/players' },
   { label: 'Rankings', href: '/rankings' },
   { label: 'Compare', href: '/compare' },
   { label: 'News', href: '/news' },

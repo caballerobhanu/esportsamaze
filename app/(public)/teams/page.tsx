@@ -9,6 +9,7 @@ import prisma from '@/lib/prisma';
 import { TeamsDirectoryExplorer } from '@/components/teams/teams-directory-explorer';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: 'Teams Hub | eSportsAmaze — Rosters, Profiles & Tournament History',
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
 
 async function getTeamsDirectoryData() {
   try {
-    return await prisma.team.findMany({
+    const res = await prisma.team.findMany({
       where: { isVerified: true },
       select: {
         id: true,
@@ -51,6 +52,7 @@ async function getTeamsDirectoryData() {
       },
       orderBy: { name: 'asc' },
     });
+    return res;
   } catch (error) {
     console.error('Failed to fetch teams directory data:', error);
     return [];

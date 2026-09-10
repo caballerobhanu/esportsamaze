@@ -6,18 +6,9 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('FATAL: DATABASE_URL environment variable is missing in production environment.');
-    }
-    const devPassword = process.env.POSTGRES_PASSWORD || 'postgres';
-    const devFallback = `postgresql://postgres:${devPassword}@127.0.0.1:5433/esportsamaze?schema=public`;
-    return new PrismaClient({
-      adapter: new PrismaPg({ connectionString: devFallback }),
-      log: ['query', 'error', 'warn'],
-    });
-  }
+  const connectionString =
+    process.env.DATABASE_URL ||
+    `postgresql://postgres:${process.env.POSTGRES_PASSWORD || 'password123'}@localhost:5433/esportsamaze?schema=public`;
 
   const adapter = new PrismaPg({ connectionString });
 
@@ -27,7 +18,7 @@ function createPrismaClient() {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const prisma = createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 

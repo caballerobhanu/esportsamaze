@@ -72,6 +72,7 @@ export interface StandingsCustomTab {
   description?: string;
   includeStages: string[];
   zones?: ZoneRule[];
+  groupZones?: Record<string, ZoneRule[]>;
   excludeEliminatedFromStages?: string[];
   excludeEliminatedFromStage?: string; // backwards compatibility
   precedenceFromTabIds?: string[];

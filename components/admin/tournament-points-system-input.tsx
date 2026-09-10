@@ -16,10 +16,14 @@ export function TournamentPointsSystemInput({
   const initialKillPts = readKillMultiplier(initialFormatDetails);
   const initialCustomTitle = initialFormatDetails?.systemName || '';
   const initialCustomDesc = initialFormatDetails?.systemDescription || '';
+  const initialOverview = initialFormatDetails?.formatOverview || '';
+  const initialRules = initialFormatDetails?.rulesAndTiebreakers || '';
 
   const [selectedSystem, setSelectedSystem] = useState<string>(initialSystemId);
   const [systemName, setSystemName] = useState<string>(initialCustomTitle);
   const [systemDescription, setSystemDescription] = useState<string>(initialCustomDesc);
+  const [formatOverview, setFormatOverview] = useState<string>(initialOverview);
+  const [rulesAndTiebreakers, setRulesAndTiebreakers] = useState<string>(initialRules);
   const [killPoints, setKillPoints] = useState<number>(initialKillPts);
   const [maxRanks, setMaxRanks] = useState<number>(() => {
     if (initialMatrix && typeof initialMatrix === 'object') {
@@ -99,11 +103,17 @@ export function TournamentPointsSystemInput({
       pointsSystem: selectedSystem,
       systemName: systemName.trim() || currentPreset?.name || 'Official Points System',
       systemDescription: systemDescription.trim() || currentPreset?.description || '',
+      formatOverview: formatOverview.trim(),
+      rulesAndTiebreakers: rulesAndTiebreakers.trim(),
       placementPoints: customPlacement,
       killPointsPerElim: Number(killPoints) || 1,
       killPoints: Number(killPoints) || 1,
+      ...(initialFormatDetails?.calendarPhases ? { calendarPhases: initialFormatDetails.calendarPhases } : {}),
+      ...(initialFormatDetails?.featuredStage ? { featuredStage: initialFormatDetails.featuredStage } : {}),
+      ...(initialFormatDetails?.backdropText ? { backdropText: initialFormatDetails.backdropText } : {}),
+      ...(initialFormatDetails?.stageFormats ? { stageFormats: initialFormatDetails.stageFormats } : {}),
     };
-  }, [selectedSystem, systemName, systemDescription, customPlacement, killPoints, currentPreset]);
+  }, [selectedSystem, systemName, systemDescription, formatOverview, rulesAndTiebreakers, customPlacement, killPoints, currentPreset, initialFormatDetails]);
 
   const inputCls =
     'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue) transition-all';
@@ -262,6 +272,46 @@ export function TournamentPointsSystemInput({
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Format Overview & Editorial Rules (Format Tab Editorial) */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Edit3 className="w-4 h-4 text-(--ed-blue)" />
+          <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+            Format Tab Editorial & Custom Rules
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Format Overview & Progression Narrative</label>
+            <textarea
+              rows={4}
+              value={formatOverview}
+              onChange={(e) => setFormatOverview(e.target.value)}
+              placeholder="e.g. 64 teams divided into 4 groups. Top 8 from each group advance directly to Grand Finals, while remaining teams battle through Survival and Last Chance stages..."
+              className={inputCls}
+            />
+            <p className="mt-1 text-[10px] text-slate-400">
+              Summarizes the tournament progression structure in the public Format Tab.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelCls}>Tiebreaker & Specific Match Rules</label>
+            <textarea
+              rows={4}
+              value={rulesAndTiebreakers}
+              onChange={(e) => setRulesAndTiebreakers(e.target.value)}
+              placeholder="e.g. 1. Total WWCD count&#10;2. Total Placement Points&#10;3. Total Finish/Kill Points&#10;4. Best placement in final match of the stage"
+              className={inputCls}
+            />
+            <p className="mt-1 text-[10px] text-slate-400">
+              Displayed in the official rules and tiebreaker cards on the tournament Format Tab.
+            </p>
+          </div>
         </div>
       </div>
     </div>

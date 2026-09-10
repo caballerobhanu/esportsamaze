@@ -75,4 +75,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-
+// Server config updated: 2026-09-11
