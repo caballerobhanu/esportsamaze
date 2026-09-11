@@ -388,7 +388,13 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
       if (!e || typeof e !== 'object') return false;
       const entry = e as { playerId?: string | null; ign?: string; isStaff?: boolean };
       if (entry.isStaff) return false;
-      if (entry.playerId) return entry.playerId === player.id;
+      // If playerId is explicitly specified on the entry:
+      // - It MUST match this player's id.
+      // - If null (explicitly unlinked IGN) or different id, it does NOT belong to this player.
+      if ('playerId' in entry && entry.playerId !== undefined) {
+        return entry.playerId === player.id;
+      }
+      // Legacy fallback only for old records where playerId was not defined
       return (entry.ign ?? '').trim().toLowerCase() === ignLower;
     });
 

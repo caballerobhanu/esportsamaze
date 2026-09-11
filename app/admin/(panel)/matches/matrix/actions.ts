@@ -1435,19 +1435,25 @@ export async function bulkUniversalPlayerMatchImportAction(
         // prioritize matching the player belonging to this row's team or roster.
         const cleanPlayerIgn = cleanStr(playerRaw);
 
-        // Check if tournament team roster already has this player's id
+        // Check if tournament team roster already has this player's id or unlinked status
         const existingTourneyTeam = tourneyData.teams.find((tt) => tt.teamId === matchedTeam!.id);
         let rosterPlayerId: string | undefined;
+        let isExplicitlyUnlinkedInRoster = false;
+        let matchedRosterEntry: any = null;
         if (existingTourneyTeam) {
           const roster = Array.isArray(existingTourneyTeam.rosterJson)
             ? (existingTourneyTeam.rosterJson as any[])
             : [];
-          const rosterEntry = roster.find((p) => {
+          matchedRosterEntry = roster.find((p) => {
             const ign = typeof p === 'string' ? p : p?.ign;
             return cleanStr(ign) === cleanPlayerIgn;
           });
-          if (rosterEntry && typeof rosterEntry === 'object' && rosterEntry.playerId) {
-            rosterPlayerId = rosterEntry.playerId;
+          if (matchedRosterEntry && typeof matchedRosterEntry === 'object') {
+            if (matchedRosterEntry.playerId) {
+              rosterPlayerId = matchedRosterEntry.playerId;
+            } else if (matchedRosterEntry.playerId === null) {
+              isExplicitlyUnlinkedInRoster = true;
+            }
           }
         }
 
@@ -1455,17 +1461,54 @@ export async function bulkUniversalPlayerMatchImportAction(
           (rosterPlayerId ? allPlayers.find((p) => p.id === rosterPlayerId) : undefined) ||
           allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn && p.currentTeamId === matchedTeam.id);
 
-        // If not matched on this team, check if an unassigned player with this exact IGN exists
-        if (!matchedPlayer) {
+        // If not matched on this team, check if an unassigned player with this exact IGN exists (only if not unlinked in roster)
+        if (!matchedPlayer && !isExplicitlyUnlinkedInRoster) {
           matchedPlayer = allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn && !p.currentTeamId);
         }
+
+        const rawPlayerVerified =
+          row.playerVerified ??
+          row.PlayerVerified ??
+          row.player_verified ??
+          row.isVerified ??
+          row.Verified ??
+          row.verified ??
+          row.athlete ??
+          row.Athlete;
+
+        const isExplicitlyUnverified =
+          rawPlayerVerified === false ||
+          rawPlayerVerified === 0 ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'false' ||
+          String(rawPlayerVerified).trim().toLowerCase() === '0' ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'no' ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'unverified' ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'amateur';
+
+        const isExplicitlyVerified =
+          rawPlayerVerified === true ||
+          rawPlayerVerified === 1 ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'true' ||
+          String(rawPlayerVerified).trim().toLowerCase() === '1' ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'yes' ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'verified' ||
+          String(rawPlayerVerified).trim().toLowerCase() === 'pro';
+
+        const shouldVerifyPlayer =
+          isExplicitlyUnverified
+            ? false
+            : isExplicitlyVerified
+            ? true
+            : isExplicitlyUnlinkedInRoster
+            ? false
+            : !isQualifier;
 
         // Check if an existing player has this exact IGN
         const playerOnOtherTeam = allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn);
 
         // In Main Event mode (!isQualifier), if a verified player with this exact IGN exists on another team,
-        // link to them so their career stats span both teams instead of generating duplicate slug spam!
-        if (!matchedPlayer && !isQualifier && playerOnOtherTeam) {
+        // link to them ONLY IF not explicitly designated as unlinked or unverified!
+        if (!matchedPlayer && !isQualifier && !isExplicitlyUnlinkedInRoster && !isExplicitlyUnverified && playerOnOtherTeam) {
           matchedPlayer = playerOnOtherTeam;
         }
 
@@ -1501,25 +1544,29 @@ export async function bulkUniversalPlayerMatchImportAction(
               role: defaultPlayerRole,
               gameId: defaultGame.id,
               currentTeamId: matchedTeam.id,
-              isVerified: !isQualifier,
-              status: isQualifier ? 'UNVERIFIED' : 'ACTIVE',
+              isVerified: shouldVerifyPlayer,
+              status: shouldVerifyPlayer ? 'ACTIVE' : 'UNVERIFIED',
             },
           });
           allPlayers.push({ id: matchedPlayer.id, ign: matchedPlayer.ign, currentTeamId: matchedTeam.id });
           totalCreatedPlayers++;
         }
 
-        // Ensure player is added to tournament squad roster if not already present
+        // Ensure player is added or linked in tournament squad roster
         if (existingTourneyTeam) {
           const roster = Array.isArray(existingTourneyTeam.rosterJson)
             ? (existingTourneyTeam.rosterJson as any[])
             : [];
-          const hasPlayer = roster.some((p) => {
-            const ign = typeof p === 'string' ? p : p?.ign;
-            return cleanStr(ign) === cleanPlayerIgn;
-          });
 
-          if (!hasPlayer) {
+          if (matchedRosterEntry && typeof matchedRosterEntry === 'object' && !matchedRosterEntry.playerId) {
+            matchedRosterEntry.playerId = matchedPlayer.id;
+            await tx.tournamentTeam
+              .update({
+                where: { id: existingTourneyTeam.id },
+                data: { rosterJson: roster },
+              })
+              .catch(() => null);
+          } else if (!matchedRosterEntry) {
             const updatedRoster = [
               ...roster,
               {

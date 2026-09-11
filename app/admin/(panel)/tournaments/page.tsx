@@ -575,45 +575,28 @@ async function saveTournament(formData: FormData) {
         }
 
         // Automated Transfer History Logging - Batched high-speed execution
-        const explicitPlayerIds: string[] = [];
-        const ignList: string[] = [];
+        // Only process transfers for explicitly linked players (ignore unlinked IGN entries)
+        const explicitPlayerIds = Array.from(
+          new Set(
+            squadsList
+              .filter((s) => Boolean(s?.teamId))
+              .flatMap((s) => s.roster || [])
+              .map((p) => p.playerId)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
 
-        for (const squad of squadsList) {
-          if (!squad?.teamId) continue;
-          for (const p of squad.roster || []) {
-            if (p.playerId) {
-              explicitPlayerIds.push(p.playerId);
-            } else if (p.ign && p.ign.trim()) {
-              ignList.push(p.ign.trim());
-            }
-          }
-        }
-
-        const [playersById, playersByIgn] = await Promise.all([
+        const playersById =
           explicitPlayerIds.length > 0
-            ? tx.player.findMany({
-                where: { id: { in: Array.from(new Set(explicitPlayerIds)) } },
+            ? await tx.player.findMany({
+                where: { id: { in: explicitPlayerIds } },
                 select: { id: true, ign: true, currentTeamId: true },
               })
-            : [],
-          ignList.length > 0
-            ? tx.player.findMany({
-                where: {
-                  ign: { in: Array.from(new Set(ignList)), mode: 'insensitive' },
-                },
-                select: { id: true, ign: true, currentTeamId: true },
-              })
-            : [],
-        ]);
+            : [];
 
         const playerByIdMap = new Map<string, { id: string; ign: string; currentTeamId: string | null }>();
         for (const pl of playersById) {
           playerByIdMap.set(pl.id, pl);
-        }
-
-        const playerByIgnMap = new Map<string, { id: string; ign: string; currentTeamId: string | null }>();
-        for (const pl of playersByIgn) {
-          playerByIgnMap.set(pl.ign.trim().toLowerCase(), pl);
         }
 
         interface PendingTransfer {
@@ -630,10 +613,8 @@ async function saveTournament(formData: FormData) {
           if (!squad?.teamId) continue;
           const roster = Array.isArray(squad.roster) ? squad.roster : [];
           for (const p of roster) {
-            let player = p.playerId ? playerByIdMap.get(p.playerId) : undefined;
-            if (!player && p.ign) {
-              player = playerByIgnMap.get(p.ign.trim().toLowerCase());
-            }
+            if (!p.playerId) continue;
+            const player = playerByIdMap.get(p.playerId);
 
             if (player && player.currentTeamId !== squad.teamId) {
               const transferType =
