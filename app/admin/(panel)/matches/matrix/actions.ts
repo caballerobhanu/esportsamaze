@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
+import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { isAdmin } from '@/lib/admin-auth';
 import {
   getPlacementPoints,
@@ -133,10 +134,42 @@ function parseUniversalDateAndTime(
     cleanTime = `${cleanTime} ${cleanTz}`;
   }
 
+  // Timezone offsets in minutes
+  const tzOffsets: Record<string, number> = {
+    IST: 330, // UTC+5:30
+    AST: 180, // UTC+3:00
+    GST: 240, // UTC+4:00
+    BST: 360, // UTC+6:00
+    PKT: 300, // UTC+5:00
+    NPT: 345, // UTC+5:45
+    SGT: 480, // UTC+8:00
+    MYT: 480, // UTC+8:00
+    PHT: 480, // UTC+8:00
+    ICT: 420, // UTC+7:00
+    WIB: 420, // UTC+7:00
+    KST: 540, // UTC+9:00
+    JST: 540, // UTC+9:00
+    CST: 480, // UTC+8:00
+    HKT: 480, // UTC+8:00
+    GMT: 0,
+    UTC: 0,
+    CET: 60,
+    CEST: 120,
+    EST: -300,
+    EDT: -240,
+    PST: -480,
+    PDT: -420,
+  };
+
+  const offsetMinutes = tzOffsets[cleanTz] ?? 330;
+
   const now = new Date();
-  let year = now.getUTCFullYear();
-  let month = now.getUTCMonth() + 1; // 1-indexed
-  let day = now.getUTCDate();
+  // Wall-clock "today" in the target zone — using UTC's Y/M/D here then
+  // subtracting the offset shifted near-midnight imports to the wrong day.
+  const tzNow = new Date(now.getTime() + offsetMinutes * 60 * 1000);
+  let year = tzNow.getUTCFullYear();
+  let month = tzNow.getUTCMonth() + 1; // 1-indexed
+  let day = tzNow.getUTCDate();
 
   if (dateStr != null && String(dateStr).trim() !== '') {
     const s = String(dateStr).trim();
@@ -180,34 +213,6 @@ function parseUniversalDateAndTime(
     }
   }
 
-  // Timezone offsets in minutes
-  const tzOffsets: Record<string, number> = {
-    IST: 330, // UTC+5:30
-    AST: 180, // UTC+3:00
-    GST: 240, // UTC+4:00
-    BST: 360, // UTC+6:00
-    PKT: 300, // UTC+5:00
-    NPT: 345, // UTC+5:45
-    SGT: 480, // UTC+8:00
-    MYT: 480, // UTC+8:00
-    PHT: 480, // UTC+8:00
-    ICT: 420, // UTC+7:00
-    WIB: 420, // UTC+7:00
-    KST: 540, // UTC+9:00
-    JST: 540, // UTC+9:00
-    CST: 480, // UTC+8:00
-    HKT: 480, // UTC+8:00
-    GMT: 0,
-    UTC: 0,
-    CET: 60,
-    CEST: 120,
-    EST: -300,
-    EDT: -240,
-    PST: -480,
-    PDT: -420,
-  };
-
-  const offsetMinutes = tzOffsets[cleanTz] ?? 330;
   const utcTimestamp = Date.UTC(year, month - 1, day, hours, minutes) - offsetMinutes * 60 * 1000;
   const scheduledDate = new Date(utcTimestamp);
 
@@ -773,7 +778,9 @@ export async function saveMultiMatchMatrixAction(
     // every cell instead of committing a half-written scorecard.
     await prisma.$transaction(async (tx) => {
       for (const matchItem of matchesData) {
-        const { matchId, matchGameId, status = 'COMPLETED', results } = matchItem;
+        // `status` is only sent when the client considers the scorecard fully
+        // filled — partial saves must leave the match's current status alone.
+        const { matchId, matchGameId, status, results } = matchItem;
         if (!matchGameId || !Array.isArray(results)) continue;
 
         for (const res of results) {
@@ -854,7 +861,7 @@ export async function saveMultiMatchMatrixAction(
           });
         }
 
-        if (results.length > 0) {
+        if (status && results.length > 0) {
           await tx.match.update({
             where: { id: matchId },
             data: { status },
@@ -871,10 +878,7 @@ export async function saveMultiMatchMatrixAction(
     try {
       revalidatePath('/admin/matches');
       revalidatePath('/admin/matches/matrix');
-      revalidatePath('/tournaments');
-      if (tournament?.slug) {
-        revalidatePath(`/tournaments/${tournament.slug}`);
-      }
+      revalidateTournamentPages(tournament?.slug ?? undefined);
     } catch {
       // Ignored in script contexts
     }
@@ -1112,6 +1116,12 @@ export async function bulkUniversalPlayerMatchImportAction(
         const pendingTeamResults = new Map<string, { matchGameId: string; teamId: string; payload: any }>();
         const pendingPlayerStats: Array<{ matchGameId: string; playerId: string; payload: any }> = [];
         const heavyByTournamentId = new Map<string, { stages: any[]; teams: any[]; matches: any[] }>();
+        // Teams whose result row is being authored by THIS import: their
+        // elims are the sum of the individual player rows seen so far, not
+        // one player's kills. `dbBackedTeams` marks (game, team) pairs that
+        // already had a DB result before the run — those are authoritative.
+        const teamAwareTeams = new Set<string>();
+        const dbBackedTeams = new Set<string>();
       const loadHeavy = async (tournamentId: string) => {
         if (!heavyByTournamentId.has(tournamentId)) {
           const full = await tx.tournament.findUnique({
@@ -1375,6 +1385,7 @@ export async function bulkUniversalPlayerMatchImportAction(
           });
           for (const tr of existingTRs) {
             teamResultsCache.set(`${tr.matchGameId}_${tr.teamId}`, tr);
+            dbBackedTeams.add(`${tr.matchGameId}_${tr.teamId}`);
           }
         }
 
@@ -1668,12 +1679,27 @@ export async function bulkUniversalPlayerMatchImportAction(
             ? existingTeamResult.placePoints
             : getPlacementPoints(teamRank, pointsMatrix);
 
-        const teamElimsCount =
-          row.team_elims != null && String(row.team_elims).trim() !== ''
-            ? Number(row.team_elims)
-            : existingTeamResult
+        const rawTeamElims = row.team_elims ?? row.teamElims;
+        const hasExplicitTeamElims = rawTeamElims != null && String(rawTeamElims).trim() !== '';
+        if (hasExplicitTeamElims) teamAwareTeams.add(teamResultKey);
+
+        let teamElimsCount: number;
+        if (hasExplicitTeamElims) {
+          teamElimsCount = Number(rawTeamElims);
+        } else if (teamAwareTeams.has(teamResultKey) || dbBackedTeams.has(teamResultKey)) {
+          // A team-level figure already exists (explicit column earlier in the
+          // paste, or a pre-existing DB result) — inherit it for every player
+          // row of the team instead of recomputing from one player.
+          teamElimsCount = existingTeamResult
             ? existingTeamResult.elimsPoints / killMultiplier
-            : Number(row.elims || 0);
+            : 0;
+        } else {
+          // Player-rows-only paste with no team result yet: the team's elims
+          // are the running sum of its players' rows.
+          teamElimsCount =
+            (existingTeamResult ? existingTeamResult.elimsPoints / killMultiplier : 0) +
+            Number(row.elims || row.kills || 0);
+        }
 
         const teamElimsPoints = teamElimsCount * killMultiplier;
         const teamTotalPoints =
@@ -1841,15 +1867,9 @@ export async function bulkUniversalPlayerMatchImportAction(
     try {
       revalidatePath('/admin/matches');
       revalidatePath('/admin/matches/matrix');
-      revalidatePath('/tournaments');
-      for (const tId of affectedTournaments) {
-        const t = allTournaments.find((x) => x.id === tId);
-        if (t?.slug) {
-          revalidatePath(`/tournaments/${t.slug}`);
-        }
-      }
-      revalidatePath('/tournaments');
-      revalidatePath('/admin/matches');
+      // Player imports can touch several tournaments — pattern revalidation
+      // covers every tournament's tab routes in one call.
+      revalidateTournamentPages();
       revalidatePath('/');
     } catch {
       // Ignored when invoked in background/script contexts
@@ -1878,17 +1898,5 @@ export async function bulkUniversalPlayerMatchImportAction(
       errors: [error?.message || 'Internal error'],
     };
   }
-}
-
-/**
- * Server action to fetch and parse match results from a Liquipedia URL.
- */
-export async function fetchLiquipediaMatchAction(urlStr: string) {
-  if (!(await isAdmin())) {
-    redirect('/admin/login');
-  }
-
-  const { fetchLiquipediaMatchUrl } = await import('@/lib/liquipedia-parser');
-  return fetchLiquipediaMatchUrl(urlStr);
 }
 

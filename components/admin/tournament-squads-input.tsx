@@ -474,6 +474,7 @@ export function TournamentSquadsInput({
                       <label className={labelCls}>Linked Qualifier Event</label>
                       <SearchableSelect
                         options={tournamentOptions}
+                        searchUrl="/api/admin/search?type=tournament"
                         value={squad.seedTournamentId ?? ''}
                         size="admin"
                         placeholder="— none (standalone label) —"

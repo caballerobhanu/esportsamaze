@@ -128,13 +128,6 @@ export function Navbar() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // Mobile tab bar "More" tab opens this drawer (components/mobile-tab-bar.tsx)
-  React.useEffect(() => {
-    const openDrawer = () => setMobileDrawerOpen(true);
-    window.addEventListener('esamaze:open-drawer', openDrawer);
-    return () => window.removeEventListener('esamaze:open-drawer', openDrawer);
-  }, []);
-
   const openSearch = () => {
     lastTriggerRef.current = document.activeElement as HTMLElement | null;
     setOtherGamesOpen(false);
@@ -218,8 +211,17 @@ export function Navbar() {
   }, [searchOpen, allResults, selectedIndex, mobileDrawerOpen, handleItemSelect]);
 
   const totalResults = allResults.length;
-  // Track item index across categories for unified keyboard selection
-  let currentRunningIndex = 0;
+  // Precomputed flat indices per category for unified keyboard selection —
+  // a running counter mutated during JSX render would make the render impure.
+  const categoryOffsets = React.useMemo(() => {
+    let acc = 0;
+    const offsets = {} as Record<keyof SearchResponseData, number>;
+    (Object.keys(searchResults) as (keyof SearchResponseData)[]).forEach((key) => {
+      offsets[key] = acc;
+      acc += searchResults[key].length;
+    });
+    return offsets;
+  }, [searchResults]);
 
   return (
     <>
@@ -498,8 +500,8 @@ export function Navbar() {
                     <Users className="w-3.5 h-3.5 text-(--ed-blue)" /> Teams ({searchResults.teams.length})
                   </div>
                   <div className="space-y-1 mt-1">
-                    {searchResults.teams.map((item) => {
-                      const itemIdx = currentRunningIndex++;
+                    {searchResults.teams.map((item, idx) => {
+                      const itemIdx = categoryOffsets.teams + idx;
                       const isSelected = itemIdx === selectedIndex;
                       return (
                         <button
@@ -550,8 +552,8 @@ export function Navbar() {
                     <User className="w-3.5 h-3.5 text-amber-500" /> Players ({searchResults.players.length})
                   </div>
                   <div className="space-y-1 mt-1">
-                    {searchResults.players.map((item) => {
-                      const itemIdx = currentRunningIndex++;
+                    {searchResults.players.map((item, idx) => {
+                      const itemIdx = categoryOffsets.players + idx;
                       const isSelected = itemIdx === selectedIndex;
                       return (
                         <button
@@ -602,8 +604,8 @@ export function Navbar() {
                     <Trophy className="w-3.5 h-3.5 text-emerald-500" /> Tournaments ({searchResults.tournaments.length})
                   </div>
                   <div className="space-y-1 mt-1">
-                    {searchResults.tournaments.map((item) => {
-                      const itemIdx = currentRunningIndex++;
+                    {searchResults.tournaments.map((item, idx) => {
+                      const itemIdx = categoryOffsets.tournaments + idx;
                       const isSelected = itemIdx === selectedIndex;
                       return (
                         <button
@@ -654,8 +656,8 @@ export function Navbar() {
                     <Gamepad2 className="w-3.5 h-3.5 text-indigo-500" /> Games ({searchResults.games.length})
                   </div>
                   <div className="space-y-1 mt-1">
-                    {searchResults.games.map((item) => {
-                      const itemIdx = currentRunningIndex++;
+                    {searchResults.games.map((item, idx) => {
+                      const itemIdx = categoryOffsets.games + idx;
                       const isSelected = itemIdx === selectedIndex;
                       return (
                         <button
@@ -697,8 +699,8 @@ export function Navbar() {
                     <Newspaper className="w-3.5 h-3.5 text-(--ed-blue)" /> News & Articles ({searchResults.articles.length})
                   </div>
                   <div className="space-y-1 mt-1">
-                    {searchResults.articles.map((item) => {
-                      const itemIdx = currentRunningIndex++;
+                    {searchResults.articles.map((item, idx) => {
+                      const itemIdx = categoryOffsets.articles + idx;
                       const isSelected = itemIdx === selectedIndex;
                       return (
                         <button

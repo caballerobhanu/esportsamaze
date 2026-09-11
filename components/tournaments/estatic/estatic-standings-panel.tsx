@@ -446,7 +446,9 @@ export function EstaticStandingsPanel({
     if (set.size > 0) {
       return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     }
-    return ['Group A', 'Group B', 'Group C', 'Group D'];
+    // No real groups exist in the match data and none are configured — render
+    // no sub-tabs rather than inventing "Group A…D" that would always be empty.
+    return [];
   }, [activeNavItem, rawStageMatches]);
 
   const effectiveGroupSubTab = React.useMemo(() => {
@@ -1059,6 +1061,9 @@ export function EstaticStandingsPanel({
                 const meta = teams[team.teamId];
                 const cleanName = meta?.displayName || meta?.name || team.teamName;
                 const teamTag = meta?.tag || cleanName.slice(0, 4).toUpperCase();
+                // Prefer the team slug; the public team page also resolves by
+                // name, so an encoded name is a safe fallback (never the DB id).
+                const teamHref = `/teams/${meta?.slug || encodeURIComponent(cleanName)}`;
                 const assignment = teamAssignedZones.get(team.teamId);
                 const isPrec = assignment?.isPrecedence;
                 const zone = assignment?.zone || null;
@@ -1104,7 +1109,7 @@ export function EstaticStandingsPanel({
                     <td className="py-2.5 sm:py-3 pl-2 sm:pl-4 pr-2">
                       <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         <Link
-                          href={`/teams/${team.teamId}`}
+                          href={teamHref}
                           className="relative flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center overflow-hidden rounded-md sm:rounded-xl border border-slate-200 bg-slate-50 shadow-2xs dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
                         >
                           {meta?.logoUrl || meta?.logoDarkUrl ? (
@@ -1123,7 +1128,7 @@ export function EstaticStandingsPanel({
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           {/* Mobile: Short tag */}
                           <Link
-                            href={`/teams/${team.teamId}`}
+                            href={teamHref}
                             className="font-black text-xs text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block sm:hidden uppercase tracking-wide"
                             title={cleanName}
                           >
@@ -1131,7 +1136,7 @@ export function EstaticStandingsPanel({
                           </Link>
                           {/* Desktop: Full squad name */}
                           <Link
-                            href={`/teams/${team.teamId}`}
+                            href={teamHref}
                             className="hidden sm:block font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors truncate"
                           >
                             {cleanName}

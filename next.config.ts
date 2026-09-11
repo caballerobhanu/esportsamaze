@@ -46,10 +46,16 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Dev-only: allow phones/other devices on the LAN to load dev assets when
+  // browsing this machine by IP (http://192.168.1.39:3000). Without this,
+  // Next blocks cross-origin /_next/ requests — pages render but no client
+  // component hydrates (dropdowns, theme toggle, filters all appear dead).
+  // Update the IP if the machine's DHCP address changes. Production
+  // (`next start`) is unaffected by this setting.
+  allowedDevOrigins: ["192.168.1.39"],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
-      { protocol: "https", hostname: "liquipedia.net" },
       { protocol: "https", hostname: "commons.wikimedia.org" },
       { protocol: "https", hostname: "upload.wikimedia.org" },
       { protocol: "https", hostname: "img.youtube.com" },

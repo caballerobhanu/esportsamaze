@@ -74,8 +74,70 @@ async function hasValidSession(token: string | undefined): Promise<boolean> {
   return isValidSessionToken(token, secret);
 }
 
+// Tabs that exist as route segments under /tournaments/<slug>/<tab>
+const KNOWN_TAB_SEGMENTS = new Set([
+  'standings',
+  'matches',
+  'progression',
+  'format',
+  'teams',
+  'prizepool',
+  'statistics',
+]);
+
+/**
+ * Legacy URLs: /tournaments/<slug>?tab=standings&matchId=… served every tab
+ * from one dynamic page. Tabs are route segments now — 308-redirect old
+ * `?tab=` URLs to their route (preserving the remaining params) so indexed
+ * links and shared deep links keep working.
+ */
+function tournamentTabRedirect(request: NextRequest): NextResponse | null {
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Legacy draft-preview shim: /tournaments/<slug>/preview?tab=x&matchId=y
+  const previewMatch = pathname.match(/^\/tournaments\/([^/]+)\/preview$/);
+  if (previewMatch) {
+    const rawTab = searchParams.get('tab');
+    if (rawTab) {
+      const tab = rawTab === 'fraggers' ? 'statistics' : rawTab;
+      if (tab === 'overview') return NextResponse.redirect(new URL(`/tournaments/${previewMatch[1]}`, request.url), 308);
+      if (KNOWN_TAB_SEGMENTS.has(tab)) {
+        searchParams.delete('tab');
+        const rest = searchParams.toString();
+        return NextResponse.redirect(
+          new URL(`/tournaments/${previewMatch[1]}/${tab}${rest ? `?${rest}` : ''}`, request.url),
+          308
+        );
+      }
+    }
+    return NextResponse.redirect(new URL(`/tournaments/${previewMatch[1]}`, request.url), 308);
+  }
+
+  if (!/^\/tournaments\/[^/]+$/.test(pathname)) return null;
+  const rawTab = searchParams.get('tab');
+  if (!rawTab) return null;
+  const tab = rawTab === 'fraggers' ? 'statistics' : rawTab;
+  if (!KNOWN_TAB_SEGMENTS.has(tab)) return null;
+  searchParams.delete('tab');
+  const rest = searchParams.toString();
+  return NextResponse.redirect(
+    new URL(`/tournaments/${pathname.split('/')[2]}/${tab}${rest ? `?${rest}` : ''}`, request.url),
+    308
+  );
+}
+
 export async function proxy(request: NextRequest) {
+  const tabRedirect = tournamentTabRedirect(request);
+  if (tabRedirect) return tabRedirect;
+
   const { pathname } = request.nextUrl;
+
+  // The session gate below only guards the admin panel; tournament routes
+  // matched by the config fall through after the legacy-tab redirect above.
+  if (!pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
+
   if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
     return NextResponse.next();
   }
@@ -88,5 +150,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/admin/:path*',
+  matcher: ['/admin/:path*', '/tournaments/:path*'],
 };

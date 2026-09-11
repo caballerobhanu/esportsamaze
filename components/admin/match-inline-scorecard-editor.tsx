@@ -112,13 +112,25 @@ export function MatchInlineScorecardEditor({
   const [isPending, startTransition] = useTransition();
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Sync with initial props if they change
+  // Sync with initial props only when nothing is locally dirty — a parent
+  // refresh (router.refresh after another admin action) must never silently
+  // discard unsaved edits. The dirty sets are read through refs so that
+  // clearing them after a save does NOT re-trigger a reset from stale props.
+  const dirtyTeamRef = React.useRef(dirtyTeamIds);
+  dirtyTeamRef.current = dirtyTeamIds;
+  const dirtyPlayerRef = React.useRef(dirtyPlayerIds);
+  dirtyPlayerRef.current = dirtyPlayerIds;
+
   React.useEffect(() => {
-    setTeamResults(initialTeamResults);
+    if (dirtyTeamRef.current.size === 0) {
+      setTeamResults(initialTeamResults);
+    }
   }, [initialTeamResults]);
 
   React.useEffect(() => {
-    setPlayerStats(initialPlayerStats);
+    if (dirtyPlayerRef.current.size === 0) {
+      setPlayerStats(initialPlayerStats);
+    }
   }, [initialPlayerStats]);
 
   // ──────────────────────────────────────────────────────────────────────────

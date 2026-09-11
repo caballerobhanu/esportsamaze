@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { publishedVisibility } from '@/lib/news-queries';
 import { baseUrl } from '@/lib/seo';
 
 export const revalidate = 600;
@@ -17,7 +18,7 @@ export async function GET() {
   const base = baseUrl();
 
   const articles = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', deletedAt: null },
+    where: publishedVisibility(),
     orderBy: { publishedAt: 'desc' },
     take: 30,
     select: {

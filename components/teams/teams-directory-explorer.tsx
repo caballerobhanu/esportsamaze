@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  ArrowUpDown,
   Crown,
   Search,
   ShieldCheck,
@@ -39,7 +39,23 @@ export interface TeamsDirectoryItem {
   };
 }
 
-type SortOption = 'name' | 'titles';
+export interface TeamsDirectoryFilters {
+  q: string;
+  status: string;
+  game: string;
+  family: string;
+  region: string;
+  letter: string;
+  sort: string;
+}
+
+export interface TeamsFacetCounts {
+  total: number;
+  statuses: Array<[string, number]>;
+  games: Array<{ slug: string; name: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null; count: number }>;
+  families: Array<{ slug: string; name: string; count: number }>;
+  regions: Array<{ name: string; count: number }>;
+}
 
 const ALPHABET = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
 
@@ -60,349 +76,291 @@ function initials(name: string): string {
     .join('');
 }
 
-function initialOf(name: string): string {
-  const c = name.trim().charAt(0).toUpperCase();
-  return /[A-Z]/.test(c) ? c : '#';
-}
+/* Players-page design language: slate borders, white/#0b101c surfaces,
+   blue-active pills, single-line chips. */
+const chipCls = (active: boolean) =>
+  cn(
+    'inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
+    active
+      ? 'bg-(--ed-blue) text-white shadow-sm'
+      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+  );
+const labelCls = 'text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1';
 
 export function TeamsDirectoryExplorer({
   teams,
+  filters,
+  counts,
+  page = 1,
+  totalPages = 1,
+  basePath = '/teams',
 }: {
   teams: TeamsDirectoryItem[];
+  filters: TeamsDirectoryFilters;
+  counts: TeamsFacetCounts;
+  page?: number;
+  totalPages?: number;
+  basePath?: string;
 }) {
-  const [search, setSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<string>('ALL');
-  const [gameFilter, setGameFilter] = React.useState<string>('ALL');
-  const [familyFilter, setFamilyFilter] = React.useState<string>('ALL');
-  const [regionFilter, setRegionFilter] = React.useState<string>('ALL');
-  const [letterFilter, setLetterFilter] = React.useState<string>('ALL');
-  const [sortBy, setSortBy] = React.useState<SortOption>('name');
+  const router = useRouter();
+  const [search, setSearch] = React.useState(filters.q);
+  const searchSeq = React.useRef(0);
 
-  const games = React.useMemo(() => {
-    const map = new Map<string, { name: string; slug: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null; count: number }>();
-    teams.forEach((t) => {
-      if (!t.game?.slug) return;
-      const entry = map.get(t.game.slug) ?? {
-        name: t.game.name,
-        slug: t.game.slug,
-        shortName: t.game.shortName,
-        logoUrl: t.game.logoUrl,
-        logoDarkUrl: t.game.logoDarkUrl,
-        count: 0,
-      };
-      entry.count += 1;
-      map.set(t.game.slug, entry);
-    });
-    return [...map.values()].sort((a, b) => b.count - a.count);
-  }, [teams]);
+  const [lastUrlQ, setLastUrlQ] = React.useState(filters.q);
+  if (lastUrlQ !== filters.q) {
+    setLastUrlQ(filters.q);
+    setSearch(filters.q);
+  }
 
-  const families = React.useMemo(() => {
-    const map = new Map<string, { slug: string; name: string; count: number }>();
-    teams.forEach((t) => {
-      if (!t.game?.family?.slug) return;
-      const entry = map.get(t.game.family.slug) ?? { slug: t.game.family.slug, name: t.game.family.name, count: 0 };
-      entry.count += 1;
-      map.set(t.game.family.slug, entry);
-    });
-    return [...map.values()].sort((a, b) => b.count - a.count);
-  }, [teams]);
-
-  const regions = React.useMemo(() => {
-    const map = new Map<string, number>();
-    teams.forEach((t) => {
-      const region = t.region?.trim() || 'Global';
-      map.set(region, (map.get(region) ?? 0) + 1);
-    });
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-  }, [teams]);
-
-  const statuses = React.useMemo(() => {
-    const map = new Map<string, number>();
-    teams.forEach((t) => {
-      const status = t.status?.trim() || 'ACTIVE';
-      map.set(status, (map.get(status) ?? 0) + 1);
-    });
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
-  }, [teams]);
-
-  const letterCounts = React.useMemo(() => {
-    const map = new Map<string, number>();
-    teams.forEach((t) => {
-      const key = initialOf(t.displayName || t.name);
-      map.set(key, (map.get(key) ?? 0) + 1);
-    });
-    return map;
-  }, [teams]);
-
-  const filtered = React.useMemo(() => {
-    const list = teams.filter((t) => {
-      const q = search.trim().toLowerCase();
-      if (q) {
-        const name = t.displayName || t.name;
-        const matchesName = name.toLowerCase().includes(q);
-        const matchesTag = t.tag?.toLowerCase().includes(q);
-        const matchesRegion = (t.region || '').toLowerCase().includes(q);
-        const matchesGame = (t.game?.name || '').toLowerCase().includes(q) || (t.game?.shortName || '').toLowerCase().includes(q);
-        if (!matchesName && !matchesTag && !matchesRegion && !matchesGame) {
-          return false;
-        }
-      }
-
-      if (statusFilter !== 'ALL' && (t.status?.trim() || 'ACTIVE') !== statusFilter) {
-        return false;
-      }
-
-      if (gameFilter !== 'ALL' && t.game?.slug !== gameFilter) {
-        return false;
-      }
-
-      if (familyFilter !== 'ALL' && t.game?.family?.slug !== familyFilter) {
-        return false;
-      }
-
-      if (regionFilter !== 'ALL' && (t.region?.trim() || 'Global') !== regionFilter) {
-        return false;
-      }
-
-      if (letterFilter !== 'ALL' && initialOf(t.displayName || t.name) !== letterFilter) {
-        return false;
-      }
-
-      return true;
-    });
-
-    const cmpName = (a: TeamsDirectoryItem, b: TeamsDirectoryItem) =>
-      (a.displayName || a.name).localeCompare(b.displayName || b.name);
-
-    if (sortBy === 'titles') {
-      list.sort((a, b) => {
-        const diff = b._count.tournamentsWon - a._count.tournamentsWon;
-        return diff !== 0 ? diff : cmpName(a, b);
-      });
-    } else {
-      list.sort(cmpName);
+  const navigate = (updates: Record<string, string>) => {
+    const params = new URLSearchParams();
+    const merged = { ...filters, ...updates };
+    for (const [k, v] of Object.entries(merged)) {
+      if (v && v !== 'ALL') params.set(k, v);
     }
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
+  };
 
-    return list;
-  }, [teams, search, statusFilter, gameFilter, familyFilter, regionFilter, letterFilter, sortBy]);
+  React.useEffect(() => {
+    if (search === filters.q) return;
+    const seq = ++searchSeq.current;
+    const timer = setTimeout(() => {
+      if (seq !== searchSeq.current) return;
+      navigate({ q: search.trim() });
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const toggleLetter = (letter: string) => {
+    navigate({ letter: filters.letter === letter ? '' : letter });
+  };
+
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v && v !== 'ALL') params.set(k, v);
+    }
+    if (p > 1) params.set('page', String(p));
+    const qs = params.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
 
   const hasActiveFilters =
-    search !== '' ||
-    statusFilter !== 'ALL' ||
-    gameFilter !== 'ALL' ||
-    familyFilter !== 'ALL' ||
-    regionFilter !== 'ALL' ||
-    letterFilter !== 'ALL';
-
-  const clearAll = () => {
-    setSearch('');
-    setStatusFilter('ALL');
-    setGameFilter('ALL');
-    setFamilyFilter('ALL');
-    setRegionFilter('ALL');
-    setLetterFilter('ALL');
-  };
-
-  const setLetter = (letter: string) => {
-    setLetterFilter(letterFilter === letter ? 'ALL' : letter);
-  };
+    filters.q !== '' ||
+    filters.status !== 'ALL' ||
+    filters.game !== 'ALL' ||
+    filters.family !== 'ALL' ||
+    filters.region !== 'ALL' ||
+    filters.letter !== 'ALL';
 
   return (
     <div className="space-y-6">
       {/* ── Controls ── */}
-      <div className="ed-card space-y-4 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-[#0b101c]/80 backdrop-blur-md shadow-sm space-y-4">
+        {/* Row 1: Search + Sort */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ed-stone)]" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search teams, tags, regions, games…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="ed-input pl-10"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-(--ed-blue) transition-all"
             />
           </div>
 
-          {/* Status tabs */}
-          <div className="flex items-end gap-6 overflow-x-auto border-b border-[var(--ed-hair)] no-scrollbar lg:border-b-0">
-            <button
-              onClick={() => setStatusFilter('ALL')}
-              className={`ed-tab lg:border-b-0 lg:py-1.5 ${statusFilter === 'ALL' ? 'ed-tab-active' : ''}`}
-            >
-              All <span className="num text-xs opacity-70">({teams.length})</span>
-            </button>
-            {statuses.map(({ name, count }) => (
+          {/* Sort toggle — same segmented control as the players directory */}
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs shrink-0">
+            {(
+              [
+                ['name', 'A–Z'],
+                ['name-desc', 'Z–A'],
+                ['titles', 'Champions'],
+              ] as const
+            ).map(([value, label]) => (
               <button
-                key={name}
-                onClick={() => setStatusFilter(name)}
-                className={`ed-tab lg:border-b-0 lg:py-1.5 ${statusFilter === name ? 'ed-tab-active' : ''}`}
+                key={value}
+                type="button"
+                onClick={() => navigate({ sort: value })}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg font-bold transition-all',
+                  value === 'titles' && 'flex items-center gap-1',
+                  (filters.sort || 'name') === value
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                )}
               >
-                {name} <span className="num text-xs opacity-70">({count})</span>
+                {value === 'titles' && <Crown className="w-3 h-3 text-amber-500" />}
+                {label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Game, universe & region filters */}
-        <div className="flex flex-wrap items-center gap-4 border-t border-[var(--ed-hair)] pt-4">
+        {/* Row 2: Status + Game */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="ed-label mr-1">Game</span>
-            <button
-              onClick={() => setGameFilter('ALL')}
-              className={`ed-chip transition-colors ${gameFilter === 'ALL' ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'text-[var(--ed-stone)] hover:border-[var(--ed-stone)]/50'}`}
-            >
+            <span className={labelCls}>Status:</span>
+            <button onClick={() => navigate({ status: 'ALL' })} className={chipCls(filters.status === 'ALL')}>
+              All
+            </button>
+            {counts.statuses.map(([name, count]) => (
+              <button key={name} onClick={() => navigate({ status: name })} className={chipCls(filters.status === name)}>
+                {name}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={labelCls}>Game:</span>
+            <button onClick={() => navigate({ game: 'ALL' })} className={chipCls(filters.game === 'ALL')}>
               All games
             </button>
-            {games.map((g) => (
+            {counts.games.map((g) => (
               <button
                 key={g.slug}
-                onClick={() => setGameFilter(g.slug)}
-                className={`ed-chip transition-colors ${gameFilter === g.slug ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'text-[var(--ed-stone)] hover:border-[var(--ed-stone)]/50'}`}
+                onClick={() => navigate({ game: g.slug })}
+                className={chipCls(filters.game === g.slug)}
                 title={g.name}
               >
                 <GameLogo game={g} className="h-3.5 w-3.5" />
-                {g.shortName || g.name} <span className="num text-[10px] opacity-70">({g.count})</span>
+                {g.shortName || g.name}
+              </button>
+            ))}
+            {counts.families
+              .filter((f) => f.count > 0)
+              .map(({ slug, name }) => (
+                <button
+                  key={slug}
+                  onClick={() => navigate({ family: filters.family === slug ? 'ALL' : slug })}
+                  className={chipCls(filters.family === slug)}
+                  title={`Includes every ${name} ecosystem`}
+                >
+                  {name}
+                </button>
+              ))}
+          </div>
+        </div>
+
+        {/* Row 3: Region */}
+        {counts.regions.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <span className={labelCls}>Region:</span>
+            <button onClick={() => navigate({ region: 'ALL' })} className={chipCls(filters.region === 'ALL')}>
+              All regions
+            </button>
+            {counts.regions.map(({ name, count }) => (
+              <button key={name} onClick={() => navigate({ region: name })} className={chipCls(filters.region === name)}>
+                {name}
               </button>
             ))}
           </div>
+        )}
 
-          {families.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="ed-label mr-1">Universe</span>
-              <button
-                onClick={() => setFamilyFilter('ALL')}
-                className={`ed-chip transition-colors ${familyFilter === 'ALL' ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'text-[var(--ed-stone)] hover:border-[var(--ed-stone)]/50'}`}
-              >
-                All universes
-              </button>
-              {families.map(({ slug, name, count }) => (
-                <button
-                  key={slug}
-                  onClick={() => setFamilyFilter(familyFilter === slug ? 'ALL' : slug)}
-                  className={`ed-chip transition-colors ${familyFilter === slug ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'text-[var(--ed-stone)] hover:border-[var(--ed-stone)]/50'}`}
-                  title={`Includes every ${name} ecosystem`}
-                >
-                  {name} <span className="num text-[10px] opacity-70">({count})</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {regions.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="ed-label mr-1">Region</span>
-              <button
-                onClick={() => setRegionFilter('ALL')}
-                className={`ed-chip transition-colors ${regionFilter === 'ALL' ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'text-[var(--ed-stone)] hover:border-[var(--ed-stone)]/50'}`}
-              >
-                All regions
-              </button>
-              {regions.map(({ name, count }) => (
-                <button
-                  key={name}
-                  onClick={() => setRegionFilter(name)}
-                  className={`ed-chip transition-colors ${regionFilter === name ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'text-[var(--ed-stone)] hover:border-[var(--ed-stone)]/50'}`}
-                >
-                  {name} <span className="num text-[10px] opacity-70">({count})</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Alphabet jump bar ── */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--ed-hair)] pb-2 no-scrollbar">
-        <button
-          onClick={() => setLetterFilter('ALL')}
-          className={`ed-chip whitespace-nowrap px-2.5 py-1 transition-colors ${letterFilter === 'ALL' ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'hover:border-[var(--ed-stone)]/50'}`}
-        >
-          All
-          <span className="num rounded-full bg-[var(--ed-sand)] px-1.5 text-[10px]">{teams.length}</span>
-        </button>
-        {ALPHABET.map((letter) => {
-          const count = letterCounts.get(letter) ?? 0;
-          return (
+        {/* Row 4: Alphabet */}
+        <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+          <button
+            onClick={() => navigate({ letter: 'ALL' })}
+            className={cn(
+              'px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-colors',
+              filters.letter === 'ALL'
+                ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
+                : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            )}
+          >
+            All
+          </button>
+          {ALPHABET.map((letter) => (
             <button
               key={letter}
-              onClick={() => setLetter(letter)}
-              disabled={count === 0}
-              className={`ed-chip whitespace-nowrap px-2.5 py-1 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                letterFilter === letter
-                  ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white'
-                  : count === 0
-                    ? 'text-[var(--ed-stone)] opacity-40'
-                    : 'hover:border-[var(--ed-stone)]/50'
-              }`}
+              onClick={() => toggleLetter(letter)}
+              className={cn(
+                'w-6 h-6 rounded flex items-center justify-center text-[11px] font-mono font-bold transition-colors',
+                filters.letter === letter
+                  ? 'bg-(--ed-blue) text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+              )}
               aria-label={`Teams starting with ${letter}`}
             >
               {letter}
-              <span className={`num ${count > 0 ? 'text-[10px] opacity-70' : ''}`}>{count || ''}</span>
             </button>
-          );
-        })}
-        {letterCounts.get('#') ? (
-          <button
-            onClick={() => setLetter('#')}
-            className={`ed-chip whitespace-nowrap px-2.5 py-1 transition-colors ${letterFilter === '#' ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white' : 'hover:border-[var(--ed-stone)]/50'}`}
-            aria-label="Teams with non-alphabetic names"
-          >
-            #<span className="num text-[10px] opacity-70">{letterCounts.get('#')}</span>
-          </button>
-        ) : null}
+          ))}
+        </div>
       </div>
 
       {/* ── Results header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-[var(--ed-stone)]">
-          Showing <span className="num font-medium text-[var(--ed-ink)]">{filtered.length}</span>{' '}
-          {filtered.length === 1 ? 'team' : 'teams'}
-          {letterFilter !== 'ALL' && (
-            <>
-              {' '}starting with <span className="font-bold text-[var(--ed-blue)]">{letterFilter}</span>
-            </>
-          )}
-        </p>
-
-        <div className="flex items-center gap-2.5">
-          {/* Sort */}
-          <div className="relative">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-surface)] py-1.5 pl-3 pr-8 text-xs font-semibold text-[var(--ed-ink)] focus:border-[var(--ed-blue)] focus:outline-none cursor-pointer appearance-none"
-              aria-label="Sort teams"
-            >
-              <option value="name">Sort: Name (A – Z)</option>
-              <option value="titles">Sort: Champions first</option>
-            </select>
-            <ArrowUpDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ed-stone)]" />
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-3">
+          <p>
+            Showing <strong className="text-slate-800 dark:text-slate-200">{teams.length}</strong>{' '}
+            {teams.length === 1 ? 'team' : 'teams'}
+            {filters.letter !== 'ALL' && (
+              <>
+                {' '}starting with <span className="font-bold text-(--ed-blue)">{filters.letter}</span>
+              </>
+            )}
+          </p>
 
           {hasActiveFilters && (
-            <button onClick={clearAll} className="text-sm font-medium text-[var(--ed-blue)] hover:underline">
+            <button onClick={() => router.push(basePath)} className="font-medium text-(--ed-blue) hover:underline">
               Clear filters
             </button>
+          )}
+        </div>
+
+        {/* Chevron page switcher */}
+        <div className="flex items-center gap-1.5">
+          {page > 1 ? (
+            <Link
+              href={pageHref(page - 1)}
+              prefetch
+              aria-label="Previous page"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-700 hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors dark:border-slate-700 dark:text-slate-200"
+            >
+              ‹
+            </Link>
+          ) : (
+            <span aria-disabled className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-400 opacity-40 select-none dark:border-slate-700">
+              ‹
+            </span>
+          )}
+          <span className="num rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-extrabold text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            {page} / {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={pageHref(page + 1)}
+              prefetch
+              aria-label="Next page"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-700 hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors dark:border-slate-700 dark:text-slate-200"
+            >
+              ›
+            </Link>
+          ) : (
+            <span aria-disabled className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-400 opacity-40 select-none dark:border-slate-700">
+              ›
+            </span>
           )}
         </div>
       </div>
 
       {/* ── Empty state ── */}
-      {filtered.length === 0 ? (
-        <div className="ed-card flex flex-col items-center gap-3 py-20 text-center">
-          <ShieldCheck className="h-8 w-8 text-[var(--ed-stone)] opacity-40" />
-          <p className="font-display text-lg font-medium">No teams match your filters</p>
-          <p className="max-w-sm text-sm text-[var(--ed-stone)]">
-            Try adjusting your search or selecting a different game, region, or status.
-          </p>
+      {teams.length === 0 ? (
+        <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#0b101c]/50">
+          <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No teams match your filters</p>
+          <p className="text-xs text-slate-400 mt-1">Try adjusting your search or selecting a different game, region, or status.</p>
           {hasActiveFilters && (
-            <button onClick={clearAll} className="ed-btn mt-2 px-4 py-2 text-xs">
+            <button onClick={() => router.push(basePath)} className="mt-3 px-4 py-2 rounded-xl bg-(--ed-blue) text-white text-xs font-bold">
               Clear all filters
             </button>
           )}
         </div>
       ) : (
-        <CrestGrid teams={filtered} />
+        <CrestGrid teams={teams} />
       )}
     </div>
   );
@@ -428,12 +386,13 @@ function CrestGrid({ teams }: { teams: TeamsDirectoryItem[] }) {
             href={teamHref(team)}
             title={fullName}
             className={cn(
-              'group relative aspect-[3/4] overflow-hidden rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] flex flex-col cursor-pointer transition-all',
-              'hover:-translate-y-0.5 hover:border-[var(--ed-blue)] hover:shadow-sm'
+              'group relative aspect-[3/4] overflow-hidden rounded-2xl border bg-white dark:bg-[#0b101c] flex flex-col shadow-xs transition-all',
+              'border-slate-200 dark:border-slate-800',
+              'hover:-translate-y-0.5 hover:border-(--ed-blue) dark:hover:border-blue-500/50 hover:shadow-md'
             )}
           >
             {/* Top 3/4 — logo plate */}
-            <div className="team-plate relative aspect-square flex items-center justify-center p-4">
+            <div className="team-plate relative aspect-square flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-900/60">
               {hasLogo ? (
                 <span className="inline-flex h-full w-full max-h-[78%] max-w-[78%] items-center justify-center transition-transform duration-200 group-hover:scale-105">
                   {team.logoUrl && (
@@ -446,7 +405,7 @@ function CrestGrid({ teams }: { teams: TeamsDirectoryItem[] }) {
                   )}
                 </span>
               ) : (
-                <span className="font-display text-3xl font-black leading-none tracking-tight text-[var(--ed-ink)] transition-transform duration-200 group-hover:scale-105">
+                <span className="font-display text-3xl font-black leading-none tracking-tight text-slate-400 transition-transform duration-200 group-hover:scale-105">
                   {initials(fullName)}
                 </span>
               )}
@@ -460,10 +419,10 @@ function CrestGrid({ teams }: { teams: TeamsDirectoryItem[] }) {
 
             {/* Bottom 1/4 — name ribbon */}
             <div className="flex min-h-0 flex-1 items-center justify-center px-1.5">
-              <span className="sm:hidden truncate text-[10px] font-black uppercase tracking-wide text-[var(--ed-stone)]">
+              <span className="sm:hidden truncate text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {shortLabel(team)}
               </span>
-              <span className="hidden truncate font-display text-xs font-bold text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)] sm:block">
+              <span className="hidden truncate font-display text-xs font-bold text-slate-900 dark:text-white transition-colors group-hover:text-(--ed-blue) sm:block">
                 {fullName}
               </span>
             </div>

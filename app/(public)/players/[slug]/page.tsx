@@ -112,11 +112,15 @@ function extractIndividualPrizes(prizeDistribution: unknown, playerId: string, i
 export async function generateMetadata({ params }: PlayerPageProps): Promise<Metadata> {
   const { slug } = await params;
   try {
+    const decoded = decodeURIComponent(slug).trim();
     const player = await prisma.player.findFirst({
       where: {
+        // Keep in sync with the page query — the page also matches a decoded
+        // slug, which is how encoded IGNs like "Jonathan%20Gaming" resolve.
         OR: [
           { slug },
-          { ign: { equals: slug, mode: 'insensitive' } },
+          { slug: decoded },
+          { ign: { equals: decoded, mode: 'insensitive' } },
           { id: slug },
         ],
       },

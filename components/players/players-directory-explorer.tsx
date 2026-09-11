@@ -2,15 +2,11 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Search,
-  Users,
-  Shield,
   Crosshair,
-  Trophy,
   Flame,
-  ArrowUpDown,
-  Sparkles,
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,73 +38,86 @@ export interface PlayersDirectoryItem {
   };
 }
 
+export interface PlayersDirectoryFilters {
+  q: string;
+  role: string;
+  game: string;
+  letter: string;
+  sort: string;
+}
+
+export interface PlayersFacetCounts {
+  total: number;
+  roles: Record<string, number>;
+  games: Array<{ id: string; name: string; count: number }>;
+}
+
 const ROLES = ['ALL', 'Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
 const ALPHABET = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
 
 export function PlayersDirectoryExplorer({
   players,
+  filters,
+  counts,
+  page = 1,
+  totalPages = 1,
+  basePath = '/players',
 }: {
   players: PlayersDirectoryItem[];
+  filters: PlayersDirectoryFilters;
+  counts: PlayersFacetCounts;
+  page?: number;
+  totalPages?: number;
+  basePath?: string;
 }) {
-  const [search, setSearch] = React.useState('');
-  const [roleFilter, setRoleFilter] = React.useState('ALL');
-  const [gameFilter, setGameFilter] = React.useState('ALL');
-  const [letterFilter, setLetterFilter] = React.useState<string | null>(null);
-  const [sortBy, setSortBy] = React.useState<'ign' | 'matches'>('ign');
+  const router = useRouter();
+  const [search, setSearch] = React.useState(filters.q);
+  const searchSeq = React.useRef(0);
 
-  // Extract unique games
-  const gamesList = React.useMemo(() => {
-    const map = new Map<string, string>();
-    players.forEach((p) => {
-      if (p.game) {
-        map.set(p.game.id, p.game.name);
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [players]);
+  const navigate = (updates: Record<string, string>) => {
+    const params = new URLSearchParams();
+    const merged = { ...filters, ...updates };
+    for (const [k, v] of Object.entries(merged)) {
+      if (v && v !== 'ALL') params.set(k, v);
+    }
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
+  };
 
-  // Filtering
-  const filtered = React.useMemo(() => {
-    return players.filter((p) => {
-      // Search
-      if (search.trim()) {
-        const q = search.toLowerCase().trim();
-        const matchIgn = p.ign.toLowerCase().includes(q);
-        const matchName = p.name ? p.name.toLowerCase().includes(q) : false;
-        const matchTeam = p.currentTeam
-          ? p.currentTeam.name.toLowerCase().includes(q) || (p.currentTeam.tag && p.currentTeam.tag.toLowerCase().includes(q))
-          : false;
-        if (!matchIgn && !matchName && !matchTeam) return false;
-      }
 
-      // Role filter
-      if (roleFilter !== 'ALL') {
-        if (p.role?.toLowerCase() !== roleFilter.toLowerCase()) return false;
-      }
+  const [lastUrlQ, setLastUrlQ] = React.useState(filters.q);
+  if (lastUrlQ !== filters.q) {
+    // URL changed externally (e.g. Clear filters link) — adjust during render
+    setLastUrlQ(filters.q);
+    setSearch(filters.q);
+  }
 
-      // Game filter
-      if (gameFilter !== 'ALL') {
-        if (p.game?.id !== gameFilter) return false;
-      }
+  // Debounced URL navigation — the server searches across the whole database
+  React.useEffect(() => {
+    if (search === filters.q) return;
+    const seq = ++searchSeq.current;
+    const timer = setTimeout(() => {
+      if (seq !== searchSeq.current) return;
+      navigate({ q: search.trim() });
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
-      // Alphabet filter
-      if (letterFilter) {
-        if (!p.ign.toUpperCase().startsWith(letterFilter)) return false;
-      }
+  const toggleLetter = (letter: string) => {
+    navigate({ letter: filters.letter === letter ? '' : letter });
+  };
 
-      return true;
-    });
-  }, [players, search, roleFilter, gameFilter, letterFilter]);
-
-  // Sorting
-  const sorted = React.useMemo(() => {
-    return [...filtered].sort((a, b) => {
-      if (sortBy === 'matches') {
-        return (b._count?.matchStats ?? 0) - (a._count?.matchStats ?? 0);
-      }
-      return a.ign.localeCompare(b.ign);
-    });
-  }, [filtered, sortBy]);
+  // Chevron page switcher hrefs (filters carried, page swapped)
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v && v !== 'ALL') params.set(k, v);
+    }
+    if (p > 1) params.set('page', String(p));
+    const qs = params.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
 
   return (
     <div className="space-y-6">
@@ -121,10 +130,7 @@ export function PlayersDirectoryExplorer({
             <input
               type="text"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                if (letterFilter) setLetterFilter(null);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by IGN, real name, or team..."
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-(--ed-blue) transition-all"
             />
@@ -132,16 +138,16 @@ export function PlayersDirectoryExplorer({
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Game Filter */}
-            {gamesList.length > 1 && (
+            {counts.games.length > 1 && (
               <select
-                value={gameFilter}
-                onChange={(e) => setGameFilter(e.target.value)}
+                value={filters.game || 'ALL'}
+                onChange={(e) => navigate({ game: e.target.value })}
                 className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
               >
                 <option value="ALL">All Games</option>
-                {gamesList.map((g) => (
+                {counts.games.map((g) => (
                   <option key={g.id} value={g.id}>
-                    {g.name}
+                    {g.name} ({g.count})
                   </option>
                 ))}
               </select>
@@ -151,10 +157,10 @@ export function PlayersDirectoryExplorer({
             <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
               <button
                 type="button"
-                onClick={() => setSortBy('ign')}
+                onClick={() => navigate({ sort: 'ign' })}
                 className={cn(
                   'px-3 py-1.5 rounded-lg font-bold transition-all',
-                  sortBy === 'ign'
+                  (filters.sort || 'ign') === 'ign'
                     ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                 )}
@@ -163,10 +169,22 @@ export function PlayersDirectoryExplorer({
               </button>
               <button
                 type="button"
-                onClick={() => setSortBy('matches')}
+                onClick={() => navigate({ sort: 'ign-desc' })}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg font-bold transition-all',
+                  filters.sort === 'ign-desc'
+                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                )}
+              >
+                Z–A
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate({ sort: 'matches' })}
                 className={cn(
                   'px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1',
-                  sortBy === 'matches'
+                  filters.sort === 'matches'
                     ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
                 )}
@@ -185,10 +203,10 @@ export function PlayersDirectoryExplorer({
             <button
               key={r}
               type="button"
-              onClick={() => setRoleFilter(r)}
+              onClick={() => navigate({ role: r })}
               className={cn(
                 'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
-                roleFilter === r
+                (filters.role || 'ALL') === r
                   ? 'bg-(--ed-blue) text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
               )}
@@ -202,10 +220,10 @@ export function PlayersDirectoryExplorer({
         <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
           <button
             type="button"
-            onClick={() => setLetterFilter(null)}
+            onClick={() => navigate({ letter: '' })}
             className={cn(
               'px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-colors',
-              letterFilter === null
+              !filters.letter
                 ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
                 : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
             )}
@@ -216,10 +234,10 @@ export function PlayersDirectoryExplorer({
             <button
               key={char}
               type="button"
-              onClick={() => setLetterFilter(letterFilter === char ? null : char)}
+              onClick={() => toggleLetter(char)}
               className={cn(
                 'w-6 h-6 rounded flex items-center justify-center text-[11px] font-mono font-bold transition-colors',
-                letterFilter === char
+                filters.letter === char
                   ? 'bg-(--ed-blue) text-white shadow-xs'
                   : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
               )}
@@ -230,15 +248,48 @@ export function PlayersDirectoryExplorer({
         </div>
       </div>
 
-      {/* Counter */}
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      {/* Counter + page switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
         <span>
-          Showing <strong className="text-slate-800 dark:text-slate-200">{sorted.length}</strong> verified esports players
+          Showing <strong className="text-slate-800 dark:text-slate-200">{players.length}</strong> verified esports players
         </span>
+        <div className="flex items-center gap-1.5">
+          {page > 1 ? (
+            <Link
+              href={pageHref(page - 1)}
+              prefetch
+              aria-label="Previous page"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-700 hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors dark:border-slate-700 dark:text-slate-200"
+            >
+              ‹
+            </Link>
+          ) : (
+            <span aria-disabled className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-400 opacity-40 select-none dark:border-slate-700">
+              ‹
+            </span>
+          )}
+          <span className="num rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-extrabold text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+            {page} / {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={pageHref(page + 1)}
+              prefetch
+              aria-label="Next page"
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-700 hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors dark:border-slate-700 dark:text-slate-200"
+            >
+              ›
+            </Link>
+          ) : (
+            <span aria-disabled className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-400 opacity-40 select-none dark:border-slate-700">
+              ›
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Grid of Players */}
-      {sorted.length === 0 ? (
+      {players.length === 0 ? (
         <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#0b101c]/50">
           <Crosshair className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
           <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No players match your filters</p>
@@ -246,7 +297,7 @@ export function PlayersDirectoryExplorer({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sorted.map((p) => {
+          {players.map((p) => {
             const playerUrl = p.slug ? `/players/${p.slug}` : '#';
 
             return (

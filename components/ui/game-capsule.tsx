@@ -37,7 +37,9 @@ export function GameLogo({
         src={dark || light || ''}
         alt=""
         aria-hidden="true"
-        className={`${className} hidden shrink-0 object-contain dark:block`}
+        // Without a dedicated dark asset, render the light logo as a white
+        // silhouette in dark mode so black wordmarks stay visible.
+        className={`${className} hidden shrink-0 object-contain dark:block ${!dark ? 'dark:brightness-0 dark:invert' : ''}`}
       />
     </>
   );

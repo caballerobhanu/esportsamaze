@@ -1,6 +1,7 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { isAdmin } from '@/lib/admin-auth';
 import { revalidatePath } from 'next/cache';
 
@@ -67,7 +68,7 @@ export async function updateInlineTeamResultAction(input: InlineTeamResultUpdate
   });
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   return { success: true, updated };
 }
 
@@ -104,7 +105,7 @@ export async function batchUpdateTeamResultsAction(inputs: InlineTeamResultUpdat
   );
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   return { success: true, count: inputs.length };
 }
 
@@ -137,7 +138,7 @@ export async function updateInlinePlayerStatAction(input: InlinePlayerStatUpdate
   });
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   return { success: true, updated };
 }
 
@@ -170,7 +171,7 @@ export async function batchUpdatePlayerStatsAction(inputs: InlinePlayerStatUpdat
   );
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   return { success: true, count: inputs.length };
 }
 
@@ -184,7 +185,7 @@ export async function deleteInlineTeamResultAction(id: string) {
   });
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   return { success: true };
 }
 
@@ -198,7 +199,7 @@ export async function deleteInlinePlayerStatAction(id: string) {
   });
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   return { success: true };
 }
 
@@ -245,7 +246,7 @@ export async function purgeTournamentMatchesAction(tournamentId: string, stageId
     }
 
     revalidatePath('/admin/matches');
-    revalidatePath('/tournaments');
+    revalidateTournamentPages();
     return { success: true, count: matchIds.length };
   } catch (error: any) {
     return { success: false, message: error.message || 'Failed to purge matches' };

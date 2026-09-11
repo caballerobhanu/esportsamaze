@@ -16,7 +16,7 @@ export default async function EditArticlePage({
   const { id } = await params;
   const { error, saved, restored } = await searchParams;
 
-  const [article, tournaments, teams, players, revisions] = await Promise.all([
+  const [article, revisions] = await Promise.all([
     prisma.article.findUnique({
       where: { id },
       include: {
@@ -25,9 +25,6 @@ export default async function EditArticlePage({
         player: { select: { id: true, ign: true } },
       },
     }),
-    prisma.tournament.findMany({ select: { id: true, name: true }, orderBy: { startDate: 'desc' }, take: 50 }),
-    prisma.team.findMany({ select: { id: true, name: true, tag: true }, orderBy: { name: 'asc' } }),
-    prisma.player.findMany({ select: { id: true, ign: true }, orderBy: { ign: 'asc' }, take: 100 }),
     prisma.articleRevision.findMany({
       where: { articleId: id },
       orderBy: { createdAt: 'desc' },
@@ -82,9 +79,10 @@ export default async function EditArticlePage({
       error={error}
       saved={saved === '1'}
       restored={restored === '1'}
-      tournamentOptions={tournaments.map((t) => ({ value: t.id, label: t.name }))}
-      teamOptions={teams.map((t) => ({ value: t.id, label: `${t.name}${t.tag ? ` (${t.tag})` : ''}` }))}
-      playerOptions={players.map((p) => ({ value: p.id, label: p.ign }))}
+      tournamentOptions={article.tournament ? [{ value: article.tournament.id, label: article.tournament.name }] : []}
+      teamOptions={article.team ? [{ value: article.team.id, label: article.team.name }] : []}
+      playerOptions={article.player ? [{ value: article.player.id, label: article.player.ign }] : []}
+      linkedSearchUrl="/api/admin/search"
     />
   );
 }

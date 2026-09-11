@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, Swords, Crosshair, Trophy, Shield, Users, Flame, Sparkles, Save, Radio, Globe, MapPin, Tv } from 'lucide-react';
 import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
+import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fMatchStatus, fUrl, sanitizeUrl } from '@/lib/admin-forms';
 import {
@@ -92,7 +93,7 @@ async function duplicateMatch(formData: FormData) {
   });
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   const query = [
     `edit=${createdMatch.id}`,
     `tournamentId=${createdMatch.tournamentId}`,
@@ -114,7 +115,7 @@ async function updateMatchStatus(formData: FormData) {
       data: { status },
     });
     revalidatePath('/admin/matches');
-    revalidatePath('/tournaments');
+    revalidateTournamentPages();
   }
 }
 
@@ -247,7 +248,7 @@ async function saveMatch(formData: FormData) {
   }
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   const stageParam = linkedStage?.id ? `&stageId=${linkedStage.id}` : '';
   redirect(`/admin/matches?edit=${matchId}&tournamentId=${tournamentId}${stageParam}#match-editor`);
 }
@@ -313,7 +314,7 @@ async function bulkDeleteMatches(formData: FormData) {
     }
   }
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   const query = [
     tournamentId ? `tournamentId=${tournamentId}` : '',
     stageId && stageId !== 'ALL' ? `stageId=${stageId}` : '',
@@ -412,7 +413,7 @@ async function saveTeamResult(formData: FormData) {
   }
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   redirect(mg ? `/admin/matches?edit=${mg.matchId}#team-results` : '/admin/matches');
 }
 
@@ -637,7 +638,7 @@ async function importBatchTeamResultsAction(formData: FormData) {
   }
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   redirect(matchId ? `/admin/matches?edit=${matchId}#team-results` : '/admin/matches');
 }
 
@@ -747,7 +748,7 @@ async function importBatchPlayerStatsAction(formData: FormData) {
   }
 
   revalidatePath('/admin/matches');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   redirect(matchId ? `/admin/matches?edit=${matchId}#player-stats` : '/admin/matches');
 }
 
@@ -768,64 +769,66 @@ export default async function AdminMatchesPage({
 }) {
   const { edit, error, field, tournamentId, stage, stageId, openNew } = await searchParams;
 
-  const [tournaments, games, teams, players] = await Promise.all([
-    prisma.tournament.findMany({
-      orderBy: { startDate: 'desc' },
-      take: 100,
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        gameId: true,
-        prizeDistribution: true,
-        stages: {
-          orderBy: { sequence: 'asc' },
-          select: {
-            id: true,
-            name: true,
-            _count: { select: { matches: true } },
-          },
-        },
-        _count: { select: { matches: true } },
-      },
-    }),
+  const [games, teams, players, editing, preSelectedTourney, allTournamentsLight] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true } }),
     edit
-      ? prisma.team.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, tag: true }, take: 200 })
+      ? prisma.team.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, tag: true }, take: 1000 })
       : Promise.resolve([]),
     edit
       ? prisma.player.findMany({
           orderBy: { ign: 'asc' },
           select: { id: true, ign: true, role: true, currentTeamId: true, currentTeam: { select: { tag: true } } },
-          take: 500,
+          take: 1000,
         })
       : Promise.resolve([]),
-  ]);
-
-  const editing = edit
-    ? await prisma.match.findUnique({
-        where: { id: edit },
-        include: {
-          tournament: { select: { id: true, name: true, slug: true, gameId: true, prizeDistribution: true, formatDetails: true } },
-          game: { select: { id: true, name: true, slug: true } },
-          stage: { select: { name: true } },
-          group: { select: { name: true } },
-          games: {
-            orderBy: { sequence: 'asc' },
-            include: {
-              teamResults: {
-                orderBy: { rank: 'asc' },
-                include: { team: { select: { name: true, tag: true, logoUrl: true } } },
-              },
-              playerStats: {
-                orderBy: { playerElims: 'desc' },
-                include: { player: { select: { ign: true, avatarUrl: true } }, team: { select: { name: true, tag: true } } },
+    edit
+      ? prisma.match.findUnique({
+          where: { id: edit },
+          include: {
+            tournament: { select: { id: true, name: true, slug: true, gameId: true, prizeDistribution: true, formatDetails: true } },
+            game: { select: { id: true, name: true, slug: true } },
+            stage: { select: { name: true } },
+            group: { select: { name: true } },
+            games: {
+              orderBy: { sequence: 'asc' },
+              include: {
+                teamResults: {
+                  orderBy: { rank: 'asc' },
+                  include: { team: { select: { name: true, tag: true, logoUrl: true } } },
+                },
+                playerStats: {
+                  orderBy: { playerElims: 'desc' },
+                  include: { player: { select: { ign: true, avatarUrl: true } }, team: { select: { name: true, tag: true } } },
+                },
               },
             },
           },
+        })
+      : null,
+    tournamentId
+      ? prisma.tournament.findUnique({
+          where: { id: tournamentId },
+          select: { id: true, name: true, slug: true, gameId: true },
+        })
+      : Promise.resolve(null),
+    prisma.tournament.findMany({
+      // Selector list for the grouped matches view — carries match counts and
+      // stages (the on-demand picker needs both), but skips heavy payloads.
+      orderBy: { startDate: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        gameId: true,
+        stages: {
+          orderBy: { sequence: 'asc' },
+          select: { id: true, name: true, _count: { select: { matches: true } } },
         },
-      })
-    : null;
+        _count: { select: { matches: true } },
+      },
+      take: 1000,
+    }),
+  ]);
 
   // Fetch sibling matches in the same tournament for quick standings reuse / cloning.
   // Only the first game of each match is consumed by the mapping below — take: 1
@@ -872,8 +875,27 @@ export default async function AdminMatchesPage({
     if (fd.placementPoints) tournamentPointsMatrix = fd.placementPoints;
   }
 
-  // Pre-selected tournament object if adding from tournament/stage shortcut
-  const preSelectedTourney = tournamentId ? tournaments.find((t) => t.id === tournamentId) : null;
+  // Tournaments of the initially-relevant game feed the editor's cascade
+  // (with stages); the grouped-list selector uses the light global list.
+  const initialGameId = editing?.gameId || preSelectedTourney?.gameId || games[0]?.id || '';
+  const tournaments = initialGameId
+    ? await prisma.tournament.findMany({
+        where: { gameId: initialGameId },
+        orderBy: { startDate: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          gameId: true,
+          prizeDistribution: true,
+          stages: {
+            orderBy: { sequence: 'asc' },
+            select: { id: true, name: true, _count: { select: { matches: true } } },
+          },
+          _count: { select: { matches: true } },
+        },
+      })
+    : [];
 
   const matchPlayerOptions = players.map((p) => ({
     value: p.id,
@@ -1099,6 +1121,7 @@ export default async function AdminMatchesPage({
                     <Combobox
                       name="playerId"
                       options={matchPlayerOptions}
+                      searchUrl="/api/admin/search?type=player"
                       placeholder="Type player IGN…"
                       ariaLabel="Player"
                     />
@@ -1108,6 +1131,7 @@ export default async function AdminMatchesPage({
                     <Combobox
                       name="teamId"
                       options={matchTeamOptions}
+                      searchUrl="/api/admin/search?type=team"
                       emptyOptionLabel="— Select Team —"
                       placeholder="Type team name…"
                       ariaLabel="Team"
@@ -1221,7 +1245,7 @@ export default async function AdminMatchesPage({
       {/* ═══ CATEGORIZED MATCHES UNDER TOURNAMENTS > STAGES ═══ */}
       <MatchGroupedList
         matches={allMatchesList as any}
-        allTournaments={tournaments as any}
+        allTournaments={allTournamentsLight as any}
         currentTournamentId={effectiveTournamentId}
         currentStageId={effectiveStageId}
         deleteMatchAction={deleteMatch}

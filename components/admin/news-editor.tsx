@@ -121,6 +121,10 @@ interface NewsEditorProps {
   tournamentOptions: Array<{ value: string; label: string }>;
   teamOptions: Array<{ value: string; label: string }>;
   playerOptions?: Array<{ value: string; label: string }>;
+  /** Base URL of the admin entity search endpoint — pickers query it instead
+      of relying on preloaded option lists. Options arrays still seed the
+      currently-linked entities so their labels render. */
+  linkedSearchUrl?: string;
   revisions?: NewsEditorRevision[];
   error?: string;
   saved?: boolean;
@@ -198,6 +202,7 @@ export function NewsEditor({
   tournamentOptions,
   teamOptions,
   playerOptions = [],
+  linkedSearchUrl,
   revisions,
   error,
   saved,
@@ -1783,6 +1788,7 @@ export function NewsEditor({
                     options={tournamentOptions}
                     defaultValue={article?.tournamentId ?? ''}
                     placeholder="Select tournament…"
+                    searchUrl={linkedSearchUrl ? `${linkedSearchUrl}?type=tournament` : undefined}
                   />
                 </div>
                 <div>
@@ -1792,6 +1798,7 @@ export function NewsEditor({
                     options={teamOptions}
                     defaultValue={article?.teamId ?? ''}
                     placeholder="Select squad…"
+                    searchUrl={linkedSearchUrl ? `${linkedSearchUrl}?type=team` : undefined}
                   />
                 </div>
                 <div>
@@ -1801,6 +1808,7 @@ export function NewsEditor({
                     options={playerOptions}
                     defaultValue={article?.playerId ?? ''}
                     placeholder="Select player (e.g. Manya, Jonathan)…"
+                    searchUrl={linkedSearchUrl ? `${linkedSearchUrl}?type=player` : undefined}
                   />
                 </div>
               </div>

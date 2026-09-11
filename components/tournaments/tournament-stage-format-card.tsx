@@ -92,7 +92,7 @@ export function TournamentStageFormatCard({
     return Array.from(map.entries()).map(([grp, rules]) => ({ group: grp, rules }));
   }, [stage.rules]);
 
-  // Color mapper for Liquipedia badges
+  // Color mapper for advancement-rule badges
   const getBadgeStyle = (color?: string) => {
     switch (color) {
       case 'green':
@@ -256,7 +256,7 @@ export function TournamentStageFormatCard({
       {/* ── EXPANDED BODY: ADVANCEMENT RULES + GROUP DRAW ── */}
       {isExpanded && (
         <div className="space-y-6 p-6">
-          {/* ── ADVANCEMENT & ELIMINATION PROTOCOL (LIQUEPEDIA STYLE) ── */}
+          {/* ── ADVANCEMENT & ELIMINATION PROTOCOL ── */}
           {stage.rules.length > 0 && (
             <div>
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-2 mb-3">
@@ -397,7 +397,7 @@ export function TournamentStageFormatCard({
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3 sm:p-4">
                       {visibleGroups[0].squads.map((squad, sIdx) => {
-                        const teamUrl = squad.slug ? `/teams/${squad.slug}` : `/teams/${squad.teamId}`;
+                        const teamUrl = `/teams/${squad.slug || encodeURIComponent(squad.teamName)}`;
 
                         return (
                           <Link
@@ -477,7 +477,7 @@ export function TournamentStageFormatCard({
                           </p>
                         ) : (
                           squads.map((squad, sIdx) => {
-                            const teamUrl = squad.slug ? `/teams/${squad.slug}` : `/teams/${squad.teamId}`;
+                            const teamUrl = `/teams/${squad.slug || encodeURIComponent(squad.teamName)}`;
 
                             return (
                               <Link

@@ -4,6 +4,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save, Copy } from 'lucide-react';
 import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
+import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
@@ -32,7 +33,6 @@ import { TournamentFinalRankingsInput } from '@/components/admin/tournament-fina
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
-import { TournamentLiquipediaImporter } from '@/components/admin/tournament-liquipedia-importer';
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
 import { matchStageLabel } from '@/lib/standings-config';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
@@ -722,7 +722,7 @@ async function saveTournament(formData: FormData) {
   revalidatePath('/admin/rankings');
   revalidatePath('/admin/rankings', 'page');
   revalidatePath('/rankings');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   revalidatePath('/admin/players');
   revalidatePath('/players');
   revalidatePath('/teams');
@@ -743,7 +743,7 @@ async function deleteTournament(formData: FormData) {
   updateTag('tournaments-list');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   redirect('/admin/tournaments');
 }
 
@@ -847,7 +847,7 @@ async function duplicateTournament(formData: FormData) {
   updateTag('tournaments-list');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
-  revalidatePath('/tournaments');
+  revalidateTournamentPages();
   redirect(`/admin/tournaments?edit=${created.id}#tournament-editor`);
 }
 
@@ -1072,6 +1072,17 @@ export default async function AdminTournamentsPage({
   const selectedOrgIds = new Set(editing?.organizers.map((o) => o.organizerId) ?? []);
   const selectedSpIds = new Set(editing?.sponsors.map((s) => s.sponsorId) ?? []);
 
+  // Seed pickers search the database live — these are just the already-linked
+  // qualifier events so the current selections render their labels.
+  const linkedSeedOptions = Array.from(
+    new Map(
+      ((editing?.teams ?? []) as Array<{ seedTournament?: { id: string; name: string; slug: string } | null }>)
+        .map((tt) => tt.seedTournament)
+        .filter(Boolean)
+        .map((st) => [st!.id, { id: st!.id, name: st!.name, slug: st!.slug ?? '' }])
+    ).values()
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1109,9 +1120,6 @@ export default async function AdminTournamentsPage({
           Re-open the editor and re-submit that section.
         </p>
       )}
-
-      {/* ⚡ 1-Click Liquipedia Tournament Setup Importer */}
-      <TournamentLiquipediaImporter games={games} allTeams={teams} />
 
       {/* Create / Edit form */}
       <details

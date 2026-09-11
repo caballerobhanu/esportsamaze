@@ -296,9 +296,9 @@ export function MultiMatchMatrixGrid({
           [key]: {
             ...existing,
             [field]: value,
-            ...(field === 'rank' && typeof value === 'number' && existing.wwcd === undefined
-              ? { wwcd: value === 1 }
-              : {}),
+            // A rank edit always re-derives WWCD — otherwise a DB-loaded WWCD
+            // team demoted to another rank keeps wwcd: true forever.
+            ...(field === 'rank' && typeof value === 'number' ? { wwcd: value === 1 } : {}),
             isModified: true,
           },
         };
@@ -779,10 +779,13 @@ export function MultiMatchMatrixGrid({
         }
 
         if (resultsForMatch.length > 0) {
+          // Only auto-complete the match when every participating squad has a
+          // placement — a partial paste must not mark the match COMPLETED.
+          const isFullyFilled = resultsForMatch.length === participatingTeams.length;
           payload.push({
             matchId: m.id,
             matchGameId: activeGame.id,
-            status: 'COMPLETED',
+            ...(isFullyFilled ? { status: 'COMPLETED' as const } : {}),
             results: resultsForMatch,
           });
         }

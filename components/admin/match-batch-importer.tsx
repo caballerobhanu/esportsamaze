@@ -29,8 +29,7 @@ import {
   parseSurvivalSeconds,
   parseWwcd,
 } from '@/lib/tournament-math';
-import { parseLiquipediaText, type ParsedLiquipediaMatch } from '@/lib/liquipedia-parser';
-import { fetchLiquipediaMatchAction } from '@/app/admin/(panel)/matches/matrix/actions';
+import { parseTableText, type ParsedTableMatch } from '@/lib/table-text-parser';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 interface TeamOption {
@@ -85,7 +84,7 @@ export function MatchBatchImporter({
   otherMatches = [],
 }: MatchBatchImporterProps) {
   const [activeTab, setActiveTab] = React.useState<'teams' | 'players'>('teams');
-  const [pasteMode, setPasteMode] = React.useState<'excel' | 'json' | 'liquipedia' | 'ocr'>('excel');
+  const [pasteMode, setPasteMode] = React.useState<'excel' | 'json' | 'ocr'>('excel');
   const [rawText, setRawText] = React.useState('');
   const [replaceExisting, setReplaceExisting] = React.useState(true);
   const [copiedTemplate, setCopiedTemplate] = React.useState(false);
@@ -94,11 +93,6 @@ export function MatchBatchImporter({
   const [selectedCloneMatchId, setSelectedCloneMatchId] = React.useState<string>('');
   const [cloneMode, setCloneMode] = React.useState<'reset' | 'exact'>('reset');
 
-  // Liquipedia importer state
-  const [liquipediaUrl, setLiquipediaUrl] = React.useState('');
-  const [isFetchingLiquipedia, setIsFetchingLiquipedia] = React.useState(false);
-  const [liquipediaMatches, setLiquipediaMatches] = React.useState<ParsedLiquipediaMatch[]>([]);
-  const [selectedLiquipediaMatchIdx, setSelectedLiquipediaMatchIdx] = React.useState(0);
 
   // Scorecard OCR state
   const [ocrImage, setOcrImage] = React.useState<string | null>(null);
@@ -723,10 +717,8 @@ export function MatchBatchImporter({
   };
 
   // -------------------------------------------------------------
-  // Liquipedia Handler
-  // -------------------------------------------------------------
-  const applyLiquipediaMatchToRows = React.useCallback(
-    (match: ParsedLiquipediaMatch) => {
+  const applyTableMatchToRows = React.useCallback(
+    (match: ParsedTableMatch) => {
       const rows = match.rows.map((r, idx) => {
         const rank = r.rank || idx + 1;
         const matchedTeam = findMatchingTeam(r.rawTeam);
@@ -771,34 +763,6 @@ export function MatchBatchImporter({
     },
     [findMatchingTeam, pointsMatrix, killMultiplier]
   );
-
-  const handleFetchLiquipedia = async () => {
-    if (!liquipediaUrl.trim()) {
-      setErrorMsg('Please enter a Liquipedia tournament or match URL.');
-      return;
-    }
-    setErrorMsg(null);
-    setIsFetchingLiquipedia(true);
-    try {
-      const res = await fetchLiquipediaMatchAction(liquipediaUrl);
-      if (!res.success) {
-        setErrorMsg(res.message);
-        if (res.rawText) {
-          setRawText(res.rawText);
-        }
-      } else {
-        setLiquipediaMatches(res.matches);
-        setSelectedLiquipediaMatchIdx(0);
-        if (res.matches.length > 0) {
-          applyLiquipediaMatchToRows(res.matches[0]);
-        }
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to fetch from Liquipedia.');
-    } finally {
-      setIsFetchingLiquipedia(false);
-    }
-  };
 
   // -------------------------------------------------------------
   // Scorecard Screenshot OCR Handler
@@ -848,9 +812,9 @@ export function MatchBatchImporter({
       setRawOcrText(text);
 
       // Parse the recognized text as tabular lines
-      const parsedMatches = parseLiquipediaText(text);
+      const parsedMatches = parseTableText(text);
       if (parsedMatches.length > 0 && parsedMatches[0].rows.length > 0) {
-        applyLiquipediaMatchToRows(parsedMatches[0]);
+        applyTableMatchToRows(parsedMatches[0]);
         setOcrStatus(`OCR Complete! Extracted ${parsedMatches[0].rows.length} team entries.`);
       } else {
         setRawText(text);
@@ -888,15 +852,6 @@ export function MatchBatchImporter({
 
   // Trigger parsing whenever text or tab changes
   React.useEffect(() => {
-    if (pasteMode === 'liquipedia') {
-      if (rawText.trim()) {
-        const parsed = parseLiquipediaText(rawText);
-        if (parsed.length > 0 && parsed[0].rows.length > 0) {
-          applyLiquipediaMatchToRows(parsed[0]);
-        }
-      }
-      return;
-    }
     if (pasteMode === 'ocr') {
       return;
     }
@@ -906,7 +861,7 @@ export function MatchBatchImporter({
     } else {
       parsePlayerData(rawText);
     }
-  }, [rawText, activeTab, pasteMode, parseTeamData, parsePlayerData, applyLiquipediaMatchToRows]);
+  }, [rawText, activeTab, pasteMode, parseTeamData, parsePlayerData, applyTableMatchToRows]);
 
   // -------------------------------------------------------------
   // Copy Templates & Sample Data
@@ -1299,18 +1254,6 @@ export function MatchBatchImporter({
           </button>
           <button
             type="button"
-            onClick={() => setPasteMode('liquipedia')}
-            className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
-              pasteMode === 'liquipedia'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-blue-400" />
-            <span>🌐 Liquipedia Importer</span>
-          </button>
-          <button
-            type="button"
             onClick={() => setPasteMode('ocr')}
             className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
               pasteMode === 'ocr'
@@ -1358,102 +1301,6 @@ export function MatchBatchImporter({
           )}
         </div>
       </div>
-
-      {/* ─── LIQUIPEDIA IMPORTER PANEL ─── */}
-      {pasteMode === 'liquipedia' && (
-        <div className="space-y-3 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                <Globe className="w-4 h-4" /> 1-Click Liquipedia Tournament & Match Parser
-              </h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Enter any Liquipedia tournament or match URL to extract standings, or paste wikitext/HTML table below.
-              </p>
-            </div>
-            <span className="text-[10px] font-normal text-slate-400 self-start sm:self-auto">
-              {parsedTeamRows.length} team row(s) detected
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <input
-              type="url"
-              value={liquipediaUrl}
-              onChange={(e) => setLiquipediaUrl(e.target.value)}
-              placeholder="https://liquipedia.net/pubgmobile/... or /apexlegends/..."
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleFetchLiquipedia();
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={handleFetchLiquipedia}
-              disabled={isFetchingLiquipedia}
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm shrink-0 cursor-pointer"
-            >
-              {isFetchingLiquipedia ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Fetching...</span>
-                </>
-              ) : (
-                <>
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Fetch from Liquipedia</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Multiple Matches Discovered */}
-          {liquipediaMatches.length > 1 && (
-            <div className="space-y-1.5 pt-2 border-t border-blue-500/10">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Multiple Matches / Maps Discovered ({liquipediaMatches.length}):
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {liquipediaMatches.map((m, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setSelectedLiquipediaMatchIdx(idx);
-                      applyLiquipediaMatchToRows(m);
-                    }}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
-                      selectedLiquipediaMatchIdx === idx
-                        ? 'bg-blue-600 text-white font-bold shadow-xs'
-                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                    }`}
-                  >
-                    {m.matchName} ({m.rows.length} teams)
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Manual Wikitext or Table Paste Fallback */}
-          <div className="space-y-1 pt-2 border-t border-blue-500/10">
-            <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center justify-between">
-              <span>Or Paste Raw Liquipedia Wikitext / Table Data Manually:</span>
-              <span className="text-[9px] text-slate-400 font-normal">Supports {`{{MatchMaps}}`}, {`{{Scoreboard}}`} & HTML tables</span>
-            </label>
-            <textarea
-              rows={3}
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Paste raw Liquipedia wikitext or HTML table here..."
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      )}
 
       {/* ─── SCREENSHOT OCR READER PANEL ─── */}
       {pasteMode === 'ocr' && (
@@ -1657,6 +1504,7 @@ export function MatchBatchImporter({
                     <td className="py-1.5 px-3 min-w-[220px]">
                       <SearchableSelect
                         options={teamSelectOptions}
+                        searchUrl="/api/admin/search?type=team"
                         value={r.teamId}
                         onChange={(val) => updateParsedTeamRow(idx, { teamId: val })}
                         placeholder="⚠️ Select Matching Team…"
@@ -1742,6 +1590,7 @@ export function MatchBatchImporter({
                     <td className="py-1.5 px-3 min-w-[210px]">
                       <SearchableSelect
                         options={playerSelectOptions}
+                        searchUrl="/api/admin/search?type=player"
                         value={r.playerId}
                         onChange={(val) => updateParsedPlayerRow(idx, { playerId: val })}
                         placeholder="⚠️ Select Matching Player…"

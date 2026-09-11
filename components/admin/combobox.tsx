@@ -21,6 +21,9 @@ interface ComboboxProps {
   emptyOptionLabel?: string;
   /** Allow submitting text that doesn't match any option (e.g. custom region). */
   freeText?: boolean;
+  /** When set, typing (≥2 chars) queries this URL (?q=...) instead of filtering
+      the options array — server-side search over the whole database. */
+  searchUrl?: string;
   inputClassName?: string;
   ariaLabel?: string;
 }
@@ -40,6 +43,7 @@ export function Combobox({
   placeholder = 'Type to search…',
   emptyOptionLabel,
   freeText = false,
+  searchUrl,
   inputClassName,
   ariaLabel,
 }: ComboboxProps) {
@@ -52,16 +56,56 @@ export function Combobox({
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
 
-  const selected = options.find((o) => o.value === value);
+  // Server-side search state (only active when searchUrl is provided)
+  const [remoteOptions, setRemoteOptions] = React.useState<ComboboxOption[]>([]);
+  const [isSearching, setIsSearching] = React.useState(false);
+  const [searchFailed, setSearchFailed] = React.useState(false);
+  const searchSeqRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (!searchUrl) return;
+    const term = query.trim();
+    if (term.length < 2) {
+      setRemoteOptions([]);
+      setIsSearching(false);
+      setSearchFailed(false);
+      return;
+    }
+    const seq = ++searchSeqRef.current;
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${searchUrl}${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(term)}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (seq !== searchSeqRef.current) return;
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        if (seq !== searchSeqRef.current) return;
+        setRemoteOptions(Array.isArray(data.options) ? data.options : []);
+        setSearchFailed(false);
+      } catch {
+        if (seq === searchSeqRef.current) setSearchFailed(true);
+      } finally {
+        if (seq === searchSeqRef.current) setIsSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, searchUrl]);
+
+  const selected = [...remoteOptions, ...options].find((o) => o.value === value);
   const displayValue = selected ? selected.label : freeText ? value : emptyOptionLabel && !value ? '' : value;
 
-  const filtered = React.useMemo(() => {
+  const localFiltered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q || q === displayValue.toLowerCase()) return options;
     return options.filter(
       (o) => o.label.toLowerCase().includes(q) || (o.keywords ?? '').toLowerCase().includes(q)
     );
   }, [options, query, displayValue]);
+
+  const filtered =
+    searchUrl && query.trim().length >= 2 ? remoteOptions : localFiltered;
 
   const commit = React.useCallback(
     (next: string) => {
@@ -199,6 +243,12 @@ export function Combobox({
               />
             );
           })}
+          {isSearching && (
+            <li className="px-3 py-2 text-slate-400">Searching…</li>
+          )}
+          {!isSearching && searchFailed && (
+            <li className="px-3 py-2 text-rose-500">Search failed — retry</li>
+          )}
           {filtered.length === 0 &&
             (freeText ? (
               <li

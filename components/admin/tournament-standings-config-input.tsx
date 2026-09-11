@@ -25,6 +25,9 @@ import {
   type StandingsNavigationItem,
   type ZoneRule,
   type ZoneColor,
+  TOURNAMENT_AVAILABLE_TABS,
+  ALL_TOURNAMENT_TAB_IDS,
+  type TournamentTabId,
 } from '@/lib/standings-config';
 import {
   Sparkles,
@@ -41,7 +44,27 @@ import {
   Calendar,
   Crosshair,
   Copy,
+  LayoutDashboard,
+  Trophy,
+  Swords,
+  Route,
+  ScrollText,
+  Users,
+  Banknote,
+  Eye,
+  Sliders,
 } from 'lucide-react';
+
+const TAB_ICONS: Record<TournamentTabId, React.ComponentType<{ className?: string }>> = {
+  overview: LayoutDashboard,
+  standings: Trophy,
+  matches: Swords,
+  progression: Route,
+  format: ScrollText,
+  teams: Users,
+  prizepool: Banknote,
+  statistics: Crosshair,
+};
 
 export interface AdminStageDetail {
   name: string;
@@ -1077,9 +1100,181 @@ export function TournamentStandingsConfigInput({
     }
   }, [config.statisticsConfig?.defaultView]);
 
+  const currentVisibleTabs: TournamentTabId[] =
+    config.visibleTabs && config.visibleTabs.length > 0
+      ? config.visibleTabs
+      : [...ALL_TOURNAMENT_TAB_IDS];
+
+  const toggleTab = (tabId: TournamentTabId) => {
+    if (currentVisibleTabs.includes(tabId)) {
+      if (currentVisibleTabs.length <= 1) return; // Prevent disabling all tabs
+      patch({ visibleTabs: currentVisibleTabs.filter((id) => id !== tabId) });
+    } else {
+      const nextTabs = ALL_TOURNAMENT_TAB_IDS.filter(
+        (id) => currentVisibleTabs.includes(id) || id === tabId
+      );
+      patch({ visibleTabs: nextTabs });
+    }
+  };
+
+  const setPresetTabs = (preset: TournamentTabId[]) => {
+    patch({ visibleTabs: preset });
+  };
+
   return (
     <div className="space-y-6">
       <input type="hidden" name="standingsConfigJson" value={JSON.stringify(config)} />
+
+      {/* ── Public Tournament Tabs Visibility & Toggles ── */}
+      <div className="p-5 rounded-2xl border-2 border-blue-500/30 bg-gradient-to-br from-blue-50/60 via-white to-indigo-50/40 dark:from-slate-900/90 dark:via-[#0b1220] dark:to-slate-900/80 shadow-sm space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200/80 dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-blue-600 text-white shadow-xs">
+                <Eye className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                Public Tournament Tabs Visibility
+              </h3>
+              <span className="px-2 py-0.5 text-[11px] font-black rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                {currentVisibleTabs.length} / {ALL_TOURNAMENT_TAB_IDS.length} Active
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+              Turn individual tabs ON or OFF for visitors on the public tournament page. Use presets for upcoming events (hiding empty matches/standings) or customize per tournament.
+            </p>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
+              <Sliders className="w-3 h-3" /> Presets:
+            </span>
+            <button
+              type="button"
+              onClick={() => setPresetTabs([...ALL_TOURNAMENT_TAB_IDS])}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+            >
+              🌟 All Tabs (Default)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetTabs(['overview', 'format', 'teams', 'prizepool'])}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 transition-colors cursor-pointer"
+            >
+              ⏳ Upcoming Event
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetTabs(['overview', 'standings', 'matches', 'teams', 'prizepool', 'statistics'])}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer"
+            >
+              🔥 Live Event
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetTabs(['overview', 'standings', 'teams'])}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold border border-purple-200 dark:border-purple-800 bg-purple-50/70 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 transition-colors cursor-pointer"
+            >
+              ⚡ Minimal
+            </button>
+          </div>
+        </div>
+
+        {/* 8 Tab Toggle Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {TOURNAMENT_AVAILABLE_TABS.map((tab) => {
+            const isEnabled = currentVisibleTabs.includes(tab.id);
+            const Icon = TAB_ICONS[tab.id];
+
+            return (
+              <div
+                key={tab.id}
+                onClick={() => toggleTab(tab.id)}
+                className={`group relative p-3 rounded-xl border transition-all duration-200 select-none cursor-pointer flex flex-col justify-between ${
+                  isEnabled
+                    ? 'border-blue-500/50 bg-white dark:bg-slate-900 shadow-xs hover:border-blue-600'
+                    : 'border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        isEnabled
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                      {tab.label}
+                    </span>
+                  </div>
+
+                  {/* Switch Toggle Button */}
+                  <div
+                    className={`w-9 h-5 rounded-full transition-colors p-0.5 flex items-center ${
+                      isEnabled ? 'bg-blue-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+                    }`}
+                  >
+                    <div className="w-4 h-4 rounded-full bg-white shadow-xs transition-all" />
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                  {tab.description}
+                </p>
+
+                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[10px]">
+                  <span className={`font-black uppercase tracking-wider ${isEnabled ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                    {isEnabled ? '✓ Visible to Users' : '✕ Hidden'}
+                  </span>
+                  <span className="text-slate-400 font-mono text-[9px]">tab={tab.id}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Live Public Pill Dock Preview */}
+        <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 p-3 space-y-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              Live Public Navigation Dock Preview (What visitors will see):
+            </span>
+            <span className="text-slate-400 text-[10px]">
+              {currentVisibleTabs.length} tabs will render
+            </span>
+          </div>
+
+          <div className="flex items-center justify-center p-2 rounded-xl bg-slate-100/70 dark:bg-[#070b13] border border-slate-200/60 dark:border-white/5 overflow-x-auto">
+            <div className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-slate-200 bg-white/95 p-1 dark:border-white/10 dark:bg-[#0b1220]/95 shadow-sm">
+              {currentVisibleTabs.map((tabId, idx) => {
+                const tabDef = TOURNAMENT_AVAILABLE_TABS.find((t) => t.id === tabId);
+                const Icon = TAB_ICONS[tabId];
+                const isFirst = idx === 0;
+
+                return (
+                  <div
+                    key={tabId}
+                    className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wider ${
+                      isFirst
+                        ? 'bg-[#0A5FC4] text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-white/5'
+                    }`}
+                  >
+                    <Icon className={`h-3 w-3 ${isFirst ? 'text-white' : 'text-slate-400'}`} />
+                    <span>{tabDef?.label || tabId}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Global Standings Controls ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

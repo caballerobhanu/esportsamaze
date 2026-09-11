@@ -1,61 +1,81 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
-  Swords,
-  Calendar,
   Clock,
-  Trophy,
   Crown,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
-  Flame,
   Layers,
   MapPin,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import type { StageGroup } from '../tournament-matches-panel';
+import type { StageGroup } from './panel-types';
 import { ThemeLogo } from './theme-logo';
 
 interface EstaticMatchesPanelProps {
   stageGroups: StageGroup[];
-  matchColumns?: any;
-  tournamentSlug?: string;
-  activeStageName?: string;
-  initialMatchId?: string;
+}
+
+/** Syncs a query param without triggering a server roundtrip. */
+function replaceQueryParam(key: string, value: string | null) {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  if (value == null || value === '') url.searchParams.delete(key);
+  else url.searchParams.set(key, value);
+  window.history.replaceState(null, '', url.toString());
 }
 
 export function EstaticMatchesPanel({
   stageGroups,
-  tournamentSlug,
-  activeStageName,
-  initialMatchId,
 }: EstaticMatchesPanelProps) {
-  const router = useRouter();
+  // Deep links (?stage=, ?matchId=) are read client-side so the route stays ISR-cacheable.
+  const searchParams = useSearchParams();
 
-  // Find index of the requested active stage, defaulting to 0
+  // Find index of the requested active stage, defaulting to the most recent stage.
   const initialStageIdx = useMemo(() => {
-    if (!activeStageName || !stageGroups.length) return 0;
-    const idx = stageGroups.findIndex(
-      (g) => g.stageName.toLowerCase() === activeStageName.toLowerCase()
-    );
-    return idx >= 0 ? idx : 0;
-  }, [stageGroups, activeStageName]);
+    if (!stageGroups.length) return 0;
+    const stageParam = searchParams.get('stage');
+    if (stageParam) {
+      const idx = stageGroups.findIndex(
+        (g) => g.stageName.toLowerCase() === stageParam.toLowerCase()
+      );
+      if (idx >= 0) return idx;
+    }
+    // Default: stage with the most recently scheduled match
+    let bestIdx = 0;
+    let bestTime = -1;
+    stageGroups.forEach((g, idx) => {
+      const maxT = Math.max(0, ...g.matches.map((m) => new Date(m.scheduledAt).getTime() || 0));
+      if (maxT > bestTime) {
+        bestTime = maxT;
+        bestIdx = idx;
+      }
+    });
+    return bestIdx;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageGroups]);
 
   const [selectedStageIdx, setSelectedStageIdx] = useState<number>(initialStageIdx);
-
-  // Sync state if activeStageName changes from server
-  useEffect(() => {
+  const [lastStageIdx, setLastStageIdx] = useState<number>(initialStageIdx);
+  if (lastStageIdx !== initialStageIdx) {
+    // URL-driven stage change (fresh navigation) — adjust during render
+    // instead of syncing through an effect.
+    setLastStageIdx(initialStageIdx);
     setSelectedStageIdx(initialStageIdx);
-  }, [initialStageIdx]);
+  }
 
   const currentStage = stageGroups[selectedStageIdx] || stageGroups[0];
 
   // Current selected match in stage
-  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(initialMatchId || null);
+  const matchIdParam = searchParams.get('matchId');
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(matchIdParam);
+  const [lastMatchIdParam, setLastMatchIdParam] = useState<string | null>(matchIdParam);
+  if (lastMatchIdParam !== matchIdParam) {
+    setLastMatchIdParam(matchIdParam);
+    setSelectedMatchId(matchIdParam);
+  }
 
   const activeMatch = useMemo(() => {
     if (!currentStage || !currentStage.matches.length) return null;
@@ -77,13 +97,17 @@ export function EstaticMatchesPanel({
       ? currentStage.matches[currentMatchIndex + 1]
       : null;
 
-  if (!stageGroups || stageGroups.length === 0) {
-    return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-        <p className="text-sm font-bold text-slate-400">No match records available yet for this tournament.</p>
-      </div>
-    );
-  }
+  const selectStage = (idx: number, stageName: string) => {
+    setSelectedStageIdx(idx);
+    setSelectedMatchId(null);
+    replaceQueryParam('matchId', null);
+    replaceQueryParam('stage', stageName);
+  };
+
+  const selectMatch = (matchId: string) => {
+    setSelectedMatchId(matchId);
+    replaceQueryParam('matchId', matchId);
+  };
 
   const sortedResults = useMemo(() => {
     if (!activeMatch?.teamResults) return [];
@@ -112,6 +136,14 @@ export function EstaticMatchesPanel({
 
   const winner = activeMatch?.teamResults?.find((r) => r.wwcd || r.rank === 1);
 
+  if (!stageGroups || stageGroups.length === 0) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+        <p className="text-sm font-bold text-slate-400">No match records available yet for this tournament.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Stage Selector Pills & Match Pills */}
@@ -126,16 +158,7 @@ export function EstaticMatchesPanel({
               return (
                 <button
                   key={g.stageName}
-                  onClick={() => {
-                    setSelectedStageIdx(idx);
-                    setSelectedMatchId(null);
-                    if (tournamentSlug) {
-                      router.push(
-                        `/tournaments/${tournamentSlug}?tab=matches&stage=${encodeURIComponent(g.stageName)}`,
-                        { scroll: false }
-                      );
-                    }
-                  }}
+                  onClick={() => selectStage(idx, g.stageName)}
                   className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     active
                       ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25 scale-[1.01]'
@@ -162,7 +185,7 @@ export function EstaticMatchesPanel({
                 return (
                   <button
                     key={m.id}
-                    onClick={() => setSelectedMatchId(m.id)}
+                    onClick={() => selectMatch(m.id)}
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
                       active
                         ? 'bg-[#0A5FC4] text-white shadow-sm shadow-blue-500/25 scale-[1.02]'
@@ -201,7 +224,7 @@ export function EstaticMatchesPanel({
                     <button
                       type="button"
                       disabled={!prevMatch}
-                      onClick={() => prevMatch && setSelectedMatchId(prevMatch.id)}
+                      onClick={() => prevMatch && selectMatch(prevMatch.id)}
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 disabled:opacity-30 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 cursor-pointer transition-all"
                       title={prevMatch ? `M${prevMatch.overallMatchNumber ?? prevMatch.matchNumber}` : 'No previous match'}
                     >
@@ -211,7 +234,7 @@ export function EstaticMatchesPanel({
                     <button
                       type="button"
                       disabled={!nextMatch}
-                      onClick={() => nextMatch && setSelectedMatchId(nextMatch.id)}
+                      onClick={() => nextMatch && selectMatch(nextMatch.id)}
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 disabled:opacity-30 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 cursor-pointer transition-all"
                       title={nextMatch ? `M${nextMatch.overallMatchNumber ?? nextMatch.matchNumber}` : 'No next match'}
                     >

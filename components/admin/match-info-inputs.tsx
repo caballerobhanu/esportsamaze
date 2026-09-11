@@ -43,6 +43,8 @@ export interface TournamentOption {
   gameId: string;
   prizeDistribution?: any;
   stages?: { id: string; name: string }[];
+  /** Stage names from prizeDistribution JSON — server-extracted for search results. */
+  stageNames?: string[];
 }
 
 export interface MatchInfoInputsProps {
@@ -235,11 +237,43 @@ export function MatchInfoInputs({
   const [selectedGameId, setSelectedGameId] = React.useState(defaultGameId);
   const [selectedTournamentId, setSelectedTournamentId] = React.useState(initialTournamentId || '');
 
+  // Tournaments of the selected game, fetched from the admin search endpoint
+  // when the game changes — keeps the cascade working without shipping every
+  // tournament in the page payload.
+  const [gameTournaments, setGameTournaments] = React.useState<TournamentOption[]>(allTournaments);
+  React.useEffect(() => {
+    if (!selectedGameId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/search?type=tournament&gameId=${encodeURIComponent(selectedGameId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data.options)) return;
+        setGameTournaments(
+          data.options.map((o: any) => ({
+            id: o.value,
+            name: o.label,
+            slug: o.value,
+            gameId: o.gameId,
+            stages: Array.isArray(o.stages) ? o.stages : [],
+            stageNames: Array.isArray(o.stageNames) ? o.stageNames : [],
+          }))
+        );
+      } catch {
+        // keep the previous list on failure
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGameId]);
+
   // Filter tournaments by selected game
   const filteredTournaments = React.useMemo(() => {
-    if (!selectedGameId) return allTournaments;
-    return allTournaments.filter((t) => t.gameId === selectedGameId);
-  }, [allTournaments, selectedGameId]);
+    if (!selectedGameId) return gameTournaments;
+    return gameTournaments.filter((t) => t.gameId === selectedGameId);
+  }, [gameTournaments, selectedGameId]);
 
   // If selected tournament is not in filtered tournaments, switch to first available or reset
   React.useEffect(() => {
@@ -251,7 +285,7 @@ export function MatchInfoInputs({
   }, [selectedGameId, filteredTournaments, selectedTournamentId]);
 
   // 2. Stage & Stage Type Typeahead States
-  const currentTournament = allTournaments.find((t) => t.id === selectedTournamentId);
+  const currentTournament = gameTournaments.find((t) => t.id === selectedTournamentId);
   const allKnownStages = React.useMemo(() => {
     const set = new Set<string>();
     if (currentTournament?.prizeDistribution?.stages && Array.isArray(currentTournament.prizeDistribution.stages)) {
@@ -262,6 +296,11 @@ export function MatchInfoInputs({
     if (currentTournament?.stages && Array.isArray(currentTournament.stages)) {
       currentTournament.stages.forEach((s: any) => {
         if (s.name?.trim()) set.add(s.name.trim());
+      });
+    }
+    if (currentTournament?.stageNames && Array.isArray(currentTournament.stageNames)) {
+      currentTournament.stageNames.forEach((s: string) => {
+        if (s.trim()) set.add(s.trim());
       });
     }
     POPULAR_STAGE_NAMES.forEach((s) => set.add(s));

@@ -114,7 +114,7 @@ export function EstaticFormatPanel({
     return map;
   }, [teams, tournament?.teams]);
 
-  // Synthesize full Liquipedia-style format data for each stage
+  // Synthesize full wiki-style format data for each stage
   const synthesizedStages: StageFormatData[] = useMemo(() => {
     const sortedStages = [...stages].sort((a, b) => a.sequence - b.sequence);
 
@@ -481,7 +481,7 @@ export function EstaticFormatPanel({
         </section>
       )}
 
-      {/* ── FULL-BLOWN LIQUEPEDIA-STYLE STAGE PROGRESSION & GROUP DRAW SECTION ── */}
+      {/* ── FULL-BLOWN STAGE PROGRESSION & GROUP DRAW SECTION ── */}
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

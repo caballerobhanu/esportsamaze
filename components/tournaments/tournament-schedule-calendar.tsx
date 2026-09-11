@@ -615,7 +615,7 @@ export function TournamentScheduleCalendar({
                     selectedDay.matches.map((m, idx) => {
                       const matchNum = m.matchNumber || idx + 1;
                       const matchUrl = tournamentSlug
-                        ? `/tournaments/${tournamentSlug}?tab=matches&matchId=${m.id}`
+                        ? `/tournaments/${tournamentSlug}/matches?matchId=${m.id}`
                         : null;
 
                       return (

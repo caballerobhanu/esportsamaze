@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Crosshair, Users, ShieldCheck, Flame } from 'lucide-react';
 import prisma from '@/lib/prisma';
+import { DirectoryPagination } from '@/components/directory-pagination';
 import { PlayersDirectoryExplorer, type PlayersDirectoryItem } from '@/components/players/players-directory-explorer';
 
 export const dynamic = 'force-dynamic';
@@ -12,74 +13,137 @@ export const metadata: Metadata = {
     'Browse verified battle royale esports athletes, pro rosters, career statistics, and achievements across BGMI, PUBG Mobile and more.',
 };
 
-async function getPlayersDirectoryData(): Promise<PlayersDirectoryItem[]> {
-  try {
-    const list = await prisma.player.findMany({
-      where: { isVerified: true },
-      select: {
-        id: true,
-        ign: true,
-        slug: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        status: true,
-        avatarUrl: true,
-        nationality: true,
-        isVerified: true,
-        game: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        currentTeam: {
-          select: {
-            id: true,
-            name: true,
-            tag: true,
-            logoUrl: true,
-          },
-        },
-        _count: {
-          select: {
-            matchStats: true,
-            transferHistory: true,
-          },
-        },
-      },
-      orderBy: { ign: 'asc' },
-    });
+const PAGE_SIZE = 200;
+const ROLES = ['ALL', 'Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
 
-    return list.map((p) => ({
-      ...p,
-      name: [p.firstName, p.lastName].filter(Boolean).join(' ') || null,
-    }));
-  } catch (error) {
-    console.error('Failed to fetch players directory data:', error);
-    return [];
+type PlayersFilters = {
+  q: string;
+  role: string;
+  game: string;
+  letter: string;
+  sort: string;
+};
+
+function playersWhere(filters: PlayersFilters, opts: { skip?: 'role' | 'game' } = {}) {
+  const where: Record<string, unknown> = { isVerified: true };
+  if (filters.q) {
+    where.OR = [
+      { ign: { contains: filters.q, mode: 'insensitive' } },
+      { firstName: { contains: filters.q, mode: 'insensitive' } },
+      { lastName: { contains: filters.q, mode: 'insensitive' } },
+      { currentTeam: { name: { contains: filters.q, mode: 'insensitive' } } },
+      { currentTeam: { tag: { contains: filters.q, mode: 'insensitive' } } },
+    ];
   }
+  if (opts.skip !== 'role' && filters.role !== 'ALL') {
+    where.role = { equals: filters.role, mode: 'insensitive' };
+  }
+  if (opts.skip !== 'game' && filters.game !== 'ALL') {
+    where.game = { id: filters.game };
+  }
+  if (filters.letter) {
+    where.ign = { startsWith: filters.letter, mode: 'insensitive' };
+  }
+  return where as never;
 }
 
-export default async function PlayersPage() {
-  const players = await getPlayersDirectoryData();
+async function getPlayersDirectoryData(filters: PlayersFilters, page: number): Promise<PlayersDirectoryItem[]> {
+  const list = await prisma.player.findMany({
+    where: playersWhere(filters),
+    orderBy:
+      filters.sort === 'matches'
+        ? [{ matchStats: { _count: 'desc' as const } }, { ign: 'asc' as const }]
+        : filters.sort === 'ign-desc'
+          ? [{ ign: 'desc' as const }]
+          : [{ ign: 'asc' as const }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+    select: {
+      id: true,
+      ign: true,
+      slug: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      status: true,
+      avatarUrl: true,
+      nationality: true,
+      isVerified: true,
+      game: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      currentTeam: {
+        select: {
+          id: true,
+          name: true,
+          tag: true,
+          logoUrl: true,
+        },
+      },
+      _count: {
+        select: {
+          matchStats: true,
+          transferHistory: true,
+        },
+      },
+    },
+  });
 
-  const totalAthletes = players.length;
-  const totalAssaulters = players.filter(
-    (p) => (p.role || '').toLowerCase().includes('assaulter') || (p.role || '').toLowerCase().includes('frag')
-  ).length;
-  const totalIgls = players.filter(
-    (p) => (p.role || '').toLowerCase().includes('igl') || (p.role || '').toLowerCase().includes('lead')
-  ).length;
-  const teamsRepresented = new Set(players.map((p) => p.currentTeam?.id).filter(Boolean)).size;
+  return list.map((p) => ({
+    ...p,
+    name: [p.firstName, p.lastName].filter(Boolean).join(' ') || null,
+  }));
+}
+
+export default async function PlayersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const params = await searchParams;
+  const filters: PlayersFilters = {
+    q: params.q?.trim() ?? '',
+    role: params.role ?? 'ALL',
+    game: params.game ?? 'ALL',
+    letter: (params.letter ?? '').toUpperCase(),
+    sort: ['matches', 'ign-desc'].includes(params.sort ?? '') ? (params.sort as string) : 'ign',
+  };
+  const page = Math.max(1, Number(params.page) || 1);
+
+  const [players, total, roleGroups, gameGroups, games, teamsRepresented] = await Promise.all([
+    getPlayersDirectoryData(filters, page),
+    prisma.player.count({ where: playersWhere(filters) }),
+    prisma.player.groupBy({ by: ['role'], where: playersWhere(filters, { skip: 'role' }), _count: { _all: true } }),
+    prisma.player.groupBy({ by: ['gameId'], where: playersWhere(filters, { skip: 'game' }), _count: { _all: true } }),
+    prisma.game.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.team.count({ where: { players: { some: { isVerified: true } } } }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const roleCountBy = new Map(roleGroups.map((r) => [r.role?.toLowerCase() ?? '', r._count._all]));
+  const gameCountById = new Map(gameGroups.map((g) => [g.gameId, g._count._all]));
+  const counts = {
+    total,
+    roles: Object.fromEntries(ROLES.map((r) => [r, roleCountBy.get(r.toLowerCase()) ?? 0])),
+    games: games
+      .map((g) => ({ id: g.id, name: g.name, count: gameCountById.get(g.id) ?? 0 }))
+      .filter((g) => g.count > 0),
+  };
 
   const metrics = [
-    { label: 'Verified Athletes', icon: Crosshair, value: totalAthletes },
-    { label: 'Assaulters & Fraggers', icon: Flame, value: totalAssaulters },
-    { label: 'In-Game Leaders (IGLs)', icon: ShieldCheck, value: totalIgls },
+    { label: 'Verified Athletes', icon: Crosshair, value: total },
+    { label: 'Assaulters & Fraggers', icon: Flame, value: counts.roles['Assaulter'] ?? 0 },
+    { label: 'In-Game Leaders (IGLs)', icon: ShieldCheck, value: counts.roles['IGL'] ?? 0 },
     { label: 'Rosters Represented', icon: Users, value: teamsRepresented },
   ];
+
+  const paginationParams = Object.fromEntries(
+    Object.entries(filters).filter(([, v]) => v && v !== 'ALL')
+  ) as Record<string, string>;
 
   return (
     <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
@@ -120,7 +184,23 @@ export default async function PlayersPage() {
         </div>
 
         {/* Directory Explorer */}
-        <PlayersDirectoryExplorer players={players} />
+        <PlayersDirectoryExplorer
+          players={players}
+          filters={filters}
+          counts={counts}
+          page={page}
+          totalPages={totalPages}
+        />
+
+        <DirectoryPagination
+          basePath="/players"
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          pageSize={PAGE_SIZE}
+          entityPlural="players"
+          params={paginationParams}
+        />
       </main>
     </div>
   );

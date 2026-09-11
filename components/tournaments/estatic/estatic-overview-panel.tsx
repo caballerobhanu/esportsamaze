@@ -4,19 +4,16 @@ import {
   CalendarDays,
   MapPin,
   Swords,
-  Clock,
   Users,
   Trophy,
   ChevronRight,
   Flame,
   Crown,
-  Sparkles,
   ArrowRight,
-  ShieldCheck,
 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { formatDate, CURRENCY_SYMBOLS } from '@/lib/utils';
 import type { AggregatedTeamStanding } from '@/lib/tournament-math';
-import type { MatchLite } from '../tournament-matches-panel';
+import type { MatchLite } from './panel-types';
 import { ThemeLogo } from './theme-logo';
 
 interface OverviewMatchLite extends MatchLite {
@@ -31,8 +28,8 @@ export function EstaticOverviewPanel({
   overallFraggers,
   matches,
   teamsCount,
-  resolvedWinner,
-  resolvedRunnerUp,
+  teamsMeta,
+  playerSlugById,
 }: {
   tournament: {
     slug: string;
@@ -64,40 +61,60 @@ export function EstaticOverviewPanel({
   teamsCount: number;
   resolvedWinner?: string | null;
   resolvedRunnerUp?: string | null;
+  teamsMeta?: Record<string, { slug?: string | null; name?: string | null }>;
+  playerSlugById?: Record<string, string | null>;
 }) {
   const completed = matches
     .filter((m) => m.status === 'COMPLETED' && m.teamResults.length > 0)
     .sort((a, b) => (b.overallMatchNumber ?? b.matchNumber ?? 0) - (a.overallMatchNumber ?? a.matchNumber ?? 0));
-  const upcoming = matches
-    .filter((m) => m.status !== 'COMPLETED')
-    .sort((a, b) => (a.overallMatchNumber ?? a.matchNumber ?? 0) - (b.overallMatchNumber ?? b.matchNumber ?? 0));
   const latest = completed[0];
   const fraggers = overallFraggers.slice(0, 5);
+
+  const currencySymbol = CURRENCY_SYMBOLS[tournament.currency || 'USD'] ?? `${tournament.currency || 'USD'} `;
+  const prizeLabel = tournament.prizePool
+    ? `${currencySymbol}${tournament.prizePool.toLocaleString('en-IN')}`
+    : null;
+
+  // Profile deep links prefer slugs; team pages also resolve by name, so the
+  // encoded name is an honest fallback (never link internal DB ids).
+  const teamHref = (teamId: string, fallbackName: string) => {
+    const meta = teamsMeta?.[teamId];
+    return `/teams/${meta?.slug || encodeURIComponent(meta?.name || fallbackName)}`;
+  };
+  const playerHref = (playerId: string, ign: string) => {
+    const slug = playerSlugById?.[playerId];
+    return `/players/${slug || encodeURIComponent(ign)}`;
+  };
 
   const facts = [
     {
       icon: Banknote,
       label: 'Total Prize Pool',
-      value: tournament.prizePool ? `₹${tournament.prizePool.toLocaleString('en-IN')}` : '₹1,00,00,000',
-      sub: tournament.usdRate && tournament.prizePool ? `≈ $${Math.round(tournament.prizePool * tournament.usdRate).toLocaleString()} USD` : 'National Major',
+      value: prizeLabel ?? 'TBA',
+      sub:
+        tournament.usdRate && tournament.prizePool
+          ? `≈ $${Math.round(tournament.prizePool * tournament.usdRate).toLocaleString()} USD`
+          : 'Prize pool to be announced',
     },
     {
       icon: CalendarDays,
       label: 'Tournament Schedule',
       value: `${formatDate(tournament.startDate)} – ${formatDate(tournament.endDate)}`,
-      sub: 'Multi-Week LAN',
+      sub: tournament.eventType || 'Multi-Week Event',
     },
     {
       icon: MapPin,
       label: 'Official Venue',
-      value: tournament.venues?.[0]?.venue.name || 'Nodwin Gaming Arena',
-      sub: tournament.venues?.[0]?.venue.city ? `${tournament.venues[0].venue.city}, India` : 'New Delhi, India',
+      value: tournament.venues?.[0]?.venue.name || 'TBA',
+      sub: tournament.venues?.[0]?.venue.city
+        ? tournament.venues[0].venue.city
+        : 'Venue to be announced',
     },
     {
       icon: Users,
       label: 'Format & Line-up',
       value: `${teamsCount} Qualified Squads`,
-      sub: tournament.gameMode || 'Battle Royale (Squads TPP)',
+      sub: tournament.gameMode || 'Battle Royale',
     },
   ];
 
@@ -149,7 +166,7 @@ export function EstaticOverviewPanel({
                   </h3>
                 </div>
                 <Link
-                  href={`/tournaments/${tournament.slug}/preview?tab=matches`}
+                  href={`/tournaments/${tournament.slug}/matches`}
                   className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
                 >
                   All Matches <ChevronRight className="h-3.5 w-3.5" />
@@ -247,7 +264,7 @@ export function EstaticOverviewPanel({
                 </h3>
               </div>
               <Link
-                href={`/tournaments/${tournament.slug}/preview?tab=standings`}
+                href={`/tournaments/${tournament.slug}/standings`}
                 className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
               >
                 Full Standings <ChevronRight className="h-3.5 w-3.5" />
@@ -289,7 +306,7 @@ export function EstaticOverviewPanel({
                       </td>
                       <td className="py-3 pr-3">
                         <Link
-                          href={`/teams/${row.teamId}`}
+                          href={teamHref(row.teamId, row.teamName)}
                           className="flex items-center gap-3 font-extrabold hover:text-[#0A5FC4] transition-colors"
                         >
                           <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-black/40">
@@ -340,7 +357,7 @@ export function EstaticOverviewPanel({
                 </h3>
               </div>
               <Link
-                href={`/tournaments/${tournament.slug}/preview?tab=statistics`}
+                href={`/tournaments/${tournament.slug}/statistics`}
                 className="text-xs font-bold text-[#0A5FC4] hover:underline dark:text-blue-300"
               >
                 Full List →
@@ -365,7 +382,7 @@ export function EstaticOverviewPanel({
                     </span>
                     <div>
                       <Link
-                        href={`/players/${f.playerId}`}
+                        href={playerHref(f.playerId, f.ign)}
                         className="text-sm font-black text-slate-900 dark:text-white hover:text-[#0A5FC4] transition-colors"
                       >
                         {f.ign}
@@ -399,7 +416,7 @@ export function EstaticOverviewPanel({
                   Prize Spotlight
                 </span>
                 <h4 className="mt-1 text-3xl font-black tracking-tight">
-                  {tournament.prizePool ? `₹${tournament.prizePool.toLocaleString('en-IN')}` : '₹1,00,00,000'}
+                  {prizeLabel ?? 'TBA'}
                 </h4>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm text-amber-300">
@@ -413,7 +430,7 @@ export function EstaticOverviewPanel({
 
             <div className="mt-5 border-t border-white/15 pt-4">
               <Link
-                href={`/tournaments/${tournament.slug}/preview?tab=prizepool`}
+                href={`/tournaments/${tournament.slug}/prizepool`}
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow hover:bg-blue-50 transition-colors"
               >
                 Inspect Distribution <ArrowRight className="h-3.5 w-3.5" />

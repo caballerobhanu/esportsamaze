@@ -19,7 +19,7 @@ import {
   resolveZoneTargetStage,
 } from '@/lib/standings-config';
 import { calculateTournamentStandings } from '@/lib/tournament-math';
-import type { TeamPerformanceRow } from '../tournament-statistics-panel';
+import type { TeamPerformanceRow } from './panel-types';
 
 export interface StagePerformanceSummary {
   stageId?: string;

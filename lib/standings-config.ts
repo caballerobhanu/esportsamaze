@@ -309,6 +309,33 @@ export interface TeamsTabConfig {
   showCountryFlag?: boolean;
 }
 
+export type TournamentTabId =
+  | 'overview'
+  | 'standings'
+  | 'matches'
+  | 'progression'
+  | 'format'
+  | 'teams'
+  | 'prizepool'
+  | 'statistics';
+
+export const TOURNAMENT_AVAILABLE_TABS: {
+  id: TournamentTabId;
+  label: string;
+  description: string;
+}[] = [
+  { id: 'overview', label: 'Overview', description: 'Hero banner, quick stats, winner podium, and schedule preview' },
+  { id: 'standings', label: 'Standings', description: 'Points table, qualification lines, group rankings, and tiebreakers' },
+  { id: 'matches', label: 'Matches', description: 'Match scorecards, map results, team combat breakdowns' },
+  { id: 'progression', label: 'Progression', description: 'Stage qualification tree, pathway, and seed brackets' },
+  { id: 'format', label: 'Format', description: 'Rules, scoring matrix, stage schedule, and advancement conditions' },
+  { id: 'teams', label: 'Teams', description: 'Participating squads, rosters, country flags, and seed labels' },
+  { id: 'prizepool', label: 'Prize Pool', description: 'Total prize distribution, stage rewards, and special awards' },
+  { id: 'statistics', label: 'Statistics', description: 'Player kill leaderboards, damage metrics, and team ratings' },
+];
+
+export const ALL_TOURNAMENT_TAB_IDS: TournamentTabId[] = TOURNAMENT_AVAILABLE_TABS.map((t) => t.id);
+
 export interface StandingsConfig {
   logoMode: StandingsLogoMode;
   showOverall: boolean;
@@ -321,6 +348,7 @@ export interface StandingsConfig {
   tabGroups?: StandingsTabGroup[];
   statisticsConfig?: StatisticsConfig;
   teamsConfig?: TeamsTabConfig;
+  visibleTabs?: TournamentTabId[];
 }
 
 export const DEFAULT_STANDINGS_CONFIG: StandingsConfig = {
@@ -340,6 +368,7 @@ export const DEFAULT_STANDINGS_CONFIG: StandingsConfig = {
   teamsConfig: {
     showCountryFlag: true,
   },
+  visibleTabs: [...ALL_TOURNAMENT_TAB_IDS],
 };
 
 export const STANDINGS_COLUMN_DEFS: {
@@ -654,6 +683,12 @@ export function normalizeTeamsConfig(v: unknown, logoMode?: unknown): TeamsTabCo
   };
 }
 
+function normalizeVisibleTabs(raw: unknown): TournamentTabId[] {
+  if (!Array.isArray(raw)) return [...ALL_TOURNAMENT_TAB_IDS];
+  const valid = raw.filter((id): id is TournamentTabId => ALL_TOURNAMENT_TAB_IDS.includes(id as TournamentTabId));
+  return valid.length > 0 ? valid : [...ALL_TOURNAMENT_TAB_IDS];
+}
+
 export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const cfg: StandingsConfig = {
@@ -670,6 +705,7 @@ export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
     tabGroups: normalizeTabGroups(src.tabGroups),
     statisticsConfig: normalizeStatisticsConfig(src.statisticsConfig),
     teamsConfig: normalizeTeamsConfig(src.teamsConfig, src.logoMode),
+    visibleTabs: normalizeVisibleTabs(src.visibleTabs),
   };
 
   const stages = (src.stages && typeof src.stages === 'object' ? src.stages : {}) as Record<string, unknown>;
@@ -774,6 +810,7 @@ export interface StandingsMatchLite {
 
 export interface StandingsTeamMeta {
   name: string;
+  slug?: string | null;
   displayName?: string | null;
   tag?: string | null;
   logoUrl?: string | null;

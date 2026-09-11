@@ -664,3 +664,16 @@ model MediaAsset {
   createdAt    DateTime @default(now())
 }
 
+// Anonymous counters for the compare page's "most compared" default lists.
+// No user data — one row per entity, incremented on each explicit compare view.
+model ComparePick {
+  id         String   @id @default(cuid())
+  entityType String // 'TEAM' | 'PLAYER'
+  entityId   String
+  picks      Int      @default(1)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([entityType, picks])
+}
+

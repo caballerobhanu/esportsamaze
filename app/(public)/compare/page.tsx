@@ -13,8 +13,17 @@ import {
   ArrowRight,
   TrendingUp,
   Award,
+  Crosshair,
 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import {
+  getPlayerCompareProfile,
+  getPlayerCompareResults,
+  getPopularCompareOptions,
+  getTeamCompareProfile,
+  getTeamCompareResults,
+  recordComparePicks,
+} from '@/lib/compare-stats';
 
 export const metadata: Metadata = {
   title: 'Head-to-Head Comparison | eSportsAmaze',
@@ -37,50 +46,43 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   const params = await searchParams;
   const isPlayerMode = params.type === 'players';
 
-  // Load list of top teams and players for selection controls
-  const [teamsList, playersList] = await Promise.all([
-    prisma.team.findMany({
-      select: { id: true, name: true, slug: true, logoUrl: true, tag: true },
-      orderBy: { name: 'asc' },
-      take: 200,
-    }).catch(() => []),
-    prisma.player.findMany({
-      select: { id: true, ign: true, slug: true, avatarUrl: true, currentTeam: { select: { name: true } } },
-      orderBy: { ign: 'asc' },
-      take: 200,
-    }).catch(() => []),
+  // Default picker lists: the 50 most-compared entities (recomputed at most
+  // once per day). Typing queries /api/compare/search over the whole database.
+  const [popularTeams, popularPlayers] = await Promise.all([
+    getPopularCompareOptions('teams').catch(() => []),
+    getPopularCompareOptions('players').catch(() => []),
   ]);
 
   if (!isPlayerMode) {
     // Team comparison mode
-    const defaultTeamA = teamsList[0]?.slug;
-    const defaultTeamB = teamsList[1]?.slug || teamsList[0]?.slug;
+    const slugA = params.teamA || '';
+    const slugB = params.teamB || '';
 
-    const slugA = params.teamA || defaultTeamA;
-    const slugB = params.teamB || defaultTeamB;
+    // Track explicit comparisons for the "most compared" default lists —
+    // never count views where a side fell back to the default.
+    if (params.teamA && params.teamB && params.teamA !== params.teamB) {
+      const [pa, pb] = await Promise.all([
+        getTeamCompareProfile(params.teamA),
+        getTeamCompareProfile(params.teamB),
+      ]);
+      const ids = [pa?.id, pb?.id].filter(Boolean) as string[];
+      if (ids.length > 0) await recordComparePicks('TEAM', ids);
+    }
 
     const [teamA, teamB] = await Promise.all([
-      slugA
-        ? prisma.team.findFirst({
-            where: { OR: [{ slug: slugA }, { id: slugA }] },
-            include: {
-              tournamentsWon: true,
-              tournamentsRunnerUp: true,
-              players: { where: { status: 'ACTIVE' }, select: { id: true, ign: true, slug: true, role: true, avatarUrl: true } },
-            },
-          })
-        : null,
-      slugB
-        ? prisma.team.findFirst({
-            where: { OR: [{ slug: slugB }, { id: slugB }] },
-            include: {
-              tournamentsWon: true,
-              tournamentsRunnerUp: true,
-              players: { where: { status: 'ACTIVE' }, select: { id: true, ign: true, slug: true, role: true, avatarUrl: true } },
-            },
-          })
-        : null,
+      slugA ? getTeamCompareProfile(slugA) : null,
+      slugB ? getTeamCompareProfile(slugB) : null,
     ]);
+
+    // The pickers ship only the popular default list — inject the two teams
+    // actually on the compare sheet so their labels/icons resolve on reload.
+    const teamOptions = [
+      ...popularTeams.filter((o) => o.value !== slugA && o.value !== slugB),
+      ...(teamA && slugA ? [{ value: slugA, label: teamA.name, subtitle: teamA.tag || null, imageUrl: teamA.logoUrl || null }] : []),
+      ...(teamB && slugB ? [{ value: slugB, label: teamB.name, subtitle: teamB.tag || null, imageUrl: teamB.logoUrl || null }] : []),
+    ];
+
+    const isSameTeam = Boolean(teamA && teamB && teamA.id === teamB.id);
 
     // Head-to-head calculations
     let sharedMatchesCount = 0;
@@ -94,18 +96,10 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     let lifetimeA = { matches: 0, wwcd: 0, elims: 0, damage: 0, totalPoints: 0 };
     let lifetimeB = { matches: 0, wwcd: 0, elims: 0, damage: 0, totalPoints: 0 };
 
-    if (teamA && teamB) {
+    if (teamA && teamB && !isSameTeam) {
       const [resultsA, resultsB] = await Promise.all([
-        prisma.matchTeamResult.findMany({
-          where: { teamId: teamA.id },
-          select: { matchGameId: true, rank: true, wwcd: true, elimsPoints: true, damage: true, totalPoints: true },
-          take: 500,
-        }),
-        prisma.matchTeamResult.findMany({
-          where: { teamId: teamB.id },
-          select: { matchGameId: true, rank: true, wwcd: true, elimsPoints: true, damage: true, totalPoints: true },
-          take: 500,
-        }),
+        getTeamCompareResults(teamA.id),
+        getTeamCompareResults(teamB.id),
       ]);
 
       // Calculate lifetime aggregates
@@ -139,6 +133,17 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       }
     }
 
+    // Mode toggle keeps the ENTIRE current query (both modes' params) — a
+  // round-trip teams → players → teams restores the exact comparison.
+  const modeToggleHref = (type: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v) q.set(k, v);
+    }
+    q.set('type', type);
+    return `/compare?${q.toString()}`;
+  };
+
     return (
       <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
         <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6 space-y-8">
@@ -161,13 +166,13 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
               {/* Mode Switcher Tabs */}
               <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10 shrink-0">
                 <Link
-                  href={`/compare?type=teams&teamA=${slugA || ''}&teamB=${slugB || ''}`}
+                  href={modeToggleHref("teams")}
                   className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600 transition-all"
                 >
                   Teams
                 </Link>
                 <Link
-                  href="/compare?type=players"
+                  href={modeToggleHref("players")}
                   className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white transition-all"
                 >
                   Players
@@ -187,12 +192,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                   defaultValue={slugA || ''}
                   placeholder="Select Team A..."
                   searchPlaceholder="Search team (e.g. SouL, GodL, Entity)..."
-                  options={teamsList.map((t) => ({
-                    value: t.slug || t.id,
-                    label: t.name,
-                    subtitle: t.tag || undefined,
-                    imageUrl: t.logoUrl || undefined,
-                  }))}
+                  options={teamOptions}
+                  searchUrl="/api/compare/search?type=teams"
                 />
               </div>
 
@@ -205,12 +206,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                       defaultValue={slugB || ''}
                       placeholder="Select Team B..."
                       searchPlaceholder="Search team (e.g. SouL, GodL, Entity)..."
-                      options={teamsList.map((t) => ({
-                        value: t.slug || t.id,
-                        label: t.name,
-                        subtitle: t.tag || undefined,
-                        imageUrl: t.logoUrl || undefined,
-                      }))}
+                      options={teamOptions}
+                      searchUrl="/api/compare/search?type=teams"
                     />
                   </div>
                   <button
@@ -225,7 +222,28 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
           </div>
 
           {/* Team vs Team Header Board */}
-          {teamA && teamB && (
+          {isSameTeam ? (
+            <div className="rounded-3xl border border-amber-400/40 bg-amber-400/10 p-10 text-center">
+              <Swords className="mx-auto h-8 w-8 text-amber-500" />
+              <h2 className="mt-3 text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                Both slots have the same team
+              </h2>
+              <p className="mx-auto mt-1 max-w-md text-sm font-medium text-slate-500 dark:text-slate-400">
+                Pick two different squads in the selectors above to run a head-to-head comparison.
+              </p>
+            </div>
+          ) : !teamA || !teamB ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white/50 p-10 text-center dark:border-slate-700 dark:bg-white/[0.02]">
+              <Swords className="mx-auto h-8 w-8 text-slate-400 opacity-50" />
+              <h2 className="mt-3 text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                Pick two teams to compare
+              </h2>
+              <p className="mx-auto mt-1 max-w-md text-sm font-medium text-slate-500 dark:text-slate-400">
+                Select Team A and Team B above, then hit Compare for head-to-head analytics,
+                direct encounters, and roster benchmarks.
+              </p>
+            </div>
+          ) : (
             <>
               <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
                 <div className="grid grid-cols-1 sm:grid-cols-11 gap-6 items-center">
@@ -543,26 +561,31 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   // ==========================================
   // PLAYER COMPARISON MODE
   // ==========================================
-  const defaultPlayerA = playersList[0]?.slug;
-  const defaultPlayerB = playersList[1]?.slug || playersList[0]?.slug;
+  const slugA = params.playerA || '';
+  const slugB = params.playerB || '';
 
-  const slugA = params.playerA || defaultPlayerA;
-  const slugB = params.playerB || defaultPlayerB;
+  // Track explicit comparisons for the "most compared" default lists.
+  if (params.playerA && params.playerB && params.playerA !== params.playerB) {
+    const [pa, pb] = await Promise.all([
+      getPlayerCompareProfile(params.playerA),
+      getPlayerCompareProfile(params.playerB),
+    ]);
+    const ids = [pa?.id, pb?.id].filter(Boolean) as string[];
+    if (ids.length > 0) await recordComparePicks('PLAYER', ids);
+  }
 
   const [playerA, playerB] = await Promise.all([
-    slugA
-      ? prisma.player.findFirst({
-          where: { OR: [{ slug: slugA }, { ign: { equals: slugA, mode: 'insensitive' } }, { id: slugA }] },
-          include: { currentTeam: true, game: true },
-        })
-      : null,
-    slugB
-      ? prisma.player.findFirst({
-          where: { OR: [{ slug: slugB }, { ign: { equals: slugB, mode: 'insensitive' } }, { id: slugB }] },
-          include: { currentTeam: true, game: true },
-        })
-      : null,
+    slugA ? getPlayerCompareProfile(slugA) : null,
+    slugB ? getPlayerCompareProfile(slugB) : null,
   ]);
+
+  const playerOptions = [
+    ...popularPlayers.filter((o) => o.value !== slugA && o.value !== slugB),
+    ...(playerA && slugA ? [{ value: slugA, label: playerA.ign, subtitle: playerA.currentTeam?.name || null, imageUrl: playerA.avatarUrl || null }] : []),
+    ...(playerB && slugB ? [{ value: slugB, label: playerB.ign, subtitle: playerB.currentTeam?.name || null, imageUrl: playerB.avatarUrl || null }] : []),
+  ];
+
+  const isSamePlayer = Boolean(playerA && playerB && playerA.id === playerB.id);
 
   let sharedMatchesCount = 0;
   let elimsSharedA = 0;
@@ -571,18 +594,10 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   let lifetimeA = { matches: 0, elims: 0, damage: 0 };
   let lifetimeB = { matches: 0, elims: 0, damage: 0 };
 
-  if (playerA && playerB) {
+  if (playerA && playerB && !isSamePlayer) {
     const [statsA, statsB] = await Promise.all([
-      prisma.matchPlayerStat.findMany({
-        where: { playerId: playerA.id },
-        select: { matchGameId: true, playerElims: true, damage: true },
-        take: 500,
-      }),
-      prisma.matchPlayerStat.findMany({
-        where: { playerId: playerB.id },
-        select: { matchGameId: true, playerElims: true, damage: true },
-        take: 500,
-      }),
+      getPlayerCompareResults(playerA.id),
+      getPlayerCompareResults(playerB.id),
     ]);
 
     for (const s of statsA) {
@@ -607,6 +622,17 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     }
   }
 
+  // Mode toggle keeps the ENTIRE current query (both modes' params) — a
+  // round-trip teams → players → teams restores the exact comparison.
+  const modeToggleHref = (type: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v) q.set(k, v);
+    }
+    q.set('type', type);
+    return `/compare?${q.toString()}`;
+  };
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
       <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6 space-y-8">
@@ -629,13 +655,13 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
             {/* Mode Switcher Tabs */}
             <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10 shrink-0">
               <Link
-                href="/compare?type=teams"
+                href={modeToggleHref("teams")}
                 className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white transition-all"
               >
                 Teams
               </Link>
               <Link
-                href={`/compare?type=players&playerA=${slugA || ''}&playerB=${slugB || ''}`}
+                href={modeToggleHref("players")}
                 className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600 transition-all"
               >
                 Players
@@ -655,12 +681,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                 defaultValue={slugA || ''}
                 placeholder="Select Player A..."
                 searchPlaceholder="Search player IGN (e.g. Jonathan, Manya)..."
-                options={playersList.map((p) => ({
-                  value: p.slug || p.id,
-                  label: p.ign,
-                  subtitle: p.currentTeam?.name || undefined,
-                  imageUrl: p.avatarUrl || undefined,
-                }))}
+                options={playerOptions}
+                searchUrl="/api/compare/search?type=players"
               />
             </div>
 
@@ -673,12 +695,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                     defaultValue={slugB || ''}
                     placeholder="Select Player B..."
                     searchPlaceholder="Search player IGN (e.g. Jonathan, Manya)..."
-                    options={playersList.map((p) => ({
-                      value: p.slug || p.id,
-                      label: p.ign,
-                      subtitle: p.currentTeam?.name || undefined,
-                      imageUrl: p.avatarUrl || undefined,
-                    }))}
+                    options={playerOptions}
+                    searchUrl="/api/compare/search?type=players"
                   />
                 </div>
                 <button
@@ -693,7 +711,28 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
         </div>
 
         {/* Player vs Player Masthead */}
-        {playerA && playerB && (
+        {isSamePlayer ? (
+          <div className="rounded-3xl border border-amber-400/40 bg-amber-400/10 p-10 text-center">
+            <Swords className="mx-auto h-8 w-8 text-amber-500" />
+            <h2 className="mt-3 text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+              Both slots have the same player
+            </h2>
+            <p className="mx-auto mt-1 max-w-md text-sm font-medium text-slate-500 dark:text-slate-400">
+              Pick two different players in the selectors above to run the head-to-head comparison.
+            </p>
+          </div>
+        ) : !playerA || !playerB ? (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white/50 p-10 text-center dark:border-slate-700 dark:bg-white/[0.02]">
+            <Crosshair className="mx-auto h-8 w-8 text-slate-400 opacity-50" />
+            <h2 className="mt-3 text-lg font-black uppercase tracking-tight text-slate-900 dark:text-white">
+              Pick two players to compare
+            </h2>
+            <p className="mx-auto mt-1 max-w-md text-sm font-medium text-slate-500 dark:text-slate-400">
+              Select Player A and Player B above, then hit Compare for lobby encounters, career
+              benchmarks, and head-to-head fragging metrics.
+            </p>
+          </div>
+        ) : (
           <>
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
               <div className="grid grid-cols-1 sm:grid-cols-11 gap-6 items-center">

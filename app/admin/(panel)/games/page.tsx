@@ -32,8 +32,9 @@ async function saveGame(formData: FormData) {
     return Boolean(clash);
   });
 
-  const [logoUpload, bannerUpload] = await Promise.all([
+  const [logoUpload, logoDarkUpload, bannerUpload] = await Promise.all([
     saveUploadedFile(formData.get('logoFile'), 'game-logo'),
+    saveUploadedFile(formData.get('logoDarkFile'), 'game-logo-dark'),
     saveUploadedFile(formData.get('bannerFile'), 'game-banner'),
   ]);
 
@@ -50,17 +51,15 @@ async function saveGame(formData: FormData) {
   };
 
   if (id) {
-    const existing = await prisma.game.findUnique({
-      where: { id },
-      select: { logoUrl: true, bannerUrl: true },
-    });
+    // The edit form pre-fills current URLs, so an empty field means the admin
+    // cleared it on purpose — no existing-value fallback (deletions must stick).
     await prisma.game.update({
       where: { id },
       data: {
         ...data,
-        logoUrl: logoUpload ?? fOpt(formData, 'logoUrl') ?? existing?.logoUrl ?? null,
-        bannerUrl:
-          bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
+        logoUrl: logoUpload ?? fOpt(formData, 'logoUrl'),
+        logoDarkUrl: logoDarkUpload ?? fOpt(formData, 'logoDarkUrl'),
+        bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
       },
     });
   } else {
@@ -68,6 +67,7 @@ async function saveGame(formData: FormData) {
       data: {
         ...data,
         logoUrl: logoUpload ?? fOpt(formData, 'logoUrl'),
+        logoDarkUrl: logoDarkUpload ?? fOpt(formData, 'logoDarkUrl'),
         bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
       },
     });
@@ -183,6 +183,20 @@ export default async function AdminGamesPage({
                 accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                 className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
               />
+            </div>
+            <div>
+              <label className={labelCls}>Dark Logo URL (optional — shown in dark mode)</label>
+              <input name="logoDarkUrl" defaultValue={editing?.logoDarkUrl ?? ''} className={inputCls} />
+              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
+              <input
+                type="file"
+                name="logoDarkFile"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">
+                Light wordmarks disappear on dark backgrounds — upload a white/knockout variant.
+              </p>
             </div>
             <div>
               <label className={labelCls}>Banner URL</label>

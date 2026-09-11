@@ -71,10 +71,14 @@ export async function generateMetadata({
   const { slug } = await params;
   const team = await prisma.team.findFirst({
     where: {
+      // Keep in sync with the page query below — a team reachable by
+      // displayName/id must not render with "Team Not Found" metadata.
       OR: [
         { slug },
         { tag: { equals: slug, mode: 'insensitive' } },
         { name: { equals: slug, mode: 'insensitive' } },
+        { displayName: { equals: slug, mode: 'insensitive' } },
+        { id: slug },
       ],
     },
     select: { name: true, tag: true, logoUrl: true },

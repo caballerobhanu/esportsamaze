@@ -202,7 +202,7 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <Link
-                    href={`/teams/${tt.team.slug || tt.team.id}`}
+                    href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}
                     className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
                   >
                     {tt.team.logoUrl || tt.team.imageDarkUrl || tt.logoDarkUrl || tt.logoUrl ? (
@@ -218,7 +218,7 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
                   </Link>
                   <div className="min-w-0">
                     <Link
-                      href={`/teams/${tt.team.slug || tt.team.id}`}
+                      href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}
                       className="text-base font-black text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block truncate"
                     >
                       {tt.team.name}
@@ -253,16 +253,16 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
                     {rawRoster.map((m, idx) => {
                       const isCapt = Boolean(m.isCaptain || m.captain);
                       const displayRole = m.staffRole || m.role;
-                      const playerUrl = m.slug || m.playerId
-                        ? `/players/${m.slug || m.playerId}`
-                        : `/players?q=${encodeURIComponent(m.ign)}`;
+                      const playerUrl = m.slug
+                        ? `/players/${m.slug}`
+                        : `/players/${encodeURIComponent(m.ign)}`;
 
                       return (
                         <Link
                           key={idx}
                           href={playerUrl}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all shadow-2xs hover:scale-105 cursor-pointer group/pill"
-                          title={m.slug || m.playerId ? `View ${m.ign}'s career stats & profile` : `Search wiki matches for ${m.ign}`}
+                          title={`View ${m.ign}'s career stats & profile`}
                         >
                           {isCapt && <Crown className="h-3 w-3 text-amber-500 shrink-0" />}
                           <span className="truncate">{m.ign}</span>

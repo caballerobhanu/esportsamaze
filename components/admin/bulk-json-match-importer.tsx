@@ -230,22 +230,20 @@ export function BulkJsonMatchImporter({
     }
   };
 
-  // Parse raw text into structured rows
-  const parsedRows: any[] = React.useMemo(() => {
-    setParseError(null);
-    if (!rawText.trim()) return [];
+  // Parse raw text into structured rows. The memo stays pure — parse errors
+  // are pushed into state by the effect below, never set during render.
+  const parseResult = React.useMemo<{ rows: any[]; error: string | null }>(() => {
+    if (!rawText.trim()) return { rows: [], error: null };
 
     if (inputMode === 'json') {
       try {
         const parsed = JSON.parse(rawText);
         if (!Array.isArray(parsed)) {
-          setParseError('JSON root must be an Array of objects.');
-          return [];
+          return { rows: [], error: 'JSON root must be an Array of objects.' };
         }
-        return parsed;
+        return { rows: parsed, error: null };
       } catch (err: any) {
-        setParseError(`JSON Syntax Error: ${err?.message || err}`);
-        return [];
+        return { rows: [], error: `JSON Syntax Error: ${err?.message || err}` };
       }
     }
 
@@ -255,7 +253,7 @@ export function BulkJsonMatchImporter({
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
 
-    if (lines.length === 0) return [];
+    if (lines.length === 0) return { rows: [], error: null };
 
     const delimiter = lines[0].includes('\t') ? '\t' : lines[0].includes(',') ? ',' : /\s{2,}/;
     const headerTokens = lines[0]
@@ -554,7 +552,7 @@ export function BulkJsonMatchImporter({
 
     const dataLines = hasHeader ? lines.slice(1) : lines;
 
-    return dataLines
+    const rows = dataLines
       .map((line) => {
         const parts = line.split(delimiter).map((p) => p.trim().replace(/^["']|["']$/g, ''));
         if (parts.length < 2) return null;
@@ -667,7 +665,15 @@ export function BulkJsonMatchImporter({
         };
       })
       .filter(Boolean);
+
+    return { rows, error: null };
   }, [rawText, inputMode, importTarget]);
+
+  const parsedRows: any[] = parseResult.rows;
+
+  React.useEffect(() => {
+    setParseError(parseResult.error);
+  }, [parseResult]);
 
   const handleCopyHeaders = () => {
     const headers = importTarget === 'players' ? USER_EXACT_PLAYER_HEADERS : USER_EXACT_TEAM_HEADERS;

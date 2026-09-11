@@ -160,30 +160,41 @@ export default async function HomePage() {
     }
   }
 
-  // 4. Tournaments List (Ongoing, Upcoming, and Completed)
-  const tournaments = await prisma.tournament.findMany({
-    orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
-    take: 4,
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      status: true,
-      tier: true,
-      prizePool: true,
-      currency: true,
-      usdRate: true,
-      startDate: true,
-      endDate: true,
-      eventType: true,
-      legacyVenue: true,
-      legacyLocation: true,
-      legacyOrganizer: true,
-      game: { select: { name: true } },
-      venues: { include: { venue: true } },
-      organizers: { include: { organizer: true } },
-    },
-  });
+  // 4. Tournaments List (Ongoing, Upcoming, and Completed).
+    // Prisma can't order by a custom enum sequence, so query each status tier
+    // explicitly and concatenate — `orderBy: status asc` would sort by enum
+    // declaration order and let four upcoming qualifiers crowd out a live event.
+  const tournamentCardSelect = {
+    id: true,
+    name: true,
+    slug: true,
+    status: true,
+    tier: true,
+    prizePool: true,
+    currency: true,
+    usdRate: true,
+    startDate: true,
+    endDate: true,
+    eventType: true,
+    legacyVenue: true,
+    legacyLocation: true,
+    legacyOrganizer: true,
+    game: { select: { name: true } },
+    venues: { include: { venue: true } },
+    organizers: { include: { organizer: true } },
+  } as const;
+  const [ongoingTournaments, upcomingTournaments, completedTournaments] = await Promise.all([
+    prisma.tournament
+      .findMany({ where: { status: 'ONGOING' }, orderBy: { startDate: 'desc' }, take: 4, select: tournamentCardSelect })
+      .catch(() => []),
+    prisma.tournament
+      .findMany({ where: { status: 'UPCOMING' }, orderBy: { startDate: 'asc' }, take: 4, select: tournamentCardSelect })
+      .catch(() => []),
+    prisma.tournament
+      .findMany({ where: { status: 'COMPLETED' }, orderBy: { endDate: 'desc' }, take: 4, select: tournamentCardSelect })
+      .catch(() => []),
+  ]);
+  const tournaments = [...ongoingTournaments, ...upcomingTournaments, ...completedTournaments].slice(0, 4);
 
   // 5. Transfer Ledger
   const transfers = await prisma.transfer.findMany({

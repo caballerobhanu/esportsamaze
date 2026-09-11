@@ -20,7 +20,7 @@ import type {
   PlayerPerformanceRow,
   TeamPerformanceRow,
   TeamPointsMode,
-} from '../tournament-statistics-panel';
+} from './panel-types';
 import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from '@/lib/standings-config';
 import { ThemeLogo } from './theme-logo';
 
@@ -43,11 +43,11 @@ function computeCustomColumnValue(
   activeMatches: Array<{
     playerElims: number;
     playerPowerplay?: number;
-    damage: number;
-    headshots: number;
-    assists: number;
-    knockouts: number;
-    survivalTime: number;
+    damage?: number;
+    headshots?: number;
+    assists?: number;
+    knockouts?: number;
+    survivalTime?: number;
     healing?: number;
     damageReceived?: number;
     utilities?: number;
@@ -538,7 +538,10 @@ export function EstaticStatisticsPanel({
           const wwcd = activeMatches.filter((m) => m.wwcd || m.rank === 1).length;
           const placePts = activeMatches.reduce((s, m) => s + (m.placePoints || 0), 0);
           const elimsPts = activeMatches.reduce((s, m) => s + (m.elimsPoints || 0), 0);
-          const totalPts = placePts + elimsPts;
+          // Bonus points must count, or filtered totals diverge from the
+          // unfiltered rows and the standings table.
+          const bonusPts = activeMatches.reduce((s, m) => s + (m.bonusPoints || 0), 0);
+          const totalPts = placePts + elimsPts + bonusPts;
 
           return {
             ...t,
@@ -652,49 +655,9 @@ export function EstaticStatisticsPanel({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* #2 Silver */}
-            {top3Fraggers[1] && (
-              <div className="relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
-                    #2
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    {top3Fraggers[1].matchesPlayed} Matches
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
-                    {top3Fraggers[1].ign}
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {top3Fraggers[1].teamName}
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {top3Fraggers[1].totalElims}
-                    </span>
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Elims
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Fraggers[1].totalDamage.toLocaleString()}
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Damage
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* #1 Gold - Highlighted */}
             {top3Fraggers[0] && (
-              <div className="relative flex flex-col justify-between rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
+              <div className="relative flex flex-col justify-between sm:order-2 rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
                 <div className="flex items-center justify-between mb-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-sm font-black text-slate-950 shadow-md shadow-amber-400/40">
                     #1
@@ -722,10 +685,50 @@ export function EstaticStatisticsPanel({
                   </div>
                   <div className="text-right">
                     <span className="text-base font-extrabold text-slate-900 dark:text-white">
-                      {top3Fraggers[0].totalDamage.toLocaleString()}
+                      {top3Fraggers[0].avgElims.toFixed(2)}
                     </span>
                     <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Damage
+                      Avg/M
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* #2 Silver */}
+            {top3Fraggers[1] && (
+              <div className="relative flex flex-col justify-between sm:order-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                    #2
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    {top3Fraggers[1].matchesPlayed} Matches
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
+                    {top3Fraggers[1].ign}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {top3Fraggers[1].teamName}
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
+                  <div>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white">
+                      {top3Fraggers[1].totalElims}
+                    </span>
+                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Elims
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {top3Fraggers[1].avgElims.toFixed(2)}
+                    </span>
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Avg/M
                     </span>
                   </div>
                 </div>
@@ -734,7 +737,7 @@ export function EstaticStatisticsPanel({
 
             {/* #3 Bronze */}
             {top3Fraggers[2] && (
-              <div className="relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
+              <div className="relative flex flex-col justify-between sm:order-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
                 <div className="flex items-center justify-between mb-3">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-700/20 text-xs font-black text-amber-700 dark:text-amber-400">
                     #3
@@ -762,10 +765,10 @@ export function EstaticStatisticsPanel({
                   </div>
                   <div className="text-right">
                     <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Fraggers[2].totalDamage.toLocaleString()}
+                      {top3Fraggers[2].avgElims.toFixed(2)}
                     </span>
                     <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Damage
+                      Avg/M
                     </span>
                   </div>
                 </div>
@@ -796,49 +799,9 @@ export function EstaticStatisticsPanel({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* #2 Silver */}
-            {top3Teams[1] && (
-              <div className="relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
-                    #2
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    {top3Teams[1].matchesPlayed} Matches · {top3Teams[1].wwcdCount} WWCD
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
-                    {top3Teams[1].teamName}
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {top3Teams[1].winRate}% Win Rate · {top3Teams[1].totalElimsPoints} Elims
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {teamPointsMode === 'sum' ? top3Teams[1].totalPoints : teamPointsMode === 'avg' ? top3Teams[1].avgTotalPoints : top3Teams[1].maxTotalPoints}
-                    </span>
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Points ({teamPointsMode.toUpperCase()})
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Teams[1].totalPlacePoints} Place / {top3Teams[1].totalElimsPoints} Elims
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Split
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* #1 Gold - Highlighted */}
             {top3Teams[0] && (
-              <div className="relative flex flex-col justify-between rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
+              <div className="relative flex flex-col justify-between sm:order-2 rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
                 <div className="flex items-center justify-between mb-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-sm font-black text-slate-950 shadow-md shadow-amber-400/40">
                     #1
@@ -876,9 +839,49 @@ export function EstaticStatisticsPanel({
               </div>
             )}
 
+            {/* #2 Silver */}
+            {top3Teams[1] && (
+              <div className="relative flex flex-col justify-between sm:order-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                    #2
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    {top3Teams[1].matchesPlayed} Matches · {top3Teams[1].wwcdCount} WWCD
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
+                    {top3Teams[1].teamName}
+                  </h3>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                    {top3Teams[1].winRate}% Win Rate · {top3Teams[1].totalElimsPoints} Elims
+                  </p>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
+                  <div>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white">
+                      {teamPointsMode === 'sum' ? top3Teams[1].totalPoints : teamPointsMode === 'avg' ? top3Teams[1].avgTotalPoints : top3Teams[1].maxTotalPoints}
+                    </span>
+                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Points ({teamPointsMode.toUpperCase()})
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {top3Teams[1].totalPlacePoints} Place / {top3Teams[1].totalElimsPoints} Elims
+                    </span>
+                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Split
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* #3 Bronze */}
             {top3Teams[2] && (
-              <div className="relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
+              <div className="relative flex flex-col justify-between sm:order-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
                 <div className="flex items-center justify-between mb-3">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-700/20 text-xs font-black text-amber-700 dark:text-amber-400">
                     #3
@@ -1267,7 +1270,7 @@ export function EstaticStatisticsPanel({
                           )}
                           <div>
                             <Link
-                              href={`/players/${player.playerSlug || player.ign.toLowerCase()}`}
+                              href={`/players/${player.playerSlug || encodeURIComponent(player.ign)}`}
                               className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                             >
                               {player.ign}
@@ -1451,7 +1454,7 @@ export function EstaticStatisticsPanel({
                             )}
                             <div>
                               <Link
-                                href={`/teams/${team.teamSlug || team.teamId}`}
+                                href={`/teams/${team.teamSlug || encodeURIComponent(team.teamName)}`}
                                 className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                               >
                                 {team.teamName}

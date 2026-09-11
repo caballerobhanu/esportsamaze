@@ -6,8 +6,7 @@ import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { GameLogo } from '@/components/ui/game-capsule';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
 import { formatDate } from '@/lib/utils';
-
-export const revalidate = 300;
+import { DirectoryPagination } from '@/components/directory-pagination';
 
 export const metadata: Metadata = {
   title: 'Tournaments Hub | eSportsAmaze — Official Standings, Matches & Stats',
@@ -15,10 +14,79 @@ export const metadata: Metadata = {
     'Discover official BGMI, Valorant, CS2, MLBB, and Free Fire esports tournaments. Track live scorecards, match schedules, prize pools, and championship standings.',
 };
 
-async function getTournamentsDirectoryData() {
+const PAGE_SIZE = 200;
+
+type TournamentsFilters = { q: string; status: string; game: string; tier: string };
+
+function tournamentsWhere(filters: TournamentsFilters, opts: { skip?: 'status' | 'game' | 'tier' } = {}) {
+  const where: Record<string, unknown> = {};
+  if (opts.skip !== 'status' && filters.status !== 'ALL') where.status = filters.status;
+  if (opts.skip !== 'tier' && filters.tier !== 'ALL') where.tier = { startsWith: filters.tier };
+  if (opts.skip !== 'game' && filters.game !== 'ALL') {
+    where.OR = [
+      { game: { slug: filters.game } },
+      { games: { some: { game: { slug: filters.game } } } },
+    ];
+  }
+  if (filters.q) {
+    where.AND = [
+      {
+        OR: [
+          { name: { contains: filters.q, mode: 'insensitive' } },
+          { series: { contains: filters.q, mode: 'insensitive' } },
+          { season: { contains: filters.q, mode: 'insensitive' } },
+          { venues: { some: { venue: { OR: [
+            { name: { contains: filters.q, mode: 'insensitive' } },
+            { city: { contains: filters.q, mode: 'insensitive' } },
+          ] } } } },
+          { organizers: { some: { organizer: { name: { contains: filters.q, mode: 'insensitive' } } } } },
+          { game: { name: { contains: filters.q, mode: 'insensitive' } } },
+        ],
+      },
+    ];
+  }
+  return where as never;
+}
+
+async function getFeaturedTournament() {
+  for (const status of ['ONGOING', 'UPCOMING'] as const) {
+    const t = await prisma.tournament.findFirst({
+      where: { status },
+      orderBy: { startDate: status === 'ONGOING' ? 'desc' : 'asc' },
+      select: featuredSelect,
+    });
+    if (t) return t;
+  }
+  return prisma.tournament.findFirst({
+    orderBy: { startDate: 'desc' },
+    select: featuredSelect,
+  });
+}
+
+const featuredSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  status: true,
+  series: true,
+  season: true,
+  startDate: true,
+  endDate: true,
+  prizePool: true,
+  currency: true,
+  usdRate: true,
+  winner: true,
+  game: { select: { name: true, slug: true, shortName: true, logoUrl: true, logoDarkUrl: true } },
+  _count: { select: { matches: true, teams: true } },
+} as const;
+
+async function getTournamentsDirectoryData(filters: TournamentsFilters, page: number) {
   try {
     const [tournaments, games] = await Promise.all([
       prisma.tournament.findMany({
+        where: tournamentsWhere(filters),
+        skip: (page - 1) * PAGE_SIZE,
+        take: PAGE_SIZE,
         select: {
           id: true,
           name: true,
@@ -54,7 +122,7 @@ async function getTournamentsDirectoryData() {
         orderBy: [{ status: 'asc' }, { startDate: 'desc' }],
       }),
       prisma.game.findMany({
-        select: { name: true, slug: true, shortName: true, logoUrl: true, logoDarkUrl: true },
+        select: { id: true, name: true, slug: true, shortName: true, logoUrl: true, logoDarkUrl: true },
         orderBy: { name: 'asc' },
       }),
     ]);
@@ -66,25 +134,40 @@ async function getTournamentsDirectoryData() {
   }
 }
 
-export default async function TournamentsPage() {
-  const { tournaments, games } = await getTournamentsDirectoryData();
+export default async function TournamentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const params = await searchParams;
+  const filters: TournamentsFilters = {
+    q: params.q?.trim() ?? '',
+    status: params.status ?? 'ALL',
+    game: params.game ?? 'ALL',
+    tier: params.tier ?? 'ALL',
+  };
+  const page = Math.max(1, Number(params.page) || 1);
 
-  const totalTournaments = tournaments.length;
-  const liveTournaments = tournaments.filter((t) => t.status === 'ONGOING');
-  const upcomingTournaments = tournaments.filter((t) => t.status === 'UPCOMING');
-  const totalMatchesTracked = tournaments.reduce((acc, t) => acc + (t._count?.matches || 0), 0);
-  const totalTeamsTracked = tournaments.reduce((acc, t) => acc + (t._count?.teams || 0), 0);
-
-  // Featured Tournament Hero: Prioritize LIVE, then first UPCOMING, then newest
-  const featured =
-    liveTournaments[0] ||
-    upcomingTournaments[0] ||
-    tournaments[0] ||
-    null;
+  const [{ tournaments, games }, total, statusGroups, gameGroups, tierGroups, totalMatchesTracked, totalTeamsTracked, featured] =
+    await Promise.all([
+      getTournamentsDirectoryData(filters, page),
+      prisma.tournament.count({ where: tournamentsWhere(filters) }),
+      prisma.tournament.groupBy({ by: ['status'], where: tournamentsWhere(filters, { skip: 'status' }), _count: { _all: true } }),
+      prisma.tournament.groupBy({ by: ['gameId'], where: tournamentsWhere(filters, { skip: 'game' }), _count: { _all: true } }),
+      prisma.tournament.groupBy({ by: ['tier'], where: tournamentsWhere(filters, { skip: 'tier' }), _count: { _all: true } }),
+      prisma.match.count(),
+      prisma.tournamentTeam.count(),
+      getFeaturedTournament(),
+    ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const statusCount = (s: string) => statusGroups.find((g) => g.status === s)?._count._all ?? 0;
+  const gameCount = (slug: string) => gameGroups.find((g) => g.gameId === games.find((x) => x.slug === slug)?.id)?._count._all ?? 0;
+  const tierCount = (t: string) => tierGroups.find((g) => g.tier?.startsWith(t))?._count._all ?? 0;
+  const counts = { total, statuses: Object.fromEntries(['ONGOING', 'UPCOMING', 'COMPLETED', 'CANCELED'].map((s) => [s, statusCount(s)])), games: games.map((g) => ({ slug: g.slug, count: gameCount(g.slug) })), tiers: Object.fromEntries(['S', 'A', 'B', 'C'].map((t) => [t, tierCount(t)])) };
 
   const metrics = [
-    { label: 'Total Tournaments', icon: Trophy, value: totalTournaments },
-    { label: 'Live Competitions', icon: Flame, value: liveTournaments.length, live: true },
+    { label: 'Total Tournaments', icon: Trophy, value: total },
+    { label: 'Live Competitions', icon: Flame, value: statusCount('ONGOING'), live: true },
     { label: 'Matches Tracked', icon: Swords, value: totalMatchesTracked },
     { label: 'Teams Registered', icon: Users, value: totalTeamsTracked },
   ];
@@ -205,7 +288,26 @@ export default async function TournamentsPage() {
         )}
 
         {/* Directory */}
-        <TournamentsDirectoryExplorer tournaments={tournaments} games={games} />
+        <TournamentsDirectoryExplorer
+          tournaments={tournaments}
+          games={games}
+          filters={filters}
+          counts={counts}
+          page={page}
+          totalPages={totalPages}
+        />
+
+        <div className="mt-10">
+          <DirectoryPagination
+            basePath="/tournaments"
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={PAGE_SIZE}
+            entityPlural="tournaments"
+            params={Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'ALL'))}
+          />
+        </div>
       </main>
     </div>
   );

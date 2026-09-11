@@ -19,6 +19,9 @@ export interface SearchableSelectProps {
   placeholder?: string;
   searchPlaceholder?: string;
   showSearch?: boolean;
+  /** When set, typing queries this URL (?q=...) instead of filtering the
+      options array — server-side search over the whole database. */
+  searchUrl?: string;
   size?: 'sm' | 'md' | 'lg' | 'admin';
   triggerClassName?: string;
   onChange?: (value: string) => void;
@@ -56,6 +59,7 @@ export function SearchableSelect({
   placeholder = 'Select an option...',
   searchPlaceholder = 'Type to search...',
   showSearch = true,
+  searchUrl,
   size = 'md',
   triggerClassName,
   onChange,
@@ -73,6 +77,13 @@ export function SearchableSelect({
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
+  // Server-side search state (only active when searchUrl is provided)
+  const isRemote = Boolean(searchUrl);
+  const [remoteOptions, setRemoteOptions] = useState<SearchableSelectOption[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  const searchSeqRef = useRef(0);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const optionsListRef = useRef<HTMLDivElement>(null);
@@ -84,8 +95,12 @@ export function SearchableSelect({
     }
   }, [isControlled, controlledValue]);
 
-  // Selected option lookup
-  const selectedOption = options.find((opt) => opt.value === selectedValue);
+  // Selected option lookup (may come from remote search results)
+  const allKnownOptions = React.useMemo(
+    () => (remoteOptions.length > 0 ? [...options, ...remoteOptions] : options),
+    [options, remoteOptions]
+  );
+  const selectedOption = allKnownOptions.find((opt) => opt.value === selectedValue);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -114,8 +129,42 @@ export function SearchableSelect({
     }
   }, [isOpen, showSearch]);
 
-  // Filter options by case-insensitive substring matching
-  const filteredOptions = useMemo(() => {
+  // Server-side search: debounce typing, fetch matches, drop stale responses
+  useEffect(() => {
+    if (!searchUrl) return;
+    const term = searchTerm.trim();
+    if (term.length < 2) {
+      // Keep remoteOptions — the selected value may be one of them; the
+      // displayed list already falls back to the local options here.
+      setIsSearching(false);
+      setSearchFailed(false);
+      return;
+    }
+
+    const seq = ++searchSeqRef.current;
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${searchUrl}${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(term)}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (seq !== searchSeqRef.current) return; // a newer query superseded this one
+        if (!res.ok) throw new Error(String(res.status));
+        const data = await res.json();
+        if (seq !== searchSeqRef.current) return;
+        setRemoteOptions(Array.isArray(data.options) ? data.options : []);
+        setSearchFailed(false);
+      } catch {
+        if (seq === searchSeqRef.current) setSearchFailed(true);
+      } finally {
+        if (seq === searchSeqRef.current) setIsSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchTerm, searchUrl]);
+
+  // Client-side filter for the local options list
+  const localFiltered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return options;
     return options.filter((opt) => {
@@ -125,6 +174,11 @@ export function SearchableSelect({
       return matchLabel || matchSub || matchVal;
     });
   }, [options, searchTerm]);
+
+  // What the dropdown displays: remote results while a remote query is active,
+  // otherwise the (filtered) local list.
+  const filteredOptions =
+    isRemote && searchTerm.trim().length >= 2 ? remoteOptions : localFiltered;
 
   // Keep highlightedIndex in bounds when filtered options change
   useEffect(() => {
@@ -286,7 +340,15 @@ export function SearchableSelect({
             ref={optionsListRef}
             className="max-h-64 overflow-y-auto space-y-0.5 no-scrollbar"
           >
-            {filteredOptions.length === 0 ? (
+            {isSearching ? (
+              <div className="py-6 text-center text-xs font-semibold text-slate-400">
+                Searching&hellip;
+              </div>
+            ) : searchFailed ? (
+              <div className="py-6 text-center text-xs font-semibold text-rose-500">
+                Search failed &mdash; check connection and retry
+              </div>
+            ) : filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-xs font-semibold text-slate-400">
                 No matching results found for &ldquo;{searchTerm}&rdquo;
               </div>

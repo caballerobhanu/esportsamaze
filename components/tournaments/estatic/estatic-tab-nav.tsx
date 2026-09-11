@@ -27,27 +27,37 @@ const PREVIEW_TABS = [
   { id: 'statistics', label: 'Statistics', icon: Crosshair },
 ] as const;
 
-export function EstaticTabNav({ slug, activeTab }: { slug: string; activeTab: string }) {
+/** Tabs are route segments now; overview lives on the base route. */
+export function tabHref(slug: string, tab: string): string {
+  return tab === 'overview' ? `/tournaments/${slug}` : `/tournaments/${slug}/${tab}`;
+}
+
+export function EstaticTabNav({
+  slug,
+  activeTab,
+  visibleTabs,
+}: {
+  slug: string;
+  activeTab: string;
+  visibleTabs?: string[];
+}) {
   const router = useRouter();
   const normalizedActiveTab = activeTab === 'fraggers' ? 'statistics' : activeTab;
-  const currentTabObj = PREVIEW_TABS.find((t) => t.id === normalizedActiveTab) || PREVIEW_TABS[0];
-  const CurrentIcon = currentTabObj.icon;
 
-  const [selectedTab, setSelectedTab] = React.useState(normalizedActiveTab);
+  const availableTabs = React.useMemo(() => {
+    if (!visibleTabs || visibleTabs.length === 0) return PREVIEW_TABS;
+    const filtered = PREVIEW_TABS.filter((t) => visibleTabs.includes(t.id));
+    return filtered.length > 0 ? filtered : PREVIEW_TABS;
+  }, [visibleTabs]);
 
-  React.useEffect(() => {
-    setSelectedTab(normalizedActiveTab);
-  }, [normalizedActiveTab]);
-
-  const tabOptions = PREVIEW_TABS.map((t) => ({
+  const tabOptions = availableTabs.map((t) => ({
     value: t.id,
     label: t.label,
     icon: t.icon,
   }));
 
   const handleMobileSelect = (nextTab: string) => {
-    setSelectedTab(nextTab);
-    window.location.assign(`/tournaments/${encodeURIComponent(slug)}?tab=${nextTab}`);
+    router.push(tabHref(slug, nextTab));
   };
 
   return (
@@ -57,7 +67,7 @@ export function EstaticTabNav({ slug, activeTab }: { slug: string; activeTab: st
         <div className="sm:hidden pointer-events-auto max-w-md mx-auto shadow-md rounded-xl bg-white/95 dark:bg-[#0b1220]/95 backdrop-blur-md">
           <SearchableSelect
             options={tabOptions}
-            value={selectedTab}
+            value={normalizedActiveTab}
             onChange={handleMobileSelect}
             searchPlaceholder="Search tabs (e.g. Standings, Matches)..."
             showSearch={true}
@@ -68,13 +78,13 @@ export function EstaticTabNav({ slug, activeTab }: { slug: string; activeTab: st
         {/* Desktop: Sleek Floating Capsule Tab Dock */}
         <nav className="hidden sm:flex items-center justify-center pointer-events-auto">
           <div className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-slate-200/90 bg-white/95 p-1.5 dark:border-white/15 dark:bg-[#0b1220]/95 backdrop-blur-xl shadow-lg shadow-slate-900/8 transition-all">
-            {PREVIEW_TABS.map((t) => {
+            {availableTabs.map((t) => {
               const active = normalizedActiveTab === t.id;
               const Icon = t.icon;
               return (
                 <Link
                   key={t.id}
-                  href={`/tournaments/${slug}?tab=${t.id}`}
+                  href={tabHref(slug, t.id)}
                   className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     active
                       ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25 scale-[1.02]'

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Search, Trophy, Calendar, MapPin, ArrowRight, Banknote } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
@@ -35,6 +36,20 @@ export interface TournamentDirectoryItem {
   };
 }
 
+export interface TournamentsDirectoryFilters {
+  q: string;
+  status: string;
+  game: string;
+  tier: string;
+}
+
+export interface TournamentsFacetCounts {
+  total: number;
+  statuses: Record<string, number>;
+  tiers: Record<string, number>;
+  games: Array<{ slug: string; count: number }>;
+}
+
 const STATUS_CONFIG: Record<string, { label: string; className: string; dot?: boolean }> = {
   ONGOING: {
     label: 'Live now',
@@ -49,55 +64,69 @@ const STATUS_CONFIG: Record<string, { label: string; className: string; dot?: bo
 export function TournamentsDirectoryExplorer({
   tournaments,
   games,
+  filters,
+  counts,
+  page = 1,
+  totalPages = 1,
+  basePath = '/tournaments',
 }: {
   tournaments: TournamentDirectoryItem[];
   games: { name: string; slug: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null }[];
+  filters: TournamentsDirectoryFilters;
+  counts: TournamentsFacetCounts;
+  page?: number;
+  totalPages?: number;
+  basePath?: string;
 }) {
-  const [search, setSearch] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<string>('ALL');
-  const [gameFilter, setGameFilter] = React.useState<string>('ALL');
-  const [tierFilter, setTierFilter] = React.useState<string>('ALL');
+  const router = useRouter();
+  const [search, setSearch] = React.useState(filters.q);
+  const searchSeq = React.useRef(0);
 
-  const filtered = React.useMemo(() => {
-    return tournaments.filter((t) => {
-      const q = search.trim().toLowerCase();
-      if (q) {
-        const matchesName = t.name.toLowerCase().includes(q);
-        const matchesSeries = t.series?.toLowerCase().includes(q);
-        const matchesGame = t.game.name.toLowerCase().includes(q) || (t.game.shortName || '').toLowerCase().includes(q);
-        const matchesOrg = t.organizers?.some((o) => o.organizer.name.toLowerCase().includes(q));
-        const matchesVenue = t.venues?.some((v) => v.venue.name.toLowerCase().includes(q) || v.venue.city?.toLowerCase().includes(q));
-        if (!matchesName && !matchesSeries && !matchesGame && !matchesOrg && !matchesVenue) {
-          return false;
-        }
-      }
+  const navigate = (updates: Record<string, string>) => {
+    const params = new URLSearchParams();
+    const merged = { ...filters, ...updates };
+    for (const [k, v] of Object.entries(merged)) {
+      if (v && v !== 'ALL') params.set(k, v);
+    }
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
+  };
 
-      if (statusFilter !== 'ALL' && t.status !== statusFilter) {
-        return false;
-      }
 
-      if (gameFilter !== 'ALL') {
-        const involved = t.game.slug === gameFilter ||
-          (t.games?.some((g) => g.game.slug === gameFilter) ?? false);
-        if (!involved) {
-          return false;
-        }
-      }
+  const [lastUrlQ, setLastUrlQ] = React.useState(filters.q);
+  if (lastUrlQ !== filters.q) {
+    // URL changed externally (e.g. Clear filters link) — adjust during render
+    setLastUrlQ(filters.q);
+    setSearch(filters.q);
+  }
 
-      if (tierFilter !== 'ALL' && !(t.tier ?? '').startsWith(tierFilter)) {
-        return false;
-      }
+  React.useEffect(() => {
+    if (search === filters.q) return;
+    const seq = ++searchSeq.current;
+    const timer = setTimeout(() => {
+      if (seq !== searchSeq.current) return;
+      navigate({ q: search.trim() });
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
-      return true;
-    });
-  }, [tournaments, search, statusFilter, gameFilter, tierFilter]);
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v && v !== 'ALL') params.set(k, v);
+    }
+    if (p > 1) params.set('page', String(p));
+    const qs = params.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
 
-  const liveCount = tournaments.filter((t) => t.status === 'ONGOING').length;
-  const upcomingCount = tournaments.filter((t) => t.status === 'UPCOMING').length;
-  const completedCount = tournaments.filter((t) => t.status === 'COMPLETED').length;
+  const statusCount = (status: string) => counts.statuses[status] ?? 0;
+  const gameCount = (slug: string) => counts.games.find((g) => g.slug === slug)?.count ?? 0;
+  const tierCount = (tier: string) => counts.tiers[tier] ?? 0;
 
   const hasActiveFilters =
-    search !== '' || statusFilter !== 'ALL' || gameFilter !== 'ALL' || tierFilter !== 'ALL';
+    filters.q !== '' || filters.status !== 'ALL' || filters.game !== 'ALL' || filters.tier !== 'ALL';
 
   return (
     <div className="space-y-8">
@@ -117,18 +146,18 @@ export function TournamentsDirectoryExplorer({
 
           {/* Status tabs */}
           <div className="flex items-end gap-6 overflow-x-auto border-b border-(--ed-hair) lg:border-b-0">
-            <button onClick={() => setStatusFilter('ALL')} className={`ed-tab lg:border-b-0 lg:py-1.5 ${statusFilter === 'ALL' ? 'ed-tab-active' : ''}`}>
-              All <span className="num text-xs opacity-70">({tournaments.length})</span>
+            <button onClick={() => navigate({ status: 'ALL' })} className={`ed-tab lg:border-b-0 lg:py-1.5 ${filters.status === 'ALL' ? 'ed-tab-active' : ''}`}>
+              All <span className="num text-xs opacity-70">({counts.total})</span>
             </button>
-            <button onClick={() => setStatusFilter('ONGOING')} className={`ed-tab lg:border-b-0 lg:py-1.5 ${statusFilter === 'ONGOING' ? 'ed-tab-active' : ''}`}>
-              {liveCount > 0 && <span className="h-1.5 w-1.5 animate-live rounded-full bg-rose-500" />}
-              Live <span className="num text-xs opacity-70">({liveCount})</span>
+            <button onClick={() => navigate({ status: 'ONGOING' })} className={`ed-tab lg:border-b-0 lg:py-1.5 ${filters.status === 'ONGOING' ? 'ed-tab-active' : ''}`}>
+              {statusCount('ONGOING') > 0 && <span className="h-1.5 w-1.5 animate-live rounded-full bg-rose-500" />}
+              Live <span className="num text-xs opacity-70">({statusCount('ONGOING')})</span>
             </button>
-            <button onClick={() => setStatusFilter('UPCOMING')} className={`ed-tab lg:border-b-0 lg:py-1.5 ${statusFilter === 'UPCOMING' ? 'ed-tab-active' : ''}`}>
-              Upcoming <span className="num text-xs opacity-70">({upcomingCount})</span>
+            <button onClick={() => navigate({ status: 'UPCOMING' })} className={`ed-tab lg:border-b-0 lg:py-1.5 ${filters.status === 'UPCOMING' ? 'ed-tab-active' : ''}`}>
+              Upcoming <span className="num text-xs opacity-70">({statusCount('UPCOMING')})</span>
             </button>
-            <button onClick={() => setStatusFilter('COMPLETED')} className={`ed-tab lg:border-b-0 lg:py-1.5 ${statusFilter === 'COMPLETED' ? 'ed-tab-active' : ''}`}>
-              Completed <span className="num text-xs opacity-70">({completedCount})</span>
+            <button onClick={() => navigate({ status: 'COMPLETED' })} className={`ed-tab lg:border-b-0 lg:py-1.5 ${filters.status === 'COMPLETED' ? 'ed-tab-active' : ''}`}>
+              Completed <span className="num text-xs opacity-70">({statusCount('COMPLETED')})</span>
             </button>
           </div>
         </div>
@@ -138,20 +167,21 @@ export function TournamentsDirectoryExplorer({
           <div className="flex flex-wrap items-center gap-2">
             <span className="ed-label mr-1">Game</span>
             <button
-              onClick={() => setGameFilter('ALL')}
-              className={`ed-chip transition-colors ${gameFilter === 'ALL' ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
+              onClick={() => navigate({ game: 'ALL' })}
+              className={`ed-chip transition-colors ${filters.game === 'ALL' ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
             >
               All games
             </button>
             {games.map((g) => (
               <button
                 key={g.slug}
-                onClick={() => setGameFilter(g.slug)}
-                className={`ed-chip transition-colors ${gameFilter === g.slug ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
+                onClick={() => navigate({ game: g.slug })}
+                className={`ed-chip transition-colors ${filters.game === g.slug ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
                 title={g.name}
               >
                 <GameLogo game={g} className="h-3.5 w-3.5" />
                 {g.shortName || g.name}
+                {gameCount(g.slug) > 0 && <span className="num text-[10px] opacity-70">({gameCount(g.slug)})</span>}
               </button>
             ))}
           </div>
@@ -161,10 +191,10 @@ export function TournamentsDirectoryExplorer({
             {['ALL', 'S', 'A', 'B', 'C'].map((tier) => (
               <button
                 key={tier}
-                onClick={() => setTierFilter(tier)}
-                className={`ed-chip transition-colors ${tierFilter === tier ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
+                onClick={() => navigate({ tier: tier })}
+                className={`ed-chip transition-colors ${filters.tier === tier ? 'border-(--ed-blue) bg-(--ed-blue) text-white' : 'text-(--ed-stone) hover:border-(--ed-stone)/50'}`}
               >
-                {tier === 'ALL' ? 'All' : `Tier ${tier}`}
+                {tier === 'ALL' ? `All (${counts.total})` : `Tier ${tier} (${tierCount(tier)})`}
               </button>
             ))}
           </div>
@@ -172,26 +202,56 @@ export function TournamentsDirectoryExplorer({
       </div>
 
       {/* Results header */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-(--ed-stone)">
-          Showing <span className="num font-medium text-(--ed-ink)">{filtered.length}</span> tournaments
-        </p>
-        {hasActiveFilters && (
-          <button
-            onClick={() => {
-              setSearch('');
-              setStatusFilter('ALL');
-              setGameFilter('ALL');
-              setTierFilter('ALL');
-            }}
-            className="text-sm font-medium text-(--ed-blue) hover:underline"
-          >
-            Clear filters
-          </button>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-(--ed-stone)">
+            Showing <span className="num font-medium text-(--ed-ink)">{tournaments.length}</span> tournaments
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={() => router.push(basePath)}
+              className="text-sm font-medium text-(--ed-blue) hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {page > 1 ? (
+            <Link
+              href={pageHref(page - 1)}
+              prefetch
+              aria-label="Previous page"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-(--ed-hair) text-sm font-black text-(--ed-ink) hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors cursor-pointer"
+            >
+              ‹
+            </Link>
+          ) : (
+            <span aria-disabled className="flex h-7 w-7 items-center justify-center rounded-lg border border-(--ed-hair) text-sm font-black text-(--ed-stone) opacity-40 select-none">
+              ‹
+            </span>
+          )}
+          <span className="num rounded-lg border border-(--ed-hair) bg-white px-2.5 py-1 text-xs font-extrabold text-(--ed-ink)">
+            {page} / {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={pageHref(page + 1)}
+              prefetch
+              aria-label="Next page"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-(--ed-hair) text-sm font-black text-(--ed-ink) hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors cursor-pointer"
+            >
+              ›
+            </Link>
+          ) : (
+            <span aria-disabled className="flex h-7 w-7 items-center justify-center rounded-lg border border-(--ed-hair) text-sm font-black text-(--ed-stone) opacity-40 select-none">
+              ›
+            </span>
+          )}
+        </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {tournaments.length === 0 ? (
         <div className="ed-card flex flex-col items-center gap-3 py-20 text-center">
           <Trophy className="h-8 w-8 text-(--ed-stone) opacity-40" />
           <p className="font-display text-lg font-medium">No tournaments match your filters</p>
@@ -199,7 +259,7 @@ export function TournamentsDirectoryExplorer({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((t) => {
+          {tournaments.map((t) => {
             const statusCfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.COMPLETED;
             const primaryVenue = t.venues?.[0]?.venue;
 
