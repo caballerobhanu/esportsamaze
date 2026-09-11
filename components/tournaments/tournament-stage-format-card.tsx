@@ -9,7 +9,6 @@ import {
   Layers,
   ArrowRight,
   ShieldCheck,
-  Crown,
   ChevronDown,
   ChevronUp,
   Flame,
@@ -319,101 +318,175 @@ export function TournamentStageFormatCard({
             </div>
           )}
 
-          {/* ── INTERACTIVE GROUP DRAW (ROSTER CARDS) ── */}
+          {/* ── STAGE PARTICIPATING TEAMS ── */}
           {hasGroups && (
             <div className="border-t border-slate-100 pt-6 dark:border-white/10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Crown className="h-4 w-4 text-amber-500" />
-                    Stage Group Draw &amp; Squad Rosters
+                    <Users className="h-4 w-4 text-[#0A5FC4] dark:text-blue-400" />
+                    {groupKeys.length > 1 ? 'Stage Group Draw & Teams' : 'Stage Participating Teams'}
                   </h4>
                   <p className="text-[11px] font-medium text-slate-500 mt-0.5">
-                    Squads drafted and competing in {stage.name}
+                    {groupKeys.length > 1
+                      ? `Squads divided into ${groupKeys.length} groups for ${stage.name}`
+                      : `Squads competing in ${stage.name}`}
                   </p>
                 </div>
 
-                {/* Group Filter Tabs */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setActiveGroupTab('ALL')}
-                    className={`rounded-xl px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                      activeGroupTab === 'ALL'
-                        ? 'bg-[#0A5FC4] text-white shadow-xs'
-                        : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
-                    }`}
-                  >
-                    All Groups ({groupKeys.length})
-                  </button>
-
-                  {groupKeys.map((grpKey) => (
+                {/* Group Filter Tabs - only rendered when stage has multiple groups */}
+                {groupKeys.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <button
-                      key={grpKey}
                       type="button"
-                      onClick={() => setActiveGroupTab(grpKey)}
+                      onClick={() => setActiveGroupTab('ALL')}
                       className={`rounded-xl px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                        activeGroupTab === grpKey
+                        activeGroupTab === 'ALL'
                           ? 'bg-[#0A5FC4] text-white shadow-xs'
                           : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
                       }`}
                     >
-                      {grpKey.replace(/^group\s*/i, 'Group ')} ({stage.groups[grpKey]?.length || 0})
+                      All Groups ({groupKeys.length})
                     </button>
-                  ))}
-                </div>
+
+                    {groupKeys.map((grpKey) => (
+                      <button
+                        key={grpKey}
+                        type="button"
+                        onClick={() => setActiveGroupTab(grpKey)}
+                        className={`rounded-xl px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                          activeGroupTab === grpKey
+                            ? 'bg-[#0A5FC4] text-white shadow-xs'
+                            : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                        }`}
+                      >
+                        {grpKey.replace(/^group\s*/i, 'Group ')} ({stage.groups[grpKey]?.length || 0})
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Group Cards Grid */}
-              <div
-                className={`grid gap-4 ${
-                  visibleGroups.length === 1
-                    ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-                    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
-                }`}
-              >
-                {visibleGroups.map(({ groupName, squads }) => (
-                  <div
-                    key={groupName}
-                    className="overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
-                  >
-                    {/* Group Header */}
-                    <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/70 px-4 py-3 dark:border-white/10 dark:bg-white/10">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0A5FC4] text-[11px] font-black text-white">
-                          {groupName.replace(/^group\s*/i, '').charAt(0)}
-                        </span>
-                        <h5 className="text-sm font-black uppercase text-slate-900 dark:text-white">
-                          {groupName.replace(/^group\s*/i, 'Group ')}
-                        </h5>
-                      </div>
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                        {squads.length} Squads
+              {/* Group / Teams Display */}
+              {visibleGroups.length === 1 ? (
+                /* Single set of teams: responsive multi-column grid instead of a single narrow column */
+                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50/50 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/70 px-4 py-3 dark:border-white/10 dark:bg-white/10">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0A5FC4] text-[11px] font-black text-white">
+                        <Users className="h-3.5 w-3.5" />
                       </span>
+                      <h5 className="text-sm font-black uppercase text-slate-900 dark:text-white">
+                        {visibleGroups[0].groupName.toLowerCase() === 'overall' ||
+                        visibleGroups[0].groupName.toLowerCase() === 'participating teams'
+                          ? 'Participating Teams'
+                          : visibleGroups[0].groupName.toUpperCase() === 'GF'
+                          ? 'Grand Finals Lobby'
+                          : visibleGroups[0].groupName.replace(/^group\s*/i, 'Group ')}
+                      </h5>
                     </div>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {visibleGroups[0].squads.length} Teams
+                    </span>
+                  </div>
 
-                    {/* Squad List */}
-                    <div className="divide-y divide-slate-100 p-2 dark:divide-white/5">
-                      {squads.length === 0 ? (
-                        <p className="p-4 text-center text-xs font-medium text-slate-400">
-                          Squad draw pending.
-                        </p>
-                      ) : (
-                        squads.map((squad, sIdx) => {
-                          const teamUrl = squad.slug ? `/teams/${squad.slug}` : `/teams/${squad.teamId}`;
-                          const roster = squad.roster || [];
+                  {visibleGroups[0].squads.length === 0 ? (
+                    <p className="p-6 text-center text-xs font-medium text-slate-400">
+                      No squads listed yet.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3 sm:p-4">
+                      {visibleGroups[0].squads.map((squad, sIdx) => {
+                        const teamUrl = squad.slug ? `/teams/${squad.slug}` : `/teams/${squad.teamId}`;
 
-                          return (
-                            <div
-                              key={squad.teamId || sIdx}
-                              className="group/item flex flex-col gap-1.5 p-2 transition-colors hover:bg-white dark:hover:bg-white/5 rounded-xl"
-                            >
-                              <div className="flex items-center justify-between gap-2">
+                        return (
+                          <Link
+                            key={squad.teamId || sIdx}
+                            href={teamUrl}
+                            className="group/team flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs transition-all hover:border-[#0A5FC4] hover:shadow-xs hover:bg-slate-50/50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400/80 dark:hover:bg-white/10"
+                          >
+                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200/80 bg-slate-50 dark:border-white/10 dark:bg-black/40 group-hover/team:scale-105 transition-transform">
+                              {squad.logoUrl || squad.logoDarkUrl ? (
+                                <ThemeLogo
+                                  lightSrc={squad.logoUrl}
+                                  darkSrc={squad.logoDarkUrl}
+                                  alt={squad.teamName}
+                                  className="object-contain p-0.5"
+                                />
+                              ) : (
+                                <span className="text-[10px] font-black text-slate-400">
+                                  {squad.teamName.slice(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-1">
+                                <span
+                                  className="truncate text-xs font-bold text-slate-900 group-hover/team:text-[#0A5FC4] dark:text-white dark:group-hover/team:text-blue-400 transition-colors"
+                                  title={squad.displayName || squad.teamName}
+                                >
+                                  {squad.displayName || squad.teamName}
+                                </span>
+                                {squad.tag && (
+                                  <span className="shrink-0 text-[10px] font-black uppercase text-slate-400">
+                                    {squad.tag}
+                                  </span>
+                                )}
+                              </div>
+                              {squad.seedLabel && (
+                                <span className="text-[10px] font-medium text-slate-400 block truncate">
+                                  {squad.seedLabel}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Multiple groups side-by-side */
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {visibleGroups.map(({ groupName, squads }) => (
+                    <div
+                      key={groupName}
+                      className="overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50/50 dark:border-white/10 dark:bg-white/5"
+                    >
+                      {/* Group Header */}
+                      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100/70 px-4 py-3 dark:border-white/10 dark:bg-white/10">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0A5FC4] text-[11px] font-black text-white">
+                            {groupName.replace(/^group\s*/i, '').charAt(0) || '•'}
+                          </span>
+                          <h5 className="text-sm font-black uppercase text-slate-900 dark:text-white">
+                            {groupName.replace(/^group\s*/i, 'Group ')}
+                          </h5>
+                        </div>
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                          {squads.length} Teams
+                        </span>
+                      </div>
+
+                      {/* Squad List */}
+                      <div className="divide-y divide-slate-100 p-2 dark:divide-white/5">
+                        {squads.length === 0 ? (
+                          <p className="p-4 text-center text-xs font-medium text-slate-400">
+                            Squad draw pending.
+                          </p>
+                        ) : (
+                          squads.map((squad, sIdx) => {
+                            const teamUrl = squad.slug ? `/teams/${squad.slug}` : `/teams/${squad.teamId}`;
+
+                            return (
+                              <Link
+                                key={squad.teamId || sIdx}
+                                href={teamUrl}
+                                className="group/item flex items-center justify-between gap-2 p-2 rounded-xl transition-colors hover:bg-white dark:hover:bg-white/10"
+                              >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <Link
-                                    href={teamUrl}
-                                    className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
-                                  >
+                                  <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200/80 bg-white dark:border-white/10 dark:bg-black/40 group-hover/item:scale-105 transition-transform">
                                     {squad.logoUrl || squad.logoDarkUrl ? (
                                       <ThemeLogo
                                         lightSrc={squad.logoUrl}
@@ -426,16 +499,15 @@ export function TournamentStageFormatCard({
                                         {squad.teamName.slice(0, 2).toUpperCase()}
                                       </span>
                                     )}
-                                  </Link>
+                                  </div>
 
                                   <div className="min-w-0">
-                                    <Link
-                                      href={teamUrl}
-                                      className="truncate text-xs font-bold text-slate-900 hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400 transition-colors block"
+                                    <span
+                                      className="truncate text-xs font-bold text-slate-900 group-hover/item:text-[#0A5FC4] dark:text-white dark:group-hover/item:text-blue-400 transition-colors block"
                                       title={squad.displayName || squad.teamName}
                                     >
                                       {squad.displayName || squad.teamName}
-                                    </Link>
+                                    </span>
                                     {squad.seedLabel && (
                                       <span className="text-[9px] font-semibold text-slate-400 block truncate">
                                         {squad.seedLabel}
@@ -449,40 +521,15 @@ export function TournamentStageFormatCard({
                                     {squad.tag}
                                   </span>
                                 )}
-                              </div>
-
-                              {/* Mini Roster Lineup (Clickable player tags) */}
-                              {roster.length > 0 && (
-                                <div className="flex flex-wrap gap-1 pl-9">
-                                  {roster.map((player, pIdx) => {
-                                    const pUrl = player.slug || player.playerId
-                                      ? `/players/${player.slug || player.playerId}`
-                                      : `/players?q=${encodeURIComponent(player.ign)}`;
-
-                                    return (
-                                      <Link
-                                        key={pIdx}
-                                        href={pUrl}
-                                        className="inline-flex items-center gap-0.5 rounded-md border border-slate-200/80 bg-white px-1.5 py-0.5 text-[9px] font-bold text-slate-600 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-black/30 dark:text-slate-300 transition-all cursor-pointer"
-                                        title={`View athlete profile: ${player.ign}`}
-                                      >
-                                        {player.captain && (
-                                          <Crown className="h-2 w-2 text-amber-500 shrink-0" />
-                                        )}
-                                        <span>{player.ign}</span>
-                                      </Link>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
+                              </Link>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
