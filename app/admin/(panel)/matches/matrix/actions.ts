@@ -1435,6 +1435,17 @@ export async function bulkUniversalPlayerMatchImportAction(
         // prioritize matching the player belonging to this row's team or roster.
         const cleanPlayerIgn = cleanStr(playerRaw);
 
+        // Strip team prefix if player IGN starts with the team tag or name
+        const teamTagClean = cleanStr(matchedTeam.tag || '');
+        const teamNameClean = cleanStr(matchedTeam.name || '');
+        const stripTeamPrefix = (s: string) => {
+          let res = s;
+          if (teamTagClean && res.startsWith(teamTagClean + ' ')) res = res.slice(teamTagClean.length + 1).trim();
+          if (teamNameClean && res.startsWith(teamNameClean + ' ')) res = res.slice(teamNameClean.length + 1).trim();
+          return res;
+        };
+        const basePlayerIgn = stripTeamPrefix(cleanPlayerIgn);
+
         // Check if tournament team roster already has this player's id or unlinked status
         const existingTourneyTeam = tourneyData.teams.find((tt) => tt.teamId === matchedTeam!.id);
         let rosterPlayerId: string | undefined;
@@ -1446,7 +1457,8 @@ export async function bulkUniversalPlayerMatchImportAction(
             : [];
           matchedRosterEntry = roster.find((p) => {
             const ign = typeof p === 'string' ? p : p?.ign;
-            return cleanStr(ign) === cleanPlayerIgn;
+            const cIgn = cleanStr(ign);
+            return cIgn === cleanPlayerIgn || stripTeamPrefix(cIgn) === basePlayerIgn;
           });
           if (matchedRosterEntry && typeof matchedRosterEntry === 'object') {
             if (matchedRosterEntry.playerId) {
@@ -1459,11 +1471,53 @@ export async function bulkUniversalPlayerMatchImportAction(
 
         let matchedPlayer =
           (rosterPlayerId ? allPlayers.find((p) => p.id === rosterPlayerId) : undefined) ||
-          allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn && p.currentTeamId === matchedTeam.id);
+          allPlayers.find(
+            (p) =>
+              (cleanStr(p.ign) === cleanPlayerIgn || stripTeamPrefix(cleanStr(p.ign)) === basePlayerIgn) &&
+              p.currentTeamId === matchedTeam.id
+          );
+
+        // Tournament-scoped single-team exclusivity:
+        // A single athlete profile can NEVER compete for two different teams in the same tournament.
+        const isPlayerCompetingForOtherTeamInTournament = (candidatePlayerId: string) => {
+          // 1. Check rosters of other teams in this tournament
+          const inOtherRoster = tourneyData.teams.some((tt) => {
+            if (tt.teamId === matchedTeam.id) return false;
+            const r = Array.isArray(tt.rosterJson) ? (tt.rosterJson as any[]) : [];
+            return r.some((entry) => typeof entry === 'object' && entry && entry.playerId === candidatePlayerId);
+          });
+          if (inOtherRoster) return true;
+
+          // 2. Check pending stats in this import batch
+          const inBatch = pendingPlayerStats.some(
+            (s) => s.playerId === candidatePlayerId && s.payload.teamId && s.payload.teamId !== matchedTeam.id
+          );
+          if (inBatch) return true;
+
+          return false;
+        };
+
+        // Check if this exact IGN is claimed or already registered by another team in this event
+        const isIgnClaimedByOtherTeamInTournament = tourneyData.teams.some((tt) => {
+          if (tt.teamId === matchedTeam.id) return false;
+          const r = Array.isArray(tt.rosterJson) ? (tt.rosterJson as any[]) : [];
+          return r.some((entry) => {
+            const entryIgn = typeof entry === 'string' ? entry : entry?.ign;
+            const c = cleanStr(entryIgn);
+            return c === cleanPlayerIgn || stripTeamPrefix(c) === basePlayerIgn;
+          });
+        });
 
         // If not matched on this team, check if an unassigned player with this exact IGN exists (only if not unlinked in roster)
         if (!matchedPlayer && !isExplicitlyUnlinkedInRoster) {
-          matchedPlayer = allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn && !p.currentTeamId);
+          const unassignedPlayer = allPlayers.find(
+            (p) =>
+              (cleanStr(p.ign) === cleanPlayerIgn || stripTeamPrefix(cleanStr(p.ign)) === basePlayerIgn) &&
+              !p.currentTeamId
+          );
+          if (unassignedPlayer && !isPlayerCompetingForOtherTeamInTournament(unassignedPlayer.id)) {
+            matchedPlayer = unassignedPlayer;
+          }
         }
 
         const rawPlayerVerified =
@@ -1504,11 +1558,22 @@ export async function bulkUniversalPlayerMatchImportAction(
             : !isQualifier;
 
         // Check if an existing player has this exact IGN
-        const playerOnOtherTeam = allPlayers.find((p) => cleanStr(p.ign) === cleanPlayerIgn);
+        const playerOnOtherTeam = allPlayers.find(
+          (p) => cleanStr(p.ign) === cleanPlayerIgn || stripTeamPrefix(cleanStr(p.ign)) === basePlayerIgn
+        );
 
         // In Main Event mode (!isQualifier), if a verified player with this exact IGN exists on another team,
-        // link to them ONLY IF not explicitly designated as unlinked or unverified!
-        if (!matchedPlayer && !isQualifier && !isExplicitlyUnlinkedInRoster && !isExplicitlyUnverified && playerOnOtherTeam) {
+        // link to them ONLY IF not explicitly designated as unlinked or unverified,
+        // AND ONLY IF they are NOT already registered or competing for another team in this event!
+        if (
+          !matchedPlayer &&
+          !isQualifier &&
+          !isExplicitlyUnlinkedInRoster &&
+          !isExplicitlyUnverified &&
+          playerOnOtherTeam &&
+          !isIgnClaimedByOtherTeamInTournament &&
+          !isPlayerCompetingForOtherTeamInTournament(playerOnOtherTeam.id)
+        ) {
           matchedPlayer = playerOnOtherTeam;
         }
 
@@ -1558,14 +1623,17 @@ export async function bulkUniversalPlayerMatchImportAction(
             ? (existingTourneyTeam.rosterJson as any[])
             : [];
 
-          if (matchedRosterEntry && typeof matchedRosterEntry === 'object' && !matchedRosterEntry.playerId) {
-            matchedRosterEntry.playerId = matchedPlayer.id;
-            await tx.tournamentTeam
-              .update({
-                where: { id: existingTourneyTeam.id },
-                data: { rosterJson: roster },
-              })
-              .catch(() => null);
+          if (matchedRosterEntry && typeof matchedRosterEntry === 'object') {
+            // Never overwrite an explicitly unlinked slot (playerId === null) with an external player
+            if (matchedRosterEntry.playerId === undefined) {
+              matchedRosterEntry.playerId = matchedPlayer.id;
+              await tx.tournamentTeam
+                .update({
+                  where: { id: existingTourneyTeam.id },
+                  data: { rosterJson: roster },
+                })
+                .catch(() => null);
+            }
           } else if (!matchedRosterEntry) {
             const updatedRoster = [
               ...roster,
