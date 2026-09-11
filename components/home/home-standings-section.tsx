@@ -36,7 +36,7 @@ export function HomeStandingsSection({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link
-              href={`/tournaments/${tournamentSlug}?tab=standings`}
+              href={`/tournaments/${tournamentSlug}/standings`}
               className="group flex items-center gap-1.5 text-xs font-bold text-[var(--ed-blue)] hover:underline"
             >
               <span>Full Standings</span>

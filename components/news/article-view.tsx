@@ -167,7 +167,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
         <div class="text-sm font-black text-[var(--ed-ink)]">${displayName} Points Table & Bracket</div>
       </div>
     </div>
-    <a href="/tournaments/${targetSlug}?tab=standings" class="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white hover:opacity-90">
+    <a href="/tournaments/${targetSlug}/standings" class="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white hover:opacity-90">
       View Table ➔
     </a>
   </div>

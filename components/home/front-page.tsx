@@ -165,7 +165,7 @@ export function FrontPage({
                 </Link>
                 <p className="mt-1 text-xs font-medium text-[var(--ed-stone)]">{liveTournament.stageName}</p>
                 <Link
-                  href={`/tournaments/${liveTournament.slug}?tab=standings`}
+                  href={`/tournaments/${liveTournament.slug}/standings`}
                   className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[var(--ed-blue)] hover:underline"
                 >
                   Follow standings →
