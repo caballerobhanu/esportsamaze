@@ -622,7 +622,7 @@ function TabGroupsEditor({
                                   onChange={(e) => updateItem(gIdx, iIdx, { enableGroupSubTabs: e.target.checked })}
                                   className="rounded text-(--ed-blue)"
                                 />
-                                <span>🛡️ Enable Group Sub-Tabs (Groups A, B, C, D...)</span>
+                                <span>Enable Group Sub-Tabs (Groups A, B, C, D...)</span>
                               </label>
 
                               {item.enableGroupSubTabs && (
@@ -633,7 +633,7 @@ function TabGroupsEditor({
                                     onChange={(e) => updateItem(gIdx, iIdx, { showOverallInGroupTabs: e.target.checked })}
                                     className="rounded text-(--ed-blue)"
                                   />
-                                  <span>⭐ Include Combined Overall (64 Teams) Tab</span>
+                                  <span>Include Combined Overall (64 Teams) Tab</span>
                                 </label>
                               )}
                             </div>
@@ -650,9 +650,23 @@ function TabGroupsEditor({
                                   .map((m) => m.groupName?.trim())
                                   .filter((g): g is string => Boolean(g));
                                 const fromConfig = Object.keys(item.groupZones || {});
-                                const detectedSet = new Set([...fromStage, ...fromMatches, ...fromConfig]);
-                                const detectedGroups = detectedSet.size > 0
-                                  ? Array.from(detectedSet).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+                                // Deduplicate candidate groups case- and prefix-insensitively (e.g. 'A' vs 'Group A')
+                                const rawCandidates = [...fromStage, ...fromMatches, ...fromConfig];
+                                const canonicalMap = new Map<string, string>();
+                                for (const raw of rawCandidates) {
+                                  if (!raw || !raw.trim()) continue;
+                                  const trimmed = raw.trim();
+                                  const canonical = trimmed.replace(/^group\s*/i, '').trim().toUpperCase();
+                                  const existing = canonicalMap.get(canonical);
+                                  if (!existing) {
+                                    canonicalMap.set(canonical, trimmed);
+                                  } else if (/^group\s+/i.test(trimmed) && !/^group\s+/i.test(existing)) {
+                                    canonicalMap.set(canonical, trimmed);
+                                  }
+                                }
+                                const detectedGroups = canonicalMap.size > 0
+                                  ? Array.from(canonicalMap.values()).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
                                   : ['Group A', 'Group B', 'Group C', 'Group D'];
 
                                 const itemGroups = item.groups && item.groups.length > 0 ? item.groups : detectedGroups;
@@ -661,6 +675,22 @@ function TabGroupsEditor({
                                   rawActiveKey !== 'OVERALL' && !itemGroups.includes(rawActiveKey)
                                     ? (item.showOverallInGroupTabs !== false ? 'OVERALL' : (itemGroups[0] || 'Group A'))
                                     : rawActiveKey;
+
+                                const getZonesForGroup = (grpName: string) => {
+                                  if (!item.groupZones) return [];
+                                  if (item.groupZones[grpName]) return item.groupZones[grpName];
+                                  const short = grpName.replace(/^group\s*/i, '').trim();
+                                  if (item.groupZones[short]) return item.groupZones[short];
+                                  const long = `Group ${short}`;
+                                  if (item.groupZones[long]) return item.groupZones[long];
+                                  const matchKey = Object.keys(item.groupZones).find(
+                                    (k) =>
+                                      k.toLowerCase() === grpName.toLowerCase() ||
+                                      k.toLowerCase() === short.toLowerCase() ||
+                                      k.toLowerCase() === long.toLowerCase()
+                                  );
+                                  return matchKey ? item.groupZones[matchKey] : [];
+                                };
 
                                 return (
                                   <div className="p-3.5 rounded-xl border border-blue-500/20 bg-blue-50/30 dark:bg-blue-950/10 space-y-3">
@@ -681,13 +711,16 @@ function TabGroupsEditor({
                                             key={grp}
                                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs"
                                           >
-                                            <span>🛡️ {grp}</span>
+                                            <span>{grp}</span>
                                             <button
                                               type="button"
                                               onClick={() => {
                                                 const filtered = itemGroups.filter((g) => g !== grp);
                                                 const nextGroupZones = { ...(item.groupZones || {}) };
                                                 delete nextGroupZones[grp];
+                                                const short = grp.replace(/^group\s*/i, '').trim();
+                                                delete nextGroupZones[short];
+                                                delete nextGroupZones[`Group ${short}`];
                                                 updateItem(gIdx, iIdx, {
                                                   groups: filtered,
                                                   groupZones: nextGroupZones,
@@ -763,7 +796,7 @@ function TabGroupsEditor({
                                                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
                                             }`}
                                           >
-                                            <span>⭐ Combined Overall</span>
+                                            <span>Combined Overall</span>
                                             <span
                                               className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
                                                 effectiveZoneKey === 'OVERALL'
@@ -778,7 +811,8 @@ function TabGroupsEditor({
 
                                         {itemGroups.map((grp) => {
                                           const isSelected = effectiveZoneKey === grp;
-                                          const groupZoneCount = (item.groupZones?.[grp] || []).length;
+                                          const groupZonesList = getZonesForGroup(grp);
+                                          const groupZoneCount = groupZonesList.length;
                                           const hasCustomZones = groupZoneCount > 0;
 
                                           return (
@@ -792,7 +826,7 @@ function TabGroupsEditor({
                                                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
                                               }`}
                                             >
-                                              <span>🛡️ {grp}</span>
+                                              <span>{grp}</span>
                                               <span
                                                 className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
                                                   isSelected
@@ -815,9 +849,9 @@ function TabGroupsEditor({
                                       <div>
                                         <h5 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                                           {effectiveZoneKey === 'OVERALL' ? (
-                                            <>⭐ Combined Overall 64-Team Qualification Zones</>
+                                            <>Combined Overall Qualification Zones</>
                                           ) : (
-                                            <>🛡️ Specific Qualification Zones for &quot;{effectiveZoneKey}&quot;</>
+                                            <>Specific Qualification Zones for &quot;{effectiveZoneKey}&quot;</>
                                           )}
                                         </h5>
                                         <p className="text-[11px] text-slate-500">
@@ -910,7 +944,7 @@ function TabGroupsEditor({
                                       zones={
                                         effectiveZoneKey === 'OVERALL'
                                           ? item.zones || []
-                                          : item.groupZones?.[effectiveZoneKey] || []
+                                          : getZonesForGroup(effectiveZoneKey)
                                       }
                                       stageNames={stageNames}
                                       onChange={(updatedZones) => {
@@ -921,6 +955,10 @@ function TabGroupsEditor({
                                             ...(item.groupZones || {}),
                                             [effectiveZoneKey]: updatedZones,
                                           };
+                                          const short = effectiveZoneKey.replace(/^group\s*/i, '').trim();
+                                          if (short !== effectiveZoneKey && nextGroupZones[short]) {
+                                            delete nextGroupZones[short];
+                                          }
                                           updateItem(gIdx, iIdx, { groupZones: nextGroupZones });
                                         }
                                       }}
