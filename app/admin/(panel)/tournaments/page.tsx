@@ -430,158 +430,212 @@ async function saveTournament(formData: FormData) {
 
   let tournamentId = id;
 
+  // Pre-process squad logos before transaction to prevent I/O delays inside DB transaction
+  const squadLogos = squadsSubmitted
+    ? await Promise.all(
+        squadsList.map(async (_, i) => {
+          const [logoLight, logoDark] = await Promise.all([
+            saveUploadedFile(formData.get(`squadLogoLight${i}`), 'squad-logo-light'),
+            saveUploadedFile(formData.get(`squadLogoDark${i}`), 'squad-logo-dark'),
+          ]);
+          return { logoLight, logoDark };
+        })
+      )
+    : [];
+
   // The save touches the tournament row plus organizers, sponsors, venues,
   // squads and final rankings. Run it as one transaction so a mid-way failure
   // can never leave a half-updated tournament (or wiped relations) behind.
-  await prisma.$transaction(async (tx) => {
-    if (id) {
-      const existing = await tx.tournament.findUnique({
-        where: { id },
-        select: { imageUrl: true, imageDarkUrl: true, bannerUrl: true },
-      });
-
-      await tx.tournament.update({
-        where: { id },
-        data: {
-          ...commonData,
-          game: { connect: { id: gameId } },
-          winnerTeam: winnerTeamId ? { connect: { id: winnerTeamId } } : { disconnect: true },
-          runnerUpTeam: runnerUpTeamId ? { connect: { id: runnerUpTeamId } } : { disconnect: true },
-          imageUrl: imageUpload ?? fOpt(formData, 'imageUrl') ?? existing?.imageUrl ?? null,
-          imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl') ?? existing?.imageDarkUrl ?? null,
-          bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
-        },
-      });
-
-      // Update relations
-      await tx.tournamentOrganizer.deleteMany({ where: { tournamentId: id } });
-      if (organizerLinks.length > 0) {
-        await tx.tournamentOrganizer.createMany({
-          data: organizerLinks.map((ol) => ({
-            tournamentId: id,
-            organizerId: ol.organizerId,
-            role: ol.role,
-          })),
+  await prisma.$transaction(
+    async (tx) => {
+      if (id) {
+        const existing = await tx.tournament.findUnique({
+          where: { id },
+          select: { imageUrl: true, imageDarkUrl: true, bannerUrl: true },
         });
-      }
 
-      await tx.tournamentSponsor.deleteMany({ where: { tournamentId: id } });
-      if (sponsorLinks.length > 0) {
-        await tx.tournamentSponsor.createMany({
-          data: sponsorLinks.map((sl) => ({
-            tournamentId: id,
-            sponsorId: sl.sponsorId,
-            tier: sl.tier,
-          })),
+        await tx.tournament.update({
+          where: { id },
+          data: {
+            ...commonData,
+            game: { connect: { id: gameId } },
+            winnerTeam: winnerTeamId ? { connect: { id: winnerTeamId } } : { disconnect: true },
+            runnerUpTeam: runnerUpTeamId ? { connect: { id: runnerUpTeamId } } : { disconnect: true },
+            imageUrl: imageUpload ?? fOpt(formData, 'imageUrl') ?? existing?.imageUrl ?? null,
+            imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl') ?? existing?.imageDarkUrl ?? null,
+            bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
+          },
         });
-      }
 
-      await tx.tournamentVenue.deleteMany({ where: { tournamentId: id } });
-      if (venueLinks.length > 0) {
-        await tx.tournamentVenue.createMany({
-          data: venueLinks.map((vl) => ({
-            tournamentId: id,
-            venueId: vl.venueId,
-            stageName: vl.stageName,
-          })),
-        });
-      }
-    } else {
-      const created = await tx.tournament.create({
-        data: {
-          ...commonData,
-          game: { connect: { id: gameId } },
-          ...(winnerTeamId ? { winnerTeam: { connect: { id: winnerTeamId } } } : {}),
-          ...(runnerUpTeamId ? { runnerUpTeam: { connect: { id: runnerUpTeamId } } } : {}),
-          imageUrl: imageUpload ?? fOpt(formData, 'imageUrl'),
-          imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl'),
-          bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
-          organizers: {
-            create: organizerLinks.map((ol) => ({
+        // Update relations
+        await tx.tournamentOrganizer.deleteMany({ where: { tournamentId: id } });
+        if (organizerLinks.length > 0) {
+          await tx.tournamentOrganizer.createMany({
+            data: organizerLinks.map((ol) => ({
+              tournamentId: id,
               organizerId: ol.organizerId,
               role: ol.role,
             })),
-          },
-          sponsors: {
-            create: sponsorLinks.map((sl) => ({
+          });
+        }
+
+        await tx.tournamentSponsor.deleteMany({ where: { tournamentId: id } });
+        if (sponsorLinks.length > 0) {
+          await tx.tournamentSponsor.createMany({
+            data: sponsorLinks.map((sl) => ({
+              tournamentId: id,
               sponsorId: sl.sponsorId,
               tier: sl.tier,
             })),
-          },
-          venues: {
-            create: venueLinks.map((vl) => ({ venueId: vl.venueId, stageName: vl.stageName })),
-          },
-        },
-      });
-      tournamentId = created.id;
-    }
+          });
+        }
 
-    // Participating squads: seeds, rosters and event logo overrides (runs before rankings
-    // so the rankings block can still attach finalRank/prizeWon to the same rows)
-    if (squadsSubmitted && tournamentId) {
-      for (let i = 0; i < squadsList.length; i++) {
-        const squad = squadsList[i];
-        if (!squad?.teamId) continue;
-        const [logoLight, logoDark] = await Promise.all([
-          saveUploadedFile(formData.get(`squadLogoLight${i}`), 'squad-logo-light'),
-          saveUploadedFile(formData.get(`squadLogoDark${i}`), 'squad-logo-dark'),
-        ]);
-        const data = {
-          seed: squad.seed ?? null,
-          seedLabel: squad.seedLabel ?? null,
-          seedTournamentId: squad.seedTournamentId ?? null,
-          rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p: any) => ({
-            playerId: p.playerId ?? null,
-            ign: String(p.ign ?? ''),
-            role: p.role ?? null,
-            captain: !!p.captain,
-            isStaff: !!p.isStaff,
-            staffRole: p.staffRole ?? (p.isStaff ? p.role ?? 'Coach' : null),
-            statusTag: p.statusTag ?? null,
-          })),
-          logoUrl: logoLight ?? (squad.eventLogoUrl || null),
-          logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
-          shortName: squad.shortName ?? null,
-          displayName: squad.displayName ?? null,
-          country: squad.country ?? null,
-        };
-        // One squad row per (tournament, team) — DB-enforced, race-safe upsert.
-        await tx.tournamentTeam.upsert({
-          where: {
-            tournamentId_teamId: { tournamentId, teamId: squad.teamId },
-          },
-          update: data,
-          create: {
-            tournamentId,
-            teamId: squad.teamId,
-            finalRank: null,
-            prizeWon: null,
-            ...data,
+        await tx.tournamentVenue.deleteMany({ where: { tournamentId: id } });
+        if (venueLinks.length > 0) {
+          await tx.tournamentVenue.createMany({
+            data: venueLinks.map((vl) => ({
+              tournamentId: id,
+              venueId: vl.venueId,
+              stageName: vl.stageName,
+            })),
+          });
+        }
+      } else {
+        const created = await tx.tournament.create({
+          data: {
+            ...commonData,
+            game: { connect: { id: gameId } },
+            ...(winnerTeamId ? { winnerTeam: { connect: { id: winnerTeamId } } } : {}),
+            ...(runnerUpTeamId ? { runnerUpTeam: { connect: { id: runnerUpTeamId } } } : {}),
+            imageUrl: imageUpload ?? fOpt(formData, 'imageUrl'),
+            imageDarkUrl: imageDarkUpload ?? fOpt(formData, 'imageDarkUrl'),
+            bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl'),
+            organizers: {
+              create: organizerLinks.map((ol) => ({
+                organizerId: ol.organizerId,
+                role: ol.role,
+              })),
+            },
+            sponsors: {
+              create: sponsorLinks.map((sl) => ({
+                sponsorId: sl.sponsorId,
+                tier: sl.tier,
+              })),
+            },
+            venues: {
+              create: venueLinks.map((vl) => ({ venueId: vl.venueId, stageName: vl.stageName })),
+            },
           },
         });
+        tournamentId = created.id;
+      }
 
-        // Automated Transfer History Logging
-        const roster = Array.isArray(squad.roster) ? squad.roster : [];
-        for (const p of roster) {
-          let playerId = p.playerId;
-          if (!playerId && p.ign) {
-            const found = await tx.player.findFirst({
-              where: { ign: { equals: p.ign.trim(), mode: 'insensitive' } },
-              select: { id: true, currentTeamId: true },
-            });
-            if (found) {
-              playerId = found.id;
+      // Participating squads: seeds, rosters and event logo overrides (runs before rankings
+      // so the rankings block can still attach finalRank/prizeWon to the same rows)
+      if (squadsSubmitted && tournamentId) {
+        for (let i = 0; i < squadsList.length; i++) {
+          const squad = squadsList[i];
+          if (!squad?.teamId) continue;
+          const logo = squadLogos[i];
+          const logoLight = logo?.logoLight;
+          const logoDark = logo?.logoDark;
+          const data = {
+            seed: squad.seed ?? null,
+            seedLabel: squad.seedLabel ?? null,
+            seedTournamentId: squad.seedTournamentId ?? null,
+            rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p: any) => ({
+              playerId: p.playerId ?? null,
+              ign: String(p.ign ?? ''),
+              role: p.role ?? null,
+              captain: !!p.captain,
+              isStaff: !!p.isStaff,
+              staffRole: p.staffRole ?? (p.isStaff ? p.role ?? 'Coach' : null),
+              statusTag: p.statusTag ?? null,
+            })),
+            logoUrl: logoLight ?? (squad.eventLogoUrl || null),
+            logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
+            shortName: squad.shortName ?? null,
+            displayName: squad.displayName ?? null,
+            country: squad.country ?? null,
+          };
+          // One squad row per (tournament, team) — DB-enforced, race-safe upsert.
+          await tx.tournamentTeam.upsert({
+            where: {
+              tournamentId_teamId: { tournamentId, teamId: squad.teamId },
+            },
+            update: data,
+            create: {
+              tournamentId,
+              teamId: squad.teamId,
+              finalRank: null,
+              prizeWon: null,
+              ...data,
+            },
+          });
+        }
+
+        // Automated Transfer History Logging - Batched high-speed execution
+        const explicitPlayerIds: string[] = [];
+        const ignList: string[] = [];
+
+        for (const squad of squadsList) {
+          if (!squad?.teamId) continue;
+          for (const p of squad.roster || []) {
+            if (p.playerId) {
+              explicitPlayerIds.push(p.playerId);
+            } else if (p.ign && p.ign.trim()) {
+              ignList.push(p.ign.trim());
             }
           }
+        }
 
-          if (playerId) {
-            const player = await tx.player.findUnique({
-              where: { id: playerId },
-              select: { id: true, currentTeamId: true },
-            });
+        const [playersById, playersByIgn] = await Promise.all([
+          explicitPlayerIds.length > 0
+            ? tx.player.findMany({
+                where: { id: { in: Array.from(new Set(explicitPlayerIds)) } },
+                select: { id: true, ign: true, currentTeamId: true },
+              })
+            : [],
+          ignList.length > 0
+            ? tx.player.findMany({
+                where: {
+                  ign: { in: Array.from(new Set(ignList)), mode: 'insensitive' },
+                },
+                select: { id: true, ign: true, currentTeamId: true },
+              })
+            : [],
+        ]);
+
+        const playerByIdMap = new Map<string, { id: string; ign: string; currentTeamId: string | null }>();
+        for (const pl of playersById) {
+          playerByIdMap.set(pl.id, pl);
+        }
+
+        const playerByIgnMap = new Map<string, { id: string; ign: string; currentTeamId: string | null }>();
+        for (const pl of playersByIgn) {
+          playerByIgnMap.set(pl.ign.trim().toLowerCase(), pl);
+        }
+
+        interface PendingTransfer {
+          player: { id: string; ign: string; currentTeamId: string | null };
+          targetTeamId: string;
+          prevTeamId: string | null;
+          transferType: 'LOANED' | 'BENCHED' | 'JOINED';
+          staffRole: string | null;
+        }
+
+        const pendingTransfers: PendingTransfer[] = [];
+
+        for (const squad of squadsList) {
+          if (!squad?.teamId) continue;
+          const roster = Array.isArray(squad.roster) ? squad.roster : [];
+          for (const p of roster) {
+            let player = p.playerId ? playerByIdMap.get(p.playerId) : undefined;
+            if (!player && p.ign) {
+              player = playerByIgnMap.get(p.ign.trim().toLowerCase());
+            }
 
             if (player && player.currentTeamId !== squad.teamId) {
-              const prevTeamId = player.currentTeamId;
               const transferType =
                 p.statusTag === 'LOANED'
                   ? 'LOANED'
@@ -589,69 +643,95 @@ async function saveTournament(formData: FormData) {
                   ? 'BENCHED'
                   : 'JOINED';
 
-              // Avoid duplicate logs if already logged for this team
-              const existingTransfer = await tx.transfer.findFirst({
-                where: {
-                  playerId: player.id,
-                  teamId: squad.teamId,
-                  fromTeamId: prevTeamId,
-                },
-              });
-
-              if (!existingTransfer) {
-                await tx.transfer.create({
-                  data: {
-                    playerId: player.id,
-                    fromTeamId: prevTeamId,
-                    teamId: squad.teamId,
-                    type: transferType,
-                    staffRole: p.isStaff ? p.staffRole || p.role || 'Staff' : null,
-                    date: startDate || new Date(),
-                    notes: `Tournament roster entry for ${name}`,
-                  },
-                });
-              }
-
-              // Update player's active team
-              await tx.player.update({
-                where: { id: player.id },
-                data: {
-                  currentTeamId: squad.teamId,
-                },
+              pendingTransfers.push({
+                player,
+                targetTeamId: squad.teamId,
+                prevTeamId: player.currentTeamId,
+                transferType,
+                staffRole: p.isStaff ? p.staffRole || p.role || 'Staff' : null,
               });
             }
           }
         }
-      }
-      const protectedIds = [
-        ...squadsList.map((s) => s.teamId).filter(Boolean),
-        ...teamRankingsList.map((r) => r.teamId).filter(Boolean),
-      ];
-      await tx.tournamentTeam.deleteMany({
-        where: { tournamentId, teamId: { notIn: protectedIds } },
-      });
-    }
 
-    // Update or insert TournamentTeam records for final event rankings
-    if (teamRankingsList.length > 0 && tournamentId) {
-      for (const r of teamRankingsList) {
-        if (!r.teamId) continue;
-        await tx.tournamentTeam.upsert({
-          where: {
-            tournamentId_teamId: { tournamentId, teamId: r.teamId },
-          },
-          update: { finalRank: r.rank, prizeWon: r.prizeWon || 0 },
-          create: {
-            tournamentId,
-            teamId: r.teamId,
-            finalRank: r.rank,
-            prizeWon: r.prizeWon || 0,
-            rosterJson: [],
-          },
+        if (pendingTransfers.length > 0) {
+          const existingTransfers = await tx.transfer.findMany({
+            where: {
+              OR: pendingTransfers.map((pt) => ({
+                playerId: pt.player.id,
+                teamId: pt.targetTeamId,
+                fromTeamId: pt.prevTeamId,
+              })),
+            },
+            select: { playerId: true, teamId: true, fromTeamId: true },
+          });
+
+          const existingSet = new Set(
+            existingTransfers.map((et) => `${et.playerId}:${et.teamId}:${et.fromTeamId ?? 'null'}`)
+          );
+
+          for (const pt of pendingTransfers) {
+            const key = `${pt.player.id}:${pt.targetTeamId}:${pt.prevTeamId ?? 'null'}`;
+            if (!existingSet.has(key)) {
+              await tx.transfer.create({
+                data: {
+                  playerId: pt.player.id,
+                  fromTeamId: pt.prevTeamId,
+                  teamId: pt.targetTeamId,
+                  type: pt.transferType,
+                  staffRole: pt.staffRole,
+                  date: startDate || new Date(),
+                  notes: `Tournament roster entry for ${name}`,
+                },
+              });
+              existingSet.add(key);
+            }
+
+            // Update player's active team
+            await tx.player.update({
+              where: { id: pt.player.id },
+              data: {
+                currentTeamId: pt.targetTeamId,
+              },
+            });
+            pt.player.currentTeamId = pt.targetTeamId;
+          }
+        }
+
+        const protectedIds = [
+          ...squadsList.map((s) => s.teamId).filter(Boolean),
+          ...teamRankingsList.map((r) => r.teamId).filter(Boolean),
+        ];
+        await tx.tournamentTeam.deleteMany({
+          where: { tournamentId, teamId: { notIn: protectedIds } },
         });
       }
+
+      // Update or insert TournamentTeam records for final event rankings
+      if (teamRankingsList.length > 0 && tournamentId) {
+        for (const r of teamRankingsList) {
+          if (!r.teamId) continue;
+          await tx.tournamentTeam.upsert({
+            where: {
+              tournamentId_teamId: { tournamentId, teamId: r.teamId },
+            },
+            update: { finalRank: r.rank, prizeWon: r.prizeWon || 0 },
+            create: {
+              tournamentId,
+              teamId: r.teamId,
+              finalRank: r.rank,
+              prizeWon: r.prizeWon || 0,
+              rosterJson: [],
+            },
+          });
+        }
+      }
+    },
+    {
+      timeout: 60000,
+      maxWait: 15000,
     }
-  });
+  );
 
   updateTag('tournaments-list');
   revalidatePath('/');
