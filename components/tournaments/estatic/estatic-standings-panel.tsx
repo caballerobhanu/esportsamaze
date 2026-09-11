@@ -823,7 +823,7 @@ export function EstaticStandingsPanel({
                       : 'border border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
                   }`}
                 >
-                  ⭐ Combined Overall ({rawStageMatches.length}m)
+                  Combined Overall ({rawStageMatches.length}m)
                 </button>
               )}
               {availableGroups.map((grpName) => {
@@ -845,7 +845,7 @@ export function EstaticStandingsPanel({
                         : 'border border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
                     }`}
                   >
-                    <span>🛡️ {grpName}</span>
+                    <span>{grpName}</span>
                     {grpMatchCount > 0 && (
                       <span className="text-[9px] opacity-75 font-mono">({grpMatchCount}m)</span>
                     )}
