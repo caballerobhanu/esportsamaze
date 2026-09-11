@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Calendar as CalendarIcon,
@@ -10,8 +10,10 @@ import {
   MapPin,
   Swords,
   Layers,
-  ChevronDown,
   Sparkles,
+  Coffee,
+  CheckCircle2,
+  CalendarDays,
 } from 'lucide-react';
 
 export interface CalendarMatchItem {
@@ -50,7 +52,7 @@ interface ProcessedDay {
   date: Date;
   dateKey: string; // YYYY-MM-DD
   dayNumber: number;
-  monthLabel?: string; // e.g. "SEPT", "OCT"
+  monthLabel?: string; // e.g. "MAY", "JUN"
   isCurrentMonth: boolean;
   isWithinTournament: boolean;
   isMatchDay: boolean;
@@ -120,6 +122,18 @@ function getStageColor(stageName: string, index = 0): string {
   return COLOR_KEYS[index % COLOR_KEYS.length];
 }
 
+/**
+ * Format a Date object to YYYY-MM-DD using its local components
+ * to prevent any timezone shift (e.g. UTC+5:30 midnight becoming 18:30 on the day before).
+ */
+function getLocalDateKey(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function TournamentScheduleCalendar({
   tournamentName = 'Tournament',
   tournamentSlug,
@@ -129,7 +143,7 @@ export function TournamentScheduleCalendar({
   formatDetails,
   className = '',
 }: TournamentScheduleCalendarProps) {
-  // 1. Group actual matches by YYYY-MM-DD
+  // 1. Group actual matches by local date key (YYYY-MM-DD)
   const { matchesByDate, allMatchDates, stageColorMap } = useMemo(() => {
     const map = new Map<string, CalendarMatchItem[]>();
     const dates: Date[] = [];
@@ -145,7 +159,7 @@ export function TournamentScheduleCalendar({
       const d = new Date(m.scheduledAt);
       if (isNaN(d.getTime())) continue;
 
-      const key = d.toISOString().slice(0, 10);
+      const key = getLocalDateKey(d);
       const list = map.get(key) || [];
       list.push(m);
       map.set(key, list);
@@ -157,7 +171,7 @@ export function TournamentScheduleCalendar({
       }
     }
 
-    // Sort matches on each day by scheduled time / matchNumber
+    // Sort matches on each day chronologically / by matchNumber
     for (const [, dayMatches] of map.entries()) {
       dayMatches.sort((a, b) => {
         const timeA = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
@@ -171,10 +185,10 @@ export function TournamentScheduleCalendar({
     return { matchesByDate: map, allMatchDates: dates, stageColorMap: colorMap };
   }, [matches, stages]);
 
-  // 2. Determine tournament boundaries
+  // 2. Determine tournament date boundaries and available months
   const { minDate, maxDate, availableMonths } = useMemo(() => {
-    let start: Date | null = allMatchDates[0] || null;
-    let end: Date | null = allMatchDates[allMatchDates.length - 1] || null;
+    let start: Date | null = allMatchDates[0] ? new Date(allMatchDates[0]) : null;
+    let end: Date | null = allMatchDates[allMatchDates.length - 1] ? new Date(allMatchDates[allMatchDates.length - 1]) : null;
 
     if (formatDetails?.startDate) {
       const d = new Date(formatDetails.startDate);
@@ -191,10 +205,13 @@ export function TournamentScheduleCalendar({
       end.setDate(end.getDate() + 20);
     }
 
-    // List of YYYY-MM months within the tournament range
+    // Normalize start/end to midnight local time
+    const normStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const normEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59);
+
     const months: { year: number; month: number; label: string }[] = [];
-    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
-    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    const cur = new Date(normStart.getFullYear(), normStart.getMonth(), 1);
+    const endMonth = new Date(normEnd.getFullYear(), normEnd.getMonth(), 1);
 
     while (cur <= endMonth) {
       months.push({
@@ -205,10 +222,10 @@ export function TournamentScheduleCalendar({
       cur.setMonth(cur.getMonth() + 1);
     }
 
-    return { minDate: start, maxDate: end, availableMonths: months };
+    return { minDate: normStart, maxDate: normEnd, availableMonths: months };
   }, [allMatchDates, formatDetails]);
 
-  // Month navigation index (defaults to first month with matches)
+  // Month navigation index
   const [selectedMonthIdx, setSelectedMonthIdx] = useState(0);
   const activeMonth = availableMonths[Math.min(selectedMonthIdx, availableMonths.length - 1)] || {
     year: minDate.getFullYear(),
@@ -216,36 +233,34 @@ export function TournamentScheduleCalendar({
     label: minDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
   };
 
-  // Selected day for match schedule details drawer
+  // Selected day key for match schedule drawer/sidebar
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
-  // 3. Generate Calendar Weeks for the active month
+  // 3. Generate 7-column calendar weeks for the active month
   const { weeksData, phasesByWeek } = useMemo(() => {
     const year = activeMonth.year;
     const month = activeMonth.month;
 
-    // Start of month
+    // First and last day of active month
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
     // Monday of the week containing firstDay (1 = Mon, 7 = Sun)
     const startOffset = (firstDay.getDay() + 6) % 7; // Mon = 0, Sun = 6
-    const calStart = new Date(firstDay);
-    calStart.setDate(calStart.getDate() - startOffset);
+    const calStart = new Date(year, month, 1 - startOffset);
 
     // Sunday of the week containing lastDay
     const endOffset = (7 - ((lastDay.getDay() + 6) % 7) - 1);
-    const calEnd = new Date(lastDay);
-    calEnd.setDate(calEnd.getDate() + endOffset);
+    const calEnd = new Date(year, month, lastDay.getDate() + endOffset);
 
     const weeks: ProcessedDay[][] = [];
     let currentWeek: ProcessedDay[] = [];
-    const curDate = new Date(calStart);
+    const curDate = new Date(calStart.getFullYear(), calStart.getMonth(), calStart.getDate());
 
     let prevMonthLabelSeen = '';
 
     while (curDate <= calEnd) {
-      const dateKey = curDate.toISOString().slice(0, 10);
+      const dateKey = getLocalDateKey(curDate);
       const isCurrentMonth = curDate.getMonth() === month;
       const isWithinTournament = curDate >= minDate && curDate <= maxDate;
       const dayMatches = matchesByDate.get(dateKey) || [];
@@ -258,7 +273,7 @@ export function TournamentScheduleCalendar({
         dayStage = 'Matchday';
       }
 
-      // Check if we should render month text (e.g. 1st of month or first day of tournament)
+      // Check if we should render month tag (1st of month or first day of tournament)
       let monthLabel: string | undefined;
       const monthShort = curDate.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
       if (curDate.getDate() === 1 || (curDate.getTime() === minDate.getTime() && monthShort !== prevMonthLabelSeen)) {
@@ -287,7 +302,7 @@ export function TournamentScheduleCalendar({
       curDate.setDate(curDate.getDate() + 1);
     }
 
-    // 4. Compute Phase Markings per Week
+    // 4. Compute horizontal stage/phase span bars per week row
     type ActiveSpan = { name: string; startCol: number; endCol: number; count: number };
     const phaseMap = new Map<number, PhaseSpan[]>();
 
@@ -352,6 +367,22 @@ export function TournamentScheduleCalendar({
     return { weeksData: weeks, phasesByWeek: phaseMap };
   }, [activeMonth, minDate, maxDate, matchesByDate, stageColorMap]);
 
+  // Auto-select the first matchday in this active month so PC view is immediately populated
+  useEffect(() => {
+    for (const w of weeksData) {
+      const firstMatchDay = w.find((d) => d.isCurrentMonth && d.isMatchDay);
+      if (firstMatchDay) {
+        setSelectedDayKey(firstMatchDay.dateKey);
+        return;
+      }
+    }
+    // If no matchday in this month, select any day in the current month
+    const anyDay = weeksData.flatMap((w) => w).find((d) => d.isCurrentMonth);
+    if (anyDay) {
+      setSelectedDayKey(anyDay.dateKey);
+    }
+  }, [weeksData]);
+
   // Selected Day Object
   const selectedDay = useMemo(() => {
     if (!selectedDayKey) return null;
@@ -371,270 +402,295 @@ export function TournamentScheduleCalendar({
 
   return (
     <div
-      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-[#0b1220] sm:p-5 ${className}`}
+      className={`mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-6 ${className}`}
     >
       {/* ── HEADER: Title, Date Range & Month Switcher ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-white/5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-[#0A5FC4] dark:bg-blue-950/60 dark:text-blue-300">
-            <CalendarIcon className="h-4 w-4" />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#0A5FC4] dark:bg-blue-950/60 dark:text-blue-300">
+            <CalendarIcon className="h-4.5 w-4.5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-              Schedule Calendar
+            <h4 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white sm:text-base">
+              Tournament Schedule
             </h4>
-            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-[11px] font-semibold text-slate-400">
               {displayDateText}
             </p>
           </div>
         </div>
 
-        {/* Month Navigation & Stats Pill */}
-        <div className="flex items-center gap-2">
+        {/* Month Switcher & Matches Count */}
+        <div className="flex items-center gap-2.5">
           {matches.length > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700 dark:bg-white/10 dark:text-slate-300">
               <Swords className="h-3 w-3 text-[#0A5FC4] dark:text-blue-400" />
               {matches.length} matches
             </span>
           )}
 
           {availableMonths.length > 1 && (
-            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50/50 p-0.5 dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50/80 p-0.5 dark:border-white/10 dark:bg-white/5">
               <button
                 type="button"
                 onClick={() => setSelectedMonthIdx((prev) => Math.max(0, prev - 1))}
                 disabled={selectedMonthIdx === 0}
-                className="flex h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-white/10 cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-white/10 cursor-pointer"
                 title="Previous Month"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="px-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+              <span className="px-2.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                 {activeMonth.label}
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedMonthIdx((prev) => Math.min(availableMonths.length - 1, prev + 1))}
                 disabled={selectedMonthIdx >= availableMonths.length - 1}
-                className="flex h-6 w-6 items-center justify-center rounded text-slate-600 hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-white/10 cursor-pointer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-600 hover:bg-white disabled:opacity-30 dark:text-slate-300 dark:hover:bg-white/10 cursor-pointer"
                 title="Next Month"
               >
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── CALENDAR 7-COLUMN GRID ── */}
-      <div className="mt-3">
-        {/* Days of week row */}
-        <div className="grid grid-cols-7 gap-1 text-center">
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((dayName, idx) => (
-            <div
-              key={idx}
-              className="py-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500"
-            >
-              {dayName}
-            </div>
-          ))}
-        </div>
+      {/* ── RESPONSIVE 2-COLUMN SPLIT (Desktop: Side-by-side | Mobile: Stacked) ── */}
+      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+        {/* ── LEFT: The 7-Day Calendar Grid (Constrained on PC, perfectly proportioned) ── */}
+        <div className="lg:col-span-7">
+          {/* Days of Week Row */}
+          <div className="grid grid-cols-7 gap-1.5 text-center">
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((dayName, idx) => (
+              <div
+                key={idx}
+                className="py-1 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500"
+              >
+                {dayName}
+              </div>
+            ))}
+          </div>
 
-        {/* Weeks & Phase markings */}
-        <div className="space-y-3 pt-1">
-          {weeksData.map((week, weekIdx) => {
-            const weekPhases = phasesByWeek.get(weekIdx) || [];
+          {/* Weeks with Day Cells & Horizontal Phase Markings */}
+          <div className="mt-1 space-y-3">
+            {weeksData.map((week, weekIdx) => {
+              const weekPhases = phasesByWeek.get(weekIdx) || [];
 
-            return (
-              <div key={weekIdx} className="space-y-1">
-                {/* 7 Day Blocks */}
-                <div className="grid grid-cols-7 gap-1">
-                  {week.map((day) => {
-                    const isSelected = selectedDayKey === day.dateKey;
-                    const matchCount = day.matches.length;
+              return (
+                <div key={weekIdx} className="space-y-1">
+                  {/* 7 Day Blocks */}
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {week.map((day) => {
+                      const isSelected = selectedDayKey === day.dateKey;
+                      const matchCount = day.matches.length;
 
-                    // Days outside the tournament range or other months
-                    if (!day.isCurrentMonth && !day.isWithinTournament) {
+                      // Days outside active month and outside tournament
+                      if (!day.isCurrentMonth && !day.isWithinTournament) {
+                        return (
+                          <div
+                            key={day.dateKey}
+                            className="flex h-12 sm:h-13 flex-col items-center justify-center rounded-xl bg-transparent opacity-20"
+                          >
+                            <span className="text-xs font-medium text-slate-400">{day.dayNumber}</span>
+                          </div>
+                        );
+                      }
+
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={day.dateKey}
-                          className="flex h-11 sm:h-12 flex-col items-center justify-center rounded-xl bg-transparent opacity-20"
-                        >
-                          <span className="text-xs font-medium text-slate-400">{day.dayNumber}</span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        type="button"
-                        key={day.dateKey}
-                        onClick={() => setSelectedDayKey(isSelected ? null : day.dateKey)}
-                        className={`group relative flex h-11 sm:h-12 flex-col items-center justify-center rounded-xl border transition-all duration-150 cursor-pointer ${
-                          isSelected
-                            ? 'border-[#0A5FC4] bg-blue-50/90 shadow-xs ring-2 ring-blue-500/30 dark:border-blue-400 dark:bg-blue-950/60'
-                            : day.isMatchDay
-                            ? 'border-slate-200/90 bg-white shadow-2xs hover:border-[#0A5FC4]/50 hover:bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/90 dark:hover:bg-slate-800'
-                            : day.isRestDay
-                            ? 'border-slate-100 bg-slate-50/50 text-slate-300 dark:border-white/5 dark:bg-white/2 dark:text-slate-600'
-                            : 'border-transparent text-slate-400 opacity-40'
-                        }`}
-                      >
-                        {/* Day Number */}
-                        <span
-                          className={`text-xs sm:text-sm font-bold tabular-nums transition-colors ${
+                          onClick={() => setSelectedDayKey(day.dateKey)}
+                          className={`group relative flex h-12 sm:h-13 flex-col items-center justify-center rounded-xl border transition-all duration-150 cursor-pointer ${
                             isSelected
-                              ? 'text-[#0A5FC4] dark:text-blue-300'
+                              ? 'border-[#0A5FC4] bg-blue-50/90 shadow-xs ring-2 ring-blue-500/30 dark:border-blue-400 dark:bg-blue-950/60'
                               : day.isMatchDay
-                              ? 'text-slate-900 group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300'
+                              ? 'border-slate-200/90 bg-white shadow-2xs hover:border-[#0A5FC4]/50 hover:bg-slate-50/80 dark:border-white/10 dark:bg-slate-900/90 dark:hover:bg-slate-800'
                               : day.isRestDay
-                              ? 'text-slate-400 dark:text-slate-600'
-                              : 'text-slate-400'
+                              ? 'border-slate-100 bg-slate-50/50 text-slate-300 dark:border-white/5 dark:bg-white/2 dark:text-slate-600'
+                              : 'border-transparent text-slate-400 opacity-30'
                           }`}
                         >
-                          {day.dayNumber}
-                        </span>
-
-                        {/* Month text label if present */}
-                        {day.monthLabel ? (
-                          <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-none">
-                            {day.monthLabel}
+                          {/* Day Number */}
+                          <span
+                            className={`text-xs sm:text-sm font-bold tabular-nums transition-colors ${
+                              isSelected
+                                ? 'text-[#0A5FC4] dark:text-blue-300'
+                                : day.isMatchDay
+                                ? 'text-slate-900 group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300'
+                                : day.isRestDay
+                                ? 'text-slate-400 dark:text-slate-600'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {day.dayNumber}
                           </span>
-                        ) : day.isMatchDay ? (
-                          <span className="absolute bottom-1 h-1 w-1 rounded-full bg-[#0A5FC4] dark:bg-blue-400" />
-                        ) : null}
 
-                        {/* Match count hover chip */}
-                        {matchCount > 0 && !isSelected && (
-                          <span className="pointer-events-none absolute -top-1 -right-1 hidden sm:flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-slate-900 px-1 text-[8px] font-black text-white opacity-0 group-hover:opacity-100 transition-opacity dark:bg-blue-600">
-                            {matchCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                          {/* Month text badge if 1st of month or tournament boundary */}
+                          {day.monthLabel ? (
+                            <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-none">
+                              {day.monthLabel}
+                            </span>
+                          ) : day.isMatchDay ? (
+                            <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-[#0A5FC4] dark:bg-blue-400" />
+                          ) : null}
 
-                {/* Horizontal Phase Marking Bars beneath days */}
-                {weekPhases.length > 0 && (
-                  <div className="grid grid-cols-7 gap-1 pt-0.5">
-                    {weekPhases.map((phase) => {
-                      const colSpan = phase.endCol - phase.startCol + 1;
-                      const style = PHASE_COLORS[phase.colorKey] || PHASE_COLORS.blue;
-
-                      return (
-                        <div
-                          key={phase.id}
-                          style={{
-                            gridColumnStart: phase.startCol,
-                            gridColumnEnd: `span ${colSpan}`,
-                          }}
-                          className={`flex items-center justify-center rounded-md border px-1.5 py-0.5 text-center shadow-2xs ${style.bg} ${style.text} ${style.border}`}
-                          title={`${phase.name} (${phase.matchesCount} matches)`}
-                        >
-                          <span className="truncate text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wider">
-                            {phase.name}
-                          </span>
-                        </div>
+                          {/* Match count badge */}
+                          {matchCount > 0 && !isSelected && (
+                            <span className="pointer-events-none absolute -top-1 -right-1 hidden sm:flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-slate-900 px-1 text-[8px] font-black text-white opacity-0 group-hover:opacity-100 transition-opacity dark:bg-blue-600">
+                              {matchCount}
+                            </span>
+                          )}
+                        </button>
                       );
                     })}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* ── INTERACTIVE MATCH SCHEDULE DRAWER ── */}
-      {selectedDay && (
-        <div className="mt-4 rounded-xl border border-blue-200/80 bg-blue-50/50 p-3.5 dark:border-blue-900/40 dark:bg-blue-950/20">
-          <div className="flex items-center justify-between border-b border-blue-100 pb-2 dark:border-blue-900/30">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-blue-500" />
-              <p className="text-xs font-bold text-slate-900 dark:text-white">
-                {selectedDay.date.toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </p>
-              {selectedDay.stageName && (
-                <span className="rounded-md bg-blue-100/80 px-2 py-0.5 text-[10px] font-bold text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                  {selectedDay.stageName}
-                </span>
-              )}
-            </div>
+                  {/* Horizontal Stage/Phase Markings Span Bars */}
+                  {weekPhases.length > 0 && (
+                    <div className="grid grid-cols-7 gap-1.5 pt-0.5">
+                      {weekPhases.map((phase) => {
+                        const colSpan = phase.endCol - phase.startCol + 1;
+                        const style = PHASE_COLORS[phase.colorKey] || PHASE_COLORS.blue;
 
-            <button
-              type="button"
-              onClick={() => setSelectedDayKey(null)}
-              className="text-[11px] font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-            >
-              Close ✕
-            </button>
-          </div>
-
-          {/* Matches List on Selected Day */}
-          <div className="mt-2.5 space-y-1.5">
-            {selectedDay.matches.length > 0 ? (
-              selectedDay.matches.map((m, idx) => {
-                const stageLabel = m.stage?.name || m.stageName || '';
-                const matchNum = m.matchNumber || idx + 1;
-                const matchUrl = tournamentSlug ? `/tournaments/${tournamentSlug}?tab=matches&matchId=${m.id}` : null;
-
-                return (
-                  <div
-                    key={m.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-xs shadow-2xs dark:border-white/5 dark:bg-slate-900/80"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        Match {matchNum}
-                      </span>
-                      {m.mapName && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                          {m.mapName}
-                        </span>
-                      )}
-                      {m.groupName && (
-                        <span className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                          {m.groupName}
-                        </span>
-                      )}
+                        return (
+                          <div
+                            key={phase.id}
+                            style={{
+                              gridColumnStart: phase.startCol,
+                              gridColumnEnd: `span ${colSpan}`,
+                            }}
+                            className={`flex items-center justify-center rounded-md border px-1.5 py-0.5 text-center shadow-2xs ${style.bg} ${style.text} ${style.border}`}
+                            title={`${phase.name} (${phase.matchesCount} matches)`}
+                          >
+                            <span className="truncate text-[8px] sm:text-[9px] font-extrabold uppercase tracking-wider">
+                              {phase.name}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-                    <div className="flex items-center gap-2.5">
-                      {m.matchTime && (
-                        <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
-                          <Clock className="h-3 w-3 text-[#0A5FC4]" />
-                          {m.matchTime}
-                        </span>
-                      )}
-                      {matchUrl && (
-                        <Link
-                          href={matchUrl}
-                          className="font-bold text-[#0A5FC4] hover:underline dark:text-blue-400"
-                        >
-                          Scorecard →
-                        </Link>
-                      )}
+        {/* ── RIGHT: Match Schedule Drawer (Side-by-side on PC, stacked on Mobile) ── */}
+        <div className="lg:col-span-5">
+          <div className="rounded-2xl border border-blue-200/80 bg-blue-50/40 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+            {/* Selected Day Header */}
+            {selectedDay ? (
+              <>
+                <div className="flex items-center justify-between border-b border-blue-100 pb-3 dark:border-blue-900/30">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2 w-2 rounded-full bg-blue-500" />
+                    <div>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                        {selectedDay.date.toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-400">
+                        {selectedDay.stageName || (selectedDay.isRestDay ? 'Rest Day' : 'Matchday')}
+                      </p>
                     </div>
                   </div>
-                );
-              })
-            ) : selectedDay.isRestDay ? (
-              <p className="py-2 text-center text-xs font-medium text-slate-500 dark:text-slate-400">
-                Official Rest Day · No live broadcast matches scheduled.
-              </p>
+
+                  {selectedDay.matches.length > 0 && (
+                    <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-black text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                      {selectedDay.matches.length} Matches
+                    </span>
+                  )}
+                </div>
+
+                {/* Match List for Selected Day */}
+                <div className="mt-3 space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                  {selectedDay.matches.length > 0 ? (
+                    selectedDay.matches.map((m, idx) => {
+                      const matchNum = m.matchNumber || idx + 1;
+                      const matchUrl = tournamentSlug
+                        ? `/tournaments/${tournamentSlug}?tab=matches&matchId=${m.id}`
+                        : null;
+
+                      return (
+                        <div
+                          key={m.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/80 bg-white p-2.5 text-xs shadow-2xs transition-all hover:border-blue-300 dark:border-white/5 dark:bg-slate-900/90 dark:hover:border-blue-500/40"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] font-black text-slate-700 dark:bg-white/10 dark:text-slate-300">
+                              #{matchNum}
+                            </span>
+                            {m.mapName && (
+                              <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-[#0A5FC4] dark:bg-blue-950/60 dark:text-blue-300">
+                                {m.mapName}
+                              </span>
+                            )}
+                            {m.groupName && (
+                              <span className="truncate text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                                {m.groupName}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            {m.matchTime && (
+                              <span className="flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                <Clock className="h-3 w-3 text-[#0A5FC4]" />
+                                {m.matchTime}
+                              </span>
+                            )}
+                            {matchUrl && (
+                              <Link
+                                href={matchUrl}
+                                className="font-bold text-[#0A5FC4] hover:underline dark:text-blue-400"
+                              >
+                                Scorecard →
+                              </Link>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : selectedDay.isRestDay ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500">
+                        <Coffee className="h-5 w-5" />
+                      </div>
+                      <p className="mt-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Official Rest Day
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        No live broadcast matches scheduled on this date.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="py-6 text-center text-xs text-slate-400">
+                      No matches scheduled on this date.
+                    </p>
+                  )}
+                </div>
+              </>
             ) : (
-              <p className="py-2 text-center text-xs text-slate-400">
-                No matches scheduled on this date.
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <CalendarDays className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                <p className="mt-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+                  Select a matchday on the calendar
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  Click any date to inspect scheduled fixtures and lobbies.
+                </p>
+              </div>
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
