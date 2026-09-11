@@ -803,9 +803,20 @@ export interface StandingsMatchLite {
   day: string;
   mapName: string | null;
   groupName: string | null;
-  status: any;
+  status: string;
   scheduledAt: string;
-  results: any[];
+  results: Array<{
+    teamId: string;
+    rank: number;
+    wwcd: boolean;
+    placePoints: number;
+    elimsPoints: number;
+    bonusPoints?: number;
+    totalPoints: number;
+    damage?: number;
+    headshots?: number;
+    assists?: number;
+  }>;
 }
 
 export interface StandingsTeamMeta {
@@ -816,7 +827,7 @@ export interface StandingsTeamMeta {
   logoUrl?: string | null;
   logoDarkUrl?: string | null;
   countryCode?: string | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StandingsStageSummary {
@@ -872,18 +883,30 @@ export function flattenPrizeRanks(prizeDistribution: unknown): Array<Record<stri
   return [];
 }
 
+export interface PrizeResolvedEntry {
+  rank: string;
+  prize: number;
+  percentage?: number;
+  rewardType?: string;
+  customReward?: string;
+  recipientType?: string;
+  teamId?: string;
+  playerId?: string;
+  recipientName?: string;
+}
+
 export function resolvePrizeRecipients(
   prizeDistribution: unknown,
-  teamsById: Map<string, any>,
-  playersById: Map<string, any>
+  teamsById: Map<string, { name?: string | null; displayName?: string | null; tag?: string | null } | null | undefined>,
+  playersById: Map<string, { ign?: string | null } | null | undefined>
 ): {
-  entries: any[];
-  winner: any | null;
-  runnerUp: any | null;
+  entries: PrizeResolvedEntry[];
+  winner: string | null;
+  runnerUp: string | null;
 } {
   const rows = flattenPrizeRanks(prizeDistribution);
-  let winner: any | null = null;
-  let runnerUp: any | null = null;
+  let winner: string | null = null;
+  let runnerUp: string | null = null;
 
   const entries = rows.map((r) => {
     const row = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
@@ -893,15 +916,14 @@ export function resolvePrizeRecipients(
 
     const team = teamId ? teamsById.get(teamId) ?? null : null;
     const player = playerId ? playersById.get(playerId) ?? null : null;
-
-    if (place === 1 && team && !winner) winner = team;
-    if (place === 2 && team && !runnerUp) runnerUp = team;
+    if (place === 1 && team && !winner) winner = team.displayName || team.name || null;
+    if (place === 2 && team && !runnerUp) runnerUp = team.displayName || team.name || null;
 
     return {
       ...row,
       team,
       player,
-    };
+    } as unknown as PrizeResolvedEntry;
   });
 
   return {
