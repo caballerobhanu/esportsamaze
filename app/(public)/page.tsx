@@ -6,10 +6,10 @@ import {
   MapPin,
 } from 'lucide-react';
 import { EventsSection } from '@/components/events-section';
-import { KraftonRankings } from '@/components/krafton-rankings';
 import { HomeMatchHighlight, type HighlightMatchData } from '@/components/home/home-match-highlight';
 import { HomeStandingsSection } from '@/components/home/home-standings-section';
 import { FrontPage } from '@/components/home/front-page';
+import { KraftonTopFive } from '@/components/home/krafton-top-five';
 import { TheBrief } from '@/components/home/the-brief';
 import { EditorsPicks } from '@/components/home/editors-picks';
 import { StatsBand } from '@/components/home/stats-band';
@@ -17,7 +17,6 @@ import { SectionHeading } from '@/components/home/section-heading';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
 import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
-import { getRankingsData } from '@/lib/server-rankings';
 import { itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
 
@@ -263,7 +262,7 @@ export default async function HomePage() {
     : null;
 
   // 8. Circuit Tournaments & Krafton Rankings pre-computed on server (SSR)
-  const [circuitTournaments, rankingsData] = await Promise.all([
+  const [circuitTournaments] = await Promise.all([
     prisma.tournament.findMany({
       select: {
         id: true,
@@ -292,7 +291,6 @@ export default async function HomePage() {
       },
       orderBy: { startDate: 'asc' },
     }).catch(() => []),
-    getRankingsData().catch(() => ({ teams: [], players: [], logos: {} })),
   ]);
 
   return (
@@ -335,8 +333,8 @@ export default async function HomePage() {
         {/* Featured photographic cards */}
         <EditorsPicks articles={editorPicks} />
 
-        {/* Krafton rankings */}
-        <KraftonRankings initialData={rankingsData} />
+        {/* KRAFTON rankings */}
+        <KraftonTopFive />
 
         {/* Tournaments & transfers */}
         <div className="grid grid-cols-1 gap-8 pt-2 lg:grid-cols-12">

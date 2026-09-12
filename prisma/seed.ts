@@ -98,9 +98,6 @@ export async function main() {
   await prisma.tournamentGroup.deleteMany({});
   await prisma.tournamentStage.deleteMany({});
   await prisma.tournament.deleteMany({});
-  await prisma.playerRanking.deleteMany({});
-  await prisma.teamRanking.deleteMany({});
-  await prisma.rankingTransferRule.deleteMany({});
   await prisma.transfer.deleteMany({});
   await prisma.player.deleteMany({});
   await prisma.team.deleteMany({});
@@ -128,9 +125,6 @@ export async function main() {
   await insertMany<Prisma.MatchGameCreateManyInput>('Match Games', snapshot.matchGames, (d) => prisma.matchGame.createMany({ data: d }));
   await insertMany<Prisma.MatchTeamResultCreateManyInput>('Match Team Results', snapshot.matchTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d }));
   await insertMany<Prisma.MatchPlayerStatCreateManyInput>('Match Player Stats', snapshot.matchPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d }));
-  await insertMany<Prisma.TeamRankingCreateManyInput>('Team Rankings', snapshot.teamRankings, (d) => prisma.teamRanking.createMany({ data: d }));
-  await insertMany<Prisma.PlayerRankingCreateManyInput>('Player Rankings', snapshot.playerRankings, (d) => prisma.playerRanking.createMany({ data: d }));
-  await insertMany<Prisma.RankingTransferRuleCreateManyInput>('Ranking Transfer Rules', snapshot.rankingTransferRules, (d) => prisma.rankingTransferRule.createMany({ data: d }));
   await insertMany<Prisma.MediaAssetCreateManyInput>('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d }));
   await insertMany<Prisma.ArticleCreateManyInput>('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d }));
   await insertMany<Prisma.ArticleRevisionCreateManyInput>('Article Revisions', snapshot.articleRevisions, (d) => prisma.articleRevision.createMany({ data: d }));

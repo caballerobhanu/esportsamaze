@@ -38,7 +38,7 @@ const NAV_ITEMS = [
   { href: '/admin/sponsors', label: 'Sponsors', icon: LayoutDashboard },
   { href: '/admin/venues', label: 'Venues', icon: LayoutDashboard },
   { href: '/admin/transfers', label: 'Transfers', icon: ArrowLeftRight },
-  { href: '/admin/rankings', label: 'Rankings', icon: BarChart3 },
+  { href: '/admin/krafton', label: 'KRAFTON Rankings', icon: BarChart3 },
 ];
 
 function isActive(pathname: string, href: string): boolean {

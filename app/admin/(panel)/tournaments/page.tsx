@@ -402,10 +402,9 @@ async function saveTournament(formData: FormData) {
     season: fOpt(formData, 'season'),
     seriesValue: fNum(formData, 'seriesValue'),
     tier: fStr(formData, 'tier') || 'A-Tier',
-    rankingIncluded: (() => {
-      const vals = formData.getAll('rankingIncluded').map(String);
-      return vals.includes('true') || vals.includes('on');
-    })(),
+    // KRAFTON inclusion/exclusion moved to the standalone rankings system —
+    // every tournament is treated as included for the legacy engine.
+    rankingIncluded: true,
     status,
     eventType: fStr(formData, 'eventType') || 'LAN',
     gameMode: fStr(formData, 'gameMode') || 'Squads TPP',
@@ -1222,21 +1221,6 @@ export default async function AdminTournamentsPage({
                   ))}
                 </select>
               </div>
-              <div className="flex items-end pb-1.5">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  <input type="hidden" name="rankingIncluded" value="false" />
-                  <input
-                    key={`rankingIncluded-${editing?.id ?? 'new'}-${editing?.rankingIncluded ? 'true' : 'false'}`}
-                    type="checkbox"
-                    name="rankingIncluded"
-                    value="true"
-                    defaultChecked={editing ? Boolean(editing.rankingIncluded) : true}
-                    autoComplete="off"
-                    className="h-4 w-4 rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
-                  />
-                  <span>Counts toward KRAFTON rankings</span>
-                </label>
-              </div>
               <div>
                 <label className={labelCls}>Event Type</label>
                 <select name="eventType" defaultValue={editing?.eventType ?? 'LAN'} className={inputCls}>
@@ -1681,14 +1665,6 @@ export default async function AdminTournamentsPage({
                     {t.shortName && (
                       <span className="px-1.5 py-0.5 rounded bg-[#0A5FC4]/10 text-[#0A5FC4] text-[10px] font-black uppercase">
                         {t.shortName}
-                      </span>
-                    )}
-                    {!t.rankingIncluded && (
-                      <span
-                        className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[9px] font-bold uppercase tracking-wider"
-                        title="Excluded from KRAFTON rankings"
-                      >
-                        Rankings Excluded
                       </span>
                     )}
                   </div>

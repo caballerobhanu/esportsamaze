@@ -89,10 +89,6 @@ model Team {
   tournamentRosters TournamentTeam[]
   matchResults      MatchTeamResult[]
   matchPlayerStats  MatchPlayerStat[]
-  rankings          TeamRanking[]
-  playerRankingSnapshots PlayerRanking[] @relation("PlayerRankingTeam")
-  rankingTransfersOut    RankingTransferRule[] @relation("RankingTransferOldTeam")
-  rankingTransfersIn     RankingTransferRule[] @relation("RankingTransferNewTeam")
   tournamentsWon    Tournament[]      @relation("TournamentWinner")
   tournamentsRunnerUp Tournament[]    @relation("TournamentRunnerUp")
   articles          Article[]
@@ -125,7 +121,6 @@ model Player {
   currentTeam     Team?             @relation(fields: [currentTeamId], references: [id])
   transferHistory Transfer[]
   matchStats      MatchPlayerStat[]
-  playerRankings  PlayerRanking[]   @relation("PlayerRankingPlayer")
   articles        Article[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -280,11 +275,11 @@ model Tournament {
   seededTeams       TournamentTeam[]      @relation("TournamentTeamSeedEvent")
   games             TournamentGame[]
   matches           Match[]
-  teamRankings      TeamRanking[]
-  playerRankings    PlayerRanking[]
   articles          Article[]
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
+
+  kraftonEvents KraftonEvent[]
 
   @@index([status, startDate])
   @@index([name])
@@ -304,59 +299,10 @@ model TournamentGame {
   @@index([gameId])
 }
 
-model TeamRanking {
-  id           String      @id @default(cuid())
-  tournamentId String?
-  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
-  tier         String
-  endDate      DateTime
-  teamId       String
-  team         Team        @relation(fields: [teamId], references: [id])
-  rank         Int
-  createdAt    DateTime    @default(now())
 
-  // Append-only history: a team can legitimately have multiple ranking rows
-  // per tournament across tier periods — no unique constraint here.
-  @@index([tier, endDate])
-  @@index([teamId])
-  @@index([tournamentId])
-}
-
-model PlayerRanking {
-  id           String      @id @default(cuid())
-  tournamentId String?
-  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
-  tier         String
-  endDate      DateTime
-  playerId     String
-  player       Player      @relation("PlayerRankingPlayer", fields: [playerId], references: [id])
-  teamId       String?
-  team         Team?       @relation("PlayerRankingTeam", fields: [teamId], references: [id])
-  finishes     Int         @default(0)
-  mvpTourney   Int         @default(0)
-  igl          Int         @default(0)
-  survivor     Int         @default(0)
-  mvpFinals    Int         @default(0)
-  emerging     Int         @default(0)
-  createdAt    DateTime    @default(now())
-
-  // Append-only history (see TeamRanking)
-  @@index([tier, endDate])
-  @@index([playerId])
-  @@index([tournamentId])
-}
 
 // Time-based point transfers: points a team earned on/before `before`
 // are attributed to the acquiring org (see lib/krafton-rankings.ts).
-model RankingTransferRule {
-  id        String   @id @default(cuid())
-  oldTeamId String
-  oldTeam   Team     @relation("RankingTransferOldTeam", fields: [oldTeamId], references: [id])
-  newTeamId String
-  newTeam   Team     @relation("RankingTransferNewTeam", fields: [newTeamId], references: [id])
-  before    DateTime
-  createdAt DateTime @default(now())
-}
 
 model TournamentStage {
   id           String            @id @default(cuid())
@@ -668,12 +614,82 @@ model MediaAsset {
 // No user data — one row per entity, incremented on each explicit compare view.
 model ComparePick {
   id         String   @id @default(cuid())
-  entityType String // 'TEAM' | 'PLAYER'
+  entityType String   // 'TEAM' | 'PLAYER'
   entityId   String
   picks      Int      @default(1)
   updatedAt  DateTime @updatedAt
 
   @@unique([entityType, entityId])
   @@index([entityType, picks])
+}
+
+// ═══ KRAFTON official rankings (standalone system, v2) ═══
+// A ranking event is fully standalone from the Tournament system: admins
+// enter events (name, end date, tier) and paste final placements/finishes.
+
+enum KraftonBoard {
+  TEAM
+  PLAYER
+}
+
+model KraftonEvent {
+  id           String         @id @default(cuid())
+  name         String
+  endDate      DateTime // decay anchor — days are measured from this date
+  tier         String         @default("Tier 1") // Publisher | Tier 1 | Tier 2 | Tier 3
+  tournamentId String? // optional back-reference to a site tournament page
+  tournament   Tournament?    @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  entries      KraftonEntry[]
+
+  @@index([endDate])
+}
+
+// One placement row per entity per event. entityName works standalone;
+// entityId optionally links to a site Team/Player page (manual assignment).
+// PLAYER entries carry the team they played under for that event plus
+// finishes and KRAFTON award counts (MVP, Finals MVP, IGL, Survivor, Emerging).
+model KraftonEntry {
+  id         String       @id @default(cuid())
+  eventId    String
+  event      KraftonEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  board      KraftonBoard
+  entityId   String?
+  entityName String
+  teamName   String?
+  teamId     String?
+  rank       Int          @default(0)
+  finishes   Int          @default(0)
+  mvp        Int          @default(0)
+  finalsMvp  Int          @default(0)
+  igl        Int          @default(0)
+  survivor   Int          @default(0)
+  emerging   Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([eventId, board, entityName])
+  @@index([board, entityId])
+  @@index([eventId])
+}
+
+// Point transfer between two ranked entities (org rebrand / roster acquisition).
+// A's event entries that ended BEFORE `cutoff` are attributed to B (decay
+// unchanged, anchored to each event). mode 'wipe' also erases B's own
+// pre-cutoff points; amountOverride transfers a fixed sum instead of the
+// actual balance. Entities must be site-linked (team ids).
+model KraftonTransfer {
+  id         String   @id @default(cuid())
+  fromTeamId String
+  fromName   String
+  toTeamId   String
+  toName     String
+  cutoff     DateTime
+  mode       String   @default("add") // 'add' | 'wipe'
+  amount     Int?     // fixed transfer amount; null = actual balance
+  createdAt  DateTime @default(now())
+
+  @@index([toTeamId])
 }
 

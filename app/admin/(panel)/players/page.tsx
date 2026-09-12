@@ -86,8 +86,7 @@ async function deletePlayer(formData: FormData) {
   if (id) {
     const attached =
       (await prisma.transfer.count({ where: { playerId: id } })) +
-      (await prisma.matchPlayerStat.count({ where: { playerId: id } })) +
-      (await prisma.playerRanking.count({ where: { playerId: id } }));
+      (await prisma.matchPlayerStat.count({ where: { playerId: id } }));
     if (attached > 0) {
       redirect('/admin/players?error=linked');
     }

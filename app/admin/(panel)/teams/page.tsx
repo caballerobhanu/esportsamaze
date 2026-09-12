@@ -91,10 +91,7 @@ async function deleteTeam(formData: FormData) {
       (await prisma.tournamentTeam.count({ where: { teamId: id } })) +
       (await prisma.matchTeamResult.count({ where: { teamId: id } })) +
       (await prisma.matchPlayerStat.count({ where: { teamId: id } })) +
-      (await prisma.teamRanking.count({ where: { teamId: id } })) +
-      (await prisma.playerRanking.count({ where: { teamId: id } })) +
-      (await prisma.tournament.count({ where: { OR: [{ winnerTeamId: id }, { runnerUpTeamId: id }] } })) +
-      (await prisma.rankingTransferRule.count({ where: { OR: [{ oldTeamId: id }, { newTeamId: id }] } }));
+      (await prisma.tournament.count({ where: { OR: [{ winnerTeamId: id }, { runnerUpTeamId: id }] } }));
     if (attached > 0) {
       redirect('/admin/teams?error=linked');
     }

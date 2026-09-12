@@ -23,9 +23,6 @@ export async function bulkDeletePlayersAction(playerIds: string[], cascade: bool
         await tx.transfer.deleteMany({
           where: { playerId: { in: playerIds } },
         });
-        await tx.playerRanking.deleteMany({
-          where: { playerId: { in: playerIds } },
-        });
       }
 
       await tx.player.deleteMany({
@@ -87,12 +84,6 @@ export async function mergePlayersAction(sourcePlayerId: string, targetPlayerId:
 
       // 2. Relink Transfer records
       await tx.transfer.updateMany({
-        where: { playerId: sourcePlayerId },
-        data: { playerId: targetPlayerId },
-      });
-
-      // 3. Relink PlayerRanking snapshots
-      await tx.playerRanking.updateMany({
         where: { playerId: sourcePlayerId },
         data: { playerId: targetPlayerId },
       });

@@ -20,12 +20,11 @@ import {
   Swords,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { computePlayerRankings } from '@/lib/krafton-rankings';
+import { fetchEntityStanding } from '@/lib/krafton-data';
 import { formatDate } from '@/lib/utils';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
 import { EarningsAmount } from '@/components/players/earnings-amount';
 import { RecentFormChart } from '@/components/players/recent-form-chart';
-import { loadTransferRules } from '@/lib/ranking-rules';
 import { flattenPrizeRanks } from '@/lib/standings-config';
 
 interface PlayerPageProps {
@@ -134,46 +133,9 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
   }
 }
 
-async function getStanding(ign: string) {
+async function getStanding(playerId: string) {
   try {
-    const [rows, rules] = await Promise.all([
-      prisma.playerRanking.findMany({
-        select: {
-          tier: true,
-          endDate: true,
-          finishes: true,
-          mvpTourney: true,
-          mvpFinals: true,
-          igl: true,
-          survivor: true,
-          emerging: true,
-          tournamentId: true,
-          tournament: { select: { rankingIncluded: true } },
-          player: { select: { ign: true } },
-        },
-      }),
-      loadTransferRules(),
-    ]);
-    const standings = computePlayerRankings(
-      rows
-        .filter((r) => !r.tournamentId || r.tournament?.rankingIncluded !== false)
-        .map((r) => ({
-        tournament: '',
-        tier: r.tier,
-        endDate: r.endDate.toISOString().slice(0, 10),
-        player: r.player.ign,
-        team: '',
-        finishes: r.finishes,
-        mvpTourney: r.mvpTourney > 0,
-        mvpFinals: r.mvpFinals > 0,
-        igl: r.igl > 0,
-        survivor: r.survivor > 0,
-        emerging: r.emerging > 0,
-      })),
-      new Date(),
-      rules
-    );
-    return standings.find((s) => s.name.toLowerCase() === ign.toLowerCase()) ?? null;
+    return await fetchEntityStanding('PLAYER', playerId);
   } catch {
     return null;
   }
@@ -196,7 +158,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   if (!player) notFound();
 
   const [standing, prevPlayer, nextPlayer, allStats, transfers] = await Promise.all([
-    getStanding(player.ign).catch(() => null),
+    getStanding(player.id).catch(() => null),
     prisma.player.findFirst({
       where: { id: { lt: player.id } },
       orderBy: { id: 'desc' },
@@ -1031,7 +993,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                       <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-blue-200">Events</p>
                     </div>
                     <div className="rounded-xl bg-white/10 px-2 py-2.5">
-                      <p className="text-base font-black">{standing.totalFinishes}</p>
+                      <p className="text-base font-black">{standing.finishes}</p>
                       <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-blue-200">Finishes</p>
                     </div>
                   </div>

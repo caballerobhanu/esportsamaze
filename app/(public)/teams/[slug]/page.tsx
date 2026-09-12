@@ -20,8 +20,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { loadTransferRules } from '@/lib/ranking-rules';
-import { computeTeamRankings } from '@/lib/krafton-rankings';
+import { fetchEntityStanding } from '@/lib/krafton-data';
 
 interface TeamPageProps {
   params: Promise<{ slug: string }>;
@@ -155,30 +154,9 @@ export default async function TeamPage({ params }: TeamPageProps) {
     include: { player: { select: { id: true, ign: true, slug: true, avatarUrl: true, role: true } } },
   });
 
-  // KRAFTON standing for this org (points attributed to the active org name)
-  const [teamRankingRows, transferRules] = await Promise.all([
-    prisma.teamRanking.findMany({
-      include: {
-        team: { select: { name: true } },
-        tournament: { select: { rankingIncluded: true } },
-      },
-    }),
-    loadTransferRules(),
-  ]);
-  const krafton =
-    computeTeamRankings(
-      teamRankingRows
-        .filter((r) => !r.tournamentId || r.tournament?.rankingIncluded !== false)
-        .map((r) => ({
-          tournament: 'Event',
-          tier: r.tier,
-          endDate: r.endDate.toISOString().slice(0, 10),
-          team: r.team.name,
-          rank: r.rank,
-        })),
-      new Date(),
-      transferRules
-    ).find((t) => t.name.toLowerCase() === team.name.toLowerCase()) ?? null;
+  // KRAFTON standing from the new standalone rankings (linked by team id)
+  const kraftonFull = await fetchEntityStanding('TEAM', team.id).catch(() => null);
+  const krafton = kraftonFull ? { rank: kraftonFull.rank, points: kraftonFull.points, events: kraftonFull.events } : null;
 
   const validTournaments = team.tournamentRosters.filter((tt) => tt && tt.tournament);
   const sortedTournaments = [...validTournaments].sort(
@@ -293,7 +271,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 )}
                 {krafton && (
                   <Link
-                    href="/rankings"
+                    href={`/rankings/team/${team.id}`}
                     className="inline-flex items-center gap-1.5 rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] transition-colors hover:bg-[#0A5FC4]/20 dark:text-blue-300"
                   >
                     <BarChart3 className="h-3.5 w-3.5" /> #{krafton.rank} KRAFTON Ranking
