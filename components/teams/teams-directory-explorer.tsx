@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { GameLogo } from '@/components/ui/game-capsule';
+import { ThemeLogo } from '@/components/ui/theme-logo';
 import { cn } from '@/lib/utils';
 
 export interface TeamsDirectoryItem {
@@ -394,16 +395,14 @@ function CrestGrid({ teams }: { teams: TeamsDirectoryItem[] }) {
             {/* Top 3/4 — logo plate */}
             <div className="team-plate relative aspect-square flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-900/60">
               {hasLogo ? (
-                <span className="inline-flex h-full w-full max-h-[78%] max-w-[78%] items-center justify-center transition-transform duration-200 group-hover:scale-105">
-                  {team.logoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={team.logoUrl} alt={fullName} className={`max-h-full max-w-full object-contain ${team.imageDarkUrl ? 'dark:hidden' : ''}`} />
-                  )}
-                  {team.imageDarkUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={team.imageDarkUrl} alt={fullName} className={`max-h-full max-w-full object-contain ${team.logoUrl ? 'hidden dark:block' : ''}`} />
-                  )}
-                </span>
+                <div className="relative h-full w-full max-h-[78%] max-w-[78%] transition-transform duration-200 group-hover:scale-105">
+                  <ThemeLogo
+                    lightSrc={team.logoUrl}
+                    darkSrc={team.imageDarkUrl}
+                    alt={fullName}
+                    className="object-contain"
+                  />
+                </div>
               ) : (
                 <span className="font-display text-3xl font-black leading-none tracking-tight text-slate-400 transition-transform duration-200 group-hover:scale-105">
                   {initials(fullName)}

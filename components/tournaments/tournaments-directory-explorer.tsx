@@ -7,6 +7,7 @@ import { Search, Trophy, Calendar, MapPin, ArrowRight, Banknote } from 'lucide-r
 import { formatDate } from '@/lib/utils';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { GameLogo } from '@/components/ui/game-capsule';
+import { ThemeLogo } from '@/components/ui/theme-logo';
 
 export interface TournamentDirectoryItem {
   id: string;
@@ -298,16 +299,17 @@ export function TournamentsDirectoryExplorer({
                   </div>
 
                   <div className="mt-5 flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-(--ed-hair) bg-(--ed-canvas) p-1.5">
-                      {t.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={t.imageUrl} alt={t.name} className={`max-h-full max-w-full object-contain ${t.imageDarkUrl ? 'dark:hidden' : ''}`} />
+                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-(--ed-hair) bg-(--ed-canvas) p-1.5 overflow-hidden">
+                      {t.imageUrl || t.imageDarkUrl ? (
+                        <ThemeLogo
+                          lightSrc={t.imageUrl}
+                          darkSrc={t.imageDarkUrl}
+                          alt={t.name}
+                          className="object-contain p-1"
+                        />
+                      ) : (
+                        <Trophy className="h-5 w-5 text-(--ed-stone) opacity-50" />
                       )}
-                      {t.imageDarkUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={t.imageDarkUrl} alt={t.name} className={`max-h-full max-w-full object-contain ${t.imageUrl ? 'hidden dark:block' : ''}`} />
-                      )}
-                      {!t.imageUrl && !t.imageDarkUrl && <Trophy className="h-5 w-5 text-(--ed-stone) opacity-50" />}
                     </div>
 
                     <div className="min-w-0 flex-1">

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { fetchEntityStanding } from '@/lib/krafton-data';
+import { ThemeLogo } from '@/components/ui/theme-logo';
 
 interface TeamPageProps {
   params: Promise<{ slug: string }>;
@@ -299,8 +300,14 @@ export default async function TeamPage({ params }: TeamPageProps) {
               <div className="relative">
                 <div className="absolute -inset-3 rotate-2 rounded-[2.8rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20" />
                 <div className="relative flex h-56 w-56 items-center justify-center overflow-hidden rounded-[2.5rem] border-8 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-64 sm:w-64">
-                  {team.logoUrl ? (
-                    <Image src={team.logoUrl} alt={team.name} fill className="object-contain p-4" priority />
+                  {team.logoUrl || team.imageDarkUrl ? (
+                    <ThemeLogo
+                      lightSrc={team.logoUrl}
+                      darkSrc={team.imageDarkUrl}
+                      alt={team.name}
+                      className="object-contain p-4"
+                      priority
+                    />
                   ) : (
                     <div className="text-5xl font-black text-[#0A5FC4]/40">{team.tag || team.name.slice(0, 2).toUpperCase()}</div>
                   )}
