@@ -82,6 +82,9 @@ export async function main() {
 
   // 1. Clean existing records in reverse dependency order (children before parents)
   console.log('🧹 Cleaning existing records...');
+  await prisma.kraftonTransfer.deleteMany({});
+  await prisma.kraftonEntry.deleteMany({});
+  await prisma.kraftonEvent.deleteMany({});
   await prisma.articleReaction.deleteMany({});
   await prisma.comment.deleteMany({});
   await prisma.articleRevision.deleteMany({});
@@ -105,8 +108,27 @@ export async function main() {
   await prisma.sponsor.deleteMany({});
   await prisma.organizer.deleteMany({});
   await prisma.game.deleteMany({});
+  await prisma.gameFamily.deleteMany({});
 
   // 2. Restore in dependency order (parents before children; explicit IDs preserve every relation)
+  // Ensure referenced GameFamily records exist to satisfy foreign key constraints
+  if (Array.isArray(snapshot.games)) {
+    for (const g of snapshot.games) {
+      if (g.familyId && typeof g.familyId === 'string') {
+        await prisma.gameFamily.upsert({
+          where: { id: g.familyId },
+          update: {},
+          create: {
+            id: g.familyId,
+            name: 'PUBG Ecosystem',
+            slug: 'pubg-ecosystem',
+            description: 'Battle Royale ecosystem including BGMI, PUBG Mobile, and Game for Peace.',
+          },
+        });
+      }
+    }
+  }
+
   await insertMany<Prisma.GameCreateManyInput>('Games', snapshot.games, (d) => prisma.game.createMany({ data: d }));
   await insertMany<Prisma.OrganizerCreateManyInput>('Organizers', snapshot.organizers, (d) => prisma.organizer.createMany({ data: d }));
   await insertMany<Prisma.SponsorCreateManyInput>('Sponsors', snapshot.sponsors, (d) => prisma.sponsor.createMany({ data: d }));
@@ -130,6 +152,15 @@ export async function main() {
   await insertMany<Prisma.ArticleRevisionCreateManyInput>('Article Revisions', snapshot.articleRevisions, (d) => prisma.articleRevision.createMany({ data: d }));
   await insertMany<Prisma.CommentCreateManyInput>('Comments', snapshot.comments, (d) => prisma.comment.createMany({ data: d }));
   await insertMany<Prisma.ArticleReactionCreateManyInput>('Article Reactions', snapshot.articleReactions, (d) => prisma.articleReaction.createMany({ data: d }));
+  if (snapshot.kraftonEvents) {
+    await insertMany<Prisma.KraftonEventCreateManyInput>('Krafton Events', snapshot.kraftonEvents, (d) => prisma.kraftonEvent.createMany({ data: d }));
+  }
+  if (snapshot.kraftonEntries) {
+    await insertMany<Prisma.KraftonEntryCreateManyInput>('Krafton Entries', snapshot.kraftonEntries, (d) => prisma.kraftonEntry.createMany({ data: d }));
+  }
+  if (snapshot.kraftonTransfers) {
+    await insertMany<Prisma.KraftonTransferCreateManyInput>('Krafton Transfers', snapshot.kraftonTransfers, (d) => prisma.kraftonTransfer.createMany({ data: d }));
+  }
 
   console.log('🎉 Restore complete — database matches the snapshot exactly.');
 }

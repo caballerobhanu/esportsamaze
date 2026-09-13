@@ -11,6 +11,7 @@ async function main() {
 
   const snapshot = {
     exportedAt: new Date().toISOString(),
+    gameFamilies: await prisma.gameFamily.findMany(),
     games: await prisma.game.findMany(),
     organizers: await prisma.organizer.findMany(),
     sponsors: await prisma.sponsor.findMany(),
@@ -34,6 +35,9 @@ async function main() {
     comments: await prisma.comment.findMany(),
     articleReactions: await prisma.articleReaction.findMany(),
     mediaAssets: await prisma.mediaAsset.findMany(),
+    kraftonEvents: await prisma.kraftonEvent.findMany(),
+    kraftonEntries: await prisma.kraftonEntry.findMany(),
+    kraftonTransfers: await prisma.kraftonTransfer.findMany(),
   };
 
   const counts: Record<string, number> = {};
