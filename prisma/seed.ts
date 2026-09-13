@@ -63,14 +63,17 @@ function findSnapshot(): string {
 async function insertMany<T>(
   label: string,
   rows: Record<string, unknown>[] | undefined,
-  run: (data: T[]) => Promise<unknown>
+  run: (data: T[]) => Promise<unknown>,
+  chunkSize = 1000
 ) {
   const data = reviveDates(rows ?? []) as unknown as T[];
   if (data.length === 0) {
     console.log(`⏭  ${label}: 0 rows`);
     return;
   }
-  await run(data);
+  for (let i = 0; i < data.length; i += chunkSize) {
+    await run(data.slice(i, i + chunkSize));
+  }
   console.log(`✅ ${label}: ${data.length} rows`);
 }
 
