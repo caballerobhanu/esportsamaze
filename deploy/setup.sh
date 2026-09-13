@@ -15,8 +15,12 @@ echo ">>> [1/12] System Updates & Core Utilities..."
 echo "=============================================================================="
 export DEBIAN_FRONTEND=noninteractive
 apt-get update && apt-get upgrade -y
-apt-get install -y curl git ufw nginx certbot python3-certbot-nginx \
-  fail2ban unattended-upgrades ca-certificates gnupg htop logrotate bsdmainutils
+apt-get install -y software-properties-common
+add-apt-repository -y universe || true
+apt-get update
+apt-get install -y curl git ufw nginx fail2ban unattended-upgrades \
+  ca-certificates gnupg htop logrotate bsdmainutils
+apt-get install -y certbot python3-certbot-nginx || apt-get install -y certbot || true
 
 echo "=============================================================================="
 echo ">>> [2/12] Configuring 4GB Swap Space (swappiness=10)..."
