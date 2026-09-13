@@ -36,16 +36,25 @@ export async function GET(req: NextRequest) {
     if (type === 'player') {
       const players = await prisma.player.findMany({
         where: { ign: { contains: q, mode: 'insensitive' } },
-        select: { id: true, ign: true, currentTeam: { select: { tag: true, name: true } } },
+        select: {
+          id: true,
+          ign: true,
+          avatarUrl: true,
+          currentTeam: { select: { tag: true, name: true } },
+        },
         orderBy: { ign: 'asc' },
         take: 20,
       });
       return NextResponse.json({
-        options: players.map((p) => ({
-          value: p.id,
-          label: p.ign,
-          subtitle: p.currentTeam?.tag || p.currentTeam?.name || null,
-        })),
+        options: players.map((p) => {
+          const teamCode = p.currentTeam?.tag || p.currentTeam?.name;
+          return {
+            value: p.id,
+            label: teamCode ? `${p.ign} (${teamCode})` : p.ign,
+            subtitle: null,
+            imageUrl: p.avatarUrl || null,
+          };
+        }),
       });
     }
 
@@ -57,12 +66,20 @@ export async function GET(req: NextRequest) {
             { tag: { contains: q, mode: 'insensitive' } },
           ],
         },
-        select: { id: true, name: true, tag: true },
+        select: { id: true, name: true, tag: true, logoUrl: true, displayName: true },
         orderBy: { name: 'asc' },
         take: 20,
       });
       return NextResponse.json({
-        options: teams.map((t) => ({ value: t.id, label: t.name, subtitle: t.tag || null })),
+        options: teams.map((t) => {
+          const tag = t.tag ? ` [${t.tag}]` : '';
+          return {
+            value: t.id,
+            label: `${t.displayName || t.name}${tag}`,
+            subtitle: null,
+            imageUrl: t.logoUrl || null,
+          };
+        }),
       });
     }
 

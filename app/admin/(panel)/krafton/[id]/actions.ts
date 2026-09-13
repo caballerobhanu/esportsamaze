@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
@@ -15,10 +15,15 @@ function requireAdmin() {
 function refresh(eventId?: string) {
   revalidatePath('/admin/krafton');
   revalidatePath('/rankings');
+  try {
+    revalidateTag('krafton-rankings', 'max');
+  } catch {
+    // ignore if called outside action context
+  }
   if (eventId) {
     revalidatePath(`/admin/krafton/${eventId}`);
-    revalidatePath('/rankings/team');
-    revalidatePath('/rankings/player');
+    revalidatePath(`/rankings/team`);
+    revalidatePath(`/rankings/player`);
   }
 }
 
@@ -30,14 +35,21 @@ export async function saveKraftonEvent(formData: FormData) {
   if (!name || !endDate) redirect(`/admin/krafton${id ? `/${id}` : ''}?error=required`);
 
   const tier = fStr(formData, 'tier') || 'Tier 1';
+  const rawTournamentId = fStr(formData, 'tournamentId');
+  const tournamentId = rawTournamentId && rawTournamentId.trim() ? rawTournamentId.trim() : null;
   const end = new Date(endDate);
 
   if (id) {
-    await prisma.kraftonEvent.update({ where: { id }, data: { name, endDate: end, tier } });
+    await prisma.kraftonEvent.update({
+      where: { id },
+      data: { name, endDate: end, tier, tournamentId },
+    });
     refresh(id);
     redirect(`/admin/krafton/${id}?saved=1`);
   }
-  const created = await prisma.kraftonEvent.create({ data: { name, endDate: end, tier } });
+  const created = await prisma.kraftonEvent.create({
+    data: { name, endDate: end, tier, tournamentId },
+  });
   refresh(created.id);
   redirect(`/admin/krafton/${created.id}`);
 }
@@ -51,7 +63,12 @@ export async function duplicateKraftonEvent(formData: FormData) {
   if (!event) redirect('/admin/krafton');
 
   const copy = await prisma.kraftonEvent.create({
-    data: { name: `${event.name} (copy)`, endDate: event.endDate, tier: event.tier },
+    data: {
+      name: `${event.name} (copy)`,
+      endDate: event.endDate,
+      tier: event.tier,
+      tournamentId: event.tournamentId,
+    },
   });
   if (event.entries.length > 0) {
     await prisma.kraftonEntry.createMany({
@@ -239,14 +256,17 @@ export async function autoLinkKraftonEntries(
   }
 }
 
-/** Import placements/finishes from a site tournament into this ranking event. */
+/** Import placements/finishes from a site tournament into this ranking event.
+ * Per rules: Team placements come from final ranks/standings, and player finishes
+ * are strictly pulled from the Grand Finals stage.
+ */
 export async function importKraftonEntriesFromTournament(
   eventId: string,
   tournamentId: string
-): Promise<{ ok: boolean; teams: number; players: number; error?: string }> {
+): Promise<{ ok: boolean; teams: number; players: number; stageName?: string; error?: string }> {
   if (!(await requireAdmin())) return { ok: false, teams: 0, players: 0, error: 'Unauthorized' };
   try {
-    // Teams: final placements (finalRank when set), else computed standings
+    // Teams: final placements (finalRank when set), else seed/roster order
     const tournamentTeams = await prisma.tournamentTeam.findMany({
       where: { tournamentId },
       include: { team: { select: { id: true, name: true, displayName: true } } },
@@ -264,14 +284,27 @@ export async function importKraftonEntriesFromTournament(
       rank: tt.finalRank ?? i + 1,
     }));
 
-    // Players: aggregate finishes per player across the tournament's matches
-    const matchIds = (
-      await prisma.match.findMany({ where: { tournamentId }, select: { id: true } })
-    ).map((m) => m.id);
-    const statGroups = matchIds.length
+    // Identify Grand Finals stage strictly (or final sequence stage)
+    const stages = await prisma.tournamentStage.findMany({
+      where: { tournamentId },
+      orderBy: { sequence: 'desc' },
+      select: { id: true, name: true, sequence: true },
+    });
+    const grandFinalsStage =
+      stages.find((s) => /grand\s*finals?|finals?/i.test(s.name)) ||
+      stages[0] ||
+      null;
+
+    const gfMatches = grandFinalsStage
+      ? await prisma.match.findMany({ where: { tournamentId, stageId: grandFinalsStage.id }, select: { id: true } })
+      : await prisma.match.findMany({ where: { tournamentId }, select: { id: true } });
+    const gfMatchIds = gfMatches.map((m) => m.id);
+
+    // Players: aggregate finishes strictly from Grand Finals matches
+    const statGroups = gfMatchIds.length
       ? await prisma.matchPlayerStat.groupBy({
           by: ['playerId'],
-          where: { matchGame: { matchId: { in: matchIds } } },
+          where: { matchGame: { matchId: { in: gfMatchIds } } },
           _sum: { playerElims: true },
           _count: { _all: true },
         })
@@ -314,8 +347,74 @@ export async function importKraftonEntriesFromTournament(
     ]);
 
     refresh(eventId);
-    return { ok: true, teams: teamEntries.length, players: topPlayers.length };
+    return {
+      ok: true,
+      teams: teamEntries.length,
+      players: topPlayers.length,
+      stageName: grandFinalsStage?.name ?? 'All Matches',
+    };
   } catch (err) {
     return { ok: false, teams: 0, players: 0, error: err instanceof Error ? err.message : 'Import failed' };
+  }
+}
+
+/** Create or update a single entry (rank, finishes, awards, entity name). */
+export async function saveSingleKraftonEntry(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  if (!(await requireAdmin())) return { ok: false, error: 'Unauthorized' };
+  const id = fStr(formData, 'id');
+  const eventId = fStr(formData, 'eventId');
+  const board = (fStr(formData, 'board') || 'TEAM') as KraftonBoard;
+  const entityName = fStr(formData, 'entityName');
+  const entityId = fStr(formData, 'entityId') || null;
+  const teamName = fStr(formData, 'teamName') || null;
+  const rank = Math.max(0, parseInt(fStr(formData, 'rank') || '0', 10));
+  const finishes = Math.max(0, parseInt(fStr(formData, 'finishes') || '0', 10));
+  const mvp = Math.max(0, parseInt(fStr(formData, 'mvp') || '0', 10));
+  const finalsMvp = Math.max(0, parseInt(fStr(formData, 'finalsMvp') || '0', 10));
+  const igl = Math.max(0, parseInt(fStr(formData, 'igl') || '0', 10));
+  const survivor = Math.max(0, parseInt(fStr(formData, 'survivor') || '0', 10));
+  const emerging = Math.max(0, parseInt(fStr(formData, 'emerging') || '0', 10));
+
+  if (!entityName || !eventId) return { ok: false, error: 'Name and event ID are required.' };
+
+  try {
+    if (id) {
+      await prisma.kraftonEntry.update({
+        where: { id },
+        data: {
+          entityName,
+          entityId,
+          teamName,
+          rank,
+          finishes,
+          mvp,
+          finalsMvp,
+          igl,
+          survivor,
+          emerging,
+        },
+      });
+    } else {
+      await prisma.kraftonEntry.create({
+        data: {
+          eventId,
+          board,
+          entityName,
+          entityId,
+          teamName,
+          rank,
+          finishes,
+          mvp,
+          finalsMvp,
+          igl,
+          survivor,
+          emerging,
+        },
+      });
+    }
+    refresh(eventId);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Save failed' };
   }
 }

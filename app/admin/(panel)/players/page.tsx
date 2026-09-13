@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, Copy, CheckCircle2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
@@ -79,6 +79,46 @@ async function savePlayer(formData: FormData) {
   redirect('/admin/players');
 }
 
+async function duplicatePlayer(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const id = fStr(formData, 'id');
+  if (!id) redirect('/admin/players');
+
+  const source = await prisma.player.findUnique({ where: { id } });
+  if (!source) redirect('/admin/players');
+
+  const baseIgn = `${source.ign} (Copy)`;
+  const slug = await uniqueSlug(fStr(formData, 'slug') || `${source.slug || source.ign}-copy`, async (s) => {
+    const clash = await prisma.player.findFirst({ where: { slug: s }, select: { id: true } });
+    return Boolean(clash);
+  });
+
+  const created = await prisma.player.create({
+    data: {
+      ign: baseIgn,
+      slug,
+      firstName: source.firstName,
+      lastName: source.lastName,
+      avatarUrl: source.avatarUrl,
+      nationality: source.nationality,
+      birthDate: source.birthDate,
+      status: source.status,
+      isVerified: source.isVerified,
+      isPlayer: source.isPlayer,
+      role: source.role,
+      staffRole: source.staffRole,
+      gameId: source.gameId,
+      currentTeamId: source.currentTeamId,
+      socialLinks: source.socialLinks ?? undefined,
+    },
+  });
+
+  revalidatePath('/admin/players');
+  revalidatePath('/players');
+  redirect(`/admin/players?edit=${created.id}&saved=copy`);
+}
+
 async function deletePlayer(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
@@ -99,9 +139,9 @@ async function deletePlayer(formData: FormData) {
 export default async function AdminPlayersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; error?: string }>;
+  searchParams: Promise<{ edit?: string; error?: string; saved?: string }>;
 }) {
-  const { edit, error } = await searchParams;
+  const { edit, error, saved } = await searchParams;
 
   const [games, teams, players] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
@@ -138,14 +178,35 @@ export default async function AdminPlayersPage({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black uppercase tracking-tight">Players</h1>
         {editing && (
-          <Link
-            href="/admin/players"
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          >
-            + New player instead
-          </Link>
+          <div className="flex items-center gap-3">
+            <form action={duplicatePlayer}>
+              <input type="hidden" name="id" value={editing.id} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-(--ed-blue) dark:hover:text-slate-200 transition-colors cursor-pointer"
+                title={`Duplicate "${editing.ign}"`}
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Duplicate
+              </button>
+            </form>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <Link
+              href="/admin/players"
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              + New player instead
+            </Link>
+          </div>
         )}
       </div>
+
+      {saved === 'copy' && (
+        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+          <span>Player duplicated successfully into a new profile. You can now customize their IGN and details below.</span>
+        </div>
+      )}
 
       {error === 'ign' && (
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">

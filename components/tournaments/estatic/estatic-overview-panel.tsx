@@ -83,7 +83,7 @@ export function EstaticOverviewPanel({
   };
   const playerHref = (playerId: string, ign: string) => {
     const slug = playerSlugById?.[playerId];
-    return `/players/${slug || encodeURIComponent(ign)}`;
+    return `/players/${slug || playerId || encodeURIComponent(ign)}`;
   };
 
   const facts = [

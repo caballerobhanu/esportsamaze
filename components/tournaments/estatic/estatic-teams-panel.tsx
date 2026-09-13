@@ -184,9 +184,25 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
       </div>
 
       {/* Grid of Teams Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
         {filteredAndSortedTeams.map((tt) => {
           const rawRoster = Array.isArray(tt.rosterJson) ? (tt.rosterJson as TeamRosterMember[]) : [];
+          const sortedRoster = [...rawRoster].sort((a, b) => {
+            const aCapt = Boolean(a.isCaptain || a.captain);
+            const bCapt = Boolean(b.isCaptain || b.captain);
+            const aStaff = Boolean(a.isStaff || a.staffRole);
+            const bStaff = Boolean(b.isStaff || b.staffRole);
+
+            // Captain always first
+            if (aCapt && !bCapt) return -1;
+            if (!aCapt && bCapt) return 1;
+
+            // Staff always last
+            if (aStaff && !bStaff) return 1;
+            if (!aStaff && bStaff) return -1;
+
+            return 0;
+          });
           const isExpanded = expandedTeamIds.has(tt.id);
           const seedLabel =
             tt.seedLabel ||
@@ -230,15 +246,17 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
                   </div>
                 </div>
 
-                {/* Accordion Expand/Collapse Chevron Button */}
+                {/* Accordion Expand/Collapse Button with Athlete Count */}
                 {rawRoster.length > 0 && (
                   <button
                     onClick={() => toggleTeam(tt.id)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-400 dark:hover:text-white transition-all cursor-pointer"
-                    title={isExpanded ? 'Collapse Lineup' : 'Expand Lineup'}
-                    aria-label={isExpanded ? 'Collapse Lineup' : 'Expand Lineup'}
+                    className="flex h-8 items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50 px-2.5 text-xs font-bold text-slate-700 hover:border-[#0A5FC4] hover:bg-[#0A5FC4] hover:text-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:bg-[#0A5FC4] dark:hover:text-white transition-all cursor-pointer shrink-0"
+                    title={isExpanded ? 'Collapse Lineup' : `View ${rawRoster.length} athletes`}
+                    aria-label={isExpanded ? 'Collapse Lineup' : `View ${rawRoster.length} athletes`}
                   >
-                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <Users className="h-3.5 w-3.5 opacity-60" />
+                    <span className="text-[11px] font-extrabold">{rawRoster.length}</span>
+                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                 )}
               </div>
@@ -250,30 +268,32 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
                     Registered Line-up ({rawRoster.length} Athletes)
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {rawRoster.map((m, idx) => {
+                    {sortedRoster.map((m, idx) => {
                       const isCapt = Boolean(m.isCaptain || m.captain);
-                      const displayRole = m.staffRole || m.role;
+                      const isStaff = Boolean(m.isStaff || m.staffRole);
+                      const staffRole = m.staffRole || (m.isStaff ? m.role : null);
                       const playerUrl = m.slug
                         ? `/players/${m.slug}`
-                        : `/players/${encodeURIComponent(m.ign)}`;
+                        : m.playerId
+                          ? `/players/${m.playerId}`
+                          : `/players/${encodeURIComponent(m.ign)}`;
 
                       return (
                         <Link
                           key={idx}
                           href={playerUrl}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300 transition-all shadow-2xs hover:scale-105 cursor-pointer group/pill"
-                          title={`View ${m.ign}'s career stats & profile`}
+                          className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-bold transition-all shadow-2xs hover:scale-105 cursor-pointer group/pill ${
+                            isStaff
+                              ? 'border-slate-200/80 bg-slate-100/70 text-slate-600 hover:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-slate-400 dark:hover:border-white/20'
+                              : 'border-slate-200 bg-slate-50/80 text-slate-700 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300'
+                          }`}
+                          title={isStaff ? `Staff: ${m.ign}${staffRole ? ` (${staffRole})` : ''}` : `View ${m.ign}'s career stats & profile`}
                         >
                           {isCapt && <Crown className="h-3 w-3 text-amber-500 shrink-0" />}
                           <span className="truncate">{m.ign}</span>
-                          {m.statusTag && (
-                            <span className="text-[8px] font-black uppercase px-1 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
-                              {m.statusTag}
-                            </span>
-                          )}
-                          {displayRole && (
+                          {isStaff && staffRole && (
                             <span className="text-[9px] font-semibold text-slate-400 group-hover/pill:text-[#0A5FC4] dark:group-hover/pill:text-blue-300 uppercase shrink-0">
-                              • {displayRole}
+                              • {staffRole}
                             </span>
                           )}
                         </Link>

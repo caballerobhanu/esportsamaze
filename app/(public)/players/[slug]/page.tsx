@@ -18,6 +18,7 @@ import {
   Users,
   Crosshair,
   Swords,
+  BarChart3,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { fetchEntityStanding } from '@/lib/krafton-data';
@@ -213,16 +214,16 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     new Set(allStats.map((s) => s.matchGame.match.tournament?.id).filter((id): id is string => Boolean(id)))
   );
 
-  const squadParticipations =
-    candidateTeamIds.length > 0 || candidateTournamentIds.length > 0
-      ? await prisma.tournamentTeam.findMany({
+  const [squadParticipations, candidateTeams] = await Promise.all([
+    candidateTeamIds.length > 0 || player.id
+      ? prisma.tournamentTeam.findMany({
           where: {
             OR: [
               ...(candidateTeamIds.length > 0 ? [{ teamId: { in: candidateTeamIds } }] : []),
-              ...(candidateTournamentIds.length > 0 ? [{ tournamentId: { in: candidateTournamentIds } }] : []),
+              { rosterJson: { array_contains: [{ playerId: player.id }] } },
+              { rosterJson: { array_contains: [{ ign: player.ign }] } },
             ],
           },
-          take: 50,
           orderBy: { tournament: { startDate: 'desc' } },
           include: {
             tournament: {
@@ -239,7 +240,14 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
             team: { select: { id: true, name: true, tag: true, slug: true } },
           },
         })
-      : [];
+      : Promise.resolve([]),
+    candidateTeamIds.length > 0
+      ? prisma.team.findMany({
+          where: { id: { in: candidateTeamIds } },
+          select: { id: true, name: true, tag: true, slug: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const socials = (player.socialLinks ?? {}) as SocialMap;
   const realName = [player.firstName, player.lastName].filter(Boolean).join(' ') || 'Name not disclosed';
@@ -365,6 +373,9 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     });
 
   const teamById = new Map<string, (typeof squadParticipations)[number]['team']>();
+  for (const ct of candidateTeams) {
+    teamById.set(ct.id, ct);
+  }
   const lineupByTournament = new Map<string, { team: (typeof squadParticipations)[number]['team']; finalRank: number | null }>();
   for (const tt of squadParticipations) {
     teamById.set(tt.team.id, tt.team);
@@ -456,6 +467,29 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   const individualTotalUsd = earningLines.filter((l) => l.kind === 'individual').reduce((sum, l) => sum + l.usd, 0);
   const teamTotalUsd = earningLines.filter((l) => l.kind === 'team').reduce((sum, l) => sum + l.usd, 0);
   const careerTotalUsd = individualTotalUsd + teamTotalUsd;
+
+  // Native totals — the sum of the ORIGINAL prize amounts in the event's own
+  // currency. Never re-derive these from the USD sum (that would float the
+  // INR total on whichever conversion rate applies at view time). If a career
+  // spans several currencies, surface the dominant one alongside the USD sum.
+  const nativeTotalFor = (lines: EarningLine[]) => {
+    const byCur = new Map<string, { amount: number; count: number }>();
+    for (const l of lines) {
+      const cur = (l.currency || 'USD').toUpperCase();
+      const entry = byCur.get(cur) ?? { amount: 0, count: 0 };
+      entry.amount += l.amount;
+      entry.count += 1;
+      byCur.set(cur, entry);
+    }
+    let dominant = { currency: 'USD', amount: 0, count: 0 };
+    for (const [currency, entry] of byCur.entries()) {
+      if (entry.amount > dominant.amount) dominant = { currency, ...entry };
+    }
+    return dominant;
+  };
+  const individualNative = nativeTotalFor(earningLines.filter((l) => l.kind === 'individual'));
+  const teamNative = nativeTotalFor(earningLines.filter((l) => l.kind === 'team'));
+  const careerNative = nativeTotalFor(earningLines);
 
   // ── Events performance: matches & eliminations per event + team result ──
   const perfMap = new Map<
@@ -566,6 +600,14 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                   <span className="rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
                     {player.game?.name || 'Competitive player'}
                   </span>
+                  {standing && (
+                    <Link
+                      href={`/rankings/player/${player.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] transition hover:bg-[#0A5FC4]/20 dark:bg-[#0A5FC4]/20 dark:text-blue-300"
+                    >
+                      <BarChart3 className="h-3.5 w-3.5" /> #{standing.rank} KRAFTON Ranking
+                    </Link>
+                  )}
                 </div>
                 <h1 className="text-6xl font-black tracking-[-.06em] text-slate-950 dark:text-white sm:text-7xl lg:text-8xl">
                   {player.ign}
@@ -730,21 +772,33 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                   <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
                       <Crosshair className="mb-3 h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
-                      <EarningsAmount amountUsd={individualTotalUsd} className="text-xl font-black tracking-tight" />
+                      <EarningsAmount
+                        amountUsd={individualTotalUsd}
+                        native={{ amount: individualNative.amount, currency: individualNative.currency }}
+                        className="text-xl font-black tracking-tight"
+                      />
                       <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">
                         Individual winnings
                       </p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/10 dark:bg-white/5">
                       <Swords className="mb-3 h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
-                      <EarningsAmount amountUsd={teamTotalUsd} className="text-xl font-black tracking-tight" />
+                      <EarningsAmount
+                        amountUsd={teamTotalUsd}
+                        native={{ amount: teamNative.amount, currency: teamNative.currency }}
+                        className="text-xl font-black tracking-tight"
+                      />
                       <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">
                         Team prize winnings
                       </p>
                     </div>
                     <div className="rounded-2xl border border-amber-300/50 bg-amber-400/10 p-4">
                       <Trophy className="mb-3 h-4 w-4 text-amber-500" />
-                      <EarningsAmount amountUsd={careerTotalUsd} className="text-xl font-black tracking-tight" />
+                      <EarningsAmount
+                        amountUsd={careerTotalUsd}
+                        native={{ amount: careerNative.amount, currency: careerNative.currency }}
+                        className="text-xl font-black tracking-tight"
+                      />
                       <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-amber-600 dark:text-amber-300">
                         Career total
                       </p>
@@ -1002,12 +1056,22 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                     Ranking data will appear once this player has an official rating snapshot.
                   </p>
                 )}
-                <Link
-                  href="/rankings"
-                  className="mt-6 inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white hover:text-amber-200"
-                >
-                  View full rankings <ArrowRight className="h-4 w-4" />
-                </Link>
+                <div className="mt-6 flex flex-wrap items-center gap-2">
+                  {standing && (
+                    <Link
+                      href={`/rankings/player/${player.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow-sm transition hover:bg-blue-50"
+                    >
+                      Points breakdown <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
+                  <Link
+                    href="/rankings?board=players"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-white/20 hover:text-amber-200"
+                  >
+                    Leaderboard <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </section>
             </aside>
           </div>

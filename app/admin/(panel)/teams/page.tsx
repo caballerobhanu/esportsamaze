@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Plus, Copy, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
+import { TeamsManagerTable } from '@/components/admin/teams-manager-table';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,27 @@ async function saveTeam(formData: FormData) {
     return Boolean(clash);
   });
 
+  const rawTag = fOpt(formData, 'tag');
+  const tag = rawTag ? rawTag.trim().toUpperCase() : null;
+
+  // Short code / tag MUST be unique between teams (case-insensitive)
+  if (tag) {
+    const tagClash = await prisma.team.findFirst({
+      where: {
+        tag: { equals: tag, mode: 'insensitive' },
+        ...(id ? { NOT: { id } } : {}),
+      },
+      select: { id: true, name: true, tag: true },
+    });
+    if (tagClash) {
+      redirect(
+        `/admin/teams?error=tag_clash&clashTag=${encodeURIComponent(tag)}&clashName=${encodeURIComponent(
+          tagClash.name
+        )}${id ? `&edit=${id}` : ''}`
+      );
+    }
+  }
+
   const [logoUpload, logoDarkUpload] = await Promise.all([
     saveUploadedFile(formData.get('logoFile'), 'team-logo'),
     saveUploadedFile(formData.get('logoDarkFile'), 'team-logo-dark'),
@@ -40,7 +62,7 @@ async function saveTeam(formData: FormData) {
     name,
     slug,
     displayName: fOpt(formData, 'displayName'),
-    tag: fOpt(formData, 'tag'),
+    tag,
     region: fOpt(formData, 'region'),
     founded: fDate(formData, 'founded'),
     status: fStr(formData, 'status') || 'ACTIVE',
@@ -81,6 +103,42 @@ async function saveTeam(formData: FormData) {
   redirect('/admin/teams');
 }
 
+async function duplicateTeam(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const id = fStr(formData, 'id');
+  if (!id) redirect('/admin/teams');
+
+  const source = await prisma.team.findUnique({ where: { id } });
+  if (!source) redirect('/admin/teams');
+
+  const newName = `${source.name} (Copy)`;
+  const slug = await uniqueSlug(fStr(formData, 'slug') || `${source.slug || source.name}-copy`, async (s) => {
+    const clash = await prisma.team.findFirst({ where: { slug: s }, select: { id: true } });
+    return Boolean(clash);
+  });
+
+  const created = await prisma.team.create({
+    data: {
+      name: newName,
+      displayName: source.displayName ? `${source.displayName} (Copy)` : null,
+      slug,
+      tag: null, // Left null to strictly enforce short code uniqueness between teams
+      region: source.region,
+      founded: source.founded,
+      status: source.status,
+      sponsors: source.sponsors,
+      gameId: source.gameId,
+      logoUrl: source.logoUrl,
+      imageDarkUrl: source.imageDarkUrl,
+      socialLinks: source.socialLinks ?? undefined,
+    },
+  });
+
+  revalidatePath('/admin/teams');
+  redirect(`/admin/teams?edit=${created.id}&saved=copy`);
+}
+
 async function deleteTeam(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
@@ -104,16 +162,22 @@ async function deleteTeam(formData: FormData) {
 export default async function AdminTeamsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string; error?: string }>;
+  searchParams: Promise<{
+    edit?: string;
+    error?: string;
+    clashTag?: string;
+    clashName?: string;
+    saved?: string;
+  }>;
 }) {
-  const { edit, error } = await searchParams;
+  const { edit, error, clashTag, clashName, saved } = await searchParams;
 
   const [games, teams] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
     prisma.team.findMany({
       orderBy: { name: 'asc' },
       include: {
-        game: { select: { name: true } },
+        game: { select: { id: true, name: true } },
         _count: { select: { players: true, tournamentRosters: true } },
       },
     }),
@@ -135,12 +199,26 @@ export default async function AdminTeamsPage({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black uppercase tracking-tight">Teams</h1>
         {editing && (
-          <Link
-            href="/admin/teams"
-            className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          >
-            + New team instead
-          </Link>
+          <div className="flex items-center gap-3">
+            <form action={duplicateTeam}>
+              <input type="hidden" name="id" value={editing.id} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-(--ed-blue) dark:hover:text-slate-200 transition-colors cursor-pointer"
+                title={`Duplicate "${editing.name}"`}
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Duplicate
+              </button>
+            </form>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <Link
+              href="/admin/teams"
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              + New team instead
+            </Link>
+          </div>
         )}
       </div>
 
@@ -153,6 +231,23 @@ export default async function AdminTeamsPage({
         <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
           This team still has transfers, tournament rosters, match results, stats or rankings attached — it cannot be deleted.
         </p>
+      )}
+      {error === 'tag_clash' && (
+        <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+          <span>
+            Short code <strong className="font-mono underline">{clashTag || 'entered'}</strong> is already used by team{' '}
+            <strong>&quot;{clashName || 'another team'}&quot;</strong>. Short codes cannot be shared between teams.
+          </span>
+        </div>
+      )}
+      {saved === 'copy' && (
+        <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+          <span>
+            Team duplicated successfully! Short code was left blank to prevent collision — please assign a unique short code if needed.
+          </span>
+        </div>
       )}
 
       {/* Create / Edit form */}
@@ -183,8 +278,15 @@ export default async function AdminTeamsPage({
               <input name="slug" defaultValue={editing?.slug ?? ''} placeholder="auto" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Tag / Short Code</label>
-              <input name="tag" defaultValue={editing?.tag ?? ''} placeholder="SOUL" className={inputCls} />
+              <label className={labelCls}>
+                Tag / Short Code <span className="text-[10px] text-slate-400 font-normal normal-case">(Must be unique)</span>
+              </label>
+              <input
+                name="tag"
+                defaultValue={editing?.tag ?? ''}
+                placeholder="SOUL"
+                className={`${inputCls} font-mono uppercase`}
+              />
             </div>
             <div>
               <label className={labelCls}>Status</label>
@@ -277,67 +379,20 @@ export default async function AdminTeamsPage({
 
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors"
+            className="px-4 py-2 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
           >
             {editing ? 'Update Team' : 'Create Team'}
           </button>
         </form>
       </details>
 
-      {/* List */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] shadow-sm overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead>
-            <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50 dark:bg-[#080d17]">
-              <th className="py-2.5 px-3 text-left">Team</th>
-              <th className="py-2.5 px-3 text-left hidden sm:table-cell">Tag</th>
-              <th className="py-2.5 px-3 text-left hidden md:table-cell">Game</th>
-              <th className="py-2.5 px-3 text-center">Players</th>
-              <th className="py-2.5 px-3 text-center hidden sm:table-cell">Events</th>
-              <th className="py-2.5 px-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-            {teams.map((t) => (
-              <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
-                <td className="py-2.5 px-3 font-bold">{t.name}</td>
-                <td className="py-2.5 px-3 text-slate-500 hidden sm:table-cell">{t.tag ?? '—'}</td>
-                <td className="py-2.5 px-3 text-slate-500 hidden md:table-cell">{t.game?.name ?? '—'}</td>
-                <td className="py-2.5 px-3 text-center font-mono">{t._count.players}</td>
-                <td className="py-2.5 px-3 text-center font-mono hidden sm:table-cell">{t._count.tournamentRosters}</td>
-                <td className="py-2.5 px-3">
-                  <span className="flex items-center justify-end gap-1.5">
-                    <Link
-                      href={`/admin/teams?edit=${t.id}`}
-                      className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-(--ed-blue) transition-colors"
-                      aria-label={`Edit ${t.name}`}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Link>
-                    <form action={deleteTeam}>
-                      <input type="hidden" name="id" value={t.id} />
-                      <button
-                        type="submit"
-                        className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors"
-                        aria-label={`Delete ${t.name}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {teams.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
-                  No teams yet — add the first one above.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Teams Manager Table with Live Search & Filtering */}
+      <TeamsManagerTable
+        teams={teams}
+        games={games}
+        deleteTeamAction={deleteTeam}
+        duplicateTeamAction={duplicateTeam}
+      />
     </div>
   );
 }

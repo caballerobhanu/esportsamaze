@@ -29,18 +29,45 @@ interface TeamPageProps {
 export const dynamic = 'force-dynamic';
 
 interface RosterEntry {
+  playerId?: string | null;
+  slug?: string | null;
   ign: string;
   role?: string;
   captain?: boolean;
+  isStaff?: boolean;
+  staffRole?: string | null;
 }
 
 function parseRoster(json: unknown): RosterEntry[] {
   if (!Array.isArray(json)) return [];
-  return json
+  const list = json
     .map((entry) =>
-      typeof entry === 'string' ? { ign: entry } : (entry as { ign?: string; role?: string; captain?: boolean })
+      typeof entry === 'string'
+        ? { ign: entry }
+        : (entry as {
+            playerId?: string | null;
+            slug?: string | null;
+            ign?: string;
+            role?: string;
+            captain?: boolean;
+            isStaff?: boolean;
+            staffRole?: string | null;
+          })
     )
     .filter((e): e is RosterEntry => Boolean(e && e.ign));
+
+  return list.sort((a, b) => {
+    const aCapt = Boolean(a.captain);
+    const bCapt = Boolean(b.captain);
+    const aStaff = Boolean(a.isStaff || a.staffRole);
+    const bStaff = Boolean(b.isStaff || b.staffRole);
+
+    if (aCapt && !bCapt) return -1;
+    if (!aCapt && bCapt) return 1;
+    if (aStaff && !bStaff) return 1;
+    if (!aStaff && bStaff) return -1;
+    return 0;
+  });
 }
 
 const teamSocialIcons: Record<string, typeof Globe> = {
@@ -191,8 +218,37 @@ export default async function TeamPage({ params }: TeamPageProps) {
     { label: 'Founded', value: team.founded ? new Date(team.founded).getFullYear() : '—', icon: ShieldCheck },
   ];
 
-  // Link event-lineup IGNs to player profiles where we can match them
+  // Link event-lineup IGNs and player IDs to player profiles where we can match them
+  const lineupPlayerIds = Array.from(
+    new Set(
+      eventLineups.flatMap(({ entries }) =>
+        entries.map((e) => e.playerId).filter((id): id is string => typeof id === 'string' && id.length > 0)
+      )
+    )
+  );
+  const extraPlayers =
+    lineupPlayerIds.length > 0
+      ? await prisma.player.findMany({
+          where: { id: { in: lineupPlayerIds } },
+          select: { id: true, slug: true, ign: true },
+        })
+      : [];
+  const playerIdToSlug = new Map<string, string>();
+  for (const p of roster) {
+    if (p.slug) playerIdToSlug.set(p.id, p.slug);
+  }
+  for (const t of transfers) {
+    if (t.player.slug) playerIdToSlug.set(t.player.id, t.player.slug);
+  }
+  for (const p of extraPlayers) {
+    if (p.slug) playerIdToSlug.set(p.id, p.slug);
+  }
   const ignToSlug = new Map(roster.map((p) => [p.ign.trim().toLowerCase(), p.slug || null]));
+  for (const p of extraPlayers) {
+    if (p.slug && !ignToSlug.has(p.ign.trim().toLowerCase())) {
+      ignToSlug.set(p.ign.trim().toLowerCase(), p.slug);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
@@ -272,7 +328,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
                 {krafton && (
                   <Link
                     href={`/rankings/team/${team.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] transition-colors hover:bg-[#0A5FC4]/20 dark:text-blue-300"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] transition hover:bg-[#0A5FC4]/20 dark:bg-[#0A5FC4]/20 dark:text-blue-300"
                   >
                     <BarChart3 className="h-3.5 w-3.5" /> #{krafton.rank} KRAFTON Ranking
                   </Link>
@@ -434,7 +490,15 @@ export default async function TeamPage({ params }: TeamPageProps) {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {entries.map((entry, i) => {
-                          const slug = ignToSlug.get(entry.ign.trim().toLowerCase());
+                          const playerSlug =
+                            (entry.playerId && playerIdToSlug.get(entry.playerId)) ||
+                            entry.slug ||
+                            ignToSlug.get(entry.ign.trim().toLowerCase());
+                          const playerHref = playerSlug
+                            ? `/players/${playerSlug}`
+                            : entry.playerId
+                              ? `/players/${entry.playerId}`
+                              : null;
                           const chip = (
                             <>
                               <span className="font-extrabold">{entry.ign}</span>
@@ -450,10 +514,10 @@ export default async function TeamPage({ params }: TeamPageProps) {
                               )}
                             </>
                           );
-                          return slug ? (
+                          return playerHref ? (
                             <Link
                               key={`${entry.ign}-${i}`}
-                              href={`/players/${slug}`}
+                              href={playerHref}
                               className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5"
                             >
                               {chip}
@@ -575,6 +639,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
           {/* Sidebar */}
           <aside className="space-y-8">
+
             {/* Recent events timeline */}
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
               <div className="mb-6 flex items-center gap-3">
@@ -653,12 +718,22 @@ export default async function TeamPage({ params }: TeamPageProps) {
                   ? `${krafton.points.toFixed(1)} decay-adjusted points across ${krafton.events} ranking event${krafton.events === 1 ? '' : 's'}.`
                   : 'No decayed ranking points yet — results in ranking-eligible events will add up here.'}
               </p>
-              <Link
-                href="/rankings"
-                className="mt-6 inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white hover:text-amber-200"
-              >
-                View full rankings <ArrowRight className="h-4 w-4" />
-              </Link>
+              <div className="mt-6 flex flex-wrap items-center gap-2">
+                {krafton && (
+                  <Link
+                    href={`/rankings/team/${team.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow-sm transition hover:bg-blue-50"
+                  >
+                    Points breakdown <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                )}
+                <Link
+                  href="/rankings?board=teams"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-white/20 hover:text-amber-200"
+                >
+                  Leaderboard <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </section>
 
             {/* Verified card */}

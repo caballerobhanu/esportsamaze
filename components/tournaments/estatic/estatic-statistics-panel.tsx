@@ -1270,7 +1270,7 @@ export function EstaticStatisticsPanel({
                           )}
                           <div>
                             <Link
-                              href={`/players/${player.playerSlug || encodeURIComponent(player.ign)}`}
+                              href={`/players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`}
                               className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                             >
                               {player.ign}

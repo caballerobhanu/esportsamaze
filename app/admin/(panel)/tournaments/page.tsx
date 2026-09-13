@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { revalidatePath, updateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save, Copy } from 'lucide-react';
 import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
@@ -713,7 +713,7 @@ async function saveTournament(formData: FormData) {
     }
   );
 
-  updateTag('tournaments-list');
+  revalidateTag('tournaments-list', 'max');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidatePath('/admin/tournaments', 'page');
@@ -739,7 +739,7 @@ async function deleteTournament(formData: FormData) {
       redirect('/admin/tournaments?error=delete-failed');
     }
   }
-  updateTag('tournaments-list');
+  revalidateTag('tournaments-list', 'max');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidateTournamentPages();
@@ -843,7 +843,7 @@ async function duplicateTournament(formData: FormData) {
     },
   });
 
-  updateTag('tournaments-list');
+  revalidateTag('tournaments-list', 'max');
   revalidatePath('/');
   revalidatePath('/admin/tournaments');
   revalidateTournamentPages();

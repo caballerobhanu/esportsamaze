@@ -30,6 +30,15 @@ export function EarningsAmount({
 
   const usdText = `$${Math.round(amountUsd).toLocaleString('en-US')}`;
 
+  // Zero earnings — show a bare zero in the visitor's currency, no USD or
+  // local secondary lines. (Previously a $0 + "Local: ≈ ₹0" stacked pair.)
+  const nativeAmount = native?.amount ?? 0;
+  if (amountUsd === 0 && nativeAmount === 0) {
+    const code = visitorCurrency === 'USD' ? 'USD' : visitorCurrency;
+    const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
+    return <span className={className} suppressHydrationWarning>{symbol}0</span>;
+  }
+
   // Totals (USD sums): visitor currency first, USD secondary
   if (!native) {
     if (visitorCurrency === 'USD') {

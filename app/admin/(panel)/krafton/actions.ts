@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
@@ -15,6 +15,11 @@ function requireAdmin() {
 function refresh(eventId?: string) {
   revalidatePath('/admin/krafton');
   revalidatePath('/rankings');
+  try {
+    revalidateTag('krafton-rankings', 'max');
+  } catch {
+    // ignore if called outside action context
+  }
   if (eventId) {
     revalidatePath(`/admin/krafton/${eventId}`);
     revalidatePath(`/rankings/team`);
@@ -30,14 +35,21 @@ export async function saveKraftonEvent(formData: FormData) {
   if (!name || !endDate) redirect(`/admin/krafton${id ? `/${id}` : ''}?error=required`);
 
   const tier = fStr(formData, 'tier') || 'Tier 1';
+  const rawTournamentId = fStr(formData, 'tournamentId');
+  const tournamentId = rawTournamentId && rawTournamentId.trim() ? rawTournamentId.trim() : null;
   const end = new Date(endDate);
 
   if (id) {
-    await prisma.kraftonEvent.update({ where: { id }, data: { name, endDate: end, tier } });
+    await prisma.kraftonEvent.update({
+      where: { id },
+      data: { name, endDate: end, tier, tournamentId },
+    });
     refresh(id);
     redirect(`/admin/krafton/${id}?saved=1`);
   }
-  const created = await prisma.kraftonEvent.create({ data: { name, endDate: end, tier } });
+  const created = await prisma.kraftonEvent.create({
+    data: { name, endDate: end, tier, tournamentId },
+  });
   refresh(created.id);
   redirect(`/admin/krafton/${created.id}`);
 }
@@ -51,7 +63,12 @@ export async function duplicateKraftonEvent(formData: FormData) {
   if (!event) redirect('/admin/krafton');
 
   const copy = await prisma.kraftonEvent.create({
-    data: { name: `${event.name} (copy)`, endDate: event.endDate, tier: event.tier },
+    data: {
+      name: `${event.name} (copy)`,
+      endDate: event.endDate,
+      tier: event.tier,
+      tournamentId: event.tournamentId,
+    },
   });
   if (event.entries.length > 0) {
     await prisma.kraftonEntry.createMany({
@@ -141,9 +158,10 @@ export async function linkKraftonEntry(
   try {
     const entry = await prisma.kraftonEntry.findUnique({ where: { id: entryId } });
     if (!entry) return { ok: false };
+    const cleanId = entityId && entityId.trim() ? entityId.trim() : null;
     await prisma.kraftonEntry.updateMany({
       where: { eventId: entry.eventId, board: entry.board, entityName: entry.entityName },
-      data: { entityId },
+      data: { entityId: cleanId },
     });
     refresh(entry.eventId);
     return { ok: true };
@@ -155,14 +173,31 @@ export async function linkKraftonEntry(
 
 export async function saveKraftonTransfer(formData: FormData) {
   if (!(await requireAdmin())) redirect('/admin/login');
+  const id = fStr(formData, 'id');
   const fromTeamId = fStr(formData, 'fromTeamId');
   const toTeamId = fStr(formData, 'toTeamId');
-  const cutoff = fStr(formData, 'cutoff');
-  if (!fromTeamId || !toTeamId || fromTeamId === toTeamId || !cutoff) {
+  const cutoffDate = (fStr(formData, 'cutoffDate') || fStr(formData, 'cutoff') || '').trim();
+  const cutoffTime = (fStr(formData, 'cutoffTime') || '00:00').trim();
+  const preferenceRaw = fStr(formData, 'preference');
+  const preference = Math.max(1, Math.min(59, preferenceRaw ? parseInt(preferenceRaw, 10) || 1 : 1));
+
+  if (!fromTeamId || !toTeamId || fromTeamId === toTeamId || !cutoffDate) {
     redirect('/admin/krafton?error=transfer');
   }
 
-  const mode = fStr(formData, 'mode') === 'wipe' ? 'wipe' : 'add';
+  const [hStr, mStr] = cutoffTime.split(':');
+  const h = Math.max(0, Math.min(23, parseInt(hStr || '0', 10) || 0));
+  const m = Math.max(0, Math.min(59, parseInt(mStr || '0', 10) || 0));
+  const sec = String(preference).padStart(2, '0');
+
+  // Build clean ISO UTC timestamp storing Date, Time, and Preference (in seconds)
+  const cutoffObj = new Date(`${cutoffDate}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${sec}Z`);
+  if (isNaN(cutoffObj.getTime())) {
+    redirect('/admin/krafton?error=transfer');
+  }
+
+  const modeRaw = fStr(formData, 'mode');
+  const mode = modeRaw === 'wipe' ? 'wipe' : modeRaw === 'own_only' ? 'own_only' : 'add';
   const amountRaw = fStr(formData, 'amount');
   const amount = amountRaw ? Math.max(0, Math.round(Number(amountRaw))) : null;
 
@@ -172,27 +207,46 @@ export async function saveKraftonTransfer(formData: FormData) {
   ]);
   if (!from || !to) redirect('/admin/krafton?error=transfer');
 
-  await prisma.kraftonTransfer.create({
-    data: {
-      fromTeamId,
-      fromName: from.name,
-      toTeamId,
-      toName: to.name,
-      cutoff: new Date(cutoff),
-      mode,
-      amount: amount && amount > 0 ? amount : null,
-    },
-  });
+  if (id) {
+    await prisma.kraftonTransfer.update({
+      where: { id },
+      data: {
+        fromTeamId,
+        fromName: from.name,
+        toTeamId,
+        toName: to.name,
+        cutoff: cutoffObj,
+        mode,
+        amount: amount && amount > 0 ? amount : null,
+      },
+    });
+  } else {
+    await prisma.kraftonTransfer.create({
+      data: {
+        fromTeamId,
+        fromName: from.name,
+        toTeamId,
+        toName: to.name,
+        cutoff: cutoffObj,
+        mode,
+        amount: amount && amount > 0 ? amount : null,
+      },
+    });
+  }
   refresh();
   redirect('/admin/krafton?saved=transfer');
 }
 
-export async function deleteKraftonTransfer(formData: FormData) {
+export async function deleteKraftonTransfer(formData: FormData | string) {
   if (!(await requireAdmin())) redirect('/admin/login');
-  const id = fStr(formData, 'id');
+  const id = typeof formData === 'string' ? formData : fStr(formData, 'id');
   if (id) {
-    await prisma.kraftonTransfer.delete({ where: { id } });
+    try {
+      await prisma.kraftonTransfer.delete({ where: { id } });
+    } catch (e) {
+      console.error('Failed to delete transfer:', e);
+    }
   }
   refresh();
-  redirect('/admin/krafton');
+  redirect('/admin/krafton?deleted=transfer');
 }

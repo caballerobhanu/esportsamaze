@@ -38,25 +38,37 @@ export default async function KraftonEventEditorPage({
     linkedTeamIds.length
       ? prisma.team.findMany({
           where: { id: { in: linkedTeamIds } },
-          select: { id: true, name: true, displayName: true, logoUrl: true },
+          select: { id: true, name: true, displayName: true, logoUrl: true, tag: true },
         })
       : Promise.resolve([]),
     linkedPlayerIds.length
       ? prisma.player.findMany({
           where: { id: { in: linkedPlayerIds } },
-          select: { id: true, ign: true, avatarUrl: true },
+          select: {
+            id: true,
+            ign: true,
+            avatarUrl: true,
+            currentTeam: { select: { tag: true, name: true } },
+          },
         })
       : Promise.resolve([]),
   ]);
   const teamMeta = new Map(linkedTeams.map((t) => [t.id, t]));
   const playerMeta = new Map(linkedPlayers.map((p) => [p.id, p]));
 
-  const withLinkedMeta = <T extends { entityId: string | null; entityName: string }>(row: T) => {
+  const withLinkedMeta = <T extends { entityId: string | null; entityName: string; teamName?: string | null }>(row: T) => {
     if (!row.entityId) return { ...row, linkedLogoUrl: null, linkedName: row.entityName };
     const team = teamMeta.get(row.entityId);
-    if (team) return { ...row, linkedLogoUrl: team.logoUrl, linkedName: team.displayName || team.name };
+    if (team) {
+      const tag = team.tag ? ` [${team.tag}]` : '';
+      return { ...row, linkedLogoUrl: team.logoUrl, linkedName: `${team.displayName || team.name}${tag}` };
+    }
     const player = playerMeta.get(row.entityId);
-    if (player) return { ...row, linkedLogoUrl: player.avatarUrl, linkedName: player.ign };
+    if (player) {
+      const teamTag = player.currentTeam?.tag || player.currentTeam?.name || row.teamName;
+      const displayName = teamTag ? `${player.ign} (${teamTag})` : player.ign;
+      return { ...row, linkedLogoUrl: player.avatarUrl, linkedName: displayName };
+    }
     return { ...row, linkedLogoUrl: null, linkedName: row.entityName };
   };
   const teamRows = teamRowsRaw.map(withLinkedMeta);
@@ -165,7 +177,13 @@ export default async function KraftonEventEditorPage({
             Team Placements ({teamRows.length})
           </h2>
         </div>
-        <KraftonEntriesManager eventId={event.id} board="TEAM" rows={teamRows} tournaments={tournaments} />
+        <KraftonEntriesManager
+          eventId={event.id}
+          board="TEAM"
+          rows={teamRows}
+          tournaments={tournaments}
+          defaultTournamentId={event.tournamentId}
+        />
       </section>
 
       {/* Entries — players */}
@@ -175,7 +193,13 @@ export default async function KraftonEventEditorPage({
             Player Finishes &amp; Awards ({playerRows.length})
           </h2>
         </div>
-        <KraftonEntriesManager eventId={event.id} board="PLAYER" rows={playerRows} tournaments={tournaments} />
+        <KraftonEntriesManager
+          eventId={event.id}
+          board="PLAYER"
+          rows={playerRows}
+          tournaments={tournaments}
+          defaultTournamentId={event.tournamentId}
+        />
       </section>
     </div>
   );

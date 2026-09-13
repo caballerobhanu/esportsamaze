@@ -8,6 +8,11 @@ import {
   playerDecay,
   decayMilestones,
   computeBoard,
+  computeBoardWithRankChanges,
+  generateHistoricalSnapshotDates,
+  computeNextDecay,
+  computeUnifiedNextUpdate,
+  computeEntityRankMilestones,
   parseTeamPaste,
   parsePlayerPaste,
   type EntryRow,
@@ -183,3 +188,273 @@ test('point transfers: move, wipe, and fixed-amount modes', () => {
   // ~8.5 months of decay on 500 → 500 × 1 (within 180d of 2026-01-01 at 2026-09-12 is >180 → ×0.75)
   assert.equal(transferEntry.points, Math.round(500 * teamDecay(Math.floor((asOf.getTime() - d('2026-01-01').getTime()) / day)) * 100) / 100);
 });
+
+test('chained same-day transfers resolve without mess using time/preference sequence', () => {
+  const asOf = d('2026-09-12');
+  // Team A played Event 1 (800 base)
+  const evA = entry({ id: 'e1', eventId: 'ev1', entityId: 'team-a', entityName: 'Team A', rank: 1, eventEndDate: d('2026-01-01') });
+  // Team B played Event 2 (700 base)
+  const evB = entry({ id: 'e2', eventId: 'ev2', entityId: 'team-b', entityName: 'Team B', rank: 2, eventEndDate: d('2026-02-01') });
+  // Team C played Event 3 (600 base)
+  const evC = entry({ id: 'e3', eventId: 'ev3', entityId: 'team-c', entityName: 'Team C', rank: 3, eventEndDate: d('2026-03-01') });
+
+  // On the same day 2026-06-01:
+  // Transfer 1 (10:00, pref 1): Team B transfers its points to Team C
+  // Transfer 2 (14:00, pref 2): Team A transfers its points to Team B
+  // Notice passed in REVERSE order in the array to test automatic sorting by cutoff/preference
+  const board = computeBoard(
+    [evA, evB, evC],
+    [
+      {
+        id: 't2',
+        fromTeamId: 'team-a',
+        fromName: 'Team A',
+        toTeamId: 'team-b',
+        toName: 'Team B',
+        cutoff: new Date('2026-06-01T14:00:02Z'),
+        preference: 2,
+        mode: 'add',
+        amount: null,
+      },
+      {
+        id: 't1',
+        fromTeamId: 'team-b',
+        fromName: 'Team B',
+        toTeamId: 'team-c',
+        toName: 'Team C',
+        cutoff: new Date('2026-06-01T10:00:01Z'),
+        preference: 1,
+        mode: 'add',
+        amount: null,
+      },
+    ],
+    asOf
+  );
+
+  const a = board.find((x) => x.entityId === 'team-a')!;
+  const b = board.find((x) => x.entityId === 'team-b')!;
+  const c = board.find((x) => x.entityId === 'team-c')!;
+
+  // Team A transferred its Event 1 out, so it has 0 events remaining
+  assert.equal(a.events, 0);
+  assert.equal(a.totalPoints, 0);
+
+  // Team B transferred its own Event 2 to Team C FIRST, then received Event 1 from Team A SECOND
+  // Thus Team B should have ONLY Event 1 (from Team A), NOT 0 points!
+  assert.equal(b.events, 1);
+  assert.equal(b.contributions[0].transferredFrom, 'Team A');
+  assert.equal(b.contributions[0].eventId, 'ev1');
+
+  // Team C received Event 2 from Team B + keeps its own Event 3
+  assert.equal(c.events, 2);
+  assert.ok(c.contributions.some((item) => item.eventId === 'ev2' && item.transferredFrom === 'Team B'));
+  assert.ok(c.contributions.some((item) => item.eventId === 'ev3' && !item.transferredFrom));
+  // Team C should NOT have Event 1 from Team A!
+  assert.ok(!c.contributions.some((item) => item.eventId === 'ev1'));
+});
+
+test('transfer mode own_only preserves previously acquired points in source team', () => {
+  const asOf = d('2026-09-12');
+  const evA = entry({ id: 'e1', eventId: 'ev1', entityId: 'team-a', entityName: 'Team A', rank: 1, eventEndDate: d('2026-01-01') });
+  const evB = entry({ id: 'e2', eventId: 'ev2', entityId: 'team-b', entityName: 'Team B', rank: 2, eventEndDate: d('2026-02-01') });
+
+  // 1) A transfers to B
+  // 2) B transfers to C with 'own_only' mode
+  const board = computeBoard(
+    [evA, evB],
+    [
+      {
+        id: 't1',
+        fromTeamId: 'team-a',
+        fromName: 'Team A',
+        toTeamId: 'team-b',
+        toName: 'Team B',
+        cutoff: new Date('2026-05-01T00:00:01Z'),
+        preference: 1,
+        mode: 'add',
+        amount: null,
+      },
+      {
+        id: 't2',
+        fromTeamId: 'team-b',
+        fromName: 'Team B',
+        toTeamId: 'team-c',
+        toName: 'Team C',
+        cutoff: new Date('2026-06-01T00:00:02Z'),
+        preference: 2,
+        mode: 'own_only',
+        amount: null,
+      },
+    ],
+    asOf
+  );
+
+  const b = board.find((x) => x.entityId === 'team-b')!;
+  const c = board.find((x) => x.entityId === 'team-c')!;
+
+  // Team B retains Event 1 (transferred from Team A) because mode was 'own_only'!
+  assert.equal(b.events, 1);
+  assert.equal(b.contributions[0].eventId, 'ev1');
+
+  // Team C receives only Team B's own Event 2
+  assert.equal(c.events, 1);
+  assert.equal(c.contributions[0].eventId, 'ev2');
+  assert.equal(c.contributions[0].transferredFrom, 'Team B');
+});
+
+test('computeBoardWithRankChanges compares current rank with prior snapshot', () => {
+  const ev1 = entry({ id: '1', eventName: 'Event 1', eventEndDate: d('2024-01-01'), entityName: 'Team A', rank: 2 });
+  const ev2 = entry({ id: '2', eventName: 'Event 1', eventEndDate: d('2024-01-01'), entityName: 'Team B', rank: 1 });
+  const ev3 = entry({ id: '3', eventName: 'Event 2', eventEndDate: d('2024-02-01'), entityName: 'Team A', rank: 1 });
+
+  // On 2024-01-15: Team B is #1 (800), Team A is #2 (700)
+  // On 2024-02-15: Team A has 700 + 800 = 1500 (#1), Team B has 800 (#2)
+  const ranked = computeBoardWithRankChanges(
+    [ev1, ev2, ev3],
+    [],
+    d('2024-02-15'),
+    d('2024-01-15')
+  );
+
+  assert.equal(ranked[0].entityName, 'Team A');
+  assert.equal(ranked[0].rank, 1);
+  assert.equal(ranked[0].previousRank, 2);
+  assert.equal(ranked[0].rankChange, 1); // moved up from #2 to #1 (+1)
+
+  assert.equal(ranked[1].entityName, 'Team B');
+  assert.equal(ranked[1].rank, 2);
+  assert.equal(ranked[1].previousRank, 1);
+  assert.equal(ranked[1].rankChange, -1); // dropped from #1 to #2 (-1)
+});
+
+test('generateHistoricalSnapshotDates returns sorted unique ISO date strings', () => {
+  const dates = generateHistoricalSnapshotDates(
+    [
+      entry({ eventEndDate: d('2024-01-10') }),
+      entry({ eventEndDate: d('2024-05-20') }),
+    ],
+    d('2024-06-01')
+  );
+  assert.equal(dates[0], '2024-05-20');
+  assert.ok(dates.includes('2024-01-10'));
+  assert.ok(dates.includes('2024-05-20'));
+  // Does not generate redundant 2024-06-01 when no event/decay occurred on that date
+  assert.ok(!dates.includes('2024-06-01'));
+});
+
+test('computeNextDecay calculates upcoming milestone and point loss', () => {
+  // Event ended 2024-01-01. As of 2024-06-01 (152 days in), it's at 100%.
+  // 181st day is 2024-06-30 when it drops to 75%.
+  const ev = entry({ eventEndDate: d('2024-01-01'), rank: 1 }); // 800 pts
+  const board = computeBoard([ev], [], d('2024-06-01'));
+  const nextDecay = computeNextDecay(board[0].contributions, d('2024-06-01'));
+
+  assert.ok(nextDecay);
+  assert.equal(nextDecay.fromMultiplier, 1);
+  assert.equal(nextDecay.toMultiplier, 0.75);
+  assert.equal(nextDecay.estimatedPointLoss, 200); // 800 * 0.25 = 200
+  assert.ok(nextDecay.daysRemaining > 0);
+});
+
+test('computeUnifiedNextUpdate picks earlier of decay or future event end date', () => {
+  const decayInfo = {
+    daysRemaining: 15,
+    date: new Date(Date.now() + 15 * 86_400_000),
+    eventName: 'BGIS 2024',
+    toMultiplier: 0.75,
+    estimatedPointLoss: 150,
+  };
+
+  const futureEventCloser = [
+    { name: 'BMPS 2026', endDate: new Date(Date.now() + 5 * 86_400_000) },
+  ];
+
+  // Event in 5 days is sooner than decay in 15 days
+  const update1 = computeUnifiedNextUpdate(decayInfo, futureEventCloser);
+  assert.ok(update1);
+  assert.equal(update1.type, 'event');
+  assert.equal(update1.title, 'BMPS 2026 Conclusion');
+
+  const futureEventFurther = [
+    { name: 'BMPS 2026', endDate: new Date(Date.now() + 30 * 86_400_000) },
+  ];
+
+  // Decay in 15 days is sooner than event in 30 days
+  const update2 = computeUnifiedNextUpdate(decayInfo, futureEventFurther);
+  assert.ok(update2);
+  assert.equal(update2.type, 'decay');
+  assert.equal(update2.title, 'BGIS 2024 Decay Step-down');
+});
+
+test('computeEntityRankMilestones calculates peak rank, days at peak, and days in top 5', () => {
+  // Event 1 ends on 2024-01-01: Team A rank 1 (1000 pts), Team B rank 2 (800 pts)
+  // Event 2 ends on 2024-01-11 (10 days later): Team B rank 1 (1000 pts -> 1800 pts total), Team A rank 3 (700 pts -> 1700 pts total)
+  // Current time: 2024-01-31 (20 days after Event 2)
+  const entries: EntryRow[] = [
+    entry({
+      id: 'e1',
+      eventId: 'ev1',
+      eventName: 'Event 1',
+      eventEndDate: d('2024-01-01T00:00:00Z'),
+      tier: 'Publisher',
+      board: 'TEAM',
+      entityId: 'team-a',
+      entityName: 'Team A',
+      rank: 1,
+    }),
+    entry({
+      id: 'e2',
+      eventId: 'ev1',
+      eventName: 'Event 1',
+      eventEndDate: d('2024-01-01T00:00:00Z'),
+      tier: 'Publisher',
+      board: 'TEAM',
+      entityId: 'team-b',
+      entityName: 'Team B',
+      rank: 2,
+    }),
+    entry({
+      id: 'e3',
+      eventId: 'ev2',
+      eventName: 'Event 2',
+      eventEndDate: d('2024-01-11T00:00:00Z'),
+      tier: 'Publisher',
+      board: 'TEAM',
+      entityId: 'team-b',
+      entityName: 'Team B',
+      rank: 1,
+    }),
+    entry({
+      id: 'e4',
+      eventId: 'ev2',
+      eventName: 'Event 2',
+      eventEndDate: d('2024-01-11T00:00:00Z'),
+      tier: 'Publisher',
+      board: 'TEAM',
+      entityId: 'team-a',
+      entityName: 'Team A',
+      rank: 3,
+    }),
+  ];
+
+  const asOf = d('2024-01-31T00:00:00Z');
+
+  // Team A: #1 for 10 days (from Jan 1 to Jan 11), then dropped to #2 on Jan 11.
+  const aMilestones = computeEntityRankMilestones('team-a', 'TEAM', entries, [], asOf);
+  assert.equal(aMilestones.highestRank, 1);
+  assert.equal(aMilestones.daysAtHighest, 10);
+  assert.equal(aMilestones.isCurrentlyAtHighest, false);
+  // Team A was in top 5 for entire duration (10 + 20 + 1 day = 31 days)
+  assert.equal(aMilestones.daysInTop5, 31);
+  assert.equal(aMilestones.isCurrentlyInTop5, true);
+
+  // Team B: #2 for 10 days, then #1 from Jan 11 to Jan 31 (20 days + 1 today = 21 days)
+  const bMilestones = computeEntityRankMilestones('team-b', 'TEAM', entries, [], asOf);
+  assert.equal(bMilestones.highestRank, 1);
+  assert.equal(bMilestones.daysAtHighest, 21);
+  assert.equal(bMilestones.isCurrentlyAtHighest, true);
+  assert.equal(bMilestones.daysInTop5, 31);
+  assert.equal(bMilestones.isCurrentlyInTop5, true);
+});
+
+

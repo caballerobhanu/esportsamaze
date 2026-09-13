@@ -181,3 +181,57 @@ export async function batchVerifyPlayersAction(playerIds: string[]) {
   }
 }
 
+export async function duplicatePlayerAction(playerId: string) {
+  if (!(await isAdmin())) {
+    throw new Error('Unauthorized');
+  }
+
+  if (!playerId) {
+    return { success: false, message: 'No player ID provided' };
+  }
+
+  try {
+    const source = await prisma.player.findUnique({ where: { id: playerId } });
+    if (!source) {
+      return { success: false, message: 'Player not found' };
+    }
+
+    const { uniqueSlug } = await import('@/lib/admin-forms');
+    const baseIgn = `${source.ign} (Copy)`;
+    const slug = await uniqueSlug(`${source.slug || source.ign}-copy`, async (s) => {
+      const clash = await prisma.player.findFirst({ where: { slug: s }, select: { id: true } });
+      return Boolean(clash);
+    });
+
+    const duplicate = await prisma.player.create({
+      data: {
+        ign: baseIgn,
+        slug,
+        firstName: source.firstName,
+        lastName: source.lastName,
+        avatarUrl: source.avatarUrl,
+        nationality: source.nationality,
+        birthDate: source.birthDate,
+        status: source.status,
+        isVerified: source.isVerified,
+        isPlayer: source.isPlayer,
+        role: source.role,
+        staffRole: source.staffRole,
+        gameId: source.gameId,
+        currentTeamId: source.currentTeamId,
+        socialLinks: source.socialLinks ?? undefined,
+      },
+    });
+
+    revalidatePath('/admin/players');
+    revalidatePath('/players');
+    return { success: true, newPlayerId: duplicate.id };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Failed to duplicate player' };
+  }
+}
+
+export async function deleteSinglePlayerAction(playerId: string, cascade: boolean = true) {
+  return bulkDeletePlayersAction([playerId], cascade);
+}
+

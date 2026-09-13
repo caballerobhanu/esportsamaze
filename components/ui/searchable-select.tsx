@@ -24,7 +24,10 @@ export interface SearchableSelectProps {
   searchUrl?: string;
   size?: 'sm' | 'md' | 'lg' | 'admin';
   triggerClassName?: string;
+  showInitialsFallback?: boolean;
   onChange?: (value: string) => void;
+  /** Called whenever remote search results are fetched, useful for caching option labels. */
+  onRemoteOptions?: (opts: SearchableSelectOption[]) => void;
   className?: string;
   disabled?: boolean;
 }
@@ -62,7 +65,9 @@ export function SearchableSelect({
   searchUrl,
   size = 'md',
   triggerClassName,
+  showInitialsFallback = false,
   onChange,
+  onRemoteOptions,
   className = '',
   disabled = false,
 }: SearchableSelectProps) {
@@ -152,7 +157,9 @@ export function SearchableSelect({
         if (!res.ok) throw new Error(String(res.status));
         const data = await res.json();
         if (seq !== searchSeqRef.current) return;
-        setRemoteOptions(Array.isArray(data.options) ? data.options : []);
+        const fetched = Array.isArray(data.options) ? data.options : [];
+        setRemoteOptions(fetched);
+        if (fetched.length > 0) onRemoteOptions?.(fetched);
         setSearchFailed(false);
       } catch {
         if (seq === searchSeqRef.current) setSearchFailed(true);
@@ -269,7 +276,7 @@ export function SearchableSelect({
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          {selectedOption?.imageUrl && (
+          {selectedOption?.imageUrl ? (
             <div className="relative w-4 h-4 shrink-0 overflow-hidden rounded border border-slate-200 bg-white p-0.5 dark:border-white/10 dark:bg-black/40">
               <img
                 src={selectedOption.imageUrl}
@@ -278,10 +285,13 @@ export function SearchableSelect({
                 loading="lazy"
               />
             </div>
-          )}
-          {selectedOption?.icon && (
+          ) : selectedOption?.icon ? (
             <selectedOption.icon className="w-3.5 h-3.5 shrink-0 text-[#0A5FC4] dark:text-blue-300" />
-          )}
+          ) : selectedOption && showInitialsFallback ? (
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-[8px] font-black text-slate-500 dark:border-white/10 dark:bg-[#141e33] dark:text-slate-400">
+              {selectedOption.label.slice(0, 2).toUpperCase()}
+            </span>
+          ) : null}
           <span className="truncate">
             {selectedOption ? selectedOption.label : (
               <span className="text-slate-400 font-normal">{placeholder}</span>
@@ -373,7 +383,7 @@ export function SearchableSelect({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      {opt.imageUrl && (
+                      {opt.imageUrl ? (
                         <div className="relative w-5 h-5 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white p-0.5 dark:border-white/10 dark:bg-black/40">
                           <img
                             src={opt.imageUrl}
@@ -382,14 +392,17 @@ export function SearchableSelect({
                             loading="lazy"
                           />
                         </div>
-                      )}
-                      {opt.icon && (
+                      ) : opt.icon ? (
                         <opt.icon
                           className={`w-3.5 h-3.5 shrink-0 ${
                             isSelected ? 'text-[#0A5FC4] dark:text-blue-300' : 'text-slate-400'
                           }`}
                         />
-                      )}
+                      ) : showInitialsFallback ? (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-[9px] font-black text-slate-500 dark:border-white/10 dark:bg-[#141e33] dark:text-slate-400">
+                          {opt.label.slice(0, 2).toUpperCase()}
+                        </span>
+                      ) : null}
                       <span className="truncate">
                         <HighlightMatch text={opt.label} query={searchTerm} />
                       </span>

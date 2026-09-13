@@ -1,4 +1,4 @@
-import { revalidatePath, updateTag } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 const TAB_SEGMENTS = ['standings', 'matches', 'progression', 'format', 'teams', 'prizepool', 'statistics'];
 
@@ -17,7 +17,7 @@ const TAB_SEGMENTS = ['standings', 'matches', 'progression', 'format', 'teams', 
 export function revalidateTournamentPages(slug?: string | null): void {
   try {
     // Compare page data layer is cached under this tag (lib/compare-stats.ts)
-    updateTag('compare-stats');
+    revalidateTag('compare-stats', 'max');
     revalidatePath('/tournaments');
     if (slug) {
       revalidatePath(`/tournaments/${slug}`);

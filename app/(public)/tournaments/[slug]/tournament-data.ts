@@ -243,6 +243,36 @@ export async function loadTournamentContext(rawSlug: string): Promise<Tournament
     new Map(prizePlayers.map((p) => [p.id, p]))
   );
   const resolvedWinner = (tournament.winner ?? resolved.winner ?? null) as string | null;
+
+  /* ── enrich team rosters with player slugs ── */
+  const rosterPlayerIds = Array.from(
+    new Set(
+      tournament.teams.flatMap((tt) => {
+        const arr = Array.isArray(tt.rosterJson) ? (tt.rosterJson as any[]) : [];
+        return arr.map((m) => m?.playerId).filter((id): id is string => typeof id === 'string' && id.length > 0);
+      })
+    )
+  );
+  const rosterPlayers =
+    rosterPlayerIds.length > 0
+      ? await prisma.player.findMany({
+          where: { id: { in: rosterPlayerIds } },
+          select: { id: true, slug: true },
+        })
+      : [];
+  const rosterPlayerSlugMap = new Map<string, string>();
+  for (const p of rosterPlayers) {
+    if (p.slug) rosterPlayerSlugMap.set(p.id, p.slug);
+  }
+  for (const tt of tournament.teams) {
+    if (Array.isArray(tt.rosterJson)) {
+      tt.rosterJson = (tt.rosterJson as any[]).map((m) => {
+        if (!m || typeof m !== 'object') return m;
+        const slug = (m.playerId && rosterPlayerSlugMap.get(m.playerId)) || m.slug || null;
+        return { ...m, slug };
+      });
+    }
+  }
   const resolvedRunnerUp = (tournament.runnerUp ?? resolved.runnerUp ?? null) as string | null;
 
   // Hero strings — omitted (not fabricated) when data is missing
@@ -384,6 +414,15 @@ export function buildPlayerSlugById(ctx: TournamentContext): Record<string, stri
       for (const ps of g.playerStats) {
         if (ps.player && !(ps.playerId in playerSlugById)) {
           playerSlugById[ps.playerId] = ps.player.slug ?? null;
+        }
+      }
+    }
+  }
+  for (const tt of ctx.tournament.teams) {
+    if (Array.isArray(tt.rosterJson)) {
+      for (const m of tt.rosterJson as any[]) {
+        if (m?.playerId && !(m.playerId in playerSlugById) && m.slug) {
+          playerSlugById[m.playerId] = m.slug;
         }
       }
     }
