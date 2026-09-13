@@ -133,10 +133,17 @@ export async function main() {
   await insertMany<Prisma.OrganizerCreateManyInput>('Organizers', snapshot.organizers, (d) => prisma.organizer.createMany({ data: d }));
   await insertMany<Prisma.SponsorCreateManyInput>('Sponsors', snapshot.sponsors, (d) => prisma.sponsor.createMany({ data: d }));
   await insertMany<Prisma.VenueCreateManyInput>('Venues', snapshot.venues, (d) => prisma.venue.createMany({ data: d }));
-  await insertMany<Prisma.TeamCreateManyInput>('Teams', snapshot.teams, (d) => prisma.team.createMany({ data: d }));
-  await insertMany<Prisma.PlayerCreateManyInput>('Players', snapshot.players, (d) => prisma.player.createMany({ data: d }));
+  const sanitizedTeams = (snapshot.teams || []).map((t) => ({ isVerified: false, ...t }));
+  await insertMany<Prisma.TeamCreateManyInput>('Teams', sanitizedTeams, (d) => prisma.team.createMany({ data: d }));
+
+  const sanitizedPlayers = (snapshot.players || []).map((p) => ({ isVerified: false, ...p }));
+  await insertMany<Prisma.PlayerCreateManyInput>('Players', sanitizedPlayers, (d) => prisma.player.createMany({ data: d }));
+
   await insertMany<Prisma.TransferCreateManyInput>('Transfers', snapshot.transfers, (d) => prisma.transfer.createMany({ data: d }));
-  await insertMany<Prisma.TournamentCreateManyInput>('Tournaments', snapshot.tournaments, (d) => prisma.tournament.createMany({ data: d }));
+
+  const sanitizedTournaments = (snapshot.tournaments || []).map((t) => ({ rankingIncluded: true, currency: 'USD', ...t }));
+  await insertMany<Prisma.TournamentCreateManyInput>('Tournaments', sanitizedTournaments, (d) => prisma.tournament.createMany({ data: d }));
+
   await insertMany<Prisma.TournamentStageCreateManyInput>('Tournament Stages', snapshot.tournamentStages, (d) => prisma.tournamentStage.createMany({ data: d }));
   await insertMany<Prisma.TournamentGroupCreateManyInput>('Tournament Groups', snapshot.tournamentGroups, (d) => prisma.tournamentGroup.createMany({ data: d }));
   await insertMany<Prisma.TournamentTeamCreateManyInput>('Tournament Teams', snapshot.tournamentTeams, (d) => prisma.tournamentTeam.createMany({ data: d }));
@@ -145,8 +152,55 @@ export async function main() {
   await insertMany<Prisma.TournamentVenueCreateManyInput>('Tournament Venues', snapshot.tournamentVenues, (d) => prisma.tournamentVenue.createMany({ data: d }));
   await insertMany<Prisma.MatchCreateManyInput>('Matches', snapshot.matches, (d) => prisma.match.createMany({ data: d }));
   await insertMany<Prisma.MatchGameCreateManyInput>('Match Games', snapshot.matchGames, (d) => prisma.matchGame.createMany({ data: d }));
-  await insertMany<Prisma.MatchTeamResultCreateManyInput>('Match Team Results', snapshot.matchTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d }));
-  await insertMany<Prisma.MatchPlayerStatCreateManyInput>('Match Player Stats', snapshot.matchPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d }));
+
+  const sanitizedTeamResults = (snapshot.matchTeamResults || []).map((r) => ({
+    distDrove: 0,
+    distWalk: 0,
+    totalDist: 0,
+    utilitiesTotal: 0,
+    healing: 0,
+    damageReceived: 0,
+    headshots: 0,
+    assists: 0,
+    knockouts: 0,
+    longestElim: 0,
+    vehicleElims: 0,
+    grenadeElims: 0,
+    smokesUsed: 0,
+    grenadesUsed: 0,
+    molotovsUsed: 0,
+    flashUsed: 0,
+    airdrops: 0,
+    rescues: 0,
+    ...r,
+    totalDist: Number(r.totalDist ?? (Number(r.distDrove || 0) + Number(r.distWalk || 0))),
+  }));
+  await insertMany<Prisma.MatchTeamResultCreateManyInput>('Match Team Results', sanitizedTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d }));
+
+  const sanitizedPlayerStats = (snapshot.matchPlayerStats || []).map((r) => ({
+    distDrove: 0,
+    distWalk: 0,
+    totalDist: 0,
+    utilitiesTotal: 0,
+    healing: 0,
+    damageReceived: 0,
+    headshots: 0,
+    assists: 0,
+    knockouts: 0,
+    longestElim: 0,
+    vehicleElims: 0,
+    grenadeElims: 0,
+    smokesUsed: 0,
+    grenadesUsed: 0,
+    molotovsUsed: 0,
+    flashUsed: 0,
+    airdrops: 0,
+    rescues: 0,
+    playerPowerplay: 0,
+    ...r,
+    totalDist: Number(r.totalDist ?? (Number(r.distDrove || 0) + Number(r.distWalk || 0))),
+  }));
+  await insertMany<Prisma.MatchPlayerStatCreateManyInput>('Match Player Stats', sanitizedPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d }));
   await insertMany<Prisma.MediaAssetCreateManyInput>('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d }));
   await insertMany<Prisma.ArticleCreateManyInput>('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d }));
   await insertMany<Prisma.ArticleRevisionCreateManyInput>('Article Revisions', snapshot.articleRevisions, (d) => prisma.articleRevision.createMany({ data: d }));
