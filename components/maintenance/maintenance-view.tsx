@@ -6,15 +6,7 @@ import {
   Wrench,
   Sparkles,
   Clock,
-  Radio,
-  ShieldCheck,
-  Server,
-  Zap,
-  ArrowRight,
   Lock,
-  MessageCircle,
-  Send,
-  CheckCircle2,
 } from 'lucide-react';
 import type { MaintenanceSettings } from '@/lib/site-settings';
 
@@ -131,14 +123,6 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
 
 export function MaintenanceView({ settings }: { settings: MaintenanceSettings }) {
   const isComingSoon = settings.mode === 'COMING_SOON';
-  const [email, setEmail] = React.useState('');
-  const [subscribed, setSubscribed] = React.useState(false);
-
-  const handleNotify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !email.includes('@')) return;
-    setSubscribed(true);
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden selection:bg-(--ed-blue) selection:text-white">
@@ -203,67 +187,6 @@ export function MaintenanceView({ settings }: { settings: MaintenanceSettings })
             <CountdownTimer targetDate={settings.estimatedEnd} />
           </div>
         )}
-
-        {/* Feature / Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-xl mb-10 text-left">
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5 backdrop-blur-xs flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0">
-              <Server className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-200">Krafton Engine</div>
-              <div className="text-[11px] text-slate-400">Upgrading ranking sync</div>
-            </div>
-          </div>
-
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5 backdrop-blur-xs flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
-              <Zap className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-200">Match Analytics</div>
-              <div className="text-[11px] text-slate-400">High-speed caching</div>
-            </div>
-          </div>
-
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-3.5 backdrop-blur-xs flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-200">Zero Data Loss</div>
-              <div className="text-[11px] text-slate-400">Verified & safe</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Notification Signup */}
-        <div className="w-full max-w-md mx-auto mb-8">
-          {subscribed ? (
-            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-              <CheckCircle2 className="w-4 h-4" />
-              You&apos;re on the list! We&apos;ll notify you the moment the arena goes live.
-            </div>
-          ) : (
-            <form onSubmit={handleNotify} className="flex items-center gap-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter email for live launch alert..."
-                className="flex-1 bg-slate-900/90 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-(--ed-blue) transition-colors"
-                required
-              />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-(--ed-blue) hover:bg-(--ed-blue)/90 text-white text-xs font-bold tracking-wide transition-all shadow-lg shadow-blue-500/20 active:scale-95 shrink-0"
-              >
-                <span>Notify Me</span>
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          )}
-        </div>
 
         {/* Community Social Links */}
         <div className="flex items-center justify-center gap-2">
