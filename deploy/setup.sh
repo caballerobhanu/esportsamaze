@@ -19,7 +19,7 @@ apt-get install -y software-properties-common
 add-apt-repository -y universe || true
 apt-get update
 apt-get install -y curl git ufw nginx fail2ban unattended-upgrades \
-  ca-certificates gnupg htop logrotate bsdmainutils
+  ca-certificates gnupg htop logrotate
 apt-get install -y certbot python3-certbot-nginx || apt-get install -y certbot || true
 
 echo "=============================================================================="
