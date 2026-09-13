@@ -18,6 +18,10 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Clock,
+  Wand2,
+  CalendarDays,
+  Sparkles,
 } from 'lucide-react';
 
 export interface HeaderCardItem {
@@ -41,7 +45,14 @@ export interface StageFormatItem {
   sequence: number;
   stageType: string;
   formatType: string;
-  dates?: string;
+  dates?: string; // Display label e.g. "May 15 – May 25, 2026"
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  schedulePattern?: 'ALL_DAYS' | 'DAYS_OF_WEEK' | 'CUSTOM';
+  activeDaysOfWeek?: number[]; // [0..6] (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)
+  customDates?: string[]; // Array of YYYY-MM-DD
+  matchesPerDay?: number;
+  matchTime?: string;
   totalMatches?: number;
   matchdaysCount?: number | string;
   teamsCount?: number;
@@ -124,10 +135,81 @@ const DEFAULT_TIEBREAKER_TIERS: TiebreakerTierItem[] = [
   },
 ];
 
+const DAYS_OF_WEEK_OPTIONS = [
+  { dayIndex: 1, label: 'Mon', short: 'M' },
+  { dayIndex: 2, label: 'Tue', short: 'T' },
+  { dayIndex: 3, label: 'Wed', short: 'W' },
+  { dayIndex: 4, label: 'Thu', short: 'Th' },
+  { dayIndex: 5, label: 'Fri', short: 'F' },
+  { dayIndex: 6, label: 'Sat', short: 'Sa' },
+  { dayIndex: 0, label: 'Sun', short: 'Su' },
+];
+
+function formatDateRangeString(startStr?: string, endStr?: string): string {
+  if (!startStr) return '';
+  const dStart = new Date(startStr);
+  if (isNaN(dStart.getTime())) return '';
+  if (!endStr) {
+    return dStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  const dEnd = new Date(endStr);
+  if (isNaN(dEnd.getTime())) {
+    return dStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const startMonth = dStart.toLocaleDateString('en-US', { month: 'short' });
+  const endMonth = dEnd.toLocaleDateString('en-US', { month: 'short' });
+  const startDay = dStart.getDate();
+  const endDay = dEnd.getDate();
+  const year = dEnd.getFullYear();
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay} – ${endDay}, ${year}`;
+  }
+  return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
+}
+
+function calculateMatchdays(
+  startStr?: string,
+  endStr?: string,
+  pattern?: string,
+  daysOfWeek?: number[]
+): number {
+  if (!startStr || !endStr) return 0;
+  const dStart = new Date(startStr);
+  const dEnd = new Date(endStr);
+  if (isNaN(dStart.getTime()) || isNaN(dEnd.getTime()) || dStart > dEnd) return 0;
+
+  const cur = new Date(dStart.getFullYear(), dStart.getMonth(), dStart.getDate());
+  const limit = new Date(dEnd.getFullYear(), dEnd.getMonth(), dEnd.getDate());
+  let count = 0;
+
+  while (cur <= limit) {
+    if (pattern === 'DAYS_OF_WEEK') {
+      if (Array.isArray(daysOfWeek) && daysOfWeek.includes(cur.getDay())) {
+        count++;
+      }
+    } else {
+      // ALL_DAYS or fallback
+      count++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
+}
+
 export function TournamentStagesFormatInput({
   initialFormatDetails,
   initialStages,
 }: TournamentStagesFormatInputProps) {
+  // 0. Calendar Widget On/Off toggle
+  const [showCalendarWidget, setShowCalendarWidget] = useState<boolean>(() => {
+    if (typeof initialFormatDetails?.showCalendarWidget === 'boolean') {
+      return initialFormatDetails.showCalendarWidget;
+    }
+    return true; // Default enabled
+  });
+
   // 1. Header Cards state
   const [headerCards, setHeaderCards] = useState<HeaderCardItem[]>(() => {
     if (Array.isArray(initialFormatDetails?.headerCards) && initialFormatDetails.headerCards.length > 0) {
@@ -138,7 +220,6 @@ export function TournamentStagesFormatInput({
 
   // 2. Stage List state
   const [stages, setStages] = useState<StageFormatItem[]>(() => {
-    // Check if stages are configured in formatDetails.stages or formatDetails.stageFormats
     const existingFormats = initialFormatDetails?.stageFormats || {};
     const existingStagesArray = initialFormatDetails?.stages;
 
@@ -152,6 +233,13 @@ export function TournamentStagesFormatInput({
           stageType: st.stageType || fmt.stageType || 'GROUPS_WISE',
           formatType: st.formatType || fmt.formatType || 'Battle Royale Points Table',
           dates: fmt.dates || st.dates || '',
+          startDate: fmt.startDate || st.startDate || '',
+          endDate: fmt.endDate || st.endDate || '',
+          schedulePattern: fmt.schedulePattern || st.schedulePattern || 'ALL_DAYS',
+          activeDaysOfWeek: fmt.activeDaysOfWeek || st.activeDaysOfWeek || [4, 5, 6, 0],
+          customDates: fmt.customDates || st.customDates || [],
+          matchesPerDay: fmt.matchesPerDay ?? st.matchesPerDay ?? 6,
+          matchTime: fmt.matchTime || st.matchTime || '16:00 IST',
           totalMatches: fmt.totalMatches ?? st.totalMatches ?? 18,
           matchdaysCount: fmt.matchdaysCount ?? st.matchdaysCount ?? 3,
           teamsCount: fmt.teamsCount ?? st.teamsCount ?? 16,
@@ -176,6 +264,13 @@ export function TournamentStagesFormatInput({
           stageType: st.stageType || fmt.stageType || 'GROUPS_WISE',
           formatType: st.formatType || fmt.formatType || 'Battle Royale Points Table',
           dates: fmt.dates || '',
+          startDate: fmt.startDate || '',
+          endDate: fmt.endDate || '',
+          schedulePattern: fmt.schedulePattern || 'ALL_DAYS',
+          activeDaysOfWeek: fmt.activeDaysOfWeek || [4, 5, 6, 0],
+          customDates: fmt.customDates || [],
+          matchesPerDay: fmt.matchesPerDay ?? 6,
+          matchTime: fmt.matchTime || '16:00 IST',
           totalMatches: fmt.totalMatches ?? 18,
           matchdaysCount: fmt.matchdaysCount ?? 3,
           teamsCount: fmt.teamsCount ?? 16,
@@ -195,6 +290,13 @@ export function TournamentStagesFormatInput({
         stageType: 'GROUPS_WISE',
         formatType: 'Battle Royale Points Table',
         dates: '',
+        startDate: '',
+        endDate: '',
+        schedulePattern: 'ALL_DAYS',
+        activeDaysOfWeek: [4, 5, 6, 0],
+        customDates: [],
+        matchesPerDay: 6,
+        matchTime: '16:00 IST',
         totalMatches: 18,
         matchdaysCount: 3,
         teamsCount: 16,
@@ -226,13 +328,15 @@ export function TournamentStagesFormatInput({
     return DEFAULT_TIEBREAKER_TIERS;
   });
 
-  // Active section tab: 'cards' | 'stages' | 'tiebreakers'
-  const [activeTab, setActiveTab] = useState<'cards' | 'stages' | 'tiebreakers'>('stages');
+  // Active section tab: 'stages' | 'cards' | 'tiebreakers'
+  const [activeTab, setActiveTab] = useState<'stages' | 'cards' | 'tiebreakers'>('stages');
   const [expandedStageIndex, setExpandedStageIndex] = useState<number | null>(0);
 
   // Compile JSON payload
   const compiledPayload = useMemo(() => {
     const stageFormatsMap: Record<string, any> = {};
+    const calendarPhases: any[] = [];
+
     stages.forEach((st) => {
       stageFormatsMap[st.name] = {
         name: st.name,
@@ -240,6 +344,13 @@ export function TournamentStagesFormatInput({
         stageType: st.stageType,
         formatType: st.formatType,
         dates: st.dates || '',
+        startDate: st.startDate || '',
+        endDate: st.endDate || '',
+        schedulePattern: st.schedulePattern || 'ALL_DAYS',
+        activeDaysOfWeek: st.activeDaysOfWeek || [4, 5, 6, 0],
+        customDates: st.customDates || [],
+        matchesPerDay: Number(st.matchesPerDay) || 6,
+        matchTime: st.matchTime || '16:00 IST',
         totalMatches: Number(st.totalMatches) || 0,
         matchdaysCount: st.matchdaysCount || 0,
         teamsCount: Number(st.teamsCount) || 16,
@@ -247,9 +358,23 @@ export function TournamentStagesFormatInput({
         stageDescription: st.stageDescription || '',
         rules: st.rules || [],
       };
+
+      if (st.startDate && st.endDate) {
+        calendarPhases.push({
+          stageName: st.name,
+          startDate: st.startDate,
+          endDate: st.endDate,
+          pattern: st.schedulePattern || 'ALL_DAYS',
+          activeDaysOfWeek: st.activeDaysOfWeek || [4, 5, 6, 0],
+          customDates: st.customDates || [],
+          matchesPerDay: Number(st.matchesPerDay) || 6,
+          matchTime: st.matchTime || '16:00 IST',
+        });
+      }
     });
 
     return {
+      showCalendarWidget,
       headerCards,
       stageFormats: stageFormatsMap,
       stages: stages.map((st, idx) => ({
@@ -258,7 +383,14 @@ export function TournamentStagesFormatInput({
         sequence: idx + 1,
         stageType: st.stageType,
         formatType: st.formatType,
-        dates: st.dates,
+        dates: st.dates || '',
+        startDate: st.startDate || '',
+        endDate: st.endDate || '',
+        schedulePattern: st.schedulePattern || 'ALL_DAYS',
+        activeDaysOfWeek: st.activeDaysOfWeek || [4, 5, 6, 0],
+        customDates: st.customDates || [],
+        matchesPerDay: Number(st.matchesPerDay) || 6,
+        matchTime: st.matchTime || '16:00 IST',
         totalMatches: st.totalMatches,
         matchdaysCount: st.matchdaysCount,
         teamsCount: st.teamsCount,
@@ -266,9 +398,10 @@ export function TournamentStagesFormatInput({
         stageDescription: st.stageDescription,
         rules: st.rules,
       })),
+      calendarPhases,
       tiebreakerTiers,
     };
-  }, [headerCards, stages, tiebreakerTiers]);
+  }, [showCalendarWidget, headerCards, stages, tiebreakerTiers]);
 
   // Stage Handlers
   const addStage = () => {
@@ -280,6 +413,13 @@ export function TournamentStagesFormatInput({
       stageType: 'GROUPS_WISE',
       formatType: 'Battle Royale Points Table',
       dates: '',
+      startDate: '',
+      endDate: '',
+      schedulePattern: 'ALL_DAYS',
+      activeDaysOfWeek: [4, 5, 6, 0],
+      customDates: [],
+      matchesPerDay: 6,
+      matchTime: '16:00 IST',
       totalMatches: 18,
       matchdaysCount: 3,
       teamsCount: 16,
@@ -301,7 +441,16 @@ export function TournamentStagesFormatInput({
   const updateStage = (idx: number, patch: Partial<StageFormatItem>) => {
     setStages((prev) => {
       const copy = [...prev];
-      copy[idx] = { ...copy[idx], ...patch };
+      const target = { ...copy[idx], ...patch };
+
+      // Auto-update display dates if startDate or endDate changed and dates is empty or was auto-generated
+      if ('startDate' in patch || 'endDate' in patch) {
+        if (!target.dates || target.dates === formatDateRangeString(copy[idx].startDate, copy[idx].endDate)) {
+          target.dates = formatDateRangeString(target.startDate, target.endDate);
+        }
+      }
+
+      copy[idx] = target;
       return copy;
     });
   };
@@ -329,6 +478,16 @@ export function TournamentStagesFormatInput({
     const copyRules = [...stage.rules];
     copyRules[ruleIdx] = { ...copyRules[ruleIdx], ...patch };
     updateStage(stageIdx, { rules: copyRules });
+  };
+
+  // Day of week toggler
+  const toggleDayOfWeek = (stageIdx: number, dayIndex: number) => {
+    const stage = stages[stageIdx];
+    const current = stage.activeDaysOfWeek || [4, 5, 6, 0];
+    const updated = current.includes(dayIndex)
+      ? current.filter((d) => d !== dayIndex)
+      : [...current, dayIndex];
+    updateStage(stageIdx, { activeDaysOfWeek: updated });
   };
 
   // Tiebreaker Handlers
@@ -364,6 +523,47 @@ export function TournamentStagesFormatInput({
   return (
     <div className="space-y-4">
       <input type="hidden" name="stagesFormatJson" value={JSON.stringify(compiledPayload)} />
+
+      {/* TOP BAR: Calendar Widget On/Off Master Switch */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900/60 flex items-center justify-center text-(--ed-blue) dark:text-blue-400 shrink-0">
+            <CalendarDays className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                Tournament Schedule Calendar Widget
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  showCalendarWidget
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-400'
+                    : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}
+              >
+                {showCalendarWidget ? 'ACTIVE' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Controls whether the interactive monthly schedule calendar is rendered on the public Format tab.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowCalendarWidget(!showCalendarWidget)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            showCalendarWidget
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
+              : 'bg-slate-300 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-400 dark:hover:bg-slate-700'
+          }`}
+        >
+          {showCalendarWidget ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          <span>{showCalendarWidget ? 'Calendar Enabled (Click to Turn Off)' : 'Calendar Hidden (Click to Turn On)'}</span>
+        </button>
+      </div>
 
       {/* Navigation Subtabs */}
       <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
@@ -412,7 +612,7 @@ export function TournamentStagesFormatInput({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              Define stages, match counts, groups, and advancement rules. These will display even if 0 matches have been played yet (Upcoming Events).
+              Define stages with real calendar dates, matchdays pattern (e.g. Thu–Sun for BMPS), and advancement rules.
             </p>
             <button
               type="button"
@@ -427,6 +627,15 @@ export function TournamentStagesFormatInput({
           <div className="space-y-3">
             {stages.map((stage, sIdx) => {
               const isExpanded = expandedStageIndex === sIdx;
+              const calculatedMatchdays = calculateMatchdays(
+                stage.startDate,
+                stage.endDate,
+                stage.schedulePattern,
+                stage.activeDaysOfWeek
+              );
+              const matchesPerDay = Number(stage.matchesPerDay) || 6;
+              const calculatedTotalMatches = calculatedMatchdays * matchesPerDay;
+
               return (
                 <div
                   key={stage.id || sIdx}
@@ -445,7 +654,9 @@ export function TournamentStagesFormatInput({
                         <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
                           {stage.totalMatches ? <span>{stage.totalMatches} Matches</span> : null}
                           {stage.matchdaysCount ? <span>• {stage.matchdaysCount} Days</span> : null}
-                          {stage.dates ? <span>• {stage.dates}</span> : null}
+                          {stage.dates ? (
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">• {stage.dates}</span>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -475,6 +686,7 @@ export function TournamentStagesFormatInput({
                   {/* Stage Accordion Body */}
                   {isExpanded && (
                     <div className="p-4 space-y-4">
+                      {/* Row 1: Name & Structure */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="sm:col-span-2">
                           <label className={labelCls}>Stage Official Name *</label>
@@ -482,7 +694,7 @@ export function TournamentStagesFormatInput({
                             type="text"
                             value={stage.name}
                             onChange={(e) => updateStage(sIdx, { name: e.target.value })}
-                            placeholder="e.g. Grand Finals, Survival Stage, Round 1"
+                            placeholder="e.g. Round 1, Survival Stage, Semifinals, Grand Finals"
                             className={inputCls + ' font-bold'}
                           />
                         </div>
@@ -517,18 +729,189 @@ export function TournamentStagesFormatInput({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        <div>
-                          <label className={labelCls}>Dates / Schedule Window</label>
-                          <input
-                            type="text"
-                            value={stage.dates || ''}
-                            onChange={(e) => updateStage(sIdx, { dates: e.target.value })}
-                            placeholder="e.g. Oct 12 – Oct 15, 2026"
-                            className={inputCls}
-                          />
+                      {/* Row 2: REAL CALENDAR DATES & SCHEDULE PATTERN (For Calendar Widget & BMPS) */}
+                      <div className="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                            <Calendar className="w-3.5 h-3.5 text-(--ed-blue)" />
+                            <span>Stage Calendar Dates &amp; Matchday Intervals</span>
+                          </div>
+                          {calculatedMatchdays > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                                📅 Calculated: {calculatedMatchdays} Days ({calculatedTotalMatches} Matches)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateStage(sIdx, {
+                                    matchdaysCount: calculatedMatchdays,
+                                    totalMatches: calculatedTotalMatches,
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition-colors"
+                              >
+                                <Sparkles className="w-3 h-3" />
+                                <span>Sync Counts</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className={labelCls}>Stage Start Date (Calendar)</label>
+                            <input
+                              type="date"
+                              value={stage.startDate || ''}
+                              onChange={(e) => updateStage(sIdx, { startDate: e.target.value })}
+                              className={inputCls}
+                            />
+                          </div>
+
+                          <div>
+                            <label className={labelCls}>Stage End Date (Calendar)</label>
+                            <input
+                              type="date"
+                              value={stage.endDate || ''}
+                              onChange={(e) => updateStage(sIdx, { endDate: e.target.value })}
+                              className={inputCls}
+                            />
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Display Dates Label
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const auto = formatDateRangeString(stage.startDate, stage.endDate);
+                                  if (auto) updateStage(sIdx, { dates: auto });
+                                }}
+                                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              >
+                                <Wand2 className="w-2.5 h-2.5" />
+                                <span>Auto Label</span>
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              value={stage.dates || ''}
+                              onChange={(e) => updateStage(sIdx, { dates: e.target.value })}
+                              placeholder="e.g. May 15 – May 25, 2026"
+                              className={inputCls}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Matchday Recurrence Pattern */}
+                        <div className="pt-2 border-t border-blue-200/50 dark:border-blue-900/30">
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                            <div className="md:col-span-4">
+                              <label className={labelCls}>Matchday Recurrence Pattern</label>
+                              <select
+                                value={stage.schedulePattern || 'ALL_DAYS'}
+                                onChange={(e) =>
+                                  updateStage(sIdx, { schedulePattern: e.target.value as any })
+                                }
+                                className={inputCls}
+                              >
+                                <option value="ALL_DAYS">Consecutive Daily (Every day in range)</option>
+                                <option value="DAYS_OF_WEEK">Weekly Days (e.g. Thu, Fri, Sat, Sun)</option>
+                              </select>
+                            </div>
+
+                            <div className="md:col-span-4">
+                              <label className={labelCls}>Matches Per Matchday</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={12}
+                                  value={stage.matchesPerDay ?? 6}
+                                  onChange={(e) =>
+                                    updateStage(sIdx, { matchesPerDay: parseInt(e.target.value) || 6 })
+                                  }
+                                  className={inputCls}
+                                />
+                                <span className="text-xs text-slate-500 font-bold shrink-0">matches/day</span>
+                              </div>
+                            </div>
+
+                            <div className="md:col-span-4">
+                              <label className={labelCls}>Daily Start Time</label>
+                              <input
+                                type="text"
+                                value={stage.matchTime || '16:00 IST'}
+                                onChange={(e) => updateStage(sIdx, { matchTime: e.target.value })}
+                                placeholder="e.g. 16:00 IST or 17:30 IST"
+                                className={inputCls}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Days of Week Selectors (when DAYS_OF_WEEK selected) */}
+                          {stage.schedulePattern === 'DAYS_OF_WEEK' && (
+                            <div className="mt-2.5 p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                  Active Match Days of the Week:
+                                </span>
+                                <div className="flex items-center gap-1.5 text-[10px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateStage(sIdx, { activeDaysOfWeek: [4, 5, 6, 0] })}
+                                    className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold hover:bg-blue-200"
+                                  >
+                                    BMPS/BGIS Preset (Thu–Sun)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateStage(sIdx, { activeDaysOfWeek: [5, 6, 0] })}
+                                    className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
+                                  >
+                                    Weekend (Fri–Sun)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateStage(sIdx, { activeDaysOfWeek: [1, 2, 3, 4, 5, 6, 0] })
+                                    }
+                                    className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
+                                  >
+                                    All 7 Days
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {DAYS_OF_WEEK_OPTIONS.map((dow) => {
+                                  const isActive = (stage.activeDaysOfWeek || []).includes(dow.dayIndex);
+                                  return (
+                                    <button
+                                      key={dow.dayIndex}
+                                      type="button"
+                                      onClick={() => toggleDayOfWeek(sIdx, dow.dayIndex)}
+                                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                        isActive
+                                          ? 'bg-blue-600 text-white shadow-xs'
+                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                      }`}
+                                    >
+                                      {dow.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Row 3: Matches & Teams Counts */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
                           <label className={labelCls}>Total Matches</label>
                           <input
@@ -567,17 +950,17 @@ export function TournamentStagesFormatInput({
                             className={inputCls}
                           />
                         </div>
-                      </div>
 
-                      <div>
-                        <label className={labelCls}>Lobby / Groups Division Label</label>
-                        <input
-                          type="text"
-                          value={stage.groupsDivision || ''}
-                          onChange={(e) => updateStage(sIdx, { groupsDivision: e.target.value })}
-                          placeholder="e.g. Single Lobby (16 Teams) or 3 Groups (A, B, C) — 24 Teams"
-                          className={inputCls}
-                        />
+                        <div>
+                          <label className={labelCls}>Lobby / Groups Division Label</label>
+                          <input
+                            type="text"
+                            value={stage.groupsDivision || ''}
+                            onChange={(e) => updateStage(sIdx, { groupsDivision: e.target.value })}
+                            placeholder="e.g. 3 Groups (A, B, C) or Single Lobby"
+                            className={inputCls}
+                          />
+                        </div>
                       </div>
 
                       <div>

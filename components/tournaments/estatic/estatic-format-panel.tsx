@@ -353,7 +353,15 @@ export function EstaticFormatPanel({
         name: stage.name,
         stageType: stage.stageType || stage.formatType || customStage?.stageType || 'Official Stage',
         formatType: stage.formatType || customStage?.formatType || null,
-        dateRange: customStage?.dates || customStage?.dateRange || dateRange,
+        startDate: (stage as any).startDate || customStage?.startDate || null,
+        endDate: (stage as any).endDate || customStage?.endDate || null,
+        dateRange:
+          customStage?.dates ||
+          customStage?.dateRange ||
+          (customStage?.startDate && customStage?.endDate
+            ? `${new Date(customStage.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${new Date(customStage.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+            : null) ||
+          dateRange,
         matchdaysCount: customStage?.matchdaysCount || matchdaysCount,
         totalMatches: customStage?.totalMatches || customStage?.matchCount || (stageMatches.length > 0 ? stageMatches.length : undefined),
         teamsCount: customStage?.teamsCount || (stageTeamIds.size > 0 ? stageTeamIds.size : undefined),
@@ -548,16 +556,24 @@ ${stageSummary}
       )}
 
       {/* TOURNAMENT SCHEDULE CALENDAR WIDGET */}
-      <section>
-        <TournamentScheduleCalendar
-          tournamentName={tournamentName}
-          tournamentSlug={tournament?.slug}
-          dateRangeText={dateRangeStr}
-          stages={stages}
-          matches={matches}
-          formatDetails={formatDetails}
-        />
-      </section>
+      {formatDetails?.showCalendarWidget !== false && (
+        <section>
+          <TournamentScheduleCalendar
+            tournamentName={tournamentName}
+            tournamentSlug={tournament?.slug}
+            dateRangeText={dateRangeStr}
+            stages={synthesizedStages.map((s) => ({
+              id: s.stageId,
+              name: s.name,
+              sequence: s.sequence,
+              startDate: s.startDate,
+              endDate: s.endDate,
+            }))}
+            matches={matches}
+            formatDetails={formatDetails}
+          />
+        </section>
+      )}
 
       {/* Editorial Overview & Progression Narrative */}
       {customOverview && (

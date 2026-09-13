@@ -36,6 +36,12 @@ export interface CalendarStageItem {
   sequence?: number;
   startDate?: Date | string | null;
   endDate?: Date | string | null;
+  schedulePattern?: string;
+  activeDaysOfWeek?: number[];
+  customDates?: string[];
+  matchesPerDay?: number;
+  matchTime?: string;
+  groupsDivision?: string;
 }
 
 interface TournamentScheduleCalendarProps {
@@ -171,6 +177,72 @@ export function TournamentScheduleCalendar({
       }
     }
 
+    // 1b. Synthesize scheduled matchdays for upcoming events or stages with defined date windows
+    const stageConfigs = (stages || []).map((s: any) => {
+      const fmt = formatDetails?.stageFormats?.[s.name] || formatDetails?.stageFormats?.[s.id] || {};
+      return {
+        name: s.name,
+        startDate: s.startDate || fmt.startDate,
+        endDate: s.endDate || fmt.endDate,
+        schedulePattern: s.schedulePattern || fmt.schedulePattern || 'ALL_DAYS',
+        activeDaysOfWeek: s.activeDaysOfWeek || fmt.activeDaysOfWeek || [4, 5, 6, 0],
+        customDates: s.customDates || fmt.customDates || [],
+        matchesPerDay: Number(s.matchesPerDay || fmt.matchesPerDay) || 6,
+        matchTime: s.matchTime || fmt.matchTime || '16:00 IST',
+        groupsDivision: s.groupsDivision || fmt.groupsDivision || 'Lobby Matches',
+      };
+    });
+
+    const MAP_ROTATION = ['Erangel', 'Miramar', 'Sanhok', 'Erangel', 'Miramar', 'Erangel'];
+
+    for (const sc of stageConfigs) {
+      if (!sc.startDate || !sc.endDate) continue;
+      const sStart = new Date(sc.startDate);
+      const sEnd = new Date(sc.endDate);
+      if (isNaN(sStart.getTime()) || isNaN(sEnd.getTime()) || sStart > sEnd) continue;
+
+      const cursor = new Date(sStart.getFullYear(), sStart.getMonth(), sStart.getDate());
+      const endLimit = new Date(sEnd.getFullYear(), sEnd.getMonth(), sEnd.getDate());
+
+      let dayIndex = 1;
+      while (cursor <= endLimit) {
+        const key = getLocalDateKey(cursor);
+        const dayOfWeek = cursor.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+
+        let isActiveDay = true;
+        if (sc.schedulePattern === 'DAYS_OF_WEEK') {
+          isActiveDay = Array.isArray(sc.activeDaysOfWeek) && sc.activeDaysOfWeek.includes(dayOfWeek);
+        } else if (sc.schedulePattern === 'CUSTOM') {
+          isActiveDay = Array.isArray(sc.customDates) && sc.customDates.includes(key);
+        }
+
+        // Only inject projected matches if no real matches were ingested for this day
+        if (isActiveDay && (!map.has(key) || map.get(key)!.length === 0)) {
+          const projMatches: CalendarMatchItem[] = [];
+          const count = sc.matchesPerDay || 6;
+          for (let mIdx = 1; mIdx <= count; mIdx++) {
+            projMatches.push({
+              id: `sched-${sc.name.replace(/\s+/g, '-').toLowerCase()}-${key}-${mIdx}`,
+              matchNumber: mIdx,
+              overallMatchNumber: (dayIndex - 1) * count + mIdx,
+              scheduledAt: new Date(cursor),
+              matchTime: sc.matchTime,
+              mapName: MAP_ROTATION[(mIdx - 1) % MAP_ROTATION.length],
+              groupName: sc.groupsDivision,
+              status: 'SCHEDULED',
+              stage: { name: sc.name },
+              stageName: sc.name,
+            });
+          }
+          map.set(key, projMatches);
+          dates.push(new Date(cursor));
+          dayIndex++;
+        }
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
     // Sort matches on each day chronologically / by matchNumber
     for (const [, dayMatches] of map.entries()) {
       dayMatches.sort((a, b) => {
@@ -183,12 +255,40 @@ export function TournamentScheduleCalendar({
 
     dates.sort((a, b) => a.getTime() - b.getTime());
     return { matchesByDate: map, allMatchDates: dates, stageColorMap: colorMap };
-  }, [matches, stages]);
+  }, [matches, stages, formatDetails]);
 
   // 2. Determine tournament date boundaries and available months
   const { minDate, maxDate, availableMonths } = useMemo(() => {
     let start: Date | null = allMatchDates[0] ? new Date(allMatchDates[0]) : null;
     let end: Date | null = allMatchDates[allMatchDates.length - 1] ? new Date(allMatchDates[allMatchDates.length - 1]) : null;
+
+    // Check stage start & end dates
+    (stages || []).forEach((s: any) => {
+      const fmt = formatDetails?.stageFormats?.[s.name] || {};
+      const stStart = s.startDate || fmt.startDate;
+      const stEnd = s.endDate || fmt.endDate;
+      if (stStart) {
+        const d = new Date(stStart);
+        if (!isNaN(d.getTime()) && (!start || d < start)) start = d;
+      }
+      if (stEnd) {
+        const d = new Date(stEnd);
+        if (!isNaN(d.getTime()) && (!end || d > end)) end = d;
+      }
+    });
+
+    if (formatDetails?.stages && Array.isArray(formatDetails.stages)) {
+      formatDetails.stages.forEach((st: any) => {
+        if (st.startDate) {
+          const d = new Date(st.startDate);
+          if (!isNaN(d.getTime()) && (!start || d < start)) start = d;
+        }
+        if (st.endDate) {
+          const d = new Date(st.endDate);
+          if (!isNaN(d.getTime()) && (!end || d > end)) end = d;
+        }
+      });
+    }
 
     if (formatDetails?.startDate) {
       const d = new Date(formatDetails.startDate);
@@ -223,7 +323,7 @@ export function TournamentScheduleCalendar({
     }
 
     return { minDate: normStart, maxDate: normEnd, availableMonths: months };
-  }, [allMatchDates, formatDetails]);
+  }, [allMatchDates, formatDetails, stages]);
 
   // Month navigation index
   const [selectedMonthIdx, setSelectedMonthIdx] = useState(0);

@@ -51,6 +51,8 @@ export interface StageFormatData {
   stageType?: string | null;
   formatType?: string | null;
   dateRange?: string | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
   matchdaysCount?: number;
   totalMatches?: number;
   teamsCount?: number;

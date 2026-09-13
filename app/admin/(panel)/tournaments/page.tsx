@@ -138,6 +138,10 @@ async function saveTournament(formData: FormData) {
       ...(stagesFormat.stageFormats ? { stageFormats: stagesFormat.stageFormats } : {}),
       ...(stagesFormat.stages ? { stages: stagesFormat.stages } : {}),
       ...(stagesFormat.tiebreakerTiers ? { tiebreakerTiers: stagesFormat.tiebreakerTiers } : {}),
+      ...(typeof stagesFormat.showCalendarWidget === 'boolean'
+        ? { showCalendarWidget: stagesFormat.showCalendarWidget }
+        : {}),
+      ...(stagesFormat.calendarPhases ? { calendarPhases: stagesFormat.calendarPhases } : {}),
     };
   }
 
