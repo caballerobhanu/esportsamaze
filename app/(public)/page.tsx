@@ -1,9 +1,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeftRight,
+  ArrowRight,
   Calendar,
-  MapPin,
 } from 'lucide-react';
 import { EventsSection } from '@/components/events-section';
 import { HomeMatchHighlight, type HighlightMatchData } from '@/components/home/home-match-highlight';
@@ -350,12 +349,6 @@ export default async function HomePage() {
 
             <div className="space-y-4">
               {tournaments.map((tourney) => {
-                const venueName =
-                  tourney.venues[0]?.venue?.name ||
-                  tourney.legacyVenue ||
-                  tourney.legacyLocation ||
-                  tourney.eventType ||
-                  'Online';
                 const organizerName =
                   tourney.organizers[0]?.organizer?.name || tourney.legacyOrganizer || null;
 
@@ -370,12 +363,13 @@ export default async function HomePage() {
                   <Link
                     key={tourney.id}
                     href={`/tournaments/${tourney.slug}`}
-                    className="ed-card group block space-y-3.5 p-5 transition-colors hover:border-[var(--ed-blue)]"
+                    className="ed-card group block p-4 sm:p-5 transition-all hover:border-[var(--ed-blue)]/80"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="ed-chip px-2.5 py-0.5 text-[10px]">{tourney.tier || 'Tier 1'}</span>
+                    <div className="flex flex-col gap-3">
+                      {/* Top Meta: Badges on left, Single primary Prize Pool on right */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <span className="ed-chip px-2.5 py-0.5 text-[10px] font-semibold">{tourney.tier || 'Tier 1'}</span>
                           <span
                             className={cn(
                               'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
@@ -389,38 +383,42 @@ export default async function HomePage() {
                             {statusLabel}
                           </span>
                           {tourney.game?.name && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ed-stone)]">
                               {tourney.game.name}
                             </span>
                           )}
                         </div>
-                        <h3 className="mt-2 text-base font-bold transition-colors group-hover:text-[var(--ed-blue)]">
+
+                        <div className="min-w-0 text-right shrink-0">
+                          <div className="ed-label text-[10px]">
+                            Prize pool
+                          </div>
+                          <div className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 num">
+                            {formatPrizePool(tourney.prizePool || 0, tourney.currency, tourney.usdRate, false)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Tournament Name & Organizer */}
+                      <div>
+                        <h3 className="text-base sm:text-lg font-bold text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)] leading-snug">
                           {tourney.name}
                         </h3>
                         {organizerName && (
-                          <p className="text-xs font-medium text-[var(--ed-stone)]">{organizerName}</p>
+                          <p className="mt-0.5 text-xs font-medium text-[var(--ed-stone)]">{organizerName}</p>
                         )}
                       </div>
 
-                      <div className="min-w-0 text-right">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ed-stone)]">
-                          Prize pool
-                        </div>
-                        <div className="text-base font-bold text-amber-600 dark:text-amber-400">
-                          {formatPrizePool(tourney.prizePool || 0, tourney.currency, tourney.usdRate)}
-                        </div>
+                      {/* Date Row: Sleek border-t rule with no artificial container */}
+                      <div className="flex items-center justify-between border-t border-[var(--ed-hair)]/70 pt-3 text-xs text-[var(--ed-stone)]">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Calendar className="h-3.5 w-3.5 text-[var(--ed-stone)]" />
+                          {formatDate(tourney.startDate)} – {formatDate(tourney.endDate)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ed-blue)] opacity-0 transition-opacity group-hover:opacity-100">
+                          View details <ArrowRight className="h-3 w-3" />
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-3 text-xs text-[var(--ed-stone)]">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Calendar className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
-                        {formatDate(tourney.startDate)} – {formatDate(tourney.endDate)}
-                      </span>
-                      <span className="flex items-center gap-1.5 font-semibold text-[var(--ed-ink)]">
-                        <MapPin className="h-3.5 w-3.5 text-rose-500" />
-                        {venueName}
-                      </span>
                     </div>
                   </Link>
                 );
@@ -447,27 +445,31 @@ export default async function HomePage() {
                     return (
                       <div
                         key={move.id}
-                        className="space-y-2.5 p-4 transition-colors hover:bg-[var(--ed-sand)]/60"
+                        className="group flex flex-col gap-2 p-3.5 sm:p-4 transition-colors hover:bg-[var(--ed-sand)]/50"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
+                        {/* Top: Player name, role, status badge & formatted date */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <Link
                               href={`/players/${encodeURIComponent(move.player.slug || move.player.ign.toLowerCase())}`}
-                              className="text-sm font-bold transition-colors hover:text-[var(--ed-blue)]"
+                              className="font-bold text-sm text-[var(--ed-ink)] transition-colors hover:text-[var(--ed-blue)] truncate"
                             >
                               {move.player.ign}
                             </Link>
                             {realName && (
-                              <span className="text-xs text-[var(--ed-stone)]">({realName})</span>
+                              <span className="hidden sm:inline text-xs text-[var(--ed-stone)] truncate">
+                                ({realName})
+                              </span>
                             )}
+                            <span className="text-[11px] font-medium text-[var(--ed-stone)]">
+                              • {move.staffRole || move.player.role || 'Player'}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            {move.staffRole && (
-                              <span className="ed-chip px-2.5 py-0.5 text-[10px]">{move.staffRole}</span>
-                            )}
+
+                          <div className="flex items-center gap-2 shrink-0">
                             <span
                               className={cn(
-                                'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                                'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
                                 move.type === 'LEFT'
                                   ? 'border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
                                   : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
@@ -475,54 +477,37 @@ export default async function HomePage() {
                             >
                               {move.type.charAt(0) + move.type.slice(1).toLowerCase()}
                             </span>
+                            <span className="text-[11px] font-medium text-[var(--ed-stone)]">
+                              {formatDate(move.date)}
+                            </span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] p-2.5 text-xs">
+                        {/* Movement: Team → Team in an authentic wire layout */}
+                        <div className="flex items-center gap-2 text-xs font-semibold text-[var(--ed-stone)]">
                           {move.fromTeam ? (
-                            <>
-                              <Link
-                                href={`/teams/${encodeURIComponent(move.fromTeam.slug || move.fromTeam.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                                className="font-bold transition-colors hover:text-[var(--ed-blue)]"
-                              >
-                                {move.fromTeam.name}
-                              </Link>
-                              <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
-                              <Link
-                                href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                                className="font-bold transition-colors hover:text-[var(--ed-blue)]"
-                              >
-                                {move.team.name}
-                              </Link>
-                            </>
-                          ) : move.type === 'LEFT' ? (
-                            <>
-                              <span className="font-bold text-[var(--ed-ink)]">{move.team.name}</span>
-                              <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
-                              <span className="font-medium text-[var(--ed-stone)]">Free agent</span>
-                            </>
+                            <Link
+                              href={`/teams/${encodeURIComponent(move.fromTeam.slug || move.fromTeam.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                              className="transition-colors hover:text-[var(--ed-ink)] truncate max-w-[140px] sm:max-w-[180px]"
+                            >
+                              {move.fromTeam.name}
+                            </Link>
                           ) : (
-                            <>
-                              <span className="font-medium text-[var(--ed-stone)]">Free agent</span>
-                              <ArrowLeftRight className="h-3.5 w-3.5 text-[var(--ed-blue)]" />
-                              <Link
-                                href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                                className="font-bold transition-colors hover:text-[var(--ed-blue)]"
-                              >
-                                {move.team.name}
-                              </Link>
-                            </>
+                            <span className="font-normal text-[var(--ed-stone)]/80">Free agent</span>
                           )}
-                        </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-[var(--ed-stone)]">
-                          <span>
-                            Role:{' '}
-                            <strong className="font-bold text-[var(--ed-ink)]">
-                              {move.staffRole || move.player.role || 'Player'}
-                            </strong>
-                          </span>
-                          <span className="font-bold">{move.date.toISOString().slice(0, 10)}</span>
+                          <ArrowRight className="h-3.5 w-3.5 text-[var(--ed-blue)] shrink-0" />
+
+                          {move.type === 'LEFT' ? (
+                            <span className="font-normal text-[var(--ed-stone)]/80">Free agent</span>
+                          ) : (
+                            <Link
+                              href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                              className="font-bold text-[var(--ed-ink)] transition-colors hover:text-[var(--ed-blue)] truncate max-w-[140px] sm:max-w-[180px]"
+                            >
+                              {move.team.name}
+                            </Link>
+                          )}
                         </div>
                       </div>
                     );

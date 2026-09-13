@@ -50,7 +50,8 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 export function formatPrizePool(
   amount: number,
   currency: string = 'USD',
-  usdRate?: number | null
+  usdRate?: number | null,
+  includeSecondary: boolean = true
 ): string {
   if (!amount || amount <= 0) return 'TBA';
   const currCode = (currency || 'USD').toUpperCase();
@@ -59,7 +60,7 @@ export function formatPrizePool(
   const symbol = CURRENCY_SYMBOLS[currCode] ?? `${currCode} `;
   const localFormatted = `${symbol}${amount.toLocaleString(currCode === 'INR' ? 'en-IN' : 'en-US')}`;
 
-  if (currCode === 'USD') {
+  if (currCode === 'USD' || !includeSecondary) {
     return localFormatted;
   }
 
