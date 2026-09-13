@@ -6,6 +6,8 @@ import { getMaintenanceSettings } from '@/lib/site-settings';
 import { MaintenanceView } from '@/components/maintenance/maintenance-view';
 import { AdminMaintenanceBanner } from '@/components/maintenance/admin-banner';
 
+export const dynamic = 'force-dynamic';
+
 // Shared chrome for every public page. Admin routes live outside this group
 // and keep their own panel layout.
 export default async function PublicLayout({

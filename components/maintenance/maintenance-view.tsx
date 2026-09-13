@@ -154,18 +154,12 @@ export function MaintenanceView({ settings }: { settings: MaintenanceSettings })
 
       {/* Top Brand Header */}
       <header className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-(--ed-blue) flex items-center justify-center font-black text-white text-lg tracking-wider shadow-lg shadow-blue-500/25">
-            EA
-          </div>
-          <div className="flex flex-col">
-            <span className="font-black text-sm uppercase tracking-wider text-white">
-              Esports Amaze
-            </span>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
-              India Gaming Arena
-            </span>
-          </div>
+        <div className="flex items-center">
+          <img
+            src="/logo.svg"
+            alt="Esports Amaze"
+            className="h-8 sm:h-9 w-auto object-contain brightness-0 invert"
+          />
         </div>
 
         {/* Live status badge */}

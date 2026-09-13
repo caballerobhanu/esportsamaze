@@ -8,8 +8,8 @@ import {
 } from '../lib/site-settings';
 
 test('DEFAULT_MAINTENANCE_SETTINGS has safe defaults', () => {
-  assert.equal(DEFAULT_MAINTENANCE_SETTINGS.enabled, false);
-  assert.equal(DEFAULT_MAINTENANCE_SETTINGS.mode, 'MAINTENANCE');
+  assert.equal(DEFAULT_MAINTENANCE_SETTINGS.enabled, true);
+  assert.equal(DEFAULT_MAINTENANCE_SETTINGS.mode, 'COMING_SOON');
   assert.ok(DEFAULT_MAINTENANCE_SETTINGS.title.length > 0);
   assert.ok(DEFAULT_MAINTENANCE_SETTINGS.subtitle.length > 0);
   assert.equal(typeof DEFAULT_MAINTENANCE_SETTINGS.socialLinks, 'object');

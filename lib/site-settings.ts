@@ -19,12 +19,12 @@ export interface MaintenanceSettings {
 }
 
 export const DEFAULT_MAINTENANCE_SETTINGS: MaintenanceSettings = {
-  enabled: false,
-  mode: 'MAINTENANCE',
-  title: "We're Upgrading the Arena",
+  enabled: true,
+  mode: 'COMING_SOON',
+  title: 'Coming Soon - The Arena Awakens',
   subtitle:
-    "EsportsAmaze is currently undergoing scheduled platform upgrades. We'll be back online with updated match statistics, live standings, and player profiles.",
-  noticeBadge: 'Scheduled Maintenance',
+    "EsportsAmaze is gearing up to bring you real-time tournament standings, match statistics, Krafton rankings, and live esports coverage across India.",
+  noticeBadge: 'Next-Gen Arena Incoming',
   estimatedEnd: '',
   showCountdown: true,
   contactEmail: 'support@esportsamaze.com',
