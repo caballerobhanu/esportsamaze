@@ -55,6 +55,8 @@ export interface StageFormatData {
   endDate?: Date | string | null;
   matchdaysCount?: number;
   totalMatches?: number;
+  matchesPerGroup?: number;
+  matchesPerTeam?: number;
   teamsCount?: number;
   groupsDivision?: string | null; // e.g. "4 Groups of 16 Teams"
   description?: string | null;
@@ -245,6 +247,13 @@ export function TournamentStageFormatCard({
               <span className="text-sm font-black text-slate-900 dark:text-white">
                 {stage.totalMatches ? `${stage.totalMatches} Matches` : 'TBD'}
               </span>
+              {(stage.matchesPerGroup || stage.matchesPerTeam) ? (
+                <span className="text-[10px] font-semibold text-slate-500 block leading-tight mt-0.5">
+                  {stage.matchesPerGroup ? `${stage.matchesPerGroup}/grp` : ''}
+                  {stage.matchesPerGroup && stage.matchesPerTeam ? ' • ' : ''}
+                  {stage.matchesPerTeam ? `${stage.matchesPerTeam}/team` : ''}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -306,11 +315,11 @@ export function TournamentStageFormatCard({
                                 <span
                                   className={`rounded-md border px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${style.pill}`}
                                 >
-                                  {r.rankRange}
+                                  {r.rankRange || (r as any).thresholdRank || 'Qualification'}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
                                 <span className="text-xs font-bold text-slate-900 dark:text-white">
-                                  {r.targetStageName}
+                                  {r.targetStageName || (r as any).destination || 'Next Stage'}
                                 </span>
                               </div>
                               {r.description && (

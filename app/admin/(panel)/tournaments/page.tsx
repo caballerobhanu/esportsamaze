@@ -142,6 +142,8 @@ async function saveTournament(formData: FormData) {
         ? { showCalendarWidget: stagesFormat.showCalendarWidget }
         : {}),
       ...(stagesFormat.calendarPhases ? { calendarPhases: stagesFormat.calendarPhases } : {}),
+      ...(stagesFormat.availableFormatTypes ? { availableFormatTypes: stagesFormat.availableFormatTypes } : {}),
+      ...(stagesFormat.availableStructureTypes ? { availableStructureTypes: stagesFormat.availableStructureTypes } : {}),
     };
   }
 

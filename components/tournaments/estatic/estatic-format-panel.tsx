@@ -364,10 +364,28 @@ export function EstaticFormatPanel({
           dateRange,
         matchdaysCount: customStage?.matchdaysCount || matchdaysCount,
         totalMatches: customStage?.totalMatches || customStage?.matchCount || (stageMatches.length > 0 ? stageMatches.length : undefined),
+        matchesPerGroup: customStage?.matchesPerGroup ? Number(customStage.matchesPerGroup) : undefined,
+        matchesPerTeam: customStage?.matchesPerTeam ? Number(customStage.matchesPerTeam) : undefined,
         teamsCount: customStage?.teamsCount || (stageTeamIds.size > 0 ? stageTeamIds.size : undefined),
         groupsDivision: customStage?.groupsDivision || groupsDivision,
         description: customStage?.stageDescription || customStage?.description || null,
-        rules: customStage?.rules?.length > 0 ? customStage.rules : rules,
+        rules: customStage?.rules?.length > 0
+          ? customStage.rules.map((r: any) => ({
+              rankRange: r.rankRange || r.thresholdRank || '',
+              targetStageName: r.targetStageName || r.destination || '',
+              badgeColor:
+                r.badgeColor ||
+                (r.badgeVariant === 'danger'
+                  ? 'red'
+                  : r.badgeVariant === 'warning'
+                  ? 'amber'
+                  : r.badgeVariant === 'info'
+                  ? 'blue'
+                  : 'green'),
+              description: r.description || (r.badgeText ? `${r.badgeText}: ${r.destination || ''}` : ''),
+              groupName: r.groupName || undefined,
+            }))
+          : rules,
         groups: resolvedGroups,
       };
     });
@@ -667,7 +685,19 @@ ${stageSummary}
         )}
 
         {/* Stage Content */}
-        {viewMode === 'LIST' ? (
+        {synthesizedStages.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-8 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-[#0A5FC4] dark:text-blue-400 mb-3">
+              <Layers className="w-6 h-6" />
+            </div>
+            <h4 className="text-base font-black uppercase text-slate-900 dark:text-white">
+              Stage Architecture &amp; Format To Be Announced
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto leading-relaxed">
+              The official competitive structure, group draw, and qualification progression for this tournament will be announced closer to the event schedule.
+            </p>
+          </div>
+        ) : viewMode === 'LIST' ? (
           <div className="space-y-6">
             {synthesizedStages.map((stageItem) => (
               <TournamentStageFormatCard

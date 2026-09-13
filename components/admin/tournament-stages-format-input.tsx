@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Layers,
   Plus,
@@ -22,6 +22,9 @@ import {
   Wand2,
   CalendarDays,
   Sparkles,
+  Edit2,
+  Tag,
+  Swords,
 } from 'lucide-react';
 
 export interface HeaderCardItem {
@@ -37,6 +40,7 @@ export interface StageAdvancementRuleItem {
   badgeText: string;
   badgeVariant: 'success' | 'warning' | 'danger' | 'info';
   destination: string;
+  groupName?: string; // e.g. "All Groups", "Group A", "Group B", "Group C"
 }
 
 export interface StageFormatItem {
@@ -54,6 +58,8 @@ export interface StageFormatItem {
   matchesPerDay?: number;
   matchTime?: string;
   totalMatches?: number;
+  matchesPerGroup?: number;
+  matchesPerTeam?: number;
   matchdaysCount?: number | string;
   teamsCount?: number;
   groupsDivision?: string;
@@ -135,6 +141,29 @@ const DEFAULT_TIEBREAKER_TIERS: TiebreakerTierItem[] = [
   },
 ];
 
+const DEFAULT_FORMAT_TYPES = [
+  'Battle Royale Points Table',
+  'Round Robin Groups',
+  'Single Elimination',
+  'Double Elimination',
+  'Swiss Stage',
+  'Survival Stage',
+  'Gauntlet Stage',
+  'Leaderboard Chase',
+  'Double Round Robin',
+];
+
+const DEFAULT_STRUCTURE_TYPES = [
+  { id: 'GROUPS_WISE', label: 'Groups Wise / Lobby' },
+  { id: 'ROUND_ROBIN', label: 'Round Robin' },
+  { id: 'SWISS', label: 'Swiss System' },
+  { id: 'PLAYOFFS', label: 'Playoffs / Finals' },
+  { id: 'SURVIVAL_STAGE', label: 'Survival Stage' },
+  { id: 'LAST_CHANCE_QUALIFIER', label: 'Last Chance Qualifier (LCQ)' },
+  { id: 'SINGLE_ELIMINATION', label: 'Single Elimination Bracket' },
+  { id: 'DOUBLE_ELIMINATION', label: 'Double Elimination Bracket' },
+];
+
 const DAYS_OF_WEEK_OPTIONS = [
   { dayIndex: 1, label: 'Mon', short: 'M' },
   { dayIndex: 2, label: 'Tue', short: 'T' },
@@ -190,7 +219,6 @@ function calculateMatchdays(
         count++;
       }
     } else {
-      // ALL_DAYS or fallback
       count++;
     }
     cur.setDate(cur.getDate() + 1);
@@ -202,15 +230,46 @@ export function TournamentStagesFormatInput({
   initialFormatDetails,
   initialStages,
 }: TournamentStagesFormatInputProps) {
-  // 0. Calendar Widget On/Off toggle
+  // 0. Calendar Widget On/Off toggle (optional)
   const [showCalendarWidget, setShowCalendarWidget] = useState<boolean>(() => {
     if (typeof initialFormatDetails?.showCalendarWidget === 'boolean') {
       return initialFormatDetails.showCalendarWidget;
     }
-    return true; // Default enabled
+    return true;
   });
 
-  // 1. Header Cards state
+  // 1. Available Format Types (dynamically extendable)
+  const [availableFormatTypes, setAvailableFormatTypes] = useState<string[]>(() => {
+    const list = [...DEFAULT_FORMAT_TYPES];
+    if (Array.isArray(initialFormatDetails?.availableFormatTypes)) {
+      initialFormatDetails.availableFormatTypes.forEach((ft: string) => {
+        if (ft && !list.includes(ft)) list.push(ft);
+      });
+    }
+    return list;
+  });
+  const [newFormatTypeInput, setNewFormatTypeInput] = useState('');
+  const [isAddingFormatType, setIsAddingFormatType] = useState(false);
+
+  // 2. Available Structure Types (dynamically extendable)
+  const [availableStructureTypes, setAvailableStructureTypes] = useState<
+    Array<{ id: string; label: string }>
+  >(() => {
+    const list = [...DEFAULT_STRUCTURE_TYPES];
+    if (Array.isArray(initialFormatDetails?.availableStructureTypes)) {
+      initialFormatDetails.availableStructureTypes.forEach((st: any) => {
+        if (st && st.id && !list.some((item) => item.id === st.id)) {
+          list.push(st);
+        }
+      });
+    }
+    return list;
+  });
+  const [newStructureIdInput, setNewStructureIdInput] = useState('');
+  const [newStructureLabelInput, setNewStructureLabelInput] = useState('');
+  const [isAddingStructureType, setIsAddingStructureType] = useState(false);
+
+  // 3. Header Cards state
   const [headerCards, setHeaderCards] = useState<HeaderCardItem[]>(() => {
     if (Array.isArray(initialFormatDetails?.headerCards) && initialFormatDetails.headerCards.length > 0) {
       return initialFormatDetails.headerCards;
@@ -218,7 +277,7 @@ export function TournamentStagesFormatInput({
     return DEFAULT_HEADER_CARDS;
   });
 
-  // 2. Stage List state
+  // 4. Stage List state — NOT COMPULSORY (defaults to empty array if no stages exist!)
   const [stages, setStages] = useState<StageFormatItem[]>(() => {
     const existingFormats = initialFormatDetails?.stageFormats || {};
     const existingStagesArray = initialFormatDetails?.stages;
@@ -240,9 +299,11 @@ export function TournamentStagesFormatInput({
           customDates: fmt.customDates || st.customDates || [],
           matchesPerDay: fmt.matchesPerDay ?? st.matchesPerDay ?? 6,
           matchTime: fmt.matchTime || st.matchTime || '16:00 IST',
-          totalMatches: fmt.totalMatches ?? st.totalMatches ?? 18,
-          matchdaysCount: fmt.matchdaysCount ?? st.matchdaysCount ?? 3,
-          teamsCount: fmt.teamsCount ?? st.teamsCount ?? 16,
+          totalMatches: fmt.totalMatches ?? st.totalMatches ?? undefined,
+          matchesPerGroup: fmt.matchesPerGroup ?? st.matchesPerGroup ?? undefined,
+          matchesPerTeam: fmt.matchesPerTeam ?? st.matchesPerTeam ?? undefined,
+          matchdaysCount: fmt.matchdaysCount ?? st.matchdaysCount ?? '',
+          teamsCount: fmt.teamsCount ?? st.teamsCount ?? undefined,
           groupsDivision: fmt.groupsDivision || st.groupsDivision || '',
           stageDescription: fmt.stageDescription || st.stageDescription || '',
           rules: Array.isArray(fmt.rules)
@@ -271,9 +332,11 @@ export function TournamentStagesFormatInput({
           customDates: fmt.customDates || [],
           matchesPerDay: fmt.matchesPerDay ?? 6,
           matchTime: fmt.matchTime || '16:00 IST',
-          totalMatches: fmt.totalMatches ?? 18,
-          matchdaysCount: fmt.matchdaysCount ?? 3,
-          teamsCount: fmt.teamsCount ?? 16,
+          totalMatches: fmt.totalMatches ?? undefined,
+          matchesPerGroup: fmt.matchesPerGroup ?? undefined,
+          matchesPerTeam: fmt.matchesPerTeam ?? undefined,
+          matchdaysCount: fmt.matchdaysCount ?? '',
+          teamsCount: fmt.teamsCount ?? undefined,
           groupsDivision: fmt.groupsDivision || '',
           stageDescription: fmt.stageDescription || '',
           rules: Array.isArray(fmt.rules) ? fmt.rules : [],
@@ -281,46 +344,11 @@ export function TournamentStagesFormatInput({
       });
     }
 
-    // Default fallback stages if empty
-    return [
-      {
-        id: 'stage-1',
-        name: 'Grand Finals',
-        sequence: 1,
-        stageType: 'GROUPS_WISE',
-        formatType: 'Battle Royale Points Table',
-        dates: '',
-        startDate: '',
-        endDate: '',
-        schedulePattern: 'ALL_DAYS',
-        activeDaysOfWeek: [4, 5, 6, 0],
-        customDates: [],
-        matchesPerDay: 6,
-        matchTime: '16:00 IST',
-        totalMatches: 18,
-        matchdaysCount: 3,
-        teamsCount: 16,
-        groupsDivision: 'Single Lobby (16 Teams)',
-        stageDescription: '16 Qualified squads battle over 3 days for the championship trophy.',
-        rules: [
-          {
-            thresholdRank: 'Rank 1',
-            badgeText: 'Champion',
-            badgeVariant: 'success',
-            destination: 'Crown Champion & Direct Global Seed',
-          },
-          {
-            thresholdRank: 'Rank 2 – 4',
-            badgeText: 'Podium',
-            badgeVariant: 'info',
-            destination: 'Direct Seed to International Masters',
-          },
-        ],
-      },
-    ];
+    // Default to EMPTY array so no stage is compulsory!
+    return [];
   });
 
-  // 3. Tiebreaker Tiers state
+  // 5. Tiebreaker Tiers state
   const [tiebreakerTiers, setTiebreakerTiers] = useState<TiebreakerTierItem[]>(() => {
     if (Array.isArray(initialFormatDetails?.tiebreakerTiers) && initialFormatDetails.tiebreakerTiers.length > 0) {
       return initialFormatDetails.tiebreakerTiers;
@@ -349,11 +377,13 @@ export function TournamentStagesFormatInput({
         schedulePattern: st.schedulePattern || 'ALL_DAYS',
         activeDaysOfWeek: st.activeDaysOfWeek || [4, 5, 6, 0],
         customDates: st.customDates || [],
-        matchesPerDay: Number(st.matchesPerDay) || 6,
-        matchTime: st.matchTime || '16:00 IST',
-        totalMatches: Number(st.totalMatches) || 0,
-        matchdaysCount: st.matchdaysCount || 0,
-        teamsCount: Number(st.teamsCount) || 16,
+        matchesPerDay: st.matchesPerDay ? Number(st.matchesPerDay) : undefined,
+        matchTime: st.matchTime || '',
+        totalMatches: st.totalMatches ? Number(st.totalMatches) : undefined,
+        matchesPerGroup: st.matchesPerGroup ? Number(st.matchesPerGroup) : undefined,
+        matchesPerTeam: st.matchesPerTeam ? Number(st.matchesPerTeam) : undefined,
+        matchdaysCount: st.matchdaysCount || '',
+        teamsCount: st.teamsCount ? Number(st.teamsCount) : undefined,
         groupsDivision: st.groupsDivision || '',
         stageDescription: st.stageDescription || '',
         rules: st.rules || [],
@@ -367,7 +397,7 @@ export function TournamentStagesFormatInput({
           pattern: st.schedulePattern || 'ALL_DAYS',
           activeDaysOfWeek: st.activeDaysOfWeek || [4, 5, 6, 0],
           customDates: st.customDates || [],
-          matchesPerDay: Number(st.matchesPerDay) || 6,
+          matchesPerDay: st.matchesPerDay ? Number(st.matchesPerDay) : 6,
           matchTime: st.matchTime || '16:00 IST',
         });
       }
@@ -375,6 +405,8 @@ export function TournamentStagesFormatInput({
 
     return {
       showCalendarWidget,
+      availableFormatTypes,
+      availableStructureTypes,
       headerCards,
       stageFormats: stageFormatsMap,
       stages: stages.map((st, idx) => ({
@@ -389,9 +421,11 @@ export function TournamentStagesFormatInput({
         schedulePattern: st.schedulePattern || 'ALL_DAYS',
         activeDaysOfWeek: st.activeDaysOfWeek || [4, 5, 6, 0],
         customDates: st.customDates || [],
-        matchesPerDay: Number(st.matchesPerDay) || 6,
-        matchTime: st.matchTime || '16:00 IST',
+        matchesPerDay: st.matchesPerDay,
+        matchTime: st.matchTime,
         totalMatches: st.totalMatches,
+        matchesPerGroup: st.matchesPerGroup,
+        matchesPerTeam: st.matchesPerTeam,
         matchdaysCount: st.matchdaysCount,
         teamsCount: st.teamsCount,
         groupsDivision: st.groupsDivision,
@@ -401,9 +435,9 @@ export function TournamentStagesFormatInput({
       calendarPhases,
       tiebreakerTiers,
     };
-  }, [showCalendarWidget, headerCards, stages, tiebreakerTiers]);
+  }, [showCalendarWidget, availableFormatTypes, availableStructureTypes, headerCards, stages, tiebreakerTiers]);
 
-  // Stage Handlers
+  // Stage Handlers — completely optional, can add or delete all stages
   const addStage = () => {
     const nextSeq = stages.length + 1;
     const newStage: StageFormatItem = {
@@ -420,10 +454,12 @@ export function TournamentStagesFormatInput({
       customDates: [],
       matchesPerDay: 6,
       matchTime: '16:00 IST',
-      totalMatches: 18,
-      matchdaysCount: 3,
-      teamsCount: 16,
-      groupsDivision: '16 Teams Single Lobby',
+      totalMatches: undefined,
+      matchesPerGroup: undefined,
+      matchesPerTeam: undefined,
+      matchdaysCount: '',
+      teamsCount: undefined,
+      groupsDivision: '',
       stageDescription: '',
       rules: [],
     };
@@ -432,7 +468,6 @@ export function TournamentStagesFormatInput({
   };
 
   const removeStage = (idx: number) => {
-    if (stages.length <= 1) return;
     const next = stages.filter((_, i) => i !== idx);
     setStages(next.map((s, i) => ({ ...s, sequence: i + 1 })));
     if (expandedStageIndex === idx) setExpandedStageIndex(null);
@@ -443,7 +478,6 @@ export function TournamentStagesFormatInput({
       const copy = [...prev];
       const target = { ...copy[idx], ...patch };
 
-      // Auto-update display dates if startDate or endDate changed and dates is empty or was auto-generated
       if ('startDate' in patch || 'endDate' in patch) {
         if (!target.dates || target.dates === formatDateRangeString(copy[idx].startDate, copy[idx].endDate)) {
           target.dates = formatDateRangeString(target.startDate, target.endDate);
@@ -455,14 +489,15 @@ export function TournamentStagesFormatInput({
     });
   };
 
-  // Rule Handlers
-  const addRule = (stageIdx: number) => {
+  // Rule Handlers with per-group qualification support
+  const addRule = (stageIdx: number, defaultGroup = '') => {
     const stage = stages[stageIdx];
     const newRule: StageAdvancementRuleItem = {
       thresholdRank: 'Top 8',
       badgeText: 'Advancement',
       badgeVariant: 'success',
       destination: 'Advance to Next Stage',
+      groupName: defaultGroup,
     };
     updateStage(stageIdx, { rules: [...(stage.rules || []), newRule] });
   };
@@ -478,6 +513,28 @@ export function TournamentStagesFormatInput({
     const copyRules = [...stage.rules];
     copyRules[ruleIdx] = { ...copyRules[ruleIdx], ...patch };
     updateStage(stageIdx, { rules: copyRules });
+  };
+
+  // Custom Format Type Handler
+  const handleAddCustomFormatType = () => {
+    const val = newFormatTypeInput.trim();
+    if (val && !availableFormatTypes.includes(val)) {
+      setAvailableFormatTypes([...availableFormatTypes, val]);
+      setNewFormatTypeInput('');
+      setIsAddingFormatType(false);
+    }
+  };
+
+  // Custom Structure Type Handler
+  const handleAddCustomStructureType = () => {
+    const id = newStructureIdInput.trim().toUpperCase().replace(/\s+/g, '_');
+    const label = newStructureLabelInput.trim() || id;
+    if (id && !availableStructureTypes.some((st) => st.id === id)) {
+      setAvailableStructureTypes([...availableStructureTypes, { id, label }]);
+      setNewStructureIdInput('');
+      setNewStructureLabelInput('');
+      setIsAddingStructureType(false);
+    }
   };
 
   // Day of week toggler
@@ -612,7 +669,7 @@ export function TournamentStagesFormatInput({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
-              Define stages with real calendar dates, matchdays pattern (e.g. Thu–Sun for BMPS), and advancement rules.
+              Configure stages, match breakdown (total, per group, per team), group qualification zones, and schedules. All fields are optional.
             </p>
             <button
               type="button"
@@ -624,53 +681,92 @@ export function TournamentStagesFormatInput({
             </button>
           </div>
 
-          <div className="space-y-3">
-            {stages.map((stage, sIdx) => {
-              const isExpanded = expandedStageIndex === sIdx;
-              const calculatedMatchdays = calculateMatchdays(
-                stage.startDate,
-                stage.endDate,
-                stage.schedulePattern,
-                stage.activeDaysOfWeek
-              );
-              const matchesPerDay = Number(stage.matchesPerDay) || 6;
-              const calculatedTotalMatches = calculatedMatchdays * matchesPerDay;
+          {/* EMPTY STATE: When no stage is configured (NOT COMPULSORY) */}
+          {stages.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="mx-auto w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-2.5">
+                <Layers className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                No Stages Configured (Format TBD / Optional)
+              </h4>
+              <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm mx-auto">
+                No stages are compulsory. You can save the tournament without stages, and add them later when the official rulebook is announced.
+              </p>
+              <button
+                type="button"
+                onClick={addStage}
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--ed-blue) text-white text-xs font-bold hover:bg-blue-600 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add First Stage</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {stages.map((stage, sIdx) => {
+                const isExpanded = expandedStageIndex === sIdx;
+                const calculatedMatchdays = calculateMatchdays(
+                  stage.startDate,
+                  stage.endDate,
+                  stage.schedulePattern,
+                  stage.activeDaysOfWeek
+                );
+                const matchesPerDay = Number(stage.matchesPerDay) || 6;
+                const calculatedTotalMatches = calculatedMatchdays * matchesPerDay;
 
-              return (
-                <div
-                  key={stage.id || sIdx}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 overflow-hidden shadow-xs"
-                >
-                  {/* Stage Accordion Header */}
-                  <div className="flex items-center justify-between p-3.5 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 text-xs font-black flex items-center justify-center">
-                        {sIdx + 1}
-                      </span>
-                      <div>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">
-                          {stage.name || `Stage ${sIdx + 1}`}
+                // Extract group names from lobby division or rules for typeahead/group badges
+                const detectedGroups: string[] = ['All Groups'];
+                if (stage.groupsDivision) {
+                  const matches = stage.groupsDivision.match(/Group[s]?\s*([A-Z0-9,\s]+)/i);
+                  if (matches && matches[1]) {
+                    const letters = matches[1].split(/[,&/]/).map((l) => l.trim()).filter(Boolean);
+                    letters.forEach((letStr) => {
+                      const clean = `Group ${letStr.replace(/^Group\s*/i, '')}`;
+                      if (!detectedGroups.includes(clean)) detectedGroups.push(clean);
+                    });
+                  }
+                }
+                // Also add standard Group A, B, C, D if not present
+                ['Group A', 'Group B', 'Group C', 'Group D'].forEach((g) => {
+                  if (!detectedGroups.includes(g)) detectedGroups.push(g);
+                });
+
+                return (
+                  <div
+                    key={stage.id || sIdx}
+                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 overflow-hidden shadow-xs"
+                  >
+                    {/* Stage Accordion Header */}
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 text-xs font-black flex items-center justify-center">
+                          {sIdx + 1}
                         </span>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                          {stage.totalMatches ? <span>{stage.totalMatches} Matches</span> : null}
-                          {stage.matchdaysCount ? <span>• {stage.matchdaysCount} Days</span> : null}
-                          {stage.dates ? (
-                            <span className="text-slate-600 dark:text-slate-300 font-medium">• {stage.dates}</span>
-                          ) : null}
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            {stage.name || `Stage ${sIdx + 1}`}
+                          </span>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                            {stage.totalMatches ? <span>{stage.totalMatches} Matches</span> : null}
+                            {stage.matchesPerGroup ? <span>• {stage.matchesPerGroup}/Group</span> : null}
+                            {stage.matchesPerTeam ? <span>• {stage.matchesPerTeam}/Team</span> : null}
+                            {stage.dates ? (
+                              <span className="text-slate-600 dark:text-slate-300 font-medium">• {stage.dates}</span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedStageIndex(isExpanded ? null : sIdx)}
-                        className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-                        title={isExpanded ? 'Collapse' : 'Expand'}
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                      {stages.length > 1 && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedStageIndex(isExpanded ? null : sIdx)}
+                          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+                          title={isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
                         <button
                           type="button"
                           onClick={() => removeStage(sIdx)}
@@ -679,392 +775,599 @@ export function TournamentStagesFormatInput({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Stage Accordion Body */}
-                  {isExpanded && (
-                    <div className="p-4 space-y-4">
-                      {/* Row 1: Name & Structure */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="sm:col-span-2">
-                          <label className={labelCls}>Stage Official Name *</label>
-                          <input
-                            type="text"
-                            value={stage.name}
-                            onChange={(e) => updateStage(sIdx, { name: e.target.value })}
-                            placeholder="e.g. Round 1, Survival Stage, Semifinals, Grand Finals"
-                            className={inputCls + ' font-bold'}
-                          />
-                        </div>
-
-                        <div>
-                          <label className={labelCls}>Format Type</label>
-                          <select
-                            value={stage.formatType}
-                            onChange={(e) => updateStage(sIdx, { formatType: e.target.value })}
-                            className={inputCls}
-                          >
-                            <option value="Battle Royale Points Table">Battle Royale Points Table</option>
-                            <option value="Round Robin Groups">Round Robin Groups</option>
-                            <option value="Single Elimination">Single Elimination</option>
-                            <option value="Double Elimination">Double Elimination</option>
-                            <option value="Swiss Stage">Swiss Stage</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={labelCls}>Stage Structure Type</label>
-                          <select
-                            value={stage.stageType}
-                            onChange={(e) => updateStage(sIdx, { stageType: e.target.value })}
-                            className={inputCls}
-                          >
-                            <option value="GROUPS_WISE">Groups Wise / Lobby</option>
-                            <option value="ROUND_ROBIN">Round Robin</option>
-                            <option value="SWISS">Swiss System</option>
-                            <option value="PLAYOFFS">Playoffs / Finals</option>
-                          </select>
-                        </div>
                       </div>
+                    </div>
 
-                      {/* Row 2: REAL CALENDAR DATES & SCHEDULE PATTERN (For Calendar Widget & BMPS) */}
-                      <div className="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-                            <Calendar className="w-3.5 h-3.5 text-(--ed-blue)" />
-                            <span>Stage Calendar Dates &amp; Matchday Intervals</span>
-                          </div>
-                          {calculatedMatchdays > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
-                                📅 Calculated: {calculatedMatchdays} Days ({calculatedTotalMatches} Matches)
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  updateStage(sIdx, {
-                                    matchdaysCount: calculatedMatchdays,
-                                    totalMatches: calculatedTotalMatches,
-                                  });
-                                }}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition-colors"
-                              >
-                                <Sparkles className="w-3 h-3" />
-                                <span>Sync Counts</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                          <div>
-                            <label className={labelCls}>Stage Start Date (Calendar)</label>
+                    {/* Stage Accordion Body */}
+                    {isExpanded && (
+                      <div className="p-4 space-y-4">
+                        {/* Row 1: Name, Format Type & Structure Type (WITH CUSTOM WRITING & FUTURE SAVING) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3">
+                          <div className="sm:col-span-2 md:col-span-4">
+                            <label className={labelCls}>Stage Official Name (Optional)</label>
                             <input
-                              type="date"
-                              value={stage.startDate || ''}
-                              onChange={(e) => updateStage(sIdx, { startDate: e.target.value })}
-                              className={inputCls}
+                              type="text"
+                              value={stage.name}
+                              onChange={(e) => updateStage(sIdx, { name: e.target.value })}
+                              placeholder={`e.g. Stage ${sIdx + 1}, Round 1, Finals`}
+                              className={inputCls + ' font-bold'}
                             />
                           </div>
 
-                          <div>
-                            <label className={labelCls}>Stage End Date (Calendar)</label>
-                            <input
-                              type="date"
-                              value={stage.endDate || ''}
-                              onChange={(e) => updateStage(sIdx, { endDate: e.target.value })}
-                              className={inputCls}
-                            />
-                          </div>
-
-                          <div>
+                          {/* Format Type (Custom write-in & save for future) */}
+                          <div className="md:col-span-4">
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                Display Dates Label
+                                Format Type
                               </label>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const auto = formatDateRangeString(stage.startDate, stage.endDate);
-                                  if (auto) updateStage(sIdx, { dates: auto });
-                                }}
+                                onClick={() => setIsAddingFormatType(!isAddingFormatType)}
                                 className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
                               >
-                                <Wand2 className="w-2.5 h-2.5" />
-                                <span>Auto Label</span>
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>{isAddingFormatType ? 'Cancel' : 'New Type'}</span>
                               </button>
                             </div>
-                            <input
-                              type="text"
-                              value={stage.dates || ''}
-                              onChange={(e) => updateStage(sIdx, { dates: e.target.value })}
-                              placeholder="e.g. May 15 – May 25, 2026"
-                              className={inputCls}
-                            />
+
+                            {isAddingFormatType ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={newFormatTypeInput}
+                                  onChange={(e) => setNewFormatTypeInput(e.target.value)}
+                                  placeholder="Write custom format type..."
+                                  className={inputCls}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleAddCustomFormatType();
+                                    if (newFormatTypeInput.trim()) {
+                                      updateStage(sIdx, { formatType: newFormatTypeInput.trim() });
+                                    }
+                                  }}
+                                  className="px-2.5 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold shrink-0 hover:bg-blue-700"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            ) : (
+                              <select
+                                value={stage.formatType}
+                                onChange={(e) => {
+                                  if (e.target.value === '__CUSTOM__') {
+                                    setIsAddingFormatType(true);
+                                  } else {
+                                    updateStage(sIdx, { formatType: e.target.value });
+                                  }
+                                }}
+                                className={inputCls}
+                              >
+                                {availableFormatTypes.map((ft) => (
+                                  <option key={ft} value={ft}>
+                                    {ft}
+                                  </option>
+                                ))}
+                                <option value="__CUSTOM__">+ Write Custom Format Type...</option>
+                              </select>
+                            )}
+                          </div>
+
+                          {/* Stage Structure Type (Custom write-in & save for future) */}
+                          <div className="md:col-span-4">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Structure Type
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setIsAddingStructureType(!isAddingStructureType)}
+                                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              >
+                                <Plus className="w-2.5 h-2.5" />
+                                <span>{isAddingStructureType ? 'Cancel' : 'New Structure'}</span>
+                              </button>
+                            </div>
+
+                            {isAddingStructureType ? (
+                              <div className="space-y-1.5">
+                                <input
+                                  type="text"
+                                  value={newStructureLabelInput}
+                                  onChange={(e) => {
+                                    setNewStructureLabelInput(e.target.value);
+                                    if (!newStructureIdInput) {
+                                      setNewStructureIdInput(
+                                        e.target.value.toUpperCase().replace(/\s+/g, '_')
+                                      );
+                                    }
+                                  }}
+                                  placeholder="Display Label e.g. Gauntlet Bracket"
+                                  className={inputCls}
+                                />
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={newStructureIdInput}
+                                    onChange={(e) => setNewStructureIdInput(e.target.value)}
+                                    placeholder="Key ID e.g. GAUNTLET"
+                                    className={inputCls}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const keyId = newStructureIdInput.trim().toUpperCase().replace(/\s+/g, '_');
+                                      handleAddCustomStructureType();
+                                      if (keyId) {
+                                        updateStage(sIdx, { stageType: keyId });
+                                      }
+                                    }}
+                                    className="px-2.5 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold shrink-0 hover:bg-blue-700"
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <select
+                                value={stage.stageType}
+                                onChange={(e) => {
+                                  if (e.target.value === '__CUSTOM__') {
+                                    setIsAddingStructureType(true);
+                                  } else {
+                                    updateStage(sIdx, { stageType: e.target.value });
+                                  }
+                                }}
+                                className={inputCls}
+                              >
+                                {availableStructureTypes.map((st) => (
+                                  <option key={st.id} value={st.id}>
+                                    {st.label}
+                                  </option>
+                                ))}
+                                <option value="__CUSTOM__">+ Write Custom Structure Type...</option>
+                              </select>
+                            )}
                           </div>
                         </div>
 
-                        {/* Matchday Recurrence Pattern */}
-                        <div className="pt-2 border-t border-blue-200/50 dark:border-blue-900/30">
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                            <div className="md:col-span-4">
-                              <label className={labelCls}>Matchday Recurrence Pattern</label>
-                              <select
-                                value={stage.schedulePattern || 'ALL_DAYS'}
-                                onChange={(e) =>
-                                  updateStage(sIdx, { schedulePattern: e.target.value as any })
-                                }
-                                className={inputCls}
-                              >
-                                <option value="ALL_DAYS">Consecutive Daily (Every day in range)</option>
-                                <option value="DAYS_OF_WEEK">Weekly Days (e.g. Thu, Fri, Sat, Sun)</option>
-                              </select>
+                        {/* Row 2: REAL CALENDAR DATES & SCHEDULE PATTERN (ALL OPTIONAL) */}
+                        <div className="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/70 dark:border-blue-900/40 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              <Calendar className="w-3.5 h-3.5 text-(--ed-blue)" />
+                              <span>Stage Calendar Dates &amp; Matchday Intervals (Optional)</span>
                             </div>
-
-                            <div className="md:col-span-4">
-                              <label className={labelCls}>Matches Per Matchday</label>
+                            {calculatedMatchdays > 0 && (
                               <div className="flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={12}
-                                  value={stage.matchesPerDay ?? 6}
-                                  onChange={(e) =>
-                                    updateStage(sIdx, { matchesPerDay: parseInt(e.target.value) || 6 })
-                                  }
-                                  className={inputCls}
-                                />
-                                <span className="text-xs text-slate-500 font-bold shrink-0">matches/day</span>
+                                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300">
+                                  📅 Calculated: {calculatedMatchdays} Days ({calculatedTotalMatches} Matches)
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    updateStage(sIdx, {
+                                      matchdaysCount: calculatedMatchdays,
+                                      totalMatches: calculatedTotalMatches,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition-colors"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>Sync Counts</span>
+                                </button>
                               </div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            <div>
+                              <label className={labelCls}>Stage Start Date (Optional)</label>
+                              <input
+                                type="date"
+                                value={stage.startDate || ''}
+                                onChange={(e) => updateStage(sIdx, { startDate: e.target.value })}
+                                className={inputCls}
+                              />
                             </div>
 
-                            <div className="md:col-span-4">
-                              <label className={labelCls}>Daily Start Time</label>
+                            <div>
+                              <label className={labelCls}>Stage End Date (Optional)</label>
+                              <input
+                                type="date"
+                                value={stage.endDate || ''}
+                                onChange={(e) => updateStage(sIdx, { endDate: e.target.value })}
+                                className={inputCls}
+                              />
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                  Display Dates Label (Optional)
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const auto = formatDateRangeString(stage.startDate, stage.endDate);
+                                    if (auto) updateStage(sIdx, { dates: auto });
+                                  }}
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                                >
+                                  <Wand2 className="w-2.5 h-2.5" />
+                                  <span>Auto Label</span>
+                                </button>
+                              </div>
                               <input
                                 type="text"
-                                value={stage.matchTime || '16:00 IST'}
-                                onChange={(e) => updateStage(sIdx, { matchTime: e.target.value })}
-                                placeholder="e.g. 16:00 IST or 17:30 IST"
+                                value={stage.dates || ''}
+                                onChange={(e) => updateStage(sIdx, { dates: e.target.value })}
+                                placeholder="e.g. May 15 – May 25, 2026"
                                 className={inputCls}
                               />
                             </div>
                           </div>
 
-                          {/* Days of Week Selectors (when DAYS_OF_WEEK selected) */}
-                          {stage.schedulePattern === 'DAYS_OF_WEEK' && (
-                            <div className="mt-2.5 p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 space-y-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                                  Active Match Days of the Week:
-                                </span>
-                                <div className="flex items-center gap-1.5 text-[10px]">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateStage(sIdx, { activeDaysOfWeek: [4, 5, 6, 0] })}
-                                    className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold hover:bg-blue-200"
-                                  >
-                                    BMPS/BGIS Preset (Thu–Sun)
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => updateStage(sIdx, { activeDaysOfWeek: [5, 6, 0] })}
-                                    className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
-                                  >
-                                    Weekend (Fri–Sun)
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      updateStage(sIdx, { activeDaysOfWeek: [1, 2, 3, 4, 5, 6, 0] })
+                          {/* Matchday Recurrence Pattern */}
+                          <div className="pt-2 border-t border-blue-200/50 dark:border-blue-900/30">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                              <div className="md:col-span-4">
+                                <label className={labelCls}>Matchday Recurrence Pattern</label>
+                                <select
+                                  value={stage.schedulePattern || 'ALL_DAYS'}
+                                  onChange={(e) =>
+                                    updateStage(sIdx, { schedulePattern: e.target.value as any })
+                                  }
+                                  className={inputCls}
+                                >
+                                  <option value="ALL_DAYS">Consecutive Daily (Every day in range)</option>
+                                  <option value="DAYS_OF_WEEK">Weekly Days (e.g. Thu, Fri, Sat, Sun)</option>
+                                </select>
+                              </div>
+
+                              <div className="md:col-span-4">
+                                <label className={labelCls}>Matches Per Matchday (Optional)</label>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={16}
+                                    value={stage.matchesPerDay ?? ''}
+                                    onChange={(e) =>
+                                      updateStage(sIdx, {
+                                        matchesPerDay: e.target.value ? parseInt(e.target.value) : undefined,
+                                      })
                                     }
-                                    className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
-                                  >
-                                    All 7 Days
-                                  </button>
+                                    placeholder="6"
+                                    className={inputCls}
+                                  />
+                                  <span className="text-xs text-slate-500 font-bold shrink-0">matches/day</span>
                                 </div>
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {DAYS_OF_WEEK_OPTIONS.map((dow) => {
-                                  const isActive = (stage.activeDaysOfWeek || []).includes(dow.dayIndex);
-                                  return (
-                                    <button
-                                      key={dow.dayIndex}
-                                      type="button"
-                                      onClick={() => toggleDayOfWeek(sIdx, dow.dayIndex)}
-                                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                                        isActive
-                                          ? 'bg-blue-600 text-white shadow-xs'
-                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-                                      }`}
-                                    >
-                                      {dow.label}
-                                    </button>
-                                  );
-                                })}
+                              <div className="md:col-span-4">
+                                <label className={labelCls}>Daily Start Time (Optional)</label>
+                                <input
+                                  type="text"
+                                  value={stage.matchTime || ''}
+                                  onChange={(e) => updateStage(sIdx, { matchTime: e.target.value })}
+                                  placeholder="e.g. 16:00 IST or 17:30 IST"
+                                  className={inputCls}
+                                />
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Row 3: Matches & Teams Counts */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        <div>
-                          <label className={labelCls}>Total Matches</label>
-                          <input
-                            type="number"
-                            min={0}
-                            value={stage.totalMatches ?? ''}
-                            onChange={(e) =>
-                              updateStage(sIdx, { totalMatches: parseInt(e.target.value) || 0 })
-                            }
-                            placeholder="e.g. 18"
-                            className={inputCls}
-                          />
+                            {/* Days of Week Selectors (when DAYS_OF_WEEK selected) */}
+                            {stage.schedulePattern === 'DAYS_OF_WEEK' && (
+                              <div className="mt-2.5 p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                    Active Match Days of the Week:
+                                  </span>
+                                  <div className="flex items-center gap-1.5 text-[10px]">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateStage(sIdx, { activeDaysOfWeek: [4, 5, 6, 0] })}
+                                      className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 font-bold hover:bg-blue-200"
+                                    >
+                                      BMPS/BGIS Preset (Thu–Sun)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateStage(sIdx, { activeDaysOfWeek: [5, 6, 0] })}
+                                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
+                                    >
+                                      Weekend (Fri–Sun)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        updateStage(sIdx, { activeDaysOfWeek: [1, 2, 3, 4, 5, 6, 0] })
+                                      }
+                                      className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-200"
+                                    >
+                                      All 7 Days
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {DAYS_OF_WEEK_OPTIONS.map((dow) => {
+                                    const isActive = (stage.activeDaysOfWeek || []).includes(dow.dayIndex);
+                                    return (
+                                      <button
+                                        key={dow.dayIndex}
+                                        type="button"
+                                        onClick={() => toggleDayOfWeek(sIdx, dow.dayIndex)}
+                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                          isActive
+                                            ? 'bg-blue-600 text-white shadow-xs'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                        }`}
+                                      >
+                                        {dow.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Row 3: MATCHES BREAKDOWN — TOTAL STAGE, PER GROUP, PER TEAM (Point 5) */}
+                        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                            Matches Breakdown &amp; Team Counts (All Optional)
+                          </span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                            <div>
+                              <label className={labelCls}>Total Matches in Stage</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={stage.totalMatches ?? ''}
+                                onChange={(e) =>
+                                  updateStage(sIdx, {
+                                    totalMatches: e.target.value ? parseInt(e.target.value) : undefined,
+                                  })
+                                }
+                                placeholder="e.g. 72"
+                                className={inputCls}
+                              />
+                              <p className="text-[10px] text-slate-400 mt-0.5">Across all lobbies</p>
+                            </div>
+
+                            <div>
+                              <label className={labelCls}>Matches in a Group</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={stage.matchesPerGroup ?? ''}
+                                onChange={(e) =>
+                                  updateStage(sIdx, {
+                                    matchesPerGroup: e.target.value ? parseInt(e.target.value) : undefined,
+                                  })
+                                }
+                                placeholder="e.g. 24"
+                                className={inputCls}
+                              />
+                              <p className="text-[10px] text-slate-400 mt-0.5">Per group pool</p>
+                            </div>
+
+                            <div>
+                              <label className={labelCls}>Matches per Team</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={stage.matchesPerTeam ?? ''}
+                                onChange={(e) =>
+                                  updateStage(sIdx, {
+                                    matchesPerTeam: e.target.value ? parseInt(e.target.value) : undefined,
+                                  })
+                                }
+                                placeholder="e.g. 12"
+                                className={inputCls}
+                              />
+                              <p className="text-[10px] text-slate-400 mt-0.5">Played by each squad</p>
+                            </div>
+
+                            <div>
+                              <label className={labelCls}>Matchdays Count</label>
+                              <input
+                                type="text"
+                                value={stage.matchdaysCount || ''}
+                                onChange={(e) => updateStage(sIdx, { matchdaysCount: e.target.value })}
+                                placeholder="e.g. 4 or 4 Days"
+                                className={inputCls}
+                              />
+                              <p className="text-[10px] text-slate-400 mt-0.5">Broadcast days</p>
+                            </div>
+
+                            <div>
+                              <label className={labelCls}>Teams In Stage</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={stage.teamsCount ?? ''}
+                                onChange={(e) =>
+                                  updateStage(sIdx, {
+                                    teamsCount: e.target.value ? parseInt(e.target.value) : undefined,
+                                  })
+                                }
+                                placeholder="e.g. 128"
+                                className={inputCls}
+                              />
+                              <p className="text-[10px] text-slate-400 mt-0.5">Total squads</p>
+                            </div>
+                          </div>
                         </div>
 
                         <div>
-                          <label className={labelCls}>Matchdays Count</label>
-                          <input
-                            type="text"
-                            value={stage.matchdaysCount || ''}
-                            onChange={(e) => updateStage(sIdx, { matchdaysCount: e.target.value })}
-                            placeholder="e.g. 3 or 3 Matchdays"
-                            className={inputCls}
-                          />
-                        </div>
-
-                        <div>
-                          <label className={labelCls}>Teams In Stage</label>
-                          <input
-                            type="number"
-                            min={2}
-                            value={stage.teamsCount ?? 16}
-                            onChange={(e) =>
-                              updateStage(sIdx, { teamsCount: parseInt(e.target.value) || 16 })
-                            }
-                            placeholder="e.g. 16 or 24"
-                            className={inputCls}
-                          />
-                        </div>
-
-                        <div>
-                          <label className={labelCls}>Lobby / Groups Division Label</label>
+                          <label className={labelCls}>Lobby / Groups Division Label (Optional)</label>
                           <input
                             type="text"
                             value={stage.groupsDivision || ''}
                             onChange={(e) => updateStage(sIdx, { groupsDivision: e.target.value })}
-                            placeholder="e.g. 3 Groups (A, B, C) or Single Lobby"
+                            placeholder="e.g. 3 Groups (A, B, C) — 24 Teams or Single Lobby"
                             className={inputCls}
                           />
                         </div>
-                      </div>
 
-                      <div>
-                        <label className={labelCls}>Stage Overview &amp; Format Details</label>
-                        <textarea
-                          rows={2}
-                          value={stage.stageDescription || ''}
-                          onChange={(e) => updateStage(sIdx, { stageDescription: e.target.value })}
-                          placeholder="Explain how matches are played, how squads qualify, and any special stage stipulations..."
-                          className={inputCls}
-                        />
-                      </div>
-
-                      {/* Advancement Rules Builder */}
-                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                            Advancement &amp; Elimination Zones
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => addRule(sIdx)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add Qualification Rule</span>
-                          </button>
+                        <div>
+                          <label className={labelCls}>Stage Overview &amp; Format Details (Optional)</label>
+                          <textarea
+                            rows={2}
+                            value={stage.stageDescription || ''}
+                            onChange={(e) => updateStage(sIdx, { stageDescription: e.target.value })}
+                            placeholder="Explain how matches are played, how squads qualify, and any special stage stipulations..."
+                            className={inputCls}
+                          />
                         </div>
 
-                        {(!stage.rules || stage.rules.length === 0) ? (
-                          <div className="p-3 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
-                            No advancement zones defined for this stage yet. Click &quot;Add Qualification Rule&quot; to configure cutoffs.
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {stage.rules.map((rule, rIdx) => (
-                              <div
-                                key={rIdx}
-                                className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+                        {/* ADVANCEMENT RULES BUILDER WITH PER-GROUP QUALIFICATIONS (Point 3) */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div>
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
+                                Advancement &amp; Elimination Zones (Per Group or Overall)
+                              </span>
+                              <p className="text-[10px] text-slate-400">
+                                If a stage has different qualifications per group (e.g. Group A vs Group B), assign each rule to its respective group.
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => addRule(sIdx, '')}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
                               >
-                                <div className="w-full sm:w-28 shrink-0">
-                                  <input
-                                    type="text"
-                                    value={rule.thresholdRank}
-                                    onChange={(e) => updateRule(sIdx, rIdx, { thresholdRank: e.target.value })}
-                                    placeholder="e.g. 1st – 4th"
-                                    className={inputCls + ' py-1'}
-                                  />
-                                </div>
-
-                                <div className="w-full sm:w-32 shrink-0">
-                                  <input
-                                    type="text"
-                                    value={rule.badgeText}
-                                    onChange={(e) => updateRule(sIdx, rIdx, { badgeText: e.target.value })}
-                                    placeholder="e.g. Qualified"
-                                    className={inputCls + ' py-1'}
-                                  />
-                                </div>
-
-                                <div className="w-full sm:w-28 shrink-0">
-                                  <select
-                                    value={rule.badgeVariant}
-                                    onChange={(e) =>
-                                      updateRule(sIdx, rIdx, { badgeVariant: e.target.value as any })
-                                    }
-                                    className={inputCls + ' py-1'}
-                                  >
-                                    <option value="success">Green (Success)</option>
-                                    <option value="info">Blue (Info)</option>
-                                    <option value="warning">Amber (Warning)</option>
-                                    <option value="danger">Rose (Eliminated)</option>
-                                  </select>
-                                </div>
-
-                                <div className="flex-1 min-w-[140px]">
-                                  <input
-                                    type="text"
-                                    value={rule.destination}
-                                    onChange={(e) => updateRule(sIdx, rIdx, { destination: e.target.value })}
-                                    placeholder="e.g. Advance to Grand Finals"
-                                    className={inputCls + ' py-1'}
-                                  />
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={() => removeRule(sIdx, rIdx)}
-                                  className="p-1 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 shrink-0"
-                                  title="Delete Rule"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
+                                <Plus className="w-3 h-3" />
+                                <span>Add General Rule</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => addRule(sIdx, 'Group A')}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Add Group Rule</span>
+                              </button>
+                            </div>
                           </div>
-                        )}
+
+                          {(!stage.rules || stage.rules.length === 0) ? (
+                            <div className="p-3 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+                              No qualification rules defined yet (optional). Click &quot;Add Rule&quot; to configure cutoffs.
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {stage.rules.map((rule, rIdx) => (
+                                <div
+                                  key={rIdx}
+                                  className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+                                >
+                                  {/* Group Target Selector */}
+                                  <div className="w-full sm:w-32 shrink-0">
+                                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                                      Group Target
+                                    </label>
+                                    <input
+                                      type="text"
+                                      list={`group-options-${sIdx}`}
+                                      value={rule.groupName || ''}
+                                      onChange={(e) => updateRule(sIdx, rIdx, { groupName: e.target.value })}
+                                      placeholder="All Groups"
+                                      className={inputCls + ' py-1 text-xs'}
+                                    />
+                                    <datalist id={`group-options-${sIdx}`}>
+                                      {detectedGroups.map((g) => (
+                                        <option key={g} value={g === 'All Groups' ? '' : g}>
+                                          {g}
+                                        </option>
+                                      ))}
+                                    </datalist>
+                                  </div>
+
+                                  <div className="w-full sm:w-28 shrink-0">
+                                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                                      Rank Cutoff
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={rule.thresholdRank}
+                                      onChange={(e) => updateRule(sIdx, rIdx, { thresholdRank: e.target.value })}
+                                      placeholder="e.g. 1st – 4th"
+                                      className={inputCls + ' py-1'}
+                                    />
+                                  </div>
+
+                                  <div className="w-full sm:w-28 shrink-0">
+                                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                                      Status Tag
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={rule.badgeText}
+                                      onChange={(e) => updateRule(sIdx, rIdx, { badgeText: e.target.value })}
+                                      placeholder="Qualified"
+                                      className={inputCls + ' py-1'}
+                                    />
+                                  </div>
+
+                                  <div className="w-full sm:w-28 shrink-0">
+                                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                                      Badge Color
+                                    </label>
+                                    <select
+                                      value={rule.badgeVariant}
+                                      onChange={(e) =>
+                                        updateRule(sIdx, rIdx, { badgeVariant: e.target.value as any })
+                                      }
+                                      className={inputCls + ' py-1'}
+                                    >
+                                      <option value="success">Green (Qualified)</option>
+                                      <option value="info">Blue (Advancement)</option>
+                                      <option value="warning">Amber (Warning)</option>
+                                      <option value="danger">Rose (Eliminated)</option>
+                                    </select>
+                                  </div>
+
+                                  <div className="flex-1 min-w-[130px]">
+                                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-0.5">
+                                      Destination / Next Stage
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={rule.destination}
+                                      onChange={(e) => updateRule(sIdx, rIdx, { destination: e.target.value })}
+                                      placeholder="e.g. Advance to Semifinals"
+                                      className={inputCls + ' py-1'}
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => removeRule(sIdx, rIdx)}
+                                    className="p-1.5 rounded-md text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 shrink-0 self-end mb-1"
+                                    title="Delete Rule"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1072,7 +1375,7 @@ export function TournamentStagesFormatInput({
       {activeTab === 'cards' && (
         <div className="space-y-3">
           <p className="text-xs text-slate-500">
-            Customize the 3 quick-stat format cards shown at the top of the tournament Format page. You can change titles, descriptions, or toggle them off.
+            Customize the quick-stat format cards shown at the top of the tournament Format page. All fields are optional.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1209,16 +1512,14 @@ export function TournamentStagesFormatInput({
                   </div>
                 </div>
 
-                {tiebreakerTiers.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeTiebreakerTier(tIdx)}
-                    className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors mt-1"
-                    title="Remove Tier"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => removeTiebreakerTier(tIdx)}
+                  className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors mt-1"
+                  title="Remove Tier"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
