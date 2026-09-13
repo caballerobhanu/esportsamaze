@@ -84,14 +84,17 @@ export function EstaticFormatPanel({
 }: EstaticFormatPanelProps) {
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [viewMode, setViewMode] = useState<'LIST' | 'TABS'>('LIST');
+  const [allExpanded, setAllExpanded] = useState<boolean>(true);
+  const [activeStageId, setActiveStageId] = useState<string>('');
 
   const formatDetails = propFormatDetails || tournament?.formatDetails;
   const standingsConfig = propStandingsConfig || tournament?.standingsConfig;
   const tournamentName = tournament?.name || 'Tournament';
   const customOverview = formatDetails?.formatOverview || '';
   const customRules = formatDetails?.rulesAndTiebreakers || '';
-  const systemName = formatDetails?.systemName || 'Official Points System';
-  const systemDesc = formatDetails?.systemDescription || 'Standard Battle Royale competitive rules.';
+  const systemName = formatDetails?.systemName || '';
+  const systemDesc = formatDetails?.systemDescription || '';
 
   // Format date range string for sharing
   const dateRangeStr = useMemo(() => {
@@ -116,7 +119,22 @@ export function EstaticFormatPanel({
 
   // Synthesize full wiki-style format data for each stage
   const synthesizedStages: StageFormatData[] = useMemo(() => {
-    const sortedStages = [...stages].sort((a, b) => a.sequence - b.sequence);
+    let rawStages = stages;
+    if (rawStages.length === 0 && formatDetails?.stages && Array.isArray(formatDetails.stages)) {
+      rawStages = formatDetails.stages;
+    } else if (rawStages.length === 0 && formatDetails?.stageFormats && typeof formatDetails.stageFormats === 'object') {
+      rawStages = Object.entries(formatDetails.stageFormats).map(([key, sf]: [string, any], idx) => ({
+        id: sf.id || key,
+        sequence: sf.sequence || idx + 1,
+        name: sf.name || key,
+        stageType: sf.stageType || 'Official Stage',
+        formatType: sf.formatType || null,
+        startDate: sf.startDate || null,
+        endDate: sf.endDate || null,
+      }));
+    }
+
+    const sortedStages = [...rawStages].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
     return sortedStages.map((stage, sIdx) => {
       // 1. Matches in this stage
@@ -321,25 +339,38 @@ export function EstaticFormatPanel({
       }
 
       // Check formatDetails custom stage override if any
-      const customStage = formatDetails?.stageFormats?.[stage.id];
+      const customStage = formatDetails?.stageFormats?.[stage.id] || formatDetails?.stageFormats?.[stage.name];
+
+      // Groups resolution: matches if available, else customStage groups
+      let resolvedGroups: Record<string, StageGroupSquad[]> = groups;
+      if (Object.keys(resolvedGroups).length === 0 && customStage?.groups && typeof customStage.groups === 'object') {
+        resolvedGroups = customStage.groups;
+      }
 
       return {
         stageId: stage.id,
         sequence: stage.sequence || sIdx + 1,
         name: stage.name,
-        stageType: stage.stageType || stage.formatType || 'Official Stage',
-        formatType: stage.formatType || null,
-        dateRange: customStage?.dates || dateRange,
+        stageType: stage.stageType || stage.formatType || customStage?.stageType || 'Official Stage',
+        formatType: stage.formatType || customStage?.formatType || null,
+        dateRange: customStage?.dates || customStage?.dateRange || dateRange,
         matchdaysCount: customStage?.matchdaysCount || matchdaysCount,
-        totalMatches: customStage?.matchCount || (stageMatches.length > 0 ? stageMatches.length : undefined),
+        totalMatches: customStage?.totalMatches || customStage?.matchCount || (stageMatches.length > 0 ? stageMatches.length : undefined),
         teamsCount: customStage?.teamsCount || (stageTeamIds.size > 0 ? stageTeamIds.size : undefined),
         groupsDivision: customStage?.groupsDivision || groupsDivision,
-        description: customStage?.stageDescription || null,
+        description: customStage?.stageDescription || customStage?.description || null,
         rules: customStage?.rules?.length > 0 ? customStage.rules : rules,
-        groups,
+        groups: resolvedGroups,
       };
     });
   }, [stages, matches, teamMap, standingsConfig, formatDetails]);
+
+  // Set default active tab
+  React.useEffect(() => {
+    if (synthesizedStages.length > 0 && !activeStageId) {
+      setActiveStageId(synthesizedStages[0].stageId);
+    }
+  }, [synthesizedStages, activeStageId]);
 
   // Copy full summary to clipboard
   const handleCopySummary = () => {
@@ -349,10 +380,19 @@ export function EstaticFormatPanel({
 
     const topPoints = Object.entries(pointsMatrix)
       .slice(0, 8)
-      .map(([rank, pts]) => `#${rank}: ${pts}pts`)
-      .join(' | ');
+      .map(([r, p]) => `#${r}: ${p}pts`)
+      .join(', ');
 
-    const text = `📋 ${tournamentName} — FORMAT & RULES\n${dateRangeStr ? `📅 Duration: ${dateRangeStr}\n` : ''}🎮 Mode: ${gameMode}\n⚔️ Elimination: +${killPoints} pt/kill\n🏆 Scoring: ${systemName}\n${topPoints}\n\nSTAGES ARCHITECTURE:\n${stageSummary}\n\n${customOverview ? `OVERVIEW:\n${customOverview}\n\n` : ''}Full tournament hub & live standings:\n${typeof window !== 'undefined' ? window.location.href : ''}`;
+    const text = `🏆 ${tournamentName} — Official Format Summary
+📅 Schedule: ${dateRangeStr || 'TBD'}
+🎮 Game Mode: ${gameMode}
+⚔️ Elimination Value: +${killPoints} Point per Kill
+🎯 Points Matrix: ${topPoints}
+
+📋 Tournament Stages:
+${stageSummary}
+
+🔗 Full rules and group draws: ${typeof window !== 'undefined' ? window.location.href : ''}`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text);
@@ -370,6 +410,68 @@ export function EstaticFormatPanel({
       setTimeout(() => setCopiedLink(false), 2200);
     }
   };
+
+  // Dynamic header cards
+  const headerCards = useMemo(() => {
+    if (Array.isArray(formatDetails?.headerCards) && formatDetails.headerCards.length > 0) {
+      return formatDetails.headerCards.filter((c: any) => c.enabled !== false);
+    }
+    return [
+      {
+        id: 'competition-mode',
+        label: 'Competition Mode',
+        value: gameMode,
+        subtitle: 'Standard 16-Team Competitive Lobby',
+        icon: 'gamepad',
+        enabled: true,
+      },
+      {
+        id: 'elimination-reward',
+        label: 'Elimination Reward',
+        value: `+${killPoints} Point per Kill`,
+        subtitle: systemName || undefined,
+        icon: 'award',
+        enabled: true,
+      },
+      {
+        id: 'tournament-environment',
+        label: 'Tournament Environment',
+        value: eventType || 'LAN',
+        subtitle: device || undefined,
+        icon: 'smartphone',
+        enabled: true,
+      },
+    ].filter((c) => Boolean(c.value));
+  }, [formatDetails?.headerCards, gameMode, killPoints, systemName, eventType, device]);
+
+  // Tiebreaker tiers
+  const tiebreakerTiers = useMemo(() => {
+    if (Array.isArray(formatDetails?.tiebreakerTiers) && formatDetails.tiebreakerTiers.length > 0) {
+      return formatDetails.tiebreakerTiers;
+    }
+    return [
+      {
+        tier: 1,
+        title: 'Total Placement Points',
+        description: 'Higher placement points accumulated across all completed lobby matches.',
+      },
+      {
+        tier: 2,
+        title: 'Total Chicken Dinners (WWCD)',
+        description: 'Total number of 1st-place match victories achieved.',
+      },
+      {
+        tier: 3,
+        title: 'Total Elimination Points',
+        description: 'Highest fragging and total kills across all scheduled fixtures.',
+      },
+      {
+        tier: 4,
+        title: 'Placement in Final Match',
+        description: 'Better finishing rank in the very last match contested between the squads.',
+      },
+    ];
+  }, [formatDetails?.tiebreakerTiers]);
 
   return (
     <div className="space-y-8">
@@ -413,46 +515,37 @@ export function EstaticFormatPanel({
       </div>
 
       {/* Format Header Cards Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-              Competition Mode
-            </span>
-            <Gamepad2 className="h-4 w-4 text-[#0A5FC4]" />
-          </div>
-          <h4 className="mt-2 text-xl font-black text-slate-900 dark:text-white">
-            {gameMode}
-          </h4>
-          <p className="mt-1 text-xs font-semibold text-slate-400">Standard 16-Team Competitive Lobby</p>
+      {headerCards.length > 0 && (
+        <div className={`grid grid-cols-1 gap-4 ${headerCards.length === 1 ? 'sm:grid-cols-1' : headerCards.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+          {headerCards.map((card: any, idx: number) => (
+            <div
+              key={card.id || idx}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
+                  {card.label}
+                </span>
+                {card.icon === 'award' ? (
+                  <Award className="h-4 w-4 text-[#0A5FC4]" />
+                ) : card.icon === 'smartphone' ? (
+                  <Smartphone className="h-4 w-4 text-[#0A5FC4]" />
+                ) : (
+                  <Gamepad2 className="h-4 w-4 text-[#0A5FC4]" />
+                )}
+              </div>
+              <h4 className="mt-2 text-xl font-black text-slate-900 dark:text-white">
+                {card.value}
+              </h4>
+              {card.subtitle && (
+                <p className="mt-1 text-xs font-semibold text-slate-400">
+                  {card.subtitle}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-              Elimination Reward
-            </span>
-            <Award className="h-4 w-4 text-[#0A5FC4]" />
-          </div>
-          <h4 className="mt-2 text-xl font-black text-slate-900 dark:text-white">
-            +{killPoints} Point per Kill
-          </h4>
-          <p className="mt-1 text-xs font-semibold text-slate-400">{systemName}</p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-              Tournament Environment
-            </span>
-            <Smartphone className="h-4 w-4 text-[#0A5FC4]" />
-          </div>
-          <h4 className="mt-2 text-xl font-black text-slate-900 dark:text-white">
-            {eventType}
-          </h4>
-          <p className="mt-1 text-xs font-semibold text-slate-400">{device}</p>
-        </div>
-      </div>
+      )}
 
       {/* TOURNAMENT SCHEDULE CALENDAR WIDGET */}
       <section>
@@ -493,18 +586,98 @@ export function EstaticFormatPanel({
               Tournament Stages &amp; Group Divisions ({synthesizedStages.length} Stages)
             </h3>
           </div>
+
+          <div className="flex items-center gap-2">
+            {/* Expand / Collapse All (available in List View) */}
+            {viewMode === 'LIST' && (
+              <button
+                type="button"
+                onClick={() => setAllExpanded((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                {allExpanded ? 'Collapse All' : 'Expand All'}
+              </button>
+            )}
+
+            {/* List View vs. Tabs View Switcher */}
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-900 border border-slate-200 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setViewMode('LIST')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  viewMode === 'LIST'
+                    ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                List View
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('TABS')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition cursor-pointer ${
+                  viewMode === 'TABS'
+                    ? 'bg-white dark:bg-slate-800 text-[#0A5FC4] dark:text-blue-400 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                }`}
+              >
+                Tabs View
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* List of Full Stage Format Cards */}
-        <div className="space-y-6">
-          {synthesizedStages.map((stageItem) => (
-            <TournamentStageFormatCard
-              key={stageItem.stageId}
-              stage={stageItem}
-              initiallyExpanded={true}
-            />
-          ))}
-        </div>
+        {/* In Tabs View: Horizontal Stage Selection Ribbon */}
+        {viewMode === 'TABS' && synthesizedStages.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-white/10">
+            {synthesizedStages.map((stageItem) => {
+              const isActive = (activeStageId || synthesizedStages[0].stageId) === stageItem.stageId;
+              return (
+                <button
+                  key={stageItem.stageId}
+                  type="button"
+                  onClick={() => setActiveStageId(stageItem.stageId)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition border cursor-pointer ${
+                    isActive
+                      ? 'bg-[#0A5FC4] text-white border-[#0A5FC4] shadow-sm'
+                      : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-white/10 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  Stage #{stageItem.sequence}: {stageItem.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Stage Content */}
+        {viewMode === 'LIST' ? (
+          <div className="space-y-6">
+            {synthesizedStages.map((stageItem) => (
+              <TournamentStageFormatCard
+                key={stageItem.stageId}
+                stage={stageItem}
+                forceExpanded={allExpanded}
+              />
+            ))}
+          </div>
+        ) : (
+          <div>
+            {(() => {
+              const activeStage =
+                synthesizedStages.find((s) => s.stageId === (activeStageId || synthesizedStages[0]?.stageId)) ||
+                synthesizedStages[0];
+              if (!activeStage) return null;
+              return (
+                <TournamentStageFormatCard
+                  key={activeStage.stageId}
+                  stage={activeStage}
+                  initiallyExpanded={true}
+                />
+              );
+            })()}
+          </div>
+        )}
       </section>
 
       {/* Scoring Matrix Card */}
@@ -515,9 +688,9 @@ export function EstaticFormatPanel({
           </p>
           <h3 className="mt-1 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white flex items-center gap-3">
             <ScrollText className="h-5 w-5 text-[#0A5FC4] dark:text-blue-300" />
-            Official Placement Points Matrix ({systemName})
+            {systemName || 'Official Placement Points Matrix'}
           </h3>
-          {systemDesc && (
+          {systemDesc && systemDesc.trim().length > 0 && (
             <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
               {systemDesc}
             </p>
@@ -563,53 +736,24 @@ export function EstaticFormatPanel({
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase text-[#0A5FC4] dark:text-blue-300">
-                Tier 1
-              </span>
-              <h5 className="mt-1 text-sm font-black text-slate-900 dark:text-white">
-                Total Placement Points
-              </h5>
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Higher placement points accumulated across all completed lobby matches.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase text-[#0A5FC4] dark:text-blue-300">
-                Tier 2
-              </span>
-              <h5 className="mt-1 text-sm font-black text-slate-900 dark:text-white">
-                Total Chicken Dinners (WWCD)
-              </h5>
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Total number of 1st-place match victories achieved.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase text-[#0A5FC4] dark:text-blue-300">
-                Tier 3
-              </span>
-              <h5 className="mt-1 text-sm font-black text-slate-900 dark:text-white">
-                Total Elimination Points
-              </h5>
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Highest fragging and total kills across all scheduled fixtures.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5">
-              <span className="text-[10px] font-black uppercase text-[#0A5FC4] dark:text-blue-300">
-                Tier 4
-              </span>
-              <h5 className="mt-1 text-sm font-black text-slate-900 dark:text-white">
-                Placement in Final Match
-              </h5>
-              <p className="mt-1 text-xs font-semibold text-slate-400">
-                Better finishing rank in the very last match contested between the squads.
-              </p>
-            </div>
+            {tiebreakerTiers.map((t: any, idx: number) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-white/10 dark:bg-white/5"
+              >
+                <span className="text-[10px] font-black uppercase text-[#0A5FC4] dark:text-blue-300">
+                  Tier {t.tier ?? idx + 1}
+                </span>
+                <h5 className="mt-1 text-sm font-black text-slate-900 dark:text-white">
+                  {t.title}
+                </h5>
+                {t.description && (
+                  <p className="mt-1 text-xs font-semibold text-slate-400">
+                    {t.description}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </section>

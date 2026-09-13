@@ -31,6 +31,7 @@ import { TournamentQualificationsInput } from '@/components/admin/tournament-qua
 import { TournamentPrizeDistributionInput } from '@/components/admin/tournament-prize-distribution-input';
 import { TournamentFinalRankingsInput } from '@/components/admin/tournament-final-rankings-input';
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
+import { TournamentStagesFormatInput } from '@/components/admin/tournament-stages-format-input';
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
@@ -123,6 +124,20 @@ async function saveTournament(formData: FormData) {
       ...(formatDetails || {}),
       featuredStage,
       ...(hasBackdropField ? { backdropText } : {}),
+    };
+  }
+
+  // Stages & format configuration JSON (headerCards, stageFormats, stages, tiebreakerTiers)
+  const stagesFormatRaw = fStr(formData, 'stagesFormatJson');
+  const stagesFormat = parseJsonField<any>(stagesFormatRaw, 'stages format');
+
+  if (stagesFormat) {
+    formatDetails = {
+      ...(formatDetails || {}),
+      ...(stagesFormat.headerCards ? { headerCards: stagesFormat.headerCards } : {}),
+      ...(stagesFormat.stageFormats ? { stageFormats: stagesFormat.stageFormats } : {}),
+      ...(stagesFormat.stages ? { stages: stagesFormat.stages } : {}),
+      ...(stagesFormat.tiebreakerTiers ? { tiebreakerTiers: stagesFormat.tiebreakerTiers } : {}),
     };
   }
 
@@ -704,6 +719,45 @@ async function saveTournament(formData: FormData) {
               rosterJson: [],
             },
           });
+        }
+      }
+
+      // Sync TournamentStage records if stages are configured
+      if (stagesFormat?.stages && Array.isArray(stagesFormat.stages) && tournamentId) {
+        const existingStages = await tx.tournamentStage.findMany({
+          where: { tournamentId },
+        });
+
+        for (let idx = 0; idx < stagesFormat.stages.length; idx++) {
+          const st = stagesFormat.stages[idx];
+          if (!st.name || !st.name.trim()) continue;
+          const stageName = st.name.trim();
+
+          const matchExisting = existingStages.find(
+            (es) => es.id === st.id || es.name.toLowerCase() === stageName.toLowerCase()
+          );
+
+          if (matchExisting) {
+            await tx.tournamentStage.update({
+              where: { id: matchExisting.id },
+              data: {
+                name: stageName,
+                sequence: idx + 1,
+                formatType: st.formatType || 'Battle Royale Points Table',
+                stageType: st.stageType || 'GROUPS_WISE',
+              },
+            });
+          } else {
+            await tx.tournamentStage.create({
+              data: {
+                tournamentId,
+                name: stageName,
+                sequence: idx + 1,
+                formatType: st.formatType || 'Battle Royale Points Table',
+                stageType: st.stageType || 'GROUPS_WISE',
+              },
+            });
+          }
         }
       }
     },
@@ -1466,15 +1520,29 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
-          {/* Section 4: Event Points & Scoring System */}
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
-            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
-              🎯 4. Event-Wide Points &amp; Scoring Matrix
-            </h2>
-            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
-              <TournamentPointsSystemInput
-                initialFormatDetails={editing?.formatDetails}
-              />
+          {/* Section 4: Format Architecture, Stages & Scoring Matrix */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-5 space-y-5">
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
+                📐 4A. Stages Architecture, Schedule &amp; Format Rules
+              </h2>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+                <TournamentStagesFormatInput
+                  initialFormatDetails={editing?.formatDetails}
+                  initialStages={editing?.stages}
+                />
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
+                🎯 4B. Event-Wide Points &amp; Scoring Matrix
+              </h2>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+                <TournamentPointsSystemInput
+                  initialFormatDetails={editing?.formatDetails}
+                />
+              </div>
             </div>
           </div>
 

@@ -63,13 +63,22 @@ export interface StageFormatData {
 interface TournamentStageFormatCardProps {
   stage: StageFormatData;
   initiallyExpanded?: boolean;
+  forceExpanded?: boolean;
 }
 
 export function TournamentStageFormatCard({
   stage,
   initiallyExpanded = true,
+  forceExpanded,
 }: TournamentStageFormatCardProps) {
   const [isExpanded, setIsExpanded] = useState(initiallyExpanded);
+
+  React.useEffect(() => {
+    if (forceExpanded !== undefined) {
+      setIsExpanded(forceExpanded);
+    }
+  }, [forceExpanded]);
+
   const groupKeys = useMemo(() => Object.keys(stage.groups).sort(), [stage.groups]);
   const hasGroups = groupKeys.length > 0;
   const [activeGroupTab, setActiveGroupTab] = useState<string>('ALL');

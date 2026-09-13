@@ -102,7 +102,7 @@ export function TournamentPointsSystemInput({
     return {
       pointsSystem: selectedSystem,
       systemName: systemName.trim() || currentPreset?.name || 'Official Points System',
-      systemDescription: systemDescription.trim() || currentPreset?.description || '',
+      systemDescription: systemDescription.trim(),
       formatOverview: formatOverview.trim(),
       rulesAndTiebreakers: rulesAndTiebreakers.trim(),
       placementPoints: customPlacement,
@@ -112,8 +112,11 @@ export function TournamentPointsSystemInput({
       ...(initialFormatDetails?.featuredStage ? { featuredStage: initialFormatDetails.featuredStage } : {}),
       ...(initialFormatDetails?.backdropText ? { backdropText: initialFormatDetails.backdropText } : {}),
       ...(initialFormatDetails?.stageFormats ? { stageFormats: initialFormatDetails.stageFormats } : {}),
+      ...(initialFormatDetails?.headerCards ? { headerCards: initialFormatDetails.headerCards } : {}),
+      ...(initialFormatDetails?.tiebreakerTiers ? { tiebreakerTiers: initialFormatDetails.tiebreakerTiers } : {}),
+      ...(initialFormatDetails?.stages ? { stages: initialFormatDetails.stages } : {}),
     };
-  }, [selectedSystem, systemName, systemDescription, formatOverview, rulesAndTiebreakers, customPlacement, killPoints, currentPreset, initialFormatDetails]);
+  }, [selectedSystem, systemName, systemDescription, formatOverview, rulesAndTiebreakers, customPlacement, killPoints, initialFormatDetails]);
 
   const inputCls =
     'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-(--ed-blue) transition-all';
