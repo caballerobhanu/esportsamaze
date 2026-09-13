@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { isSameOrigin, crossSiteForbiddenResponse } from '@/lib/anti-scrape';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
+import { isAdmin } from '@/lib/admin-auth';
+import { getMaintenanceSettings } from '@/lib/site-settings';
 
 // Search-as-you-type backend for the compare page pickers. Returns the top
 // 20 matches for a query; the client component debounces and aborts stale
@@ -10,6 +12,12 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 export async function GET(req: NextRequest) {
   if (!isSameOrigin(req)) {
     return crossSiteForbiddenResponse();
+  }
+
+  // If maintenance mode is active, do not leak player/team data
+  const maintenance = await getMaintenanceSettings();
+  if (maintenance.enabled && !(await isAdmin())) {
+    return NextResponse.json({ options: [] });
   }
 
   const ip = await getClientIp();

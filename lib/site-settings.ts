@@ -112,3 +112,71 @@ export async function updateMaintenanceSettings(
 export async function toggleMaintenanceMode(enabled: boolean): Promise<MaintenanceSettings> {
   return updateMaintenanceSettings({ enabled });
 }
+
+export interface BrandingSettings {
+  faviconUrl: string | null;
+  ogImageUrl: string | null;
+}
+
+export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
+  faviconUrl: null,
+  ogImageUrl: null,
+};
+
+const BRANDING_SETTINGS_KEY = 'branding_config';
+
+export async function getBrandingSettings(): Promise<BrandingSettings> {
+  try {
+    const model = getSiteSettingModel();
+    if (!model) return DEFAULT_BRANDING_SETTINGS;
+
+    const row = await model.findUnique({
+      where: { key: BRANDING_SETTINGS_KEY },
+    });
+
+    if (!row?.value) {
+      return DEFAULT_BRANDING_SETTINGS;
+    }
+
+    const parsed = JSON.parse(row.value) as Partial<BrandingSettings>;
+    return {
+      faviconUrl: parsed.faviconUrl ?? null,
+      ogImageUrl: parsed.ogImageUrl ?? null,
+    };
+  } catch (error) {
+    console.error('[SiteSettings] Failed to fetch branding settings:', error);
+    return DEFAULT_BRANDING_SETTINGS;
+  }
+}
+
+export async function updateBrandingSettings(
+  updates: Partial<BrandingSettings>
+): Promise<BrandingSettings> {
+  const current = await getBrandingSettings();
+  const merged: BrandingSettings = {
+    ...current,
+    ...updates,
+  };
+
+  const model = getSiteSettingModel();
+  if (model) {
+    await model.upsert({
+      where: { key: BRANDING_SETTINGS_KEY },
+      update: {
+        value: JSON.stringify(merged),
+      },
+      create: {
+        key: BRANDING_SETTINGS_KEY,
+        value: JSON.stringify(merged),
+      },
+    });
+  }
+
+  try {
+    revalidatePath('/', 'layout');
+  } catch {
+    // May be called outside request context during tests
+  }
+
+  return merged;
+}

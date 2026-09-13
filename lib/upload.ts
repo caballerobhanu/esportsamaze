@@ -11,6 +11,8 @@ const EXT_BY_MIME: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
   'image/svg+xml': 'svg',
+  'image/x-icon': 'ico',
+  'image/vnd.microsoft.icon': 'ico',
 };
 
 export const ALLOWED_IMAGE_MIMES = Object.keys(EXT_BY_MIME).join(',');
@@ -22,6 +24,14 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
   if (buffer.length < 4) return false;
 
   switch (ext) {
+    case 'ico':
+      return (
+        buffer[0] === 0x00 &&
+        buffer[1] === 0x00 &&
+        buffer[2] === 0x01 &&
+        buffer[3] === 0x00
+      );
+
     case 'png':
       return (
         buffer[0] === 0x89 &&
@@ -108,9 +118,12 @@ async function optimizeImage(
   ext: string,
   prefix: string
 ): Promise<{ buffer: Buffer; finalExt: string; mimeType: string }> {
-  // SVGs remain vector XML
+  // SVGs and ICOs are preserved as-is
   if (ext === 'svg') {
     return { buffer, finalExt: 'svg', mimeType: 'image/svg+xml' };
+  }
+  if (ext === 'ico') {
+    return { buffer, finalExt: 'ico', mimeType: 'image/x-icon' };
   }
 
   const p = prefix.toLowerCase();

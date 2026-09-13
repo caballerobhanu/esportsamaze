@@ -3,6 +3,8 @@ import prisma from '@/lib/prisma';
 import { publishedVisibility } from '@/lib/news-queries';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 import { isSameOrigin, crossSiteForbiddenResponse } from '@/lib/anti-scrape';
+import { isAdmin } from '@/lib/admin-auth';
+import { getMaintenanceSettings } from '@/lib/site-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +21,23 @@ export interface SearchResultItem {
 export async function GET(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return crossSiteForbiddenResponse();
+  }
+
+  // If maintenance mode is active, do not leak search data to the public
+  const maintenance = await getMaintenanceSettings();
+  if (maintenance.enabled && !(await isAdmin())) {
+    return NextResponse.json({
+      success: true,
+      query: '',
+      total: 0,
+      results: {
+        teams: [],
+        players: [],
+        tournaments: [],
+        games: [],
+        articles: [],
+      },
+    });
   }
 
   const ip = await getClientIp();

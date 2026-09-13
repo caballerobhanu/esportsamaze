@@ -14,23 +14,49 @@ const jakarta = Plus_Jakarta_Sans({
 // AdSense only loads when a publisher client is configured.
 const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
-  title: 'eSportsAmaze | High-Performance Esports Statistics Platform',
-  description:
-    'Comprehensive multi-game esports tournament engine and statistics database for BGMI, Valorant, CS2, MLBB, PUBG Mobile, Free Fire, and more.',
-  alternates: {
-    types: { 'application/rss+xml': '/rss.xml' },
-  },
-  openGraph: {
-    type: 'website',
-    siteName: 'eSportsAmaze',
-  },
-  twitter: {
-    card: 'summary_large_image',
-  },
-  robots: { index: true, follow: true },
-};
+import { getBrandingSettings } from '@/lib/site-settings';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const branding = await getBrandingSettings();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportsamaze.com';
+  const favicon = branding.faviconUrl || '/favicon.ico';
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: 'eSportsAmaze | High-Performance Esports Statistics Platform',
+    description:
+      'Comprehensive multi-game esports tournament engine and statistics database for BGMI, Valorant, CS2, MLBB, PUBG Mobile, Free Fire, and more.',
+    icons: {
+      icon: [{ url: favicon }],
+      shortcut: [favicon],
+      apple: [{ url: favicon }],
+    },
+    alternates: {
+      types: { 'application/rss+xml': '/rss.xml' },
+    },
+    openGraph: {
+      type: 'website',
+      siteName: 'eSportsAmaze',
+      ...(branding.ogImageUrl
+        ? {
+            images: [
+              {
+                url: branding.ogImageUrl,
+                width: 1200,
+                height: 630,
+                alt: 'eSportsAmaze — High-Performance Esports Statistics Platform',
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      ...(branding.ogImageUrl ? { images: [branding.ogImageUrl] } : {}),
+    },
+    robots: { index: true, follow: true },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: '#2452c2',
