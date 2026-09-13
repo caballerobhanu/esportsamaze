@@ -157,24 +157,14 @@ export function TournamentStageFormatCard({
       <div className="border-b border-slate-100 p-6 dark:border-white/10">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-[#0A5FC4] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
-                Stage #{stage.sequence}
-              </span>
-              {stage.stageType && (
-                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                  {stage.stageType}
-                </span>
-              )}
-              {stage.dateRange && (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                  <Calendar className="h-3.5 w-3.5 text-[#0A5FC4]" />
-                  {stage.dateRange}
-                </span>
-              )}
-            </div>
+            {stage.dateRange && (
+              <div className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/40 px-2.5 py-0.5 text-xs font-bold text-[#0A5FC4] dark:text-blue-400 mb-2">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>{stage.dateRange}</span>
+              </div>
+            )}
 
-            <h3 className="mt-2 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+            <h3 className="text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
               {stage.name}
             </h3>
 
