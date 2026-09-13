@@ -1,7 +1,38 @@
+import * as React from 'react';
 import Link from 'next/link';
-import { BarChart3 } from 'lucide-react';
+import { ArrowRight, Trophy, Users, User } from 'lucide-react';
+import { SectionHeading } from '@/components/home/section-heading';
 import { fetchBoardEntries, fetchTeamTransfers } from '@/lib/krafton-data';
 import { computeBoard } from '@/lib/krafton-standings';
+
+function RankBadge({ rank }: { rank: number }) {
+  if (rank === 1) {
+    return (
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/15 text-xs font-black text-amber-500 dark:text-amber-400 shadow-xs">
+        1
+      </span>
+    );
+  }
+  if (rank === 2) {
+    return (
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-400/30 bg-slate-400/15 text-xs font-bold text-slate-700 dark:text-slate-300">
+        2
+      </span>
+    );
+  }
+  if (rank === 3) {
+    return (
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-orange-500/30 bg-orange-500/15 text-xs font-bold text-orange-600 dark:text-orange-400">
+        3
+      </span>
+    );
+  }
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[var(--ed-hair)] bg-[var(--ed-sand)] text-xs font-bold text-[var(--ed-stone)]">
+      {rank}
+    </span>
+  );
+}
 
 /** Compact KRAFTON rankings block for the homepage — top 5 of each board. */
 export async function KraftonTopFive() {
@@ -20,53 +51,125 @@ export async function KraftonTopFive() {
 
   const column = (
     title: string,
-    rows: Array<{ rank: number; entityName: string; totalPoints: number; key: string; board: string }>,
-    detailBase: string
+    subtitle: string,
+    icon: React.ReactNode,
+    rows: Array<{
+      rank: number;
+      entityName: string;
+      totalPoints: number;
+      key: string;
+      board: string;
+      latestTeamName?: string | null;
+      events?: number;
+    }>,
+    detailBase: string,
+    viewAllHref: string
   ) => (
-    <div className="ed-card p-5">
-      <div className="flex items-center justify-between">
-        <p className="ed-label">{title}</p>
-        <Link href="/rankings" className="text-[10px] font-bold text-[var(--ed-blue)] hover:underline">
-          Full rankings →
+    <div className="ed-card flex flex-col justify-between">
+      <div>
+        {/* Card Header */}
+        <div className="flex items-center justify-between border-b border-[var(--ed-hair)] px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-sand)] text-[var(--ed-blue)]">
+              {icon}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold tracking-tight text-[var(--ed-ink)]">{title}</h3>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ed-stone)]">{subtitle}</p>
+            </div>
+          </div>
+          <Link
+            href={viewAllHref}
+            className="group flex items-center gap-1 text-xs font-bold text-[var(--ed-blue)] transition-colors hover:underline"
+          >
+            <span>Full board</span>
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+
+        {/* Rows List */}
+        <div className="divide-y divide-[var(--ed-hair)]/60">
+          {rows.map((r) => (
+            <Link
+              key={r.key}
+              href={`${detailBase}/${encodeURIComponent(r.key)}`}
+              className="group flex items-center justify-between gap-3 px-4 py-3 sm:px-5 transition-colors hover:bg-[var(--ed-sand)]/50"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <RankBadge rank={r.rank} />
+                <div className="min-w-0">
+                  <div className="truncate font-bold text-sm text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)]">
+                    {r.entityName}
+                  </div>
+                  {r.board === 'PLAYER' && r.latestTeamName && (
+                    <div className="truncate text-[11px] font-medium text-[var(--ed-stone)]">
+                      {r.latestTeamName}
+                    </div>
+                  )}
+                  {r.board === 'TEAM' && r.events && (
+                    <div className="text-[11px] font-medium text-[var(--ed-stone)]">
+                      {r.events} {r.events === 1 ? 'event' : 'events'} played
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <span className="num font-extrabold text-sm text-[var(--ed-ink)] group-hover:text-[var(--ed-blue)] transition-colors">
+                  {Math.round(r.totalPoints).toLocaleString('en-IN')}
+                </span>
+                <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-[var(--ed-stone)]">
+                  pts
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Card Footer */}
+      <div className="flex items-center justify-between border-t border-[var(--ed-hair)]/70 bg-[var(--ed-sand)]/20 px-4 py-2.5 sm:px-5 text-[11px] text-[var(--ed-stone)]">
+        <span className="flex items-center gap-1.5 font-medium">
+          <Trophy className="h-3.5 w-3.5 text-amber-500/80" />
+          Official Points Circuit
+        </span>
+        <Link
+          href={viewAllHref}
+          className="font-semibold text-[var(--ed-blue)] hover:underline"
+        >
+          View all ranks →
         </Link>
       </div>
-      <ol className="mt-3 space-y-1">
-        {rows.map((r) => (
-          <li key={r.key}>
-            <Link
-              href={`${detailBase}/${encodeURIComponent(r.key)}`}
-              className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-[var(--ed-sand)]"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="num w-4 text-center text-xs font-bold text-[var(--ed-stone)]">{r.rank}</span>
-                <span className="truncate font-semibold text-[var(--ed-ink)]">{r.entityName}</span>
-              </span>
-              <span className="num shrink-0 text-xs font-bold text-[var(--ed-stone)]">
-                {Math.round(r.totalPoints).toLocaleString('en-IN')}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 
   return (
     <section id="krafton-rankings" className="space-y-4">
-      <SectionHeading tag="KRAFTON Rankings" title="Official Points Race" />
+      <SectionHeading
+        id="krafton-rankings-heading"
+        kicker="KRAFTON Rankings"
+        title="Official Points Race"
+        href="/rankings"
+        linkLabel="All leaderboards"
+      />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {column('Top Teams', topTeams, '/rankings/team')}
-        {column('Top Players', topPlayers, '/rankings/player')}
+        {column(
+          'Top Teams',
+          'Squad Leaderboard',
+          <Users className="h-3.5 w-3.5" />,
+          topTeams,
+          '/rankings/team',
+          '/rankings'
+        )}
+        {column(
+          'Top Players',
+          'Individual Fraggers',
+          <User className="h-3.5 w-3.5" />,
+          topPlayers,
+          '/rankings/player',
+          '/rankings?board=players'
+        )}
       </div>
     </section>
-  );
-}
-
-function SectionHeading({ tag, title }: { tag: string; title: string }) {
-  return (
-    <div>
-      <p className="ed-label">{tag}</p>
-      <h2 className="font-display mt-1 text-2xl font-semibold tracking-tight text-[var(--ed-ink)]">{title}</h2>
-    </div>
   );
 }
