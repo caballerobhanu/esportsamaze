@@ -153,53 +153,61 @@ export async function main() {
   await insertMany<Prisma.MatchCreateManyInput>('Matches', snapshot.matches, (d) => prisma.match.createMany({ data: d }));
   await insertMany<Prisma.MatchGameCreateManyInput>('Match Games', snapshot.matchGames, (d) => prisma.matchGame.createMany({ data: d }));
 
-  const sanitizedTeamResults = (snapshot.matchTeamResults || []).map((r) => ({
-    distDrove: 0,
-    distWalk: 0,
-    totalDist: 0,
-    utilitiesTotal: 0,
-    healing: 0,
-    damageReceived: 0,
-    headshots: 0,
-    assists: 0,
-    knockouts: 0,
-    longestElim: 0,
-    vehicleElims: 0,
-    grenadeElims: 0,
-    smokesUsed: 0,
-    grenadesUsed: 0,
-    molotovsUsed: 0,
-    flashUsed: 0,
-    airdrops: 0,
-    rescues: 0,
-    ...r,
-    totalDist: Number(r.totalDist ?? (Number(r.distDrove || 0) + Number(r.distWalk || 0))),
-  }));
+  const sanitizedTeamResults = (snapshot.matchTeamResults || []).map((r) => {
+    const drove = Number(r.distDrove ?? 0);
+    const walk = Number(r.distWalk ?? 0);
+    const dist = r.totalDist != null ? Number(r.totalDist) : (drove + walk);
+    return {
+      distDrove: drove,
+      distWalk: walk,
+      utilitiesTotal: 0,
+      healing: 0,
+      damageReceived: 0,
+      headshots: 0,
+      assists: 0,
+      knockouts: 0,
+      longestElim: 0,
+      vehicleElims: 0,
+      grenadeElims: 0,
+      smokesUsed: 0,
+      grenadesUsed: 0,
+      molotovsUsed: 0,
+      flashUsed: 0,
+      airdrops: 0,
+      rescues: 0,
+      ...r,
+      totalDist: dist,
+    };
+  });
   await insertMany<Prisma.MatchTeamResultCreateManyInput>('Match Team Results', sanitizedTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d }));
 
-  const sanitizedPlayerStats = (snapshot.matchPlayerStats || []).map((r) => ({
-    distDrove: 0,
-    distWalk: 0,
-    totalDist: 0,
-    utilitiesTotal: 0,
-    healing: 0,
-    damageReceived: 0,
-    headshots: 0,
-    assists: 0,
-    knockouts: 0,
-    longestElim: 0,
-    vehicleElims: 0,
-    grenadeElims: 0,
-    smokesUsed: 0,
-    grenadesUsed: 0,
-    molotovsUsed: 0,
-    flashUsed: 0,
-    airdrops: 0,
-    rescues: 0,
-    playerPowerplay: 0,
-    ...r,
-    totalDist: Number(r.totalDist ?? (Number(r.distDrove || 0) + Number(r.distWalk || 0))),
-  }));
+  const sanitizedPlayerStats = (snapshot.matchPlayerStats || []).map((r) => {
+    const drove = Number(r.distDrove ?? 0);
+    const walk = Number(r.distWalk ?? 0);
+    const dist = r.totalDist != null ? Number(r.totalDist) : (drove + walk);
+    return {
+      distDrove: drove,
+      distWalk: walk,
+      utilitiesTotal: 0,
+      healing: 0,
+      damageReceived: 0,
+      headshots: 0,
+      assists: 0,
+      knockouts: 0,
+      longestElim: 0,
+      vehicleElims: 0,
+      grenadeElims: 0,
+      smokesUsed: 0,
+      grenadesUsed: 0,
+      molotovsUsed: 0,
+      flashUsed: 0,
+      airdrops: 0,
+      rescues: 0,
+      playerPowerplay: 0,
+      ...r,
+      totalDist: dist,
+    };
+  });
   await insertMany<Prisma.MatchPlayerStatCreateManyInput>('Match Player Stats', sanitizedPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d }));
   await insertMany<Prisma.MediaAssetCreateManyInput>('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d }));
   await insertMany<Prisma.ArticleCreateManyInput>('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d }));
