@@ -1,10 +1,9 @@
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import crypto from 'crypto';
+import sharp from 'sharp';
 import prisma from '@/lib/prisma';
+import { storeMedia } from '@/lib/media-storage';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_SIZE = 10 * 1024 * 1024; // 10 MB raw upload ceiling
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/png': 'png',
@@ -24,7 +23,6 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
 
   switch (ext) {
     case 'png':
-      // PNG magic number: 89 50 4E 47 (0x89 'PNG')
       return (
         buffer[0] === 0x89 &&
         buffer[1] === 0x50 &&
@@ -34,11 +32,9 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
 
     case 'jpg':
     case 'jpeg':
-      // JPEG magic number: FF D8 FF
       return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
 
     case 'gif':
-      // GIF magic number: GIF87a or GIF89a
       return (
         buffer[0] === 0x47 &&
         buffer[1] === 0x49 &&
@@ -47,7 +43,6 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
       );
 
     case 'webp':
-      // WebP magic: 'RIFF' .... 'WEBP'
       return (
         buffer.length >= 12 &&
         buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
@@ -55,16 +50,13 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
       );
 
     case 'svg': {
-      // SVG validation: must contain <svg and no executable scripts, event handlers, XXE, or embed tags
       const text = buffer.toString('utf-8', 0, Math.min(buffer.length, 131072)).toLowerCase();
       if (!text.includes('<svg') && !text.includes('<?xml')) return false;
 
-      // 1. XXE / Entity injection prevention
       if (text.includes('<!entity') || text.includes('<!doctype') || text.includes('system "') || text.includes("system '")) {
         return false;
       }
 
-      // 2. Dangerous tags (script, foreignObject, iframe, embed, object, etc.)
       const dangerousTags = [
         '<script',
         '<foreignobject',
@@ -80,7 +72,6 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
         return false;
       }
 
-      // 3. Dangerous URI schemes and base64 html payloads
       const dangerousSchemes = [
         'javascript:',
         'vbscript:',
@@ -92,12 +83,10 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
         return false;
       }
 
-      // 4. Any event handler (onload=, onerror=, onclick=, etc.)
       if (/\bon[a-z0-9_-]+\s*=/i.test(text)) {
         return false;
       }
 
-      // 5. SVG animation script injection
       if (/<(animate|set)\b[^>]*\b(to|from|values)\s*=\s*["'][^"']*javascript:/i.test(text)) {
         return false;
       }
@@ -111,9 +100,58 @@ function isValidImageBuffer(buffer: Buffer, ext: string): boolean {
 }
 
 /**
- * Saves an uploaded image from a server-action FormData entry into /uploads
- * and returns the public URL (`/api/media/<file>`).
- * Returns null when no file was selected, file size exceeds limit, or magic bytes are invalid.
+ * Optimizes an image buffer into WebP with dimension limits and strips EXIF metadata.
+ * SVGs are preserved as vector.
+ */
+async function optimizeImage(
+  buffer: Buffer,
+  ext: string,
+  prefix: string
+): Promise<{ buffer: Buffer; finalExt: string; mimeType: string }> {
+  // SVGs remain vector XML
+  if (ext === 'svg') {
+    return { buffer, finalExt: 'svg', mimeType: 'image/svg+xml' };
+  }
+
+  const p = prefix.toLowerCase();
+  let maxWidth = 1200;
+  let maxHeight = 1200;
+  let quality = 85;
+
+  if (p.includes('logo') || p.includes('avatar') || p.includes('badge') || p.includes('icon')) {
+    maxWidth = 512;
+    maxHeight = 512;
+    quality = 85;
+  } else if (p.includes('banner') || p.includes('news') || p.includes('cover') || p.includes('hero')) {
+    maxWidth = 1920;
+    maxHeight = 1080;
+    quality = 82;
+  }
+
+  const optimized = await sharp(buffer)
+    .rotate() // Automatically orient phone pictures from EXIF
+    .resize({
+      width: maxWidth,
+      height: maxHeight,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .webp({ quality, effort: 4 })
+    .toBuffer();
+
+  return {
+    buffer: optimized,
+    finalExt: 'webp',
+    mimeType: 'image/webp',
+  };
+}
+
+/**
+ * Saves an uploaded image:
+ * 1. Validates magic bytes & security
+ * 2. Compresses & converts to WebP with sharp (reducing size by up to 90%)
+ * 3. Uploads to Cloudflare R2 (or local /uploads fallback)
+ * 4. Registers in database mediaAsset library
  */
 export async function saveUploadedFile(
   value: FormDataEntryValue | null,
@@ -123,29 +161,35 @@ export async function saveUploadedFile(
   const ext = EXT_BY_MIME[value.type];
   if (!ext || value.size > MAX_SIZE) return null;
 
-  const buffer = Buffer.from(await value.arrayBuffer());
-  if (!isValidImageBuffer(buffer, ext)) {
+  const rawBuffer = Buffer.from(await value.arrayBuffer());
+  if (!isValidImageBuffer(rawBuffer, ext)) {
     return null;
   }
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const safePrefix = (prefix || 'upload').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30) || 'upload';
-  const name = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
-  await writeFile(path.join(UPLOAD_DIR, name), buffer);
+  try {
+    const { buffer, finalExt, mimeType } = await optimizeImage(rawBuffer, ext, prefix);
+    const safePrefix = (prefix || 'upload').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30) || 'upload';
+    const filename = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${finalExt}`;
 
-  // Register in the media library so uploads can be browsed/reused from the admin.
-  await prisma.mediaAsset
-    .upsert({
-      where: { filename: name },
-      create: {
-        filename: name,
-        originalName: value.name || null,
-        mimeType: value.type,
-        size: value.size,
-      },
-      update: {},
-    })
-    .catch(() => undefined);
+    const url = await storeMedia(filename, buffer, mimeType);
 
-  return `/api/media/${name}`;
+    // Register in media library
+    await prisma.mediaAsset
+      .upsert({
+        where: { filename },
+        create: {
+          filename,
+          originalName: value.name || null,
+          mimeType,
+          size: buffer.length,
+        },
+        update: {},
+      })
+      .catch(() => undefined);
+
+    return url;
+  } catch (err) {
+    console.error('Image optimization or save failed:', err);
+    return null;
+  }
 }

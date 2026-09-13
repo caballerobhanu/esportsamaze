@@ -1,7 +1,7 @@
-import { readFile } from 'fs/promises';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { isForeignReferer } from '@/lib/anti-scrape';
+import { retrieveMedia } from '@/lib/media-storage';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
@@ -49,15 +49,17 @@ export async function GET(
   }
 
   try {
-    const file = await readFile(filePath);
+    const file = await retrieveMedia(safeFilename);
+    if (!file) {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': mime,
       'Cache-Control': 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
     };
     if (ext === 'svg') {
-      // SVG can carry scripts: force download on direct navigation (embedded
-      // <img> usage is unaffected) and sandbox the document if ever rendered.
       headers['Content-Disposition'] = `attachment; filename="${filename}"`;
       headers['Content-Security-Policy'] = "sandbox; default-src 'none'; style-src 'unsafe-inline'";
     }
