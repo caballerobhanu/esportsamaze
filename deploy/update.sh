@@ -37,9 +37,9 @@ if docker ps --format '{{.Names}}' | grep -q "esportsamaze_postgres"; then
 fi
 npm test
 
-echo ">>> [5/7] Generating Prisma client & applying migrations..."
+echo ">>> [5/7] Generating Prisma client & synchronizing database schema..."
 npx prisma generate
-npx prisma migrate deploy
+npx prisma db push --accept-data-loss
 
 echo ">>> [6/7] Building Next.js production bundle..."
 npm run build

@@ -164,7 +164,7 @@ echo ">>> [11/12] Installing Dependencies (npm ci), Prisma Deploy & Next.js Buil
 echo "=============================================================================="
 npm ci --prefer-offline
 npx prisma generate
-npx prisma migrate deploy
+npx prisma db push --accept-data-loss
 npm run build
 
 echo "=============================================================================="
