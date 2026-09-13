@@ -15,13 +15,14 @@ export const dynamic = 'force-dynamic';
 async function login(formData: FormData) {
   'use server';
   const ip = await clientIp();
+  const slug = process.env.ADMIN_PATH || 'poorvith';
   if (isLoginBlocked(ip)) {
-    redirect('/admin/login?error=rate-limited');
+    redirect(`/${slug}/login?error=rate-limited`);
   }
   const password = String(formData.get('password') || '');
   if (!verifyPassword(password)) {
     recordFailedLogin(ip);
-    redirect('/admin/login?error=1');
+    redirect(`/${slug}/login?error=1`);
   }
   clearFailedLogins(ip);
   await grantAdminSession();

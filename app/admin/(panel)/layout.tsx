@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 async function logout() {
   'use server';
   await revokeAdminSession();
-  redirect('/admin/login');
+  const slug = process.env.ADMIN_PATH || 'poorvith';
+  redirect(`/${slug}/login`);
 }
 
 export default async function AdminPanelLayout({
@@ -15,7 +16,8 @@ export default async function AdminPanelLayout({
 }: {
   children: React.ReactNode;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  const slug = process.env.ADMIN_PATH || 'poorvith';
+  if (!(await isAdmin())) redirect(`/${slug}/login`);
 
   return (
     <div className="min-h-screen bg-(--ed-canvas) text-[var(--ed-ink)]">

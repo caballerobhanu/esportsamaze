@@ -126,29 +126,45 @@ function tournamentTabRedirect(request: NextRequest): NextResponse | null {
   );
 }
 
+const ADMIN_SLUG = process.env.ADMIN_PATH || 'poorvith';
+
 export async function proxy(request: NextRequest) {
   const tabRedirect = tournamentTabRedirect(request);
   if (tabRedirect) return tabRedirect;
 
   const { pathname } = request.nextUrl;
+  const isAuthed = await hasValidSession(request.cookies.get(COOKIE_NAME)?.value);
 
-  // The session gate below only guards the admin panel; tournament routes
-  // matched by the config fall through after the legacy-tab redirect above.
-  if (!pathname.startsWith('/admin')) {
+  // 1. Secret admin login route: /poorvith/login
+  if (pathname === `/${ADMIN_SLUG}/login` || pathname === `/${ADMIN_SLUG}/login/`) {
+    if (isAuthed) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    return NextResponse.rewrite(new URL('/admin/login', request.url));
+  }
+
+  // 2. Secret admin panel routes: /poorvith or /poorvith/*
+  if (pathname === `/${ADMIN_SLUG}` || pathname.startsWith(`/${ADMIN_SLUG}/`)) {
+    if (!isAuthed) {
+      return NextResponse.redirect(new URL(`/${ADMIN_SLUG}/login`, request.url));
+    }
+    const adminPath = pathname.replace(new RegExp(`^\\/${ADMIN_SLUG}`), '/admin');
+    return NextResponse.rewrite(new URL(`${adminPath}${request.nextUrl.search}`, request.url));
+  }
+
+  // 3. Traditional /admin paths
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    // If not authenticated, return 404 disguise (hide admin completely from public & bots)
+    if (!isAuthed) {
+      return NextResponse.rewrite(new URL('/not-found', request.url), { status: 404 });
+    }
+    // If authenticated, let the admin through
     return NextResponse.next();
   }
 
-  if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
-    return NextResponse.next();
-  }
-
-  if (await hasValidSession(request.cookies.get(COOKIE_NAME)?.value)) {
-    return NextResponse.next();
-  }
-
-  return NextResponse.redirect(new URL('/admin/login', request.url));
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/tournaments/:path*'],
+  matcher: ['/admin/:path*', '/poorvith/:path*', '/tournaments/:path*'],
 };
