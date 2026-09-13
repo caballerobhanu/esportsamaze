@@ -65,10 +65,10 @@ export async function KraftonTopFive() {
     detailBase: string,
     viewAllHref: string
   ) => (
-    <div className="ed-card flex flex-col justify-between">
+    <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0b1220] flex flex-col justify-between">
       <div>
         {/* Card Header with Solid Background */}
-        <div className="flex items-center justify-between bg-slate-900 text-white dark:bg-slate-900 border-b border-slate-800 px-4 py-3.5 sm:px-5">
+        <div className="flex items-center justify-between bg-slate-900 text-white dark:bg-slate-950 border-b border-slate-800 px-4 py-3.5 sm:px-5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-blue-400">
               {icon}
@@ -88,26 +88,26 @@ export async function KraftonTopFive() {
         </div>
 
         {/* Rows List */}
-        <div className="divide-y divide-[var(--ed-hair)]/60">
+        <div className="divide-y divide-slate-100 dark:divide-white/5">
           {rows.map((r) => (
             <Link
               key={r.key}
               href={`${detailBase}/${encodeURIComponent(r.key)}`}
-              className="group flex items-center justify-between gap-3 px-4 py-3 sm:px-5 transition-colors hover:bg-[var(--ed-sand)]/50"
+              className="group flex items-center justify-between gap-3 px-4 py-3 sm:px-5 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
             >
               <div className="flex min-w-0 items-center gap-3">
                 <RankBadge rank={r.rank} />
                 <div className="min-w-0">
-                  <div className="truncate font-bold text-sm text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)]">
+                  <div className="truncate font-bold text-sm text-slate-900 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300">
                     {r.entityName}
                   </div>
                   {r.board === 'PLAYER' && r.latestTeamName && (
-                    <div className="truncate text-[11px] font-medium text-[var(--ed-stone)]">
+                    <div className="truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
                       {r.latestTeamName}
                     </div>
                   )}
                   {r.board === 'TEAM' && r.events && (
-                    <div className="text-[11px] font-medium text-[var(--ed-stone)]">
+                    <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
                       {r.events} {r.events === 1 ? 'event' : 'events'} played
                     </div>
                   )}
@@ -115,10 +115,10 @@ export async function KraftonTopFive() {
               </div>
 
               <div className="text-right shrink-0">
-                <span className="num font-extrabold text-sm text-[var(--ed-ink)] group-hover:text-[var(--ed-blue)] transition-colors">
+                <span className="num font-black text-sm text-slate-900 group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300 transition-colors">
                   {Math.round(r.totalPoints).toLocaleString('en-IN')}
                 </span>
-                <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-[var(--ed-stone)]">
+                <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   pts
                 </span>
               </div>
@@ -128,16 +128,16 @@ export async function KraftonTopFive() {
       </div>
 
       {/* Card Footer */}
-      <div className="flex items-center justify-between border-t border-[var(--ed-hair)]/70 bg-[var(--ed-sand)]/20 px-4 py-2.5 sm:px-5 text-[11px] text-[var(--ed-stone)]">
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 sm:px-5 text-[11px] text-slate-500 dark:border-white/5 dark:bg-white/[0.02] dark:text-slate-400">
         <span className="flex items-center gap-1.5 font-medium">
           <Trophy className="h-3.5 w-3.5 text-amber-500/80" />
           Official Points Circuit
         </span>
         <Link
           href={viewAllHref}
-          className="font-semibold text-[var(--ed-blue)] hover:underline"
+          className="font-black text-[#0A5FC4] hover:underline dark:text-blue-400"
         >
-          View all ranks →
+          View all 50 →
         </Link>
       </div>
     </div>

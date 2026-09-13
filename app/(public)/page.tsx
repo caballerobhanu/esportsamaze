@@ -295,12 +295,17 @@ export default async function HomePage() {
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
+    <div className="relative min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white transition-colors">
+      {/* Signature broadcast radial bloom */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,95,196,0.15),transparent_65%),linear-gradient(115deg,transparent_42%,rgba(10,95,196,0.03)_42%,rgba(10,95,196,0.03)_43%,transparent_43%)] dark:bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.22),transparent_65%),linear-gradient(115deg,transparent_42%,rgba(255,255,255,0.02)_42%,rgba(255,255,255,0.02)_43%,transparent_43%)]" />
+      </div>
+
       {/* 1. Live & Upcoming Events Strip */}
       <EventsSection initialTournaments={circuitTournaments} />
 
       {/* 2. Main body — the front page, then match center, news, reference data */}
-      <main className="mx-auto w-full max-w-[1200px] flex-1 space-y-10 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-10">
+      <main className="relative mx-auto w-full max-w-[1200px] flex-1 space-y-10 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-10">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd(pool.slice(0, 10))) }}
@@ -365,37 +370,39 @@ export default async function HomePage() {
                   <Link
                     key={tourney.id}
                     href={`/tournaments/${tourney.slug}`}
-                    className="ed-card group block p-4 sm:p-5 transition-all hover:border-[var(--ed-blue)]/80"
+                    className="group block rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220]"
                   >
                     <div className="flex flex-col gap-3">
                       {/* Top Meta: Badges on left, Single primary Prize Pool on right */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                          <span className="ed-chip px-2.5 py-0.5 text-[10px] font-semibold">{tourney.tier || 'Tier 1'}</span>
+                          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-bold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                            {tourney.tier || 'Tier 1'}
+                          </span>
                           <span
                             className={cn(
-                              'rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+                              'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider',
                               tourney.status === 'ONGOING'
                                 ? 'border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
                                 : tourney.status === 'UPCOMING'
-                                  ? 'border border-[var(--ed-blue)]/20 bg-[var(--ed-blue)]/10 text-[var(--ed-blue)]'
+                                  ? 'border border-[#0A5FC4]/20 bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
                                   : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
                             )}
                           >
                             {statusLabel}
                           </span>
                           {tourney.game?.name && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ed-stone)]">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                               {tourney.game.name}
                             </span>
                           )}
                         </div>
 
                         <div className="min-w-0 text-right shrink-0">
-                          <div className="ed-label text-[10px]">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                             Prize pool
                           </div>
-                          <div className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 num">
+                          <div className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 num">
                             {formatPrizePool(tourney.prizePool || 0, tourney.currency, tourney.usdRate, false)}
                           </div>
                         </div>
@@ -404,7 +411,7 @@ export default async function HomePage() {
                       {/* Tournament Logo + Name & Organizer */}
                       <div className="flex items-start gap-3.5">
                         {(tourney.imageUrl || tourney.imageDarkUrl) && (
-                          <div className="relative h-12 w-12 shrink-0 rounded-xl bg-[var(--ed-sand)]/60 border border-[var(--ed-hair)] p-1.5 flex items-center justify-center overflow-hidden">
+                          <div className="relative h-12 w-12 shrink-0 rounded-xl bg-slate-100 border border-slate-200 p-1.5 flex items-center justify-center overflow-hidden dark:bg-white/5 dark:border-white/10">
                             {tourney.imageUrl && tourney.imageDarkUrl ? (
                               <>
                                 <img
@@ -428,22 +435,22 @@ export default async function HomePage() {
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-base sm:text-lg font-bold text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)] leading-snug">
+                          <h3 className="text-base sm:text-lg font-black text-slate-900 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300 leading-snug">
                             {tourney.name}
                           </h3>
                           {organizerName && (
-                            <p className="mt-0.5 text-xs font-medium text-[var(--ed-stone)]">{organizerName}</p>
+                            <p className="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">{organizerName}</p>
                           )}
                         </div>
                       </div>
 
                       {/* Date Row: Sleek border-t rule with no artificial container */}
-                      <div className="flex items-center justify-between border-t border-[var(--ed-hair)]/70 pt-3 text-xs text-[var(--ed-stone)]">
+                      <div className="flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-3 text-xs text-slate-400 dark:text-slate-500">
                         <span className="flex items-center gap-1.5 font-medium">
-                          <Calendar className="h-3.5 w-3.5 text-[var(--ed-stone)]" />
+                          <Calendar className="h-3.5 w-3.5 text-slate-400" />
                           {formatDate(tourney.startDate)} – {formatDate(tourney.endDate)}
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ed-blue)] opacity-0 transition-opacity group-hover:opacity-100">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
                           View details <ArrowRight className="h-3 w-3" />
                         </span>
                       </div>
@@ -462,8 +469,8 @@ export default async function HomePage() {
               title="Roster moves"
             />
 
-            <div className="ed-card">
-              <div className="divide-y divide-[var(--ed-hair)]">
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0b1220]">
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
                 {transfers.length > 0 ? (
                   transfers.map((move) => {
                     const realName = move.player.firstName
@@ -473,66 +480,68 @@ export default async function HomePage() {
                     return (
                       <div
                         key={move.id}
-                        className="group flex flex-col gap-2 p-3.5 sm:p-4 transition-colors hover:bg-[var(--ed-sand)]/50"
+                        className="group flex flex-col gap-2 p-3.5 sm:p-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
                       >
-                        {/* Top: Player name, role & formatted date (joined pill removed) */}
+                        {/* Top: Player name, role & formatted date */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Link
                               href={`/players/${encodeURIComponent(move.player.slug || move.player.ign.toLowerCase())}`}
-                              className="font-bold text-sm text-[var(--ed-ink)] transition-colors hover:text-[var(--ed-blue)] truncate"
+                              className="font-black text-sm text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 truncate"
                             >
                               {move.player.ign}
                             </Link>
                             {realName && (
-                              <span className="hidden sm:inline text-xs text-[var(--ed-stone)] truncate">
+                              <span className="hidden sm:inline text-xs text-slate-400 dark:text-slate-500 truncate">
                                 ({realName})
                               </span>
                             )}
-                            <span className="text-[11px] font-medium text-[var(--ed-stone)]">
+                            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                               • {move.staffRole || move.player.role || 'Player'}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[11px] font-medium text-[var(--ed-stone)]">
+                            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
                               {formatDate(move.date)}
                             </span>
                           </div>
                         </div>
 
-                        {/* Movement: Team → Team in an authentic wire layout */}
-                        <div className="flex items-center gap-2 text-xs font-semibold text-[var(--ed-stone)]">
+                        {/* Movement: Team → Team */}
+                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {move.fromTeam ? (
                             <Link
                               href={`/teams/${encodeURIComponent(move.fromTeam.slug || move.fromTeam.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                              className="transition-colors hover:text-[var(--ed-ink)] truncate max-w-[140px] sm:max-w-[180px]"
+                              className="transition-colors hover:text-slate-900 dark:hover:text-white truncate max-w-[140px] sm:max-w-[180px]"
                             >
                               {move.fromTeam.name}
                             </Link>
                           ) : (
-                            <span className="font-normal text-[var(--ed-stone)]/80">Free agent</span>
+                            <span className="font-normal text-slate-400">Free agent</span>
                           )}
 
-                          <ArrowRight className="h-3.5 w-3.5 text-[var(--ed-blue)] shrink-0" />
+                          <ArrowRight className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-400 shrink-0" />
 
                           {move.type === 'LEFT' ? (
-                            <span className="font-normal text-[var(--ed-stone)]/80">Free agent</span>
-                          ) : (
+                            <span className="font-normal text-slate-400">Free agent</span>
+                          ) : move.team ? (
                             <Link
                               href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
-                              className="font-bold text-[var(--ed-ink)] transition-colors hover:text-[var(--ed-blue)] truncate max-w-[140px] sm:max-w-[180px]"
+                              className="font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 truncate max-w-[140px] sm:max-w-[180px]"
                             >
                               {move.team.name}
                             </Link>
+                          ) : (
+                            <span className="font-normal text-slate-400">Unknown</span>
                           )}
                         </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="p-8 text-center text-xs text-[var(--ed-stone)]">
-                    No transfers recorded yet.
+                  <div className="p-8 text-center text-xs text-slate-400">
+                    No roster moves recorded yet.
                   </div>
                 )}
               </div>
@@ -541,7 +550,7 @@ export default async function HomePage() {
         </div>
       </main>
 
-      {/* 3. Closing masthead: site statement + live counters + quick links */}
+      {/* 3. Stats Band & Closing H1 */}
       <StatsBand
         tournamentsCount={tournamentsCount}
         teamsCount={teamsCount}

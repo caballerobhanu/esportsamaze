@@ -25,7 +25,7 @@ export function EditorsPicks({ articles }: { articles: ArticleCardData[] }) {
           <Link
             key={article.id}
             href={`/news/${article.slug}`}
-            className="group relative block aspect-[4/3] w-full min-w-[82%] overflow-hidden rounded-xl border border-[var(--ed-hair)] bg-[var(--ed-sand)] sm:min-w-[58%] lg:aspect-[3/4] lg:min-w-0"
+            className="group relative block aspect-[4/3] w-full min-w-[82%] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-lg dark:border-white/10 dark:bg-slate-900 sm:min-w-[58%] lg:aspect-[3/4] lg:min-w-0"
           >
             <CoverImage
               src={article.coverImage}
@@ -34,11 +34,11 @@ export function EditorsPicks({ articles }: { articles: ArticleCardData[] }) {
               className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
             />
             <div
-              className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"
+              className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"
               aria-hidden
             />
-            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
-              <Star className="h-2.5 w-2.5 fill-current" aria-hidden />
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#0A5FC4] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+              <Star className="h-2.5 w-2.5 fill-current text-white" aria-hidden />
               Pick
             </span>
             <div className="absolute inset-x-0 bottom-0 p-5">

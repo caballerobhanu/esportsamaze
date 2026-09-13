@@ -45,32 +45,32 @@ export function HomeStandingsSection({
           </div>
         </div>
 
-        <div className="ed-card">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0b1220]">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--ed-hair)] bg-[var(--ed-sand)]/60">
+              <thead className="border-b border-slate-800 bg-slate-900 text-white dark:border-slate-800 dark:bg-slate-950">
                 <tr>
-                  <th className="ed-th w-12 px-3 py-3 text-center">#</th>
-                  <th className="ed-th px-3 py-3">Team Name</th>
-                  <th className="ed-th px-2 py-3 text-center">Played</th>
-                  <th className="ed-th px-2 py-3 text-center">WWCD 🍗</th>
-                  <th className="ed-th hidden px-2 py-3 text-center sm:table-cell">Place Pts</th>
-                  <th className="ed-th hidden px-2 py-3 text-center sm:table-cell">Finishes</th>
-                  <th className="ed-th px-3 py-3 text-center">Total Pts</th>
-                  <th className="ed-th hidden px-3 py-3 text-center md:table-cell">Recent Form</th>
+                  <th className="w-12 px-3 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300">#</th>
+                  <th className="px-3 py-3 font-bold text-[11px] uppercase tracking-wider text-white">Team Name</th>
+                  <th className="px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300">Played</th>
+                  <th className="px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-amber-400">WWCD 🍗</th>
+                  <th className="hidden px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 sm:table-cell">Place Pts</th>
+                  <th className="hidden px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 sm:table-cell">Finishes</th>
+                  <th className="px-3 py-3 text-center font-black text-[11px] uppercase tracking-wider text-white bg-white/10">Total Pts</th>
+                  <th className="hidden px-3 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 md:table-cell">Recent Form</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--ed-hair)] font-medium">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
                 {standings.length > 0 ? (
                   standings.slice(0, 8).map((team) => {
                     return (
                       <tr
                         key={team.teamId}
-                        className="transition-colors hover:bg-[var(--ed-sand)]/50"
+                        className="transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
                       >
                         <td className="px-3 py-2.5 text-center">
                           {team.rank === 1 ? (
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-500 text-xs font-bold text-slate-950">
+                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-500 text-xs font-bold text-slate-950 shadow-xs">
                               1
                             </span>
                           ) : team.rank === 2 ? (
@@ -82,7 +82,7 @@ export function HomeStandingsSection({
                               3
                             </span>
                           ) : (
-                            <span className="text-xs font-bold text-[var(--ed-stone)]">
+                            <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
                               {team.rank}
                             </span>
                           )}
@@ -100,24 +100,24 @@ export function HomeStandingsSection({
                                 className="h-5 w-5 shrink-0 rounded object-contain"
                               />
                             ) : null}
-                            <span className="font-bold text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)]">
+                            <span className="font-bold text-slate-900 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300">
                               {team.teamName}
                             </span>
                           </Link>
                         </td>
-                        <td className="px-2 py-2.5 text-center font-semibold text-[var(--ed-stone)]">
+                        <td className="px-2 py-2.5 text-center font-semibold text-slate-500 dark:text-slate-400">
                           {team.matchesPlayed}
                         </td>
                         <td className="num px-2 py-2.5 text-center font-bold text-amber-600 dark:text-amber-400">
                           {team.wwcd}
                         </td>
-                        <td className="hidden px-2 py-2.5 text-center font-semibold text-[var(--ed-stone)] sm:table-cell">
+                        <td className="hidden px-2 py-2.5 text-center font-semibold text-slate-500 dark:text-slate-400 sm:table-cell">
                           {team.placementPoints}
                         </td>
-                        <td className="hidden px-2 py-2.5 text-center font-semibold text-[var(--ed-stone)] sm:table-cell">
+                        <td className="hidden px-2 py-2.5 text-center font-semibold text-slate-500 dark:text-slate-400 sm:table-cell">
                           {team.eliminationPoints}
                         </td>
-                        <td className="num bg-[var(--ed-blue)]/5 px-3 py-2.5 text-center font-bold text-[var(--ed-blue)]">
+                        <td className="num bg-[#0A5FC4]/5 px-3 py-2.5 text-center font-black text-[#0A5FC4] dark:bg-blue-500/10 dark:text-blue-300">
                           {team.totalPoints}
                         </td>
                         <td className="hidden px-3 py-2.5 text-center md:table-cell">
@@ -130,8 +130,8 @@ export function HomeStandingsSection({
                                   mh.rank === 1
                                     ? 'bg-amber-400 text-slate-950'
                                     : mh.rank <= 4
-                                      ? 'bg-[var(--ed-blue)]/10 text-[var(--ed-blue)]'
-                                      : 'bg-[var(--ed-sand)] text-[var(--ed-stone)]'
+                                      ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
+                                      : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
                                 }`}
                               >
                                 {mh.totalPoints}
@@ -144,7 +144,7 @@ export function HomeStandingsSection({
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-xs text-[var(--ed-stone)]">
+                    <td colSpan={8} className="py-8 text-center text-xs text-slate-400">
                       No points recorded yet for this stage.
                     </td>
                   </tr>
@@ -162,22 +162,22 @@ export function HomeStandingsSection({
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
               <Crosshair className="h-4 w-4" />
             </div>
-            <h2 className="text-xl font-extrabold tracking-tight text-[var(--ed-ink)] sm:text-2xl">
+            <h2 className="text-xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-2xl">
               Top Fraggers
             </h2>
           </div>
-          <span className="rounded-full bg-[var(--ed-sand)] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[var(--ed-stone)]">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-500 dark:bg-white/5 dark:text-slate-400">
             {stageName}
           </span>
         </div>
 
-        <div className="ed-card">
-          <div className="divide-y divide-[var(--ed-hair)]">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0b1220]">
+          <div className="divide-y divide-slate-100 dark:divide-white/5">
             {fraggers.length > 0 ? (
               fraggers.slice(0, 5).map((player) => (
                 <div
                   key={player.playerId}
-                  className="p-4 transition-colors hover:bg-[var(--ed-sand)]/50"
+                  className="p-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
@@ -189,7 +189,7 @@ export function HomeStandingsSection({
                               ? 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
                               : player.rank === 3
                                 ? 'bg-amber-600/20 text-amber-700 dark:text-amber-400'
-                                : 'bg-[var(--ed-sand)] text-[var(--ed-stone)]'
+                                : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400'
                         }`}
                       >
                         {player.rank}
@@ -197,34 +197,34 @@ export function HomeStandingsSection({
                       <div>
                         <Link
                           href={`/players/${encodeURIComponent(player.playerSlug || player.ign.toLowerCase())}`}
-                          className="text-sm font-bold text-[var(--ed-ink)] transition-colors hover:text-[var(--ed-blue)]"
+                          className="text-sm font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
                         >
                           {player.ign}
                         </Link>
-                        <div className="mt-0.5 truncate text-[11px] font-medium text-[var(--ed-stone)]">
+                        <div className="mt-0.5 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
                           {player.teamName}
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="num text-sm font-bold text-[var(--ed-blue)]">
+                      <div className="num text-sm font-black text-[#0A5FC4] dark:text-blue-400">
                         {player.elims} Kills
                       </div>
-                      <div className="text-[11px] font-semibold text-[var(--ed-stone)]">
+                      <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                         {player.matchesPlayed} Matches
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-2.5 flex items-center justify-between border-t border-[var(--ed-hair)] pt-2.5 text-[11px] text-[var(--ed-stone)]">
-                    <span>Role: <strong className="font-bold text-[var(--ed-ink)]">{player.role || 'Player'}</strong></span>
-                    <span>Headshots: <strong className="font-bold text-[var(--ed-ink)]">{player.headshots}</strong></span>
+                  <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    <span>Role: <strong className="font-bold text-slate-900 dark:text-white">{player.role || 'Player'}</strong></span>
+                    <span>Headshots: <strong className="font-bold text-slate-900 dark:text-white">{player.headshots}</strong></span>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center text-xs text-[var(--ed-stone)]">
+              <div className="p-8 text-center text-xs text-slate-400">
                 No player fragger statistics recorded yet.
               </div>
             )}

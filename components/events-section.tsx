@@ -150,25 +150,25 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
   const visible = selectEvents(events, tab);
 
   return (
-    <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)]">
+    <section className="border-b border-slate-200 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-[#0b1220]/90">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-3.5 space-y-3">
         {/* Header: label + tab toggle on the right */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[var(--ed-magenta)]" />
-            <h2 className="ed-label text-[var(--ed-ink)]">
+            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
               Tournament Circuit
             </h2>
           </div>
 
-          <div className="flex items-center rounded-full bg-[var(--ed-sand)] p-1">
+          <div className="flex items-center rounded-full bg-slate-100 p-1 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
             <button
               onClick={() => setTab('active')}
               className={cn(
                 'px-3.5 py-1 rounded-full text-xs font-bold transition-all',
                 tab === 'active'
-                  ? 'bg-[var(--ed-surface)] text-[var(--ed-blue)]'
-                  : 'text-[var(--ed-stone)] hover:text-[var(--ed-ink)]'
+                  ? 'bg-[#0A5FC4] text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               )}
               aria-pressed={tab === 'active'}
             >
@@ -179,8 +179,8 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
               className={cn(
                 'px-3.5 py-1 rounded-full text-xs font-bold transition-all',
                 tab === 'past'
-                  ? 'bg-[var(--ed-surface)] text-[var(--ed-blue)]'
-                  : 'text-[var(--ed-stone)] hover:text-[var(--ed-ink)]'
+                  ? 'bg-[#0A5FC4] text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               )}
               aria-pressed={tab === 'past'}
             >
