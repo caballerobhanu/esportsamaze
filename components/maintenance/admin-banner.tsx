@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { AlertTriangle, Settings, PowerOff, ExternalLink } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { AlertTriangle, Settings, PowerOff, Eye, Globe } from 'lucide-react';
 import type { MaintenanceSettings } from '@/lib/site-settings';
 import { toggleMaintenanceMode } from '@/lib/site-settings';
 
@@ -8,10 +9,27 @@ async function disableMaintenanceAction() {
   await toggleMaintenanceMode(false);
 }
 
+async function togglePreviewLiveAction() {
+  'use server';
+  const cookieStore = await cookies();
+  const current = cookieStore.get('ea_preview_live')?.value === '1';
+  if (current) {
+    cookieStore.delete('ea_preview_live');
+  } else {
+    cookieStore.set('ea_preview_live', '1', {
+      path: '/',
+      httpOnly: true,
+      maxAge: 60 * 60 * 24,
+    });
+  }
+}
+
 export function AdminMaintenanceBanner({
   settings,
+  onMaintenancePage = false,
 }: {
   settings: MaintenanceSettings;
+  onMaintenancePage?: boolean;
 }) {
   const isComingSoon = settings.mode === 'COMING_SOON';
 
@@ -26,23 +44,36 @@ export function AdminMaintenanceBanner({
           <strong className="uppercase tracking-wider">
             {isComingSoon ? 'Coming Soon Mode Active' : 'Maintenance Mode Active'}
           </strong>
-          : Public visitors are currently viewing the {isComingSoon ? 'Coming Soon' : 'Maintenance'} screen. You are seeing the live site because you are logged in as Admin.
+          :{' '}
+          {onMaintenancePage
+            ? 'All non-admin public visitors see this screen. You are viewing it with admin controls.'
+            : 'Public visitors see the Coming Soon screen. You are previewing the live site.'}
         </span>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <Link
-          href="/maintenance"
-          target="_blank"
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950/15 hover:bg-slate-950/25 text-slate-950 font-bold transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          <span>Preview Screen</span>
-        </Link>
+        <form action={togglePreviewLiveAction}>
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950/20 hover:bg-slate-950/30 text-slate-950 font-bold transition-colors text-[11px]"
+          >
+            {onMaintenancePage ? (
+              <>
+                <Globe className="w-3.5 h-3.5" />
+                <span>Preview Live Site</span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-3.5 h-3.5" />
+                <span>View Coming Soon Screen</span>
+              </>
+            )}
+          </button>
+        </form>
 
         <Link
           href="/admin/settings"
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950/15 hover:bg-slate-950/25 text-slate-950 font-bold transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-950/15 hover:bg-slate-950/25 text-slate-950 font-bold transition-colors text-[11px]"
         >
           <Settings className="w-3.5 h-3.5" />
           <span>Configure</span>
