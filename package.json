@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "node --import tsx --test tests/tournament-math.test.ts tests/krafton-standings.test.ts tests/admin-auth.test.ts tests/anti-scrape.test.ts tests/news-helpers.test.ts tests/site-settings.test.ts",

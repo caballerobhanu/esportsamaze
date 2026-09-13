@@ -38,9 +38,17 @@ export const DEFAULT_MAINTENANCE_SETTINGS: MaintenanceSettings = {
 
 const SETTINGS_KEY = 'maintenance_config';
 
+// Resilient accessor for prisma.siteSetting in case prisma client is awaiting generate on VPS
+function getSiteSettingModel() {
+  return (prisma as any).siteSetting;
+}
+
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
   try {
-    const row = await prisma.siteSetting.findUnique({
+    const model = getSiteSettingModel();
+    if (!model) return DEFAULT_MAINTENANCE_SETTINGS;
+
+    const row = await model.findUnique({
       where: { key: SETTINGS_KEY },
     });
 
@@ -77,16 +85,19 @@ export async function updateMaintenanceSettings(
     },
   };
 
-  await prisma.siteSetting.upsert({
-    where: { key: SETTINGS_KEY },
-    update: {
-      value: JSON.stringify(merged),
-    },
-    create: {
-      key: SETTINGS_KEY,
-      value: JSON.stringify(merged),
-    },
-  });
+  const model = getSiteSettingModel();
+  if (model) {
+    await model.upsert({
+      where: { key: SETTINGS_KEY },
+      update: {
+        value: JSON.stringify(merged),
+      },
+      create: {
+        key: SETTINGS_KEY,
+        value: JSON.stringify(merged),
+      },
+    });
+  }
 
   // Revalidate the public layout cache so changes take effect immediately
   try {
