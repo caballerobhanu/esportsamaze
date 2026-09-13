@@ -45,8 +45,8 @@ export function RecentFormChart({ points }: { points: RecentMatchPoint[] }) {
   const gridVals = [0, Math.round(maxElims / 2), maxElims];
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="w-full min-w-0">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
           Eliminations per match · last {n} matches
         </p>
@@ -70,43 +70,45 @@ export function RecentFormChart({ points }: { points: RecentMatchPoint[] }) {
         </button>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Recent match eliminations chart">
-        {/* grid + y labels */}
-        {gridVals.map((v) => (
-          <g key={v}>
-            <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} className="stroke-slate-100 dark:stroke-white/10" strokeWidth={1} />
-            <text x={padL - 6} y={y(v) + 3} textAnchor="end" className="fill-slate-400 text-[9px] font-bold">
-              {v}
-            </text>
-          </g>
-        ))}
-
-        {/* eliminations line + dots */}
-        <path d={elimsPath} fill="none" className="stroke-(--ed-blue)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {points.map((p, i) => (
-          <g key={i}>
-            <circle cx={x(i)} cy={y(p.elims)} r={3.5} className="fill-(--ed-blue)">
-              <title>{`${p.elims} elims — ${p.tournament}${p.map ? ` · ${p.map}` : ''} (${p.dateLabel})`}</title>
-            </circle>
-          </g>
-        ))}
-
-        {/* rolling average line */}
-        {showRolling && rollingPath && (
-          <path d={rollingPath} fill="none" className="stroke-amber-500 dark:stroke-amber-400" strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" />
-        )}
-
-        {/* x labels: first / middle / last match dates */}
-        {[0, Math.floor((n - 1) / 2), n - 1]
-          .filter((i, idx, arr) => n > 1 && arr.indexOf(i) === idx)
-          .map((i) => (
-            <text key={i} x={x(i)} y={H - 10} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} className="fill-slate-400 text-[9px] font-bold">
-              {points[i]?.dateLabel}
-            </text>
+      <div className="w-full overflow-hidden">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Recent match eliminations chart">
+          {/* grid + y labels */}
+          {gridVals.map((v) => (
+            <g key={v}>
+              <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} className="stroke-slate-100 dark:stroke-white/10" strokeWidth={1} />
+              <text x={padL - 6} y={y(v) + 3} textAnchor="end" className="fill-slate-400 text-[9px] font-bold">
+                {v}
+              </text>
+            </g>
           ))}
-      </svg>
 
-      <div className="mt-2 flex items-center gap-4 text-[11px] font-bold text-slate-400">
+          {/* eliminations line + dots */}
+          <path d={elimsPath} fill="none" className="stroke-(--ed-blue)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          {points.map((p, i) => (
+            <g key={i}>
+              <circle cx={x(i)} cy={y(p.elims)} r={3.5} className="fill-(--ed-blue)">
+                <title>{`${p.elims} elims — ${p.tournament}${p.map ? ` · ${p.map}` : ''} (${p.dateLabel})`}</title>
+              </circle>
+            </g>
+          ))}
+
+          {/* rolling average line */}
+          {showRolling && rollingPath && (
+            <path d={rollingPath} fill="none" className="stroke-amber-500 dark:stroke-amber-400" strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" />
+          )}
+
+          {/* x labels: first / middle / last match dates */}
+          {[0, Math.floor((n - 1) / 2), n - 1]
+            .filter((i, idx, arr) => n > 1 && arr.indexOf(i) === idx)
+            .map((i) => (
+              <text key={i} x={x(i)} y={H - 10} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} className="fill-slate-400 text-[9px] font-bold">
+                {points[i]?.dateLabel}
+              </text>
+            ))}
+        </svg>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-bold text-slate-400">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-0.5 w-4 rounded bg-(--ed-blue)" /> Eliminations
         </span>

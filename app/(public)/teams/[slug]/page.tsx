@@ -389,8 +389,8 @@ export default async function TeamPage({ params }: TeamPageProps) {
 
       {/* ============ BODY ============ */}
       <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
-        <div className="grid gap-5 lg:grid-cols-[1.4fr_.8fr]">
-          <div className="space-y-8">
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[1.4fr_.8fr]">
+          <div className="min-w-0 space-y-8">
             {/* Roster */}
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
               <div className="mb-7 flex items-center justify-between">
@@ -645,7 +645,7 @@ export default async function TeamPage({ params }: TeamPageProps) {
           </div>
 
           {/* Sidebar */}
-          <aside className="space-y-8">
+          <aside className="min-w-0 space-y-8">
 
             {/* Recent events timeline */}
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">

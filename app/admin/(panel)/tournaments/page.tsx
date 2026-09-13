@@ -682,14 +682,22 @@ async function saveTournament(formData: FormData) {
               existingSet.add(key);
             }
 
-            // Update player's active team
-            await tx.player.update({
-              where: { id: pt.player.id },
-              data: {
-                currentTeamId: pt.targetTeamId,
+            // Update player's active team only if this tournament date is not superseded by a newer transfer
+            const newerTransfer = await tx.transfer.findFirst({
+              where: {
+                playerId: pt.player.id,
+                date: { gt: startDate || new Date() },
               },
             });
-            pt.player.currentTeamId = pt.targetTeamId;
+            if (!newerTransfer) {
+              await tx.player.update({
+                where: { id: pt.player.id },
+                data: {
+                  currentTeamId: pt.targetTeamId,
+                },
+              });
+              pt.player.currentTeamId = pt.targetTeamId;
+            }
           }
         }
 

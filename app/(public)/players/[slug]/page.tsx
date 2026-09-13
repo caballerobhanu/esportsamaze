@@ -275,45 +275,123 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     { label: 'Last 20 Avg', value: recentAvg !== null ? recentAvg.toFixed(1) : '—' },
   ];
 
-  // ── Career history: every tenure from the transfer ledger, with periods ──
-  const historyTeams = new Map<string, { team: (typeof transfers)[number]['team']; records: (typeof transfers)[number][] }>();
-  for (const tr of transfers) {
-    let entry = historyTeams.get(tr.teamId);
-    if (!entry) {
-      entry = { team: tr.team, records: [] };
-      historyTeams.set(tr.teamId, entry);
-    }
-    entry.records.push(tr);
+  // ── Career history: chronological tenures from transfer ledger ──
+  interface HistoryStint {
+    team: (typeof transfers)[number]['team'];
+    roles: Set<string>;
+    start: Date | null;
+    end: Date | null;
   }
 
-  // Pair JOINED → LEFT records into tenure spans; an unmatched JOINED runs to "Present"
-  const spansFor = (records: (typeof transfers)[number][]) => {
-    const asc = [...records].sort((a, b) => a.date.getTime() - b.date.getTime());
-    const spans: { start: Date | null; end: Date | null }[] = [];
-    let open: { start: Date } | null = null;
-    for (const r of asc) {
-      if (r.type === 'LEFT' || r.type === 'BENCHED') {
-        if (open) {
-          spans.push({ start: open.start, end: r.date });
-          open = null;
+  const chronologicalTransfers = [...transfers].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const allStints: HistoryStint[] = [];
+  let currentStint: { team: (typeof transfers)[number]['team']; roles: Set<string>; start: Date } | null = null;
+
+  for (const tr of chronologicalTransfers) {
+    if (tr.type === 'JOINED' || tr.type === 'LOANED') {
+      if (currentStint) {
+        if (currentStint.team.id === tr.teamId) {
+          if (tr.staffRole) currentStint.roles.add(tr.staffRole);
         } else {
-          spans.push({ start: null, end: r.date });
+          allStints.push({
+            team: currentStint.team,
+            roles: currentStint.roles,
+            start: currentStint.start,
+            end: tr.date,
+          });
+          currentStint = {
+            team: tr.team,
+            roles: new Set(tr.staffRole ? [tr.staffRole] : []),
+            start: tr.date,
+          };
         }
-      } else if (open) {
-        spans.push({ start: open.start, end: null });
-        open = { start: r.date };
       } else {
-        open = { start: r.date };
+        currentStint = {
+          team: tr.team,
+          roles: new Set(tr.staffRole ? [tr.staffRole] : []),
+          start: tr.date,
+        };
+      }
+    } else if (tr.type === 'LEFT' || tr.type === 'BENCHED') {
+      if (currentStint) {
+        allStints.push({
+          team: currentStint.team,
+          roles: currentStint.roles,
+          start: currentStint.start,
+          end: tr.date,
+        });
+        currentStint = null;
+      } else {
+        allStints.push({
+          team: tr.team,
+          roles: new Set(tr.staffRole ? [tr.staffRole] : []),
+          start: null,
+          end: tr.date,
+        });
       }
     }
-    if (open) spans.push({ start: open.start, end: null });
-    return spans;
-  };
+  }
 
-  const historyList = [...historyTeams.values()].map(({ team, records }) => {
-    const roles = [...new Set(records.map((r) => r.staffRole).filter(Boolean))] as string[];
-    return { team, records, roles, spans: spansFor(records) };
-  });
+  if (currentStint) {
+    const isInactive = player.status === 'RETIRED' || player.status === 'INACTIVE';
+    allStints.push({
+      team: currentStint.team,
+      roles: currentStint.roles,
+      start: currentStint.start,
+      end: isInactive ? currentStint.start : null,
+    });
+  }
+
+  // If player has a currentTeam that has no stints in history, add it as Present
+  if (player.currentTeam && !allStints.some((s) => s.team.id === player.currentTeamId)) {
+    allStints.push({
+      team: player.currentTeam,
+      roles: new Set(player.staffRole ? [player.staffRole] : []),
+      start: player.createdAt,
+      end: null,
+    });
+  }
+
+  // Group stints by team
+  const byTeam = new Map<
+    string,
+    { team: (typeof transfers)[number]['team']; roles: Set<string>; spans: { start: Date | null; end: Date | null }[] }
+  >();
+  for (const stint of allStints) {
+    let entry = byTeam.get(stint.team.id);
+    if (!entry) {
+      entry = { team: stint.team, roles: new Set(), spans: [] };
+      byTeam.set(stint.team.id, entry);
+    }
+    for (const r of stint.roles) entry.roles.add(r);
+    entry.spans.push({ start: stint.start, end: stint.end });
+  }
+
+  // Sort each team's spans desc (open spans first)
+  for (const entry of byTeam.values()) {
+    entry.spans.sort((a, b) => {
+      if (!a.end && b.end) return -1;
+      if (a.end && !b.end) return 1;
+      return (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0);
+    });
+  }
+
+  // Sort teams so the current/most recent team is at the top
+  const historyList = [...byTeam.values()]
+    .map(({ team, roles, spans }) => ({
+      team,
+      roles: [...roles],
+      spans,
+    }))
+    .sort((a, b) => {
+      const aLatest = a.spans[0];
+      const bLatest = b.spans[0];
+      if (!aLatest?.end && bLatest?.end) return -1;
+      if (aLatest?.end && !bLatest?.end) return 1;
+      const aTime = aLatest?.end?.getTime() ?? aLatest?.start?.getTime() ?? 0;
+      const bTime = bLatest?.end?.getTime() ?? bLatest?.start?.getTime() ?? 0;
+      return bTime - aTime;
+    });
 
   // ── Played-with matrix: teammates from shared match games on the same team ──
   const gameTeam = new Map<string, string | null>();
@@ -523,7 +601,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     .sort((a, b) => (b.tournament.startDate?.getTime() ?? 0) - (a.tournament.startDate?.getTime() ?? 0));
 
   return (
-    <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white">
+    <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white overflow-x-clip">
       <main>
         {/* ============ HERO ============ */}
         <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
@@ -535,7 +613,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
           <div className="relative mx-auto max-w-7xl px-4 pb-0 pt-5 sm:px-6 lg:px-8">
             {/* breadcrumb + pager */}
             <div className="mb-10 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
                 <Link href="/" className="hover:text-[#0A5FC4]">Home</Link>
                 <span>/</span>
                 <span>{player.game?.name || 'Esports'}</span>
@@ -569,7 +647,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
               <div className="flex justify-center">
                 <div className="relative">
                   <div className="absolute -inset-3 -rotate-2 rounded-[2.8rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20" />
-                  <div className="relative h-64 w-64 overflow-hidden rounded-[2.5rem] border-8 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-72 sm:w-72">
+                  <div className="relative h-56 w-56 overflow-hidden rounded-[2.5rem] border-8 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-72 sm:w-72">
                     {avatar ? (
                       <Image src={avatar} alt={player.ign} fill className="object-contain object-bottom" priority />
                     ) : (
@@ -609,7 +687,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                     </Link>
                   )}
                 </div>
-                <h1 className="text-6xl font-black tracking-[-.06em] text-slate-950 dark:text-white sm:text-7xl lg:text-8xl">
+                <h1 className="text-4xl font-black tracking-[-.06em] text-slate-950 dark:text-white sm:text-6xl lg:text-7xl break-words">
                   {player.ign}
                 </h1>
                 <p className="mt-4 text-base font-medium text-slate-500 dark:text-slate-400">
@@ -621,7 +699,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                 {player.currentTeam && (
                   <Link
                     href={`/teams/${player.currentTeam.slug}`}
-                    className="mt-7 inline-flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-extrabold transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5"
+                    className="mt-7 inline-flex max-w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-extrabold transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center">
                       {player.currentTeam.logoUrl || player.currentTeam.imageDarkUrl ? (
@@ -649,8 +727,8 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                         </span>
                       )}
                     </span>
-                    <span>{player.currentTeam.name}</span>
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
+                    <span className="truncate">{player.currentTeam.name}</span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
                   </Link>
                 )}
               </div>
@@ -674,10 +752,10 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
         {/* ============ BODY ============ */}
         <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
-          <div className="grid gap-5 lg:grid-cols-[1.4fr_.8fr]">
-            <div className="space-y-8">
+          <div className="grid min-w-0 gap-5 lg:grid-cols-[1.4fr_.8fr]">
+            <div className="min-w-0 space-y-8">
               {/* Recent form — line chart of the last 20 matches */}
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+              <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
@@ -698,7 +776,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
               </section>
 
               {/* Played alongside — teammates matrix */}
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+              <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
                 <div className="mb-7 flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
@@ -710,7 +788,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                 </div>
 
                 {teammates.length ? (
-                  <div className="overflow-x-auto">
+                  <div className="w-full overflow-x-auto">
                     <table className="w-full min-w-[420px] text-left">
                       <thead className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
                         <tr>
@@ -757,7 +835,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
               {/* Career earnings — one ledger line per earning */}
               {earningLines.length > 0 && (
-                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+                <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
                   <div className="mb-7 flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
@@ -805,7 +883,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="w-full overflow-x-auto">
                     <table className="w-full min-w-[520px] text-left">
                       <thead className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
                         <tr>
@@ -859,7 +937,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
               {/* Events performance — team results & per-event output */}
               {performanceRows.length > 0 && (
-                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+                <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
                   <div className="mb-7 flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
@@ -870,7 +948,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                     <Trophy className="h-6 w-6 text-slate-300 dark:text-slate-700" />
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="w-full overflow-x-auto">
                     <table className="w-full min-w-[520px] text-left">
                       <thead className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
                         <tr>
@@ -927,9 +1005,9 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
             </div>
 
             {/* Sidebar */}
-            <aside className="space-y-8">
+            <aside className="min-w-0 space-y-8">
               {/* Career history — every tenure with periods & durations */}
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+              <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
                 <div className="mb-6 flex items-center gap-3">
                   <CalendarDays className="h-5 w-5 text-[#0A5FC4] dark:text-blue-300" />
                   <h2 className="text-lg font-black">Career history</h2>
@@ -941,7 +1019,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                         <div className="flex items-center justify-between gap-2">
                           <Link
                             href={`/teams/${team.slug}`}
-                            className="truncate text-sm font-extrabold transition-colors hover:text-[#0A5FC4]"
+                            className="min-w-0 truncate text-sm font-extrabold transition-colors hover:text-[#0A5FC4]"
                           >
                             {team.name}
                           </Link>
@@ -980,7 +1058,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                 )}
               </section>
 
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+              <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
                 <div className="mb-6 flex items-center gap-3">
                   <Users className="h-5 w-5 text-[#0A5FC4] dark:text-blue-300" />
                   <h2 className="text-lg font-black">Player details</h2>
@@ -1000,14 +1078,14 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                       key={label}
                       className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 last:border-0 last:pb-0 dark:border-white/10"
                     >
-                      <dt className="text-slate-400">{label}</dt>
-                      <dd className="text-right font-bold">{value}</dd>
+                      <dt className="shrink-0 text-slate-400">{label}</dt>
+                      <dd className="text-right font-bold break-words">{value}</dd>
                     </div>
                   ))}
                 </dl>
 
                 {Object.keys(socials).length > 0 && (
-                  <div className="mt-6 flex gap-2 border-t border-slate-100 pt-5 dark:border-white/10">
+                  <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-5 dark:border-white/10">
                     {Object.entries(socials).map(([key, value]) => {
                       const Icon = socialIcons[key] || Globe;
                       return (
@@ -1060,14 +1138,14 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                   {standing && (
                     <Link
                       href={`/rankings/player/${player.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow-sm transition hover:bg-blue-50"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow-sm transition hover:bg-blue-50"
                     >
                       Points breakdown <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   )}
                   <Link
                     href="/rankings?board=players"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-white/20 hover:text-amber-200"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-white/20 hover:text-amber-200"
                   >
                     Leaderboard <ArrowRight className="h-3.5 w-3.5" />
                   </Link>

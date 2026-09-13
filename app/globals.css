@@ -9,6 +9,12 @@
 /* Legacy shadcn-style tokens removed — everything below derives from the
    Editorial Design System tokens (--ed-*), which adapt in .dark. */
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   background-color: var(--ed-canvas);
   color: var(--ed-ink);
