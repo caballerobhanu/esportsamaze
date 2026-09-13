@@ -28,6 +28,7 @@ export interface CalendarMatchItem {
   stageId?: string | null;
   stage?: { name: string } | null;
   stageName?: string | null;
+  isProjected?: boolean;
 }
 
 export interface CalendarStageItem {
@@ -64,6 +65,9 @@ interface ProcessedDay {
   isMatchDay: boolean;
   isRestDay: boolean;
   stageName?: string;
+  dailyStartTime?: string;
+  groupsDivision?: string;
+  isProjected?: boolean;
   matches: CalendarMatchItem[];
 }
 
@@ -150,7 +154,7 @@ export function TournamentScheduleCalendar({
   className = '',
 }: TournamentScheduleCalendarProps) {
   // 1. Group actual matches by local date key (YYYY-MM-DD)
-  const { matchesByDate, allMatchDates, stageColorMap } = useMemo(() => {
+  const { matchesByDate, allMatchDates, stageColorMap, dayMetaMap } = useMemo(() => {
     const map = new Map<string, CalendarMatchItem[]>();
     const dates: Date[] = [];
     const colorMap = new Map<string, string>();
@@ -188,12 +192,20 @@ export function TournamentScheduleCalendar({
         activeDaysOfWeek: s.activeDaysOfWeek || fmt.activeDaysOfWeek || [4, 5, 6, 0],
         customDates: s.customDates || fmt.customDates || [],
         matchesPerDay: Number(s.matchesPerDay || fmt.matchesPerDay) || 6,
-        matchTime: s.matchTime || fmt.matchTime || '16:00 IST',
-        groupsDivision: s.groupsDivision || fmt.groupsDivision || 'Lobby Matches',
+        matchTime: s.matchTime || fmt.matchTime || null,
+        groupsDivision: s.groupsDivision || fmt.groupsDivision || null,
       };
     });
 
-    const MAP_ROTATION = ['Erangel', 'Miramar', 'Sanhok', 'Erangel', 'Miramar', 'Erangel'];
+    const dayMetaMap = new Map<
+      string,
+      {
+        dailyStartTime?: string | null;
+        groupsDivision?: string | null;
+        isProjected?: boolean;
+        stageName?: string;
+      }
+    >();
 
     for (const sc of stageConfigs) {
       if (!sc.startDate || !sc.endDate) continue;
@@ -216,27 +228,38 @@ export function TournamentScheduleCalendar({
           isActiveDay = Array.isArray(sc.customDates) && sc.customDates.includes(key);
         }
 
-        // Only inject projected matches if no real matches were ingested for this day
-        if (isActiveDay && (!map.has(key) || map.get(key)!.length === 0)) {
-          const projMatches: CalendarMatchItem[] = [];
-          const count = sc.matchesPerDay || 6;
-          for (let mIdx = 1; mIdx <= count; mIdx++) {
-            projMatches.push({
-              id: `sched-${sc.name.replace(/\s+/g, '-').toLowerCase()}-${key}-${mIdx}`,
-              matchNumber: mIdx,
-              overallMatchNumber: (dayIndex - 1) * count + mIdx,
-              scheduledAt: new Date(cursor),
-              matchTime: sc.matchTime,
-              mapName: MAP_ROTATION[(mIdx - 1) % MAP_ROTATION.length],
-              groupName: sc.groupsDivision,
-              status: 'SCHEDULED',
-              stage: { name: sc.name },
-              stageName: sc.name,
-            });
+        if (isActiveDay) {
+          const hasRealMatches = map.has(key) && map.get(key)!.length > 0;
+          dayMetaMap.set(key, {
+            dailyStartTime: sc.matchTime,
+            groupsDivision: sc.groupsDivision,
+            isProjected: !hasRealMatches,
+            stageName: sc.name,
+          });
+
+          // Only inject projected match placeholders if no real matches were ingested for this day
+          if (!hasRealMatches) {
+            const projMatches: CalendarMatchItem[] = [];
+            const count = sc.matchesPerDay || 6;
+            for (let mIdx = 1; mIdx <= count; mIdx++) {
+              projMatches.push({
+                id: `sched-${sc.name.replace(/\s+/g, '-').toLowerCase()}-${key}-${mIdx}`,
+                matchNumber: mIdx,
+                overallMatchNumber: (dayIndex - 1) * count + mIdx,
+                scheduledAt: new Date(cursor),
+                matchTime: null, // Do not guess individual match times
+                mapName: null, // NEVER guess fake maps
+                groupName: null, // NEVER put stage group division on match rows
+                status: 'SCHEDULED',
+                stage: { name: sc.name },
+                stageName: sc.name,
+                isProjected: true,
+              });
+            }
+            map.set(key, projMatches);
+            dates.push(new Date(cursor));
+            dayIndex++;
           }
-          map.set(key, projMatches);
-          dates.push(new Date(cursor));
-          dayIndex++;
         }
 
         cursor.setDate(cursor.getDate() + 1);
@@ -254,7 +277,7 @@ export function TournamentScheduleCalendar({
     }
 
     dates.sort((a, b) => a.getTime() - b.getTime());
-    return { matchesByDate: map, allMatchDates: dates, stageColorMap: colorMap };
+    return { matchesByDate: map, allMatchDates: dates, stageColorMap: colorMap, dayMetaMap };
   }, [matches, stages, formatDetails]);
 
   // 2. Determine tournament date boundaries and available months
@@ -381,6 +404,7 @@ export function TournamentScheduleCalendar({
         prevMonthLabelSeen = monthShort;
       }
 
+      const meta = dayMetaMap.get(dateKey);
       currentWeek.push({
         date: new Date(curDate),
         dateKey,
@@ -390,7 +414,10 @@ export function TournamentScheduleCalendar({
         isWithinTournament,
         isMatchDay,
         isRestDay,
-        stageName: dayStage || undefined,
+        stageName: dayStage || meta?.stageName || undefined,
+        dailyStartTime: meta?.dailyStartTime || undefined,
+        groupsDivision: meta?.groupsDivision || undefined,
+        isProjected: meta?.isProjected || dayMatches.some((m) => m.isProjected || m.id?.startsWith('sched-')),
         matches: dayMatches,
       });
 
@@ -465,7 +492,7 @@ export function TournamentScheduleCalendar({
     });
 
     return { weeksData: weeks, phasesByWeek: phaseMap };
-  }, [activeMonth, minDate, maxDate, matchesByDate, stageColorMap]);
+  }, [activeMonth, minDate, maxDate, matchesByDate, stageColorMap, dayMetaMap]);
 
   // Auto-select the first matchday in this active month so PC view is immediately populated
   useEffect(() => {
@@ -709,12 +736,32 @@ export function TournamentScheduleCalendar({
                   )}
                 </div>
 
+                {/* Stage Schedule Overview (Daily start time & Lobby format) */}
+                {(selectedDay.dailyStartTime || selectedDay.groupsDivision) && !selectedDay.isRestDay && (
+                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-blue-100/60 dark:bg-blue-950/40 px-3 py-2 border border-blue-200/60 dark:border-blue-900/40 text-xs">
+                    {selectedDay.dailyStartTime && (
+                      <span className="inline-flex items-center gap-1 font-bold text-slate-700 dark:text-slate-200 text-[11px]">
+                        <Clock className="h-3 w-3 text-[#0A5FC4] dark:text-blue-400" />
+                        Broadcast: <span className="text-[#0A5FC4] dark:text-blue-300 font-extrabold">{selectedDay.dailyStartTime}</span>
+                      </span>
+                    )}
+                    {selectedDay.groupsDivision && (
+                      <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        {selectedDay.groupsDivision}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Match List for Selected Day */}
                 <div className="mt-3 space-y-2 max-h-[380px] overflow-y-auto pr-1">
                   {selectedDay.matches.length > 0 ? (
                     selectedDay.matches.map((m, idx) => {
                       const matchNum = m.matchNumber || idx + 1;
-                      const matchUrl = tournamentSlug
+                      const isProjected = Boolean(m.isProjected || m.id?.startsWith('sched-'));
+                      // Only link to scorecard if it is a REAL database match that is completed or has live data
+                      const hasRealScorecard = !isProjected && m.status !== 'SCHEDULED' && Boolean(m.id);
+                      const matchUrl = hasRealScorecard && tournamentSlug
                         ? `/tournaments/${tournamentSlug}/matches?matchId=${m.id}`
                         : null;
 
@@ -727,25 +774,43 @@ export function TournamentScheduleCalendar({
                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[10px] font-black text-slate-700 dark:bg-white/10 dark:text-slate-300">
                               #{matchNum}
                             </span>
+                            {/* Real Map Name (Only if genuinely provided by match data, NEVER guessed) */}
                             {m.mapName && (
                               <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-[#0A5FC4] dark:bg-blue-950/60 dark:text-blue-300">
                                 {m.mapName}
                               </span>
                             )}
+                            {/* Real Group Name (Only if match has a specific group like Group A, never the stage groups division) */}
                             {m.groupName && (
                               <span className="truncate text-[11px] font-medium text-slate-600 dark:text-slate-400">
                                 {m.groupName}
                               </span>
                             )}
+                            {/* Generic fallback title when no map/group yet */}
+                            {!m.mapName && !m.groupName && (
+                              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                                Match {matchNum}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2.5 shrink-0">
-                            {m.matchTime && (
+                            {/* Individual match time (only if individual match time was set) */}
+                            {m.matchTime && !isProjected && (
                               <span className="flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                                 <Clock className="h-3 w-3 text-[#0A5FC4]" />
                                 {m.matchTime}
                               </span>
                             )}
+
+                            {/* Status label for projected matches */}
+                            {isProjected && (
+                              <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded">
+                                Scheduled
+                              </span>
+                            )}
+
+                            {/* Scorecard Link ONLY for real matches */}
                             {matchUrl && (
                               <Link
                                 href={matchUrl}
@@ -774,6 +839,12 @@ export function TournamentScheduleCalendar({
                     <p className="py-6 text-center text-xs text-slate-400">
                       No matches scheduled on this date.
                     </p>
+                  )}
+
+                  {selectedDay.matches.length > 0 && selectedDay.matches.some((m) => m.isProjected || m.id?.startsWith('sched-')) && (
+                    <div className="mt-2.5 rounded-lg border border-dashed border-blue-200/80 dark:border-blue-900/40 p-2 text-center text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                      Lobby groups, map order &amp; scorecards will be published once matches are scheduled.
+                    </div>
                   )}
                 </div>
               </>
