@@ -301,7 +301,7 @@ export function TournamentsDirectoryExplorer({
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-(--ed-hair) bg-(--ed-canvas) p-1.5">
                       {t.imageUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={t.imageUrl} alt={t.name} className="max-h-full max-w-full object-contain dark:hidden" />
+                        <img src={t.imageUrl} alt={t.name} className={`max-h-full max-w-full object-contain ${t.imageDarkUrl ? 'dark:hidden' : ''}`} />
                       )}
                       {t.imageDarkUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
