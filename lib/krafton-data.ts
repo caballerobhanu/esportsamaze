@@ -1,7 +1,6 @@
 /* Server-side data access for the KRAFTON rankings system (v2).
    Fetches entry rows shaped for the board engine and resolves site links. */
 
-import { unstable_cache } from 'next/cache';
 import prisma from '@/lib/prisma';
 import type { KraftonBoard } from '@prisma/client';
 import type { EntryRow, RankedBoardEntity, TransferRule } from '@/lib/krafton-standings';
@@ -11,49 +10,45 @@ import {
   generateHistoricalSnapshotDates,
 } from '@/lib/krafton-standings';
 
-export const fetchBoardEntries = unstable_cache(
-  async (board: KraftonBoard): Promise<EntryRow[]> => {
-    const rows = await prisma.kraftonEntry.findMany({
-      where: { board },
-      include: {
-        event: {
-          select: {
-            name: true,
-            endDate: true,
-            tier: true,
-            tournamentId: true,
-            tournament: { select: { id: true, slug: true } },
-          },
+export async function fetchBoardEntries(board: KraftonBoard): Promise<EntryRow[]> {
+  const rows = await prisma.kraftonEntry.findMany({
+    where: { board },
+    include: {
+      event: {
+        select: {
+          name: true,
+          endDate: true,
+          tier: true,
+          tournamentId: true,
+          tournament: { select: { id: true, slug: true } },
         },
       },
-    });
-    return rows
-      .map((r) => ({
-        id: r.id,
-        eventId: r.eventId,
-        eventName: r.event.name,
-        eventEndDate: r.event.endDate,
-        tier: r.event.tier,
-        board: r.board,
-        entityId: r.entityId,
-        entityName: r.entityName,
-        teamName: r.teamName,
-        teamId: r.teamId,
-        rank: r.rank,
-        finishes: r.finishes,
-        mvp: r.mvp,
-        finalsMvp: r.finalsMvp,
-        igl: r.igl,
-        survivor: r.survivor,
-        emerging: r.emerging,
-        tournamentId: r.event.tournamentId ?? null,
-        tournamentSlug: r.event.tournament?.slug ?? null,
-      }))
-      .sort((a, b) => b.eventEndDate.getTime() - a.eventEndDate.getTime());
-  },
-  ['krafton-board-entries'],
-  { tags: ['krafton-rankings'], revalidate: 3600 }
-);
+    },
+  });
+  return rows
+    .map((r) => ({
+      id: r.id,
+      eventId: r.eventId,
+      eventName: r.event.name,
+      eventEndDate: r.event.endDate,
+      tier: r.event.tier,
+      board: r.board,
+      entityId: r.entityId,
+      entityName: r.entityName,
+      teamName: r.teamName,
+      teamId: r.teamId,
+      rank: r.rank,
+      finishes: r.finishes,
+      mvp: r.mvp,
+      finalsMvp: r.finalsMvp,
+      igl: r.igl,
+      survivor: r.survivor,
+      emerging: r.emerging,
+      tournamentId: r.event.tournamentId ?? null,
+      tournamentSlug: r.event.tournament?.slug ?? null,
+    }))
+    .sort((a, b) => b.eventEndDate.getTime() - a.eventEndDate.getTime());
+}
 
 /** Board entries for one entity (by linked id, slug, or entered name). */
 export async function fetchEntityEntries(board: KraftonBoard, key: string): Promise<EntryRow[]> {
@@ -349,38 +344,30 @@ export async function fetchLinkedEntityName(board: KraftonBoard, entityId: strin
   }
 }
 
-export const fetchTeamTransfers = unstable_cache(
-  async (): Promise<TransferRule[]> => {
-    const rows = await prisma.kraftonTransfer.findMany({
-      orderBy: [{ cutoff: 'asc' }, { createdAt: 'asc' }],
-    });
-    return rows.map((t) => ({
-      id: t.id,
-      fromTeamId: t.fromTeamId,
-      fromName: t.fromName,
-      toTeamId: t.toTeamId,
-      toName: t.toName,
-      cutoff: t.cutoff,
-      mode: (t.mode as 'add' | 'wipe' | 'own_only') || 'add',
-      amount: t.amount,
-      preference: t.cutoff.getUTCSeconds() > 0 ? t.cutoff.getUTCSeconds() : 1,
-    }));
-  },
-  ['krafton-team-transfers'],
-  { tags: ['krafton-rankings'], revalidate: 3600 }
-);
+export async function fetchTeamTransfers(): Promise<TransferRule[]> {
+  const rows = await prisma.kraftonTransfer.findMany({
+    orderBy: [{ cutoff: 'asc' }, { createdAt: 'asc' }],
+  });
+  return rows.map((t) => ({
+    id: t.id,
+    fromTeamId: t.fromTeamId,
+    fromName: t.fromName,
+    toTeamId: t.toTeamId,
+    toName: t.toName,
+    cutoff: t.cutoff,
+    mode: (t.mode as 'add' | 'wipe' | 'own_only') || 'add',
+    amount: t.amount,
+    preference: t.cutoff.getUTCSeconds() > 0 ? t.cutoff.getUTCSeconds() : 1,
+  }));
+}
 
-export const fetchFutureKraftonEvents = unstable_cache(
-  async () => {
-    return prisma.kraftonEvent.findMany({
-      where: { endDate: { gt: new Date() } },
-      orderBy: { endDate: 'asc' },
-      select: { id: true, name: true, endDate: true, tier: true },
-    });
-  },
-  ['krafton-future-events'],
-  { tags: ['krafton-rankings'], revalidate: 3600 }
-);
+export async function fetchFutureKraftonEvents() {
+  return prisma.kraftonEvent.findMany({
+    where: { endDate: { gt: new Date() } },
+    orderBy: { endDate: 'asc' },
+    select: { id: true, name: true, endDate: true, tier: true },
+  });
+}
 
 export interface EntityStanding {
   rank: number;
