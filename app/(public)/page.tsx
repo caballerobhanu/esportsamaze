@@ -173,6 +173,8 @@ export default async function HomePage() {
     usdRate: true,
     startDate: true,
     endDate: true,
+    imageUrl: true,
+    imageDarkUrl: true,
     eventType: true,
     legacyVenue: true,
     legacyLocation: true,
@@ -399,14 +401,40 @@ export default async function HomePage() {
                         </div>
                       </div>
 
-                      {/* Tournament Name & Organizer */}
-                      <div>
-                        <h3 className="text-base sm:text-lg font-bold text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)] leading-snug">
-                          {tourney.name}
-                        </h3>
-                        {organizerName && (
-                          <p className="mt-0.5 text-xs font-medium text-[var(--ed-stone)]">{organizerName}</p>
+                      {/* Tournament Logo + Name & Organizer */}
+                      <div className="flex items-start gap-3.5">
+                        {(tourney.imageUrl || tourney.imageDarkUrl) && (
+                          <div className="relative h-12 w-12 shrink-0 rounded-xl bg-[var(--ed-sand)]/60 border border-[var(--ed-hair)] p-1.5 flex items-center justify-center overflow-hidden">
+                            {tourney.imageUrl && tourney.imageDarkUrl ? (
+                              <>
+                                <img
+                                  src={tourney.imageUrl}
+                                  alt={tourney.name}
+                                  className="h-full w-full object-contain dark:hidden"
+                                />
+                                <img
+                                  src={tourney.imageDarkUrl}
+                                  alt={tourney.name}
+                                  className="h-full w-full object-contain hidden dark:block"
+                                />
+                              </>
+                            ) : (
+                              <img
+                                src={tourney.imageUrl || tourney.imageDarkUrl || ''}
+                                alt={tourney.name}
+                                className="h-full w-full object-contain"
+                              />
+                            )}
+                          </div>
                         )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-base sm:text-lg font-bold text-[var(--ed-ink)] transition-colors group-hover:text-[var(--ed-blue)] leading-snug">
+                            {tourney.name}
+                          </h3>
+                          {organizerName && (
+                            <p className="mt-0.5 text-xs font-medium text-[var(--ed-stone)]">{organizerName}</p>
+                          )}
+                        </div>
                       </div>
 
                       {/* Date Row: Sleek border-t rule with no artificial container */}
@@ -447,7 +475,7 @@ export default async function HomePage() {
                         key={move.id}
                         className="group flex flex-col gap-2 p-3.5 sm:p-4 transition-colors hover:bg-[var(--ed-sand)]/50"
                       >
-                        {/* Top: Player name, role, status badge & formatted date */}
+                        {/* Top: Player name, role & formatted date (joined pill removed) */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Link
@@ -467,16 +495,6 @@ export default async function HomePage() {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <span
-                              className={cn(
-                                'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
-                                move.type === 'LEFT'
-                                  ? 'border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                  : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              )}
-                            >
-                              {move.type.charAt(0) + move.type.slice(1).toLowerCase()}
-                            </span>
                             <span className="text-[11px] font-medium text-[var(--ed-stone)]">
                               {formatDate(move.date)}
                             </span>

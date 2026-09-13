@@ -67,20 +67,20 @@ export async function KraftonTopFive() {
   ) => (
     <div className="ed-card flex flex-col justify-between">
       <div>
-        {/* Card Header */}
-        <div className="flex items-center justify-between border-b border-[var(--ed-hair)] px-4 py-3 sm:px-5">
+        {/* Card Header with Solid Background */}
+        <div className="flex items-center justify-between bg-slate-900 text-white dark:bg-slate-900 border-b border-slate-800 px-4 py-3.5 sm:px-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--ed-hair)] bg-[var(--ed-sand)] text-[var(--ed-blue)]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-blue-400">
               {icon}
             </div>
             <div>
-              <h3 className="text-sm font-bold tracking-tight text-[var(--ed-ink)]">{title}</h3>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ed-stone)]">{subtitle}</p>
+              <h3 className="text-sm font-bold tracking-tight text-white">{title}</h3>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{subtitle}</p>
             </div>
           </div>
           <Link
             href={viewAllHref}
-            className="group flex items-center gap-1 text-xs font-bold text-[var(--ed-blue)] transition-colors hover:underline"
+            className="group flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-white transition-colors"
           >
             <span>Full board</span>
             <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
@@ -147,8 +147,8 @@ export async function KraftonTopFive() {
     <section id="krafton-rankings" className="space-y-4">
       <SectionHeading
         id="krafton-rankings-heading"
-        kicker="KRAFTON Rankings"
-        title="Official Points Race"
+        kicker="KRAFTON India Esports"
+        title="BGMI Season Standings & Rankings"
         href="/rankings"
         linkLabel="All leaderboards"
       />

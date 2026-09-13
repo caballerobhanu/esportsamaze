@@ -60,12 +60,12 @@ export function StatsBand({
           </dl>
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-2 border-t border-[var(--ed-hair)] pt-6">
+        <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2.5 border-t border-[var(--ed-hair)]/70 pt-6 text-xs font-semibold text-[var(--ed-stone)]">
           {quickLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="ed-chip px-3.5 py-1.5 transition-colors hover:border-[var(--ed-blue)] hover:text-[var(--ed-blue)]"
+              className="transition-colors hover:text-[var(--ed-blue)]"
             >
               {link.label}
             </Link>

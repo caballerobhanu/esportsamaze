@@ -4,9 +4,16 @@ import { AlertTriangle, Settings, PowerOff, Eye, Globe } from 'lucide-react';
 import type { MaintenanceSettings } from '@/lib/site-settings';
 import { toggleMaintenanceMode } from '@/lib/site-settings';
 
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+
 async function disableMaintenanceAction() {
   'use server';
   await toggleMaintenanceMode(false);
+  const cookieStore = await cookies();
+  cookieStore.delete('ea_preview_live');
+  revalidatePath('/', 'layout');
+  redirect('/');
 }
 
 async function togglePreviewLiveAction() {
@@ -22,6 +29,8 @@ async function togglePreviewLiveAction() {
       maxAge: 60 * 60 * 24,
     });
   }
+  revalidatePath('/', 'layout');
+  redirect('/');
 }
 
 export function AdminMaintenanceBanner({
