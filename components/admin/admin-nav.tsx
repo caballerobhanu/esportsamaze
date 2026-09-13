@@ -20,10 +20,12 @@ import {
   LogOut,
   Menu,
   X,
+  Settings,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/settings', label: 'Site Settings', icon: Settings },
   { href: '/admin/news', label: 'News & Articles', icon: Newspaper },
   { href: '/admin/comments', label: 'Comments', icon: MessagesSquare },
   { href: '/admin/tags', label: 'Tag Manager', icon: Tags },

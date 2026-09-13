@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test tests/tournament-math.test.ts tests/krafton-standings.test.ts tests/admin-auth.test.ts tests/anti-scrape.test.ts tests/news-helpers.test.ts",
+    "test": "node --import tsx --test tests/tournament-math.test.ts tests/krafton-standings.test.ts tests/admin-auth.test.ts tests/anti-scrape.test.ts tests/news-helpers.test.ts tests/site-settings.test.ts",
     "db:seed": "prisma db seed",
     "db:backup": "tsx scripts/backup-db.ts",
     "media:sync-r2": "tsx scripts/sync-media-to-r2.ts"

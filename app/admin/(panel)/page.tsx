@@ -15,12 +15,24 @@ import {
   Trash2,
   Trophy,
   Users,
+  Power,
+  Settings,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { syncScheduledArticles } from '@/lib/news-queries';
 import { ARTICLE_CATEGORIES } from '@/lib/news';
+import { getMaintenanceSettings, toggleMaintenanceMode } from '@/lib/site-settings';
 
 export const dynamic = 'force-dynamic';
+
+async function toggleMaintenanceAction() {
+  'use server';
+  const current = await getMaintenanceSettings();
+  await toggleMaintenanceMode(!current.enabled);
+}
 
 export default async function AdminDashboardPage() {
   // Flip scheduled articles whose publish time has passed before showing stats.
@@ -37,6 +49,7 @@ export default async function AdminDashboardPage() {
     recentDrafts,
     pendingComments,
     trashCount,
+    maintenance,
   ] = await Promise.all([
     prisma.player.count(),
     prisma.team.count(),
@@ -63,6 +76,7 @@ export default async function AdminDashboardPage() {
     }),
     prisma.comment.count({ where: { status: 'PENDING' } }),
     prisma.article.count({ where: { deletedAt: { not: null } } }),
+    getMaintenanceSettings(),
   ]);
 
   const stat = (s: string) => articleStats.find((r) => r.status === s)?._count.id ?? 0;
@@ -126,6 +140,96 @@ export default async function AdminDashboardPage() {
           >
             <Tags className="h-3.5 w-3.5" /> Tags
           </Link>
+          <Link
+            href="/admin/settings"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          >
+            <Settings className="h-3.5 w-3.5" /> Settings
+          </Link>
+        </div>
+      </div>
+
+      {/* Site Availability & Maintenance Control */}
+      <div
+        className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+          maintenance.enabled
+            ? 'bg-amber-500/10 border-amber-500/40'
+            : 'bg-white dark:bg-[#0b101c] border-slate-200 dark:border-white/10'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2.5 rounded-xl font-bold text-white shrink-0 ${
+                maintenance.enabled ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+              }`}
+            >
+              {maintenance.enabled ? (
+                <AlertTriangle className="w-5 h-5" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                  Site Status:{' '}
+                  {maintenance.enabled
+                    ? maintenance.mode === 'COMING_SOON'
+                      ? 'Coming Soon Mode'
+                      : 'Maintenance Mode'
+                    : 'Live to Public'}
+                </span>
+                <span
+                  className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${
+                    maintenance.enabled
+                      ? 'bg-amber-400 text-slate-950 animate-pulse'
+                      : 'bg-emerald-400 text-slate-950'
+                  }`}
+                >
+                  {maintenance.enabled ? 'Active' : 'Live'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {maintenance.enabled
+                  ? 'Non-admin visitors are currently redirected to the coming soon/maintenance screen.'
+                  : 'All public visitors can access the arena, tournaments, and standings.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/maintenance"
+              target="_blank"
+              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Preview</span>
+            </Link>
+
+            <Link
+              href="/admin/settings"
+              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold transition-colors"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Configure</span>
+            </Link>
+
+            <form action={toggleMaintenanceAction}>
+              <button
+                type="submit"
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm active:scale-95 ${
+                  maintenance.enabled
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                }`}
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span>{maintenance.enabled ? 'Turn OFF' : 'Turn ON'}</span>
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
