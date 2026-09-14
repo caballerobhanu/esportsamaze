@@ -456,14 +456,90 @@ export function buildStageSummaries(ctx: TournamentContext): StageSummaries {
   return { stagesData, stagesOrder: stagesData.map((s) => s.stageName), matchesByStage };
 }
 
+/* ── Standings / fragger adapters ───────────────────────────────────────── */
+
+type TournamentTeamResultRow = TournamentData['matches'][number]['games'][number]['teamResults'][number];
+type TournamentPlayerStatRow = TournamentData['matches'][number]['games'][number]['playerStats'][number];
+type StandingsInputRow = Parameters<typeof calculateTournamentStandings>[0][number];
+type FraggersInputRow = Parameters<typeof calculateTournamentFraggers>[0][number];
+
+/**
+ * Detail stats are NULLABLE in the database but the standings / fraggers
+ * aggregators declare them as `number | undefined`. These adapters map the
+ * nullable fields across as `undefined` when they are NULL — "not provided" —
+ * so a blank telemetry column is never smuggled into a total as a real 0.
+ *
+ * Only fields the aggregators actually accept are carried: the ones they never
+ * declare (`survivalTime`, `totalDist`) were never consumed either.
+ */
+const STANDINGS_DETAIL_KEYS = [
+  'damage',
+  'healing',
+  'damageReceived',
+  'headshots',
+  'assists',
+  'knockouts',
+  'longestElim',
+  'vehicleElims',
+  'grenadeElims',
+  'utilitiesTotal',
+  'rescues',
+] as const;
+
+const FRAGGERS_DETAIL_KEYS = [
+  'damage',
+  'headshots',
+  'assists',
+  'knockouts',
+  'longestElim',
+  'playerPowerplay',
+  'grenadeElims',
+  'rescues',
+] as const;
+
+function toStandingsRow(row: TournamentTeamResultRow): StandingsInputRow {
+  const mapped: StandingsInputRow = {
+    teamId: row.teamId,
+    team: row.team,
+    rank: row.rank,
+    wwcd: row.wwcd,
+    placePoints: row.placePoints,
+    elimsPoints: row.elimsPoints,
+    bonusPoints: row.bonusPoints,
+    totalPoints: row.totalPoints,
+  };
+  for (const key of STANDINGS_DETAIL_KEYS) {
+    const value = row[key];
+    if (typeof value === 'number') mapped[key] = value;
+  }
+  return mapped;
+}
+
+function toFraggersRow(row: TournamentPlayerStatRow): FraggersInputRow {
+  const mapped: FraggersInputRow = {
+    playerId: row.playerId,
+    player: row.player,
+    team: row.team,
+    role: row.role,
+    playerElims: row.playerElims,
+  };
+  for (const key of FRAGGERS_DETAIL_KEYS) {
+    const value = row[key];
+    if (typeof value === 'number') mapped[key] = value;
+  }
+  // NULL means "never recorded"; a real `false` is a recorded non-MVP.
+  if (typeof row.isMvp === 'boolean') mapped.isMvp = row.isMvp;
+  return mapped;
+}
+
 /* ── Overview tab ── */
 
 export function buildOverviewData(ctx: TournamentContext) {
   const { matchesByStage } = buildStageSummaries(ctx);
   const allTeamResults = ctx.tournament.matches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
   const allPlayerStats = ctx.tournament.matches.flatMap((m) => m.games.flatMap((g) => g.playerStats));
-  const overallStandings = calculateTournamentStandings(allTeamResults);
-  const overallFraggers = calculateTournamentFraggers(allPlayerStats);
+  const overallStandings = calculateTournamentStandings(allTeamResults.map(toStandingsRow));
+  const overallFraggers = calculateTournamentFraggers(allPlayerStats.map(toFraggersRow));
 
   // Featured stage: explicit setting → stage with the latest match → finals → last
   const formatRules = (ctx.tournament.formatDetails ?? {}) as {
@@ -493,7 +569,10 @@ export function buildOverviewData(ctx: TournamentContext) {
   const featuredStandings: AggregatedTeamStanding[] =
     (matchesByStage.get(featuredStageName)
       ? calculateTournamentStandings(
-          matchesByStage.get(featuredStageName)!.flatMap((m) => m.games.flatMap((g) => g.teamResults))
+          matchesByStage
+            .get(featuredStageName)!
+            .flatMap((m) => m.games.flatMap((g) => g.teamResults))
+            .map(toStandingsRow)
         )
       : overallStandings);
 
@@ -576,9 +655,11 @@ export function buildStandingsData(ctx: TournamentContext) {
           elimsPoints: r.elimsPoints,
           bonusPoints: r.bonusPoints || 0,
           totalPoints: r.totalPoints,
-          damage: r.damage || 0,
-          headshots: r.headshots || 0,
-          assists: r.assists || 0,
+          // Nullable detail stats pass through as `undefined` rather than a
+          // fabricated 0, so a blank column can't render as real damage.
+          damage: r.damage ?? undefined,
+          headshots: r.headshots ?? undefined,
+          assists: r.assists ?? undefined,
         }))
       ),
     };

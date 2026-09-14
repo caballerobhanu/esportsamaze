@@ -70,6 +70,46 @@ interface MatchBatchImporterProps {
   otherMatches?: ExistingMatchOption[];
 }
 
+/**
+ * Detail (telemetry) value from an inbound paste row.
+ *
+ * `undefined` means "this paste did not carry that column", which the server
+ * stores as NULL. The old `Number(x || 0)` turned an absent column into a
+ * genuine-looking zero and `|| 1680` asserted a full-length match nobody
+ * recorded. Only scoring columns keep a zero fallback.
+ */
+function detailNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** First of `keys` the row actually carries, parsed as a detail number. */
+function detailNumberFrom(item: Record<string, any>, ...keys: string[]): number | undefined {
+  for (const key of keys) {
+    if (item[key] !== undefined) return detailNumber(item[key]);
+  }
+  return undefined;
+}
+
+/** Survival time in seconds, or undefined when no survival column was carried. */
+function detailSurvival(item: Record<string, any>): number | undefined {
+  for (const key of ['survivalTime', 'survival', 'time']) {
+    const raw = item[key];
+    if (raw === null || raw === undefined) continue;
+    if (typeof raw === 'string' && raw.trim() === '') continue;
+    return parseSurvivalSeconds(raw, 0);
+  }
+  return undefined;
+}
+
+/** An absent MVP flag means "not recorded" (`undefined`), not "not MVP". */
+function detailMvp(item: Record<string, any>): boolean | undefined {
+  const raw = item.isMvp ?? item.mvp;
+  return raw === undefined ? undefined : raw === true;
+}
+
 export function MatchBatchImporter({
   matchId,
   matchGameId,
@@ -224,24 +264,26 @@ export function MatchBatchImporter({
               elimsPoints,
               bonusPoints,
               totalPoints,
-              damage: Number(item.damage || 0),
-              survivalTime: Number(item.survivalTime || 1680),
-              healing: Number(item.healing || 0),
-              damageReceived: Number(item.damageReceived || 0),
-              headshots: Number(item.headshots || 0),
-              assists: Number(item.assists || 0),
-              knockouts: Number(item.knockouts || 0),
-              longestElim: Number(item.longestElim || 0),
-              vehicleElims: Number(item.vehicleElims || 0),
-              grenadeElims: Number(item.grenadeElims || 0),
-              smokesUsed: Number(item.smokesUsed || 0),
-              grenadesUsed: Number(item.grenadesUsed || 0),
-              molotovsUsed: Number(item.molotovsUsed || 0),
-              flashUsed: Number(item.flashUsed || 0),
-              airdrops: Number(item.airdrops || 0),
-              rescues: Number(item.rescues || 0),
-              distDrove: Number(item.distDrove || 0),
-              distWalk: Number(item.distWalk || 0),
+              // Detail telemetry: an absent key stays undefined → NULL, never a
+              // fabricated 0 (and never a fabricated 1680-second survival).
+              damage: detailNumber(item.damage),
+              survivalTime: detailNumber(item.survivalTime),
+              healing: detailNumber(item.healing),
+              damageReceived: detailNumber(item.damageReceived),
+              headshots: detailNumber(item.headshots),
+              assists: detailNumber(item.assists),
+              knockouts: detailNumber(item.knockouts),
+              longestElim: detailNumber(item.longestElim),
+              vehicleElims: detailNumber(item.vehicleElims),
+              grenadeElims: detailNumber(item.grenadeElims),
+              smokesUsed: detailNumber(item.smokesUsed),
+              grenadesUsed: detailNumber(item.grenadesUsed),
+              molotovsUsed: detailNumber(item.molotovsUsed),
+              flashUsed: detailNumber(item.flashUsed),
+              airdrops: detailNumber(item.airdrops),
+              rescues: detailNumber(item.rescues),
+              distDrove: detailNumber(item.distDrove),
+              distWalk: detailNumber(item.distWalk),
               isMatched: Boolean(matchedTeam),
             };
           });
@@ -317,12 +359,13 @@ export function MatchBatchImporter({
         let placePts: number | null = null;
         let elims = 0;
         let totalPts: number | null = null;
-        let damage = 0;
-        let survival = 1680;
-        let smokes = 0;
-        let grenades = 0;
-        let molotovs = 0;
-        let rescues = 0;
+        // Detail telemetry: undefined until a parsed column proves otherwise.
+        let damage: number | undefined;
+        let survival: number | undefined;
+        let smokes: number | undefined;
+        let grenades: number | undefined;
+        let molotovs: number | undefined;
+        let rescues: number | undefined;
         let isWwcd: boolean | undefined = undefined;
 
         if (hasHeader && colTeam !== -1) {
@@ -331,14 +374,14 @@ export function MatchBatchImporter({
           if (colPlace !== -1 && !isNaN(Number(tokens[colPlace]))) placePts = Number(tokens[colPlace]);
           if (colElims !== -1 && !isNaN(Number(tokens[colElims]))) elims = Number(tokens[colElims]);
           if (colTotal !== -1 && !isNaN(Number(tokens[colTotal]))) totalPts = Number(tokens[colTotal]);
-          if (colDamage !== -1 && !isNaN(Number(tokens[colDamage]))) damage = Number(tokens[colDamage]);
-          if (colSurvival !== -1) {
-            survival = parseSurvivalSeconds(tokens[colSurvival], 1680);
+          if (colDamage !== -1) damage = detailNumber(tokens[colDamage]);
+          if (colSurvival !== -1 && tokens[colSurvival] !== '') {
+            survival = parseSurvivalSeconds(tokens[colSurvival], 0);
           }
-          if (colSmokes !== -1 && !isNaN(Number(tokens[colSmokes]))) smokes = Number(tokens[colSmokes]);
-          if (colGrenades !== -1 && !isNaN(Number(tokens[colGrenades]))) grenades = Number(tokens[colGrenades]);
-          if (colMolotovs !== -1 && !isNaN(Number(tokens[colMolotovs]))) molotovs = Number(tokens[colMolotovs]);
-          if (colRescues !== -1 && !isNaN(Number(tokens[colRescues]))) rescues = Number(tokens[colRescues]);
+          if (colSmokes !== -1) smokes = detailNumber(tokens[colSmokes]);
+          if (colGrenades !== -1) grenades = detailNumber(tokens[colGrenades]);
+          if (colMolotovs !== -1) molotovs = detailNumber(tokens[colMolotovs]);
+          if (colRescues !== -1) rescues = detailNumber(tokens[colRescues]);
           if (colWwcd !== -1 && tokens[colWwcd] !== undefined && tokens[colWwcd] !== '') {
             isWwcd = parseWwcd(tokens[colWwcd], rank);
           }
@@ -376,28 +419,20 @@ export function MatchBatchImporter({
           shortCode: matchedTeam?.tag || '',
           rank,
           wwcd: isWwcd,
+          // Scoring columns always carry a real value.
           placePoints: finalPlacePts,
           elimsPoints: finalElimsPts,
           bonusPoints: 0,
           totalPoints: finalTotalPts,
+          // Only the detail columns this table actually parsed are emitted. The
+          // rest stay absent so the server stores NULL instead of a fabricated 0
+          // (the old `healing: 0`, `flashUsed: 0`, … did exactly that).
           damage,
           survivalTime: survival,
-          healing: 0,
-          damageReceived: 0,
-          headshots: 0,
-          assists: 0,
-          knockouts: 0,
-          longestElim: 0,
-          vehicleElims: 0,
-          grenadeElims: 0,
           smokesUsed: smokes,
           grenadesUsed: grenades,
           molotovsUsed: molotovs,
-          flashUsed: 0,
-          airdrops: 0,
           rescues,
-          distDrove: 0,
-          distWalk: 0,
           isMatched: Boolean(matchedTeam),
         };
       });
@@ -431,20 +466,22 @@ export function MatchBatchImporter({
               (matchedPlayer?.currentTeamId ? allTeams.find((t) => t.id === matchedPlayer.currentTeamId) : undefined);
 
             const elims = Number(item.playerElims || item.elims || item.kills || 0);
-            const damage = Number(item.damage || 0);
-            const headshots = Number(item.headshots || 0);
-            const assists = Number(item.assists || 0);
-            const knockouts = Number(item.knockouts || 0);
-            const longestElim = Number(item.longestElim || 0);
-            const isMvp = item.isMvp === true || item.mvp === true;
-            const powerplay = Number(item.playerPowerplay || item.powerplay || 0);
+            // Detail telemetry: a key the row does not carry stays undefined →
+            // NULL, never a fabricated 0.
+            const damage = detailNumberFrom(item, 'damage');
+            const headshots = detailNumberFrom(item, 'headshots');
+            const assists = detailNumberFrom(item, 'assists');
+            const knockouts = detailNumberFrom(item, 'knockouts');
+            const longestElim = detailNumberFrom(item, 'longestElim');
+            const isMvp = detailMvp(item);
+            const powerplay = detailNumberFrom(item, 'playerPowerplay', 'powerplay');
 
-            const survivalTime = parseSurvivalSeconds(item.survivalTime || item.survival || item.time || 0);
+            const survivalTime = detailSurvival(item);
 
-            const healing = Number(item.healing || item.heal || 0);
-            const damageReceived = Number(item.damageReceived || item.dmgReceived || item.damageTaken || item.dmgRec || 0);
-            const vehicleElims = Number(item.vehicleElims || item.vehicleKills || item.vehElims || item.vehicle || 0);
-            const grenadeElims = Number(item.grenadeElims || item.grenadeKills || item.nadeElims || item.grenade || 0);
+            const healing = detailNumberFrom(item, 'healing', 'heal');
+            const damageReceived = detailNumberFrom(item, 'damageReceived', 'dmgReceived', 'damageTaken', 'dmgRec');
+            const vehicleElims = detailNumberFrom(item, 'vehicleElims', 'vehicleKills', 'vehElims', 'vehicle');
+            const grenadeElims = detailNumberFrom(item, 'grenadeElims', 'grenadeKills', 'nadeElims', 'grenade');
 
             return {
               rawPlayer,
@@ -546,40 +583,41 @@ export function MatchBatchImporter({
         let rawPlayer = '';
         let rawTeam = '';
         let elims = 0;
-        let damage = 0;
-        let headshots = 0;
-        let assists = 0;
-        let knockouts = 0;
-        let powerplay = 0;
-        let longestElim = 0;
-        let isMvp = false;
-        let survivalTime = 0;
-        let healing = 0;
-        let damageReceived = 0;
-        let vehicleElims = 0;
-        let grenadeElims = 0;
+        // Detail telemetry: undefined until a parsed column proves otherwise.
+        let damage: number | undefined;
+        let headshots: number | undefined;
+        let assists: number | undefined;
+        let knockouts: number | undefined;
+        let powerplay: number | undefined;
+        let longestElim: number | undefined;
+        let isMvp: boolean | undefined;
+        let survivalTime: number | undefined;
+        let healing: number | undefined;
+        let damageReceived: number | undefined;
+        let vehicleElims: number | undefined;
+        let grenadeElims: number | undefined;
 
         if (hasHeader && colPlayer !== -1) {
           rawPlayer = tokens[colPlayer] || '';
           if (colTeam !== -1) rawTeam = tokens[colTeam] || '';
           if (colElims !== -1 && !isNaN(Number(tokens[colElims]))) elims = Number(tokens[colElims]);
-          if (colDamage !== -1 && !isNaN(Number(tokens[colDamage]))) damage = Number(tokens[colDamage]);
-          if (colHeadshots !== -1 && !isNaN(Number(tokens[colHeadshots]))) headshots = Number(tokens[colHeadshots]);
-          if (colAssists !== -1 && !isNaN(Number(tokens[colAssists]))) assists = Number(tokens[colAssists]);
-          if (colKnocks !== -1 && !isNaN(Number(tokens[colKnocks]))) knockouts = Number(tokens[colKnocks]);
-          if (colPowerplay !== -1 && !isNaN(Number(tokens[colPowerplay]))) powerplay = Number(tokens[colPowerplay]);
-          if (colLongElim !== -1 && !isNaN(Number(tokens[colLongElim]))) longestElim = Number(tokens[colLongElim]);
-          if (colMvp !== -1) {
+          if (colDamage !== -1) damage = detailNumber(tokens[colDamage]);
+          if (colHeadshots !== -1) headshots = detailNumber(tokens[colHeadshots]);
+          if (colAssists !== -1) assists = detailNumber(tokens[colAssists]);
+          if (colKnocks !== -1) knockouts = detailNumber(tokens[colKnocks]);
+          if (colPowerplay !== -1) powerplay = detailNumber(tokens[colPowerplay]);
+          if (colLongElim !== -1) longestElim = detailNumber(tokens[colLongElim]);
+          if (colMvp !== -1 && tokens[colMvp] !== '') {
             const mvpVal = (tokens[colMvp] || '').toLowerCase();
             isMvp = mvpVal === 'yes' || mvpVal === 'true' || mvpVal === '1' || mvpVal === 'mvp' || mvpVal === '⭐';
           }
-          if (colSurvival !== -1) {
+          if (colSurvival !== -1 && tokens[colSurvival] !== '') {
             survivalTime = parseSurvivalSeconds(tokens[colSurvival], 0);
           }
-          if (colHealing !== -1 && !isNaN(Number(tokens[colHealing]))) healing = Number(tokens[colHealing]);
-          if (colDmgRec !== -1 && !isNaN(Number(tokens[colDmgRec]))) damageReceived = Number(tokens[colDmgRec]);
-          if (colVehElims !== -1 && !isNaN(Number(tokens[colVehElims]))) vehicleElims = Number(tokens[colVehElims]);
-          if (colGrenadeElims !== -1 && !isNaN(Number(tokens[colGrenadeElims]))) grenadeElims = Number(tokens[colGrenadeElims]);
+          if (colHealing !== -1) healing = detailNumber(tokens[colHealing]);
+          if (colDmgRec !== -1) damageReceived = detailNumber(tokens[colDmgRec]);
+          if (colVehElims !== -1) vehicleElims = detailNumber(tokens[colVehElims]);
+          if (colGrenadeElims !== -1) grenadeElims = detailNumber(tokens[colGrenadeElims]);
         } else {
           // Positional fallback
           rawPlayer = tokens[0] || '';
@@ -665,21 +703,23 @@ export function MatchBatchImporter({
           placePoints,
           elimsPoints,
           totalPoints,
-          damage: cloneMode === 'reset' ? 0 : tr.damage,
+          // "Reset" clears the telemetry rather than asserting zeros: the values
+          // are unknown, so they go back to NULL.
+          damage: cloneMode === 'reset' ? undefined : tr.damage,
           wwcd: cloneMode === 'reset' ? rank === 1 : tr.wwcd,
-          survivalTime: cloneMode === 'reset' ? 1680 : tr.survivalTime,
-          healing: cloneMode === 'reset' ? 0 : tr.healing,
-          damageReceived: cloneMode === 'reset' ? 0 : tr.damageReceived,
-          headshots: cloneMode === 'reset' ? 0 : tr.headshots,
-          assists: cloneMode === 'reset' ? 0 : tr.assists,
-          knockouts: cloneMode === 'reset' ? 0 : tr.knockouts,
-          longestElim: cloneMode === 'reset' ? 0 : tr.longestElim,
-          vehicleElims: cloneMode === 'reset' ? 0 : tr.vehicleElims,
-          grenadeElims: cloneMode === 'reset' ? 0 : tr.grenadeElims,
-          smokesUsed: cloneMode === 'reset' ? 0 : tr.smokesUsed,
-          grenadesUsed: cloneMode === 'reset' ? 0 : tr.grenadesUsed,
-          molotovsUsed: cloneMode === 'reset' ? 0 : tr.molotovsUsed,
-          rescues: cloneMode === 'reset' ? 0 : tr.rescues,
+          survivalTime: cloneMode === 'reset' ? undefined : tr.survivalTime,
+          healing: cloneMode === 'reset' ? undefined : tr.healing,
+          damageReceived: cloneMode === 'reset' ? undefined : tr.damageReceived,
+          headshots: cloneMode === 'reset' ? undefined : tr.headshots,
+          assists: cloneMode === 'reset' ? undefined : tr.assists,
+          knockouts: cloneMode === 'reset' ? undefined : tr.knockouts,
+          longestElim: cloneMode === 'reset' ? undefined : tr.longestElim,
+          vehicleElims: cloneMode === 'reset' ? undefined : tr.vehicleElims,
+          grenadeElims: cloneMode === 'reset' ? undefined : tr.grenadeElims,
+          smokesUsed: cloneMode === 'reset' ? undefined : tr.smokesUsed,
+          grenadesUsed: cloneMode === 'reset' ? undefined : tr.grenadesUsed,
+          molotovsUsed: cloneMode === 'reset' ? undefined : tr.molotovsUsed,
+          rescues: cloneMode === 'reset' ? undefined : tr.rescues,
         };
       });
 
@@ -696,18 +736,20 @@ export function MatchBatchImporter({
         player: ps.player?.ign || ps.playerId,
         team: ps.team?.name || ps.teamId,
         elims: cloneMode === 'reset' ? 0 : ps.playerElims,
-        damage: cloneMode === 'reset' ? 0 : ps.damage,
-        headshots: cloneMode === 'reset' ? 0 : ps.headshots,
-        assists: cloneMode === 'reset' ? 0 : ps.assists,
-        knockouts: cloneMode === 'reset' ? 0 : ps.knockouts,
-        longestElim: cloneMode === 'reset' ? 0 : ps.longestElim,
-        isMvp: false,
-        powerplay: cloneMode === 'reset' ? 0 : ps.playerPowerplay,
-        survivalTime: cloneMode === 'reset' ? 0 : ps.survivalTime,
-        healing: cloneMode === 'reset' ? 0 : ps.healing,
-        damageReceived: cloneMode === 'reset' ? 0 : ps.damageReceived,
-        vehicleElims: cloneMode === 'reset' ? 0 : ps.vehicleElims,
-        grenadeElims: cloneMode === 'reset' ? 0 : ps.grenadeElims,
+        // Detail telemetry: reset means "unknown" (NULL), and an exact clone
+        // carries the source row's own value — including its NULLs.
+        damage: cloneMode === 'reset' ? undefined : ps.damage,
+        headshots: cloneMode === 'reset' ? undefined : ps.headshots,
+        assists: cloneMode === 'reset' ? undefined : ps.assists,
+        knockouts: cloneMode === 'reset' ? undefined : ps.knockouts,
+        longestElim: cloneMode === 'reset' ? undefined : ps.longestElim,
+        isMvp: cloneMode === 'reset' ? undefined : ps.isMvp,
+        powerplay: cloneMode === 'reset' ? undefined : ps.playerPowerplay,
+        survivalTime: cloneMode === 'reset' ? undefined : ps.survivalTime,
+        healing: cloneMode === 'reset' ? undefined : ps.healing,
+        damageReceived: cloneMode === 'reset' ? undefined : ps.damageReceived,
+        vehicleElims: cloneMode === 'reset' ? undefined : ps.vehicleElims,
+        grenadeElims: cloneMode === 'reset' ? undefined : ps.grenadeElims,
       }));
 
       setPasteMode('json');
@@ -737,24 +779,9 @@ export function MatchBatchImporter({
           elimsPoints: elimsPts,
           bonusPoints: 0,
           totalPoints: totalPts,
-          damage: r.damage || 0,
-          survivalTime: 1680,
-          healing: 0,
-          damageReceived: 0,
-          headshots: 0,
-          assists: 0,
-          knockouts: 0,
-          longestElim: 0,
-          vehicleElims: 0,
-          grenadeElims: 0,
-          smokesUsed: 0,
-          grenadesUsed: 0,
-          molotovsUsed: 0,
-          flashUsed: 0,
-          airdrops: 0,
-          rescues: 0,
-          distDrove: 0,
-          distWalk: 0,
+          // An OCR'd placement table carries placement and damage only — every
+          // other detail stat is absent, so it is omitted and stored as NULL.
+          damage: r.damage,
           isMatched: Boolean(matchedTeam),
         };
       });
@@ -1521,11 +1548,13 @@ export function MatchBatchImporter({
                     <td className="py-1.5 px-2 text-center font-mono font-black text-(--ed-blue) dark:text-blue-400">
                       {r.totalPoints}
                     </td>
-                    <td className="py-1.5 px-2 text-center font-mono text-slate-500">{r.damage}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-500">{r.damage ?? '—'}</td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-400">
-                      {Math.floor(r.survivalTime / 60)}:{(r.survivalTime % 60).toString().padStart(2, '0')}
+                      {r.survivalTime != null
+                        ? `${Math.floor(r.survivalTime / 60)}:${String(r.survivalTime % 60).padStart(2, '0')}`
+                        : '—'}
                     </td>
-                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.smokesUsed}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.smokesUsed ?? '—'}</td>
                     <td className="py-1.5 px-2 text-right">
                       <button
                         type="button"
@@ -1614,25 +1643,27 @@ export function MatchBatchImporter({
                     <td className="py-1.5 px-2 text-center font-mono font-black text-rose-600 dark:text-rose-400">
                       {r.playerElims}
                     </td>
-                    <td className="py-1.5 px-2 text-center font-mono text-slate-600 dark:text-slate-300">{r.damage}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-600 dark:text-slate-300">{r.damage ?? '—'}</td>
                     <td className="py-1.5 px-2 text-center font-mono text-slate-500">
-                      {Math.floor(r.survivalTime / 60)}:{(r.survivalTime % 60).toString().padStart(2, '0')}
+                      {r.survivalTime != null
+                        ? `${Math.floor(r.survivalTime / 60)}:${String(r.survivalTime % 60).padStart(2, '0')}`
+                        : '—'}
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono text-emerald-600 dark:text-emerald-400">
-                      {r.healing}
+                      {r.healing ?? '—'}
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono text-amber-600 dark:text-amber-400">
-                      {r.damageReceived}
+                      {r.damageReceived ?? '—'}
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono text-purple-600 dark:text-purple-400">
-                      {r.vehicleElims}
+                      {r.vehicleElims ?? '—'}
                     </td>
                     <td className="py-1.5 px-2 text-center font-mono text-orange-600 dark:text-orange-400">
-                      {r.grenadeElims}
+                      {r.grenadeElims ?? '—'}
                     </td>
-                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.headshots}</td>
-                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.assists}</td>
-                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.knockouts}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.headshots ?? '—'}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.assists ?? '—'}</td>
+                    <td className="py-1.5 px-2 text-center font-mono text-slate-400">{r.knockouts ?? '—'}</td>
                     <td className="py-1.5 px-2 text-center">{r.isMvp ? '⭐' : '—'}</td>
                     <td className="py-1.5 px-2 text-right">
                       <button

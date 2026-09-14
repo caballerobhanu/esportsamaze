@@ -44,6 +44,47 @@ const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
 
+type StandingsInputRow = Parameters<typeof calculateTournamentStandings>[0][number];
+
+/**
+ * `calculateTournamentStandings` declares its detail stats as `number |
+ * undefined`, but the columns are NULLABLE in the database. Carry only the
+ * fields the aggregator accepts, and map a NULL to `undefined` ("not provided")
+ * so a blank telemetry column never lands in a total as a real 0.
+ */
+const STANDINGS_DETAIL_KEYS = [
+  'damage',
+  'healing',
+  'damageReceived',
+  'headshots',
+  'assists',
+  'knockouts',
+  'longestElim',
+  'vehicleElims',
+  'grenadeElims',
+  'utilitiesTotal',
+  'rescues',
+] as const;
+
+function toStandingsRow<T extends object>(row: T): StandingsInputRow {
+  const source = row as Record<string, any>;
+  const mapped: StandingsInputRow = {
+    teamId: source.teamId,
+    team: source.team,
+    rank: source.rank,
+    wwcd: source.wwcd,
+    placePoints: source.placePoints,
+    elimsPoints: source.elimsPoints,
+    bonusPoints: source.bonusPoints,
+    totalPoints: source.totalPoints,
+  };
+  for (const key of STANDINGS_DETAIL_KEYS) {
+    const value = source[key];
+    if (typeof value === 'number') mapped[key] = value;
+  }
+  return mapped;
+}
+
 /**
  * Parse a JSON form field. A malformed payload aborts the whole save with a
  * visible error — silently dropping admin-entered data (or, worse, feeding an
@@ -1124,7 +1165,7 @@ export default async function AdminTournamentsPage({
     for (const [stName, stMatches] of Object.entries(matchesByStage)) {
       const stResults = stMatches.flatMap((m) => m.games.flatMap((g) => g.teamResults));
       if (stResults.length > 0) {
-        const standings = calculateTournamentStandings(stResults);
+        const standings = calculateTournamentStandings(stResults.map(toStandingsRow));
         stageStandingsMap[stName] = standings.map((s, idx) => ({
           teamId: s.teamId,
           teamName: s.teamName,

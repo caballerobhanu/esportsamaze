@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { Plus, Copy, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
+import { TeamPeopleManager } from '@/components/admin/team-people-manager';
 import { TeamsManagerTable } from '@/components/admin/teams-manager-table';
 
 export const dynamic = 'force-dynamic';
@@ -159,6 +160,67 @@ async function deleteTeam(formData: FormData) {
   redirect('/admin/teams');
 }
 
+/** Attach an existing player to this team (already a Player row). */
+async function attachTeamPerson(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const teamId = fStr(formData, 'teamId');
+  const playerId = fStr(formData, 'playerId');
+  const role = fOpt(formData, 'role');
+  if (!teamId || !playerId) redirect(`/admin/teams?edit=${teamId}&error=person`);
+  await prisma.player.update({
+    where: { id: playerId },
+    data: {
+      currentTeamId: teamId,
+      role: role || null,
+      staffRole: fOpt(formData, 'staffRole'),
+      isPlayer: formData.get('isPlayer') === 'on',
+    },
+  });
+  revalidatePath('/admin/teams');
+  redirect(`/admin/teams?edit=${teamId}`);
+}
+
+/** Create a brand-new person (staff / organisation member) linked to this team. */
+async function createTeamPerson(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const teamId = fStr(formData, 'teamId');
+  const ign = fStr(formData, 'ign');
+  if (!teamId || !ign) redirect(`/admin/teams?edit=${teamId}&error=person`);
+  const slug = await uniqueSlug(`${ign}`, async (s) => {
+    const clash = await prisma.player.findFirst({ where: { slug: s }, select: { id: true } });
+    return Boolean(clash);
+  });
+  await prisma.player.create({
+    data: {
+      ign,
+      slug,
+      role: fOpt(formData, 'role'),
+      staffRole: fOpt(formData, 'staffRole'),
+      isPlayer: formData.get('isPlayer') === 'on',
+      currentTeamId: teamId,
+      status: 'ACTIVE',
+      gameId: fOpt(formData, 'gameId'),
+    },
+  });
+  revalidatePath('/admin/teams');
+  redirect(`/admin/teams?edit=${teamId}`);
+}
+
+/** Unlink a person from this team (keeps the Player row). */
+async function removeTeamPerson(formData: FormData) {
+  'use server';
+  if (!(await isAdmin())) redirect('/admin/login');
+  const teamId = fStr(formData, 'teamId');
+  const playerId = fStr(formData, 'playerId');
+  if (teamId && playerId) {
+    await prisma.player.update({ where: { id: playerId }, data: { currentTeamId: null } });
+  }
+  revalidatePath('/admin/teams');
+  redirect(`/admin/teams?edit=${teamId}`);
+}
+
 export default async function AdminTeamsPage({
   searchParams,
 }: {
@@ -184,7 +246,13 @@ export default async function AdminTeamsPage({
   ]);
 
   const editing = edit
-    ? await prisma.team.findUnique({ where: { id: edit } })
+    ? await prisma.team.findUnique({
+        where: { id: edit },
+        include: {
+          players: { orderBy: { isPlayer: 'desc' }, take: 60 },
+          game: { select: { id: true, name: true } },
+        },
+      })
     : null;
 
   const countryOptions = COUNTRIES.map((c) => ({
@@ -240,6 +308,12 @@ export default async function AdminTeamsPage({
             <strong>&quot;{clashName || 'another team'}&quot;</strong>. Short codes cannot be shared between teams.
           </span>
         </div>
+      )}
+      {error === 'person' && (
+        <p className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+          The person could not be saved — make sure a player was selected (for attach) or an IGN
+          was entered (for create).
+        </p>
       )}
       {saved === 'copy' && (
         <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
@@ -385,6 +459,24 @@ export default async function AdminTeamsPage({
           </button>
         </form>
       </details>
+
+      {/* People & roster — only relevant when editing an existing team */}
+      {editing && (
+        <TeamPeopleManager
+          teamId={editing.id}
+          players={editing.players.map((p) => ({
+            id: p.id,
+            ign: p.ign,
+            slug: p.slug,
+            role: p.role,
+            staffRole: p.staffRole,
+            isPlayer: p.isPlayer,
+          }))}
+          attachAction={attachTeamPerson}
+          createAction={createTeamPerson}
+          removeAction={removeTeamPerson}
+        />
+      )}
 
       {/* Teams Manager Table with Live Search & Filtering */}
       <TeamsManagerTable

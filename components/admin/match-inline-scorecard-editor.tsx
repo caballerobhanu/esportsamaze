@@ -38,9 +38,9 @@ interface TeamResultRow {
   elimsPoints: number;
   bonusPoints: number;
   totalPoints: number;
-  damage: number;
-  smokesUsed: number;
-  rescues: number;
+  damage: number | null;
+  smokesUsed: number | null;
+  rescues: number | null;
   team: {
     id?: string;
     name: string;
@@ -56,15 +56,15 @@ interface PlayerStatRow {
   shortCode?: string | null;
   role?: string | null;
   playerElims: number;
-  damage: number;
-  survivalTime: number;
-  healing: number;
-  damageReceived: number;
-  knockouts?: number;
-  assists?: number;
-  vehicleElims?: number;
-  grenadeElims?: number;
-  isMvp: boolean;
+  damage: number | null;
+  survivalTime: number | null;
+  healing: number | null;
+  damageReceived: number | null;
+  knockouts?: number | null;
+  assists?: number | null;
+  vehicleElims?: number | null;
+  grenadeElims?: number | null;
+  isMvp: boolean | null;
   player: {
     id?: string;
     ign: string;
@@ -75,6 +75,52 @@ interface PlayerStatRow {
     name: string;
     tag?: string | null;
   } | null;
+}
+
+/**
+ * A blank input means "not recorded" — send null, never 0. Inputs hold their
+ * raw string while being edited, so parse leniently.
+ */
+function toDetailNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toTeamResultInput(tr: TeamResultRow): InlineTeamResultUpdateInput {
+  return {
+    id: tr.id,
+    rank: tr.rank,
+    wwcd: tr.wwcd,
+    placePoints: tr.placePoints,
+    elimsPoints: tr.elimsPoints,
+    bonusPoints: tr.bonusPoints,
+    damage: toDetailNumber(tr.damage),
+    smokesUsed: toDetailNumber(tr.smokesUsed),
+    rescues: toDetailNumber(tr.rescues),
+    shortCode: tr.shortCode,
+  };
+}
+
+function toPlayerStatInput(ps: PlayerStatRow): InlinePlayerStatUpdateInput {
+  return {
+    id: ps.id,
+    // Scoring fields keep their zero fallback.
+    playerElims: Number(ps.playerElims) || 0,
+    damage: toDetailNumber(ps.damage),
+    survivalTime: toDetailNumber(ps.survivalTime),
+    healing: toDetailNumber(ps.healing),
+    damageReceived: toDetailNumber(ps.damageReceived),
+    knockouts: toDetailNumber(ps.knockouts),
+    assists: toDetailNumber(ps.assists),
+    vehicleElims: toDetailNumber(ps.vehicleElims),
+    grenadeElims: toDetailNumber(ps.grenadeElims),
+    // The star is a toggle; "never recorded" (null) stays null rather than becoming false.
+    isMvp: ps.isMvp === null || ps.isMvp === undefined ? null : Boolean(ps.isMvp),
+    role: ps.role,
+  };
 }
 
 interface Props {
@@ -173,18 +219,7 @@ export function MatchInlineScorecardEditor({
   const handleSaveTeamRow = async (tr: TeamResultRow) => {
     setSavingTeamIds((prev) => new Set(prev).add(tr.id));
     try {
-      await updateInlineTeamResultAction({
-        id: tr.id,
-        rank: tr.rank,
-        wwcd: tr.wwcd,
-        placePoints: tr.placePoints,
-        elimsPoints: tr.elimsPoints,
-        bonusPoints: tr.bonusPoints,
-        damage: tr.damage,
-        smokesUsed: tr.smokesUsed,
-        rescues: tr.rescues,
-        shortCode: tr.shortCode,
-      });
+      await updateInlineTeamResultAction(toTeamResultInput(tr));
 
       setDirtyTeamIds((prev) => {
         const next = new Set(prev);
@@ -218,20 +253,7 @@ export function MatchInlineScorecardEditor({
 
     startTransition(async () => {
       try {
-        await batchUpdateTeamResultsAction(
-          dirtyRows.map((tr) => ({
-            id: tr.id,
-            rank: tr.rank,
-            wwcd: tr.wwcd,
-            placePoints: tr.placePoints,
-            elimsPoints: tr.elimsPoints,
-            bonusPoints: tr.bonusPoints,
-            damage: tr.damage,
-            smokesUsed: tr.smokesUsed,
-            rescues: tr.rescues,
-            shortCode: tr.shortCode,
-          }))
-        );
+        await batchUpdateTeamResultsAction(dirtyRows.map(toTeamResultInput));
 
         setDirtyTeamIds(new Set());
         setStatusMessage(`Successfully updated ${dirtyRows.length} team results!`);
@@ -281,20 +303,7 @@ export function MatchInlineScorecardEditor({
   const handleSavePlayerRow = async (ps: PlayerStatRow) => {
     setSavingPlayerIds((prev) => new Set(prev).add(ps.id));
     try {
-      await updateInlinePlayerStatAction({
-        id: ps.id,
-        playerElims: Number(ps.playerElims) || 0,
-        damage: Number(ps.damage) || 0,
-        survivalTime: Number(ps.survivalTime) || 0,
-        healing: Number(ps.healing) || 0,
-        damageReceived: Number(ps.damageReceived) || 0,
-        knockouts: Number(ps.knockouts) || 0,
-        assists: Number(ps.assists) || 0,
-        vehicleElims: Number(ps.vehicleElims) || 0,
-        grenadeElims: Number(ps.grenadeElims) || 0,
-        isMvp: !!ps.isMvp,
-        role: ps.role,
-      });
+      await updateInlinePlayerStatAction(toPlayerStatInput(ps));
 
       setDirtyPlayerIds((prev) => {
         const next = new Set(prev);
@@ -328,22 +337,7 @@ export function MatchInlineScorecardEditor({
 
     startTransition(async () => {
       try {
-        await batchUpdatePlayerStatsAction(
-          dirtyRows.map((ps) => ({
-            id: ps.id,
-            playerElims: Number(ps.playerElims) || 0,
-            damage: Number(ps.damage) || 0,
-            survivalTime: Number(ps.survivalTime) || 0,
-            healing: Number(ps.healing) || 0,
-            damageReceived: Number(ps.damageReceived) || 0,
-            knockouts: Number(ps.knockouts) || 0,
-            assists: Number(ps.assists) || 0,
-            vehicleElims: Number(ps.vehicleElims) || 0,
-            grenadeElims: Number(ps.grenadeElims) || 0,
-            isMvp: !!ps.isMvp,
-            role: ps.role,
-          }))
-        );
+        await batchUpdatePlayerStatsAction(dirtyRows.map(toPlayerStatInput));
 
         setDirtyPlayerIds(new Set());
         setStatusMessage(`Successfully updated ${dirtyRows.length} player stats!`);
@@ -588,7 +582,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={tr.damage}
+                          value={tr.damage ?? ''}
                           onChange={(e) => handleTeamFieldChange(tr.id, 'damage', e.target.value)}
                           className={`${inputCls} w-20 text-slate-600 dark:text-slate-300`}
                         />
@@ -599,7 +593,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={tr.smokesUsed}
+                          value={tr.smokesUsed ?? ''}
                           onChange={(e) => handleTeamFieldChange(tr.id, 'smokesUsed', e.target.value)}
                           className={`${inputCls} w-12 text-slate-400`}
                         />
@@ -610,7 +604,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={tr.rescues}
+                          value={tr.rescues ?? ''}
                           onChange={(e) => handleTeamFieldChange(tr.id, 'rescues', e.target.value)}
                           className={`${inputCls} w-12 text-slate-400`}
                         />
@@ -806,7 +800,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={ps.damage}
+                          value={ps.damage ?? ''}
                           onChange={(e) => handlePlayerFieldChange(ps.id, 'damage', e.target.value)}
                           className={`${inputCls} w-20 text-slate-700 dark:text-slate-200`}
                         />
@@ -817,10 +811,10 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={ps.survivalTime}
+                          value={ps.survivalTime ?? ''}
                           onChange={(e) => handlePlayerFieldChange(ps.id, 'survivalTime', e.target.value)}
                           className={`${inputCls} w-16 text-slate-400`}
-                          title={`${Math.floor(ps.survivalTime / 60)}m ${ps.survivalTime % 60}s`}
+                          title={`${Math.floor((Number(ps.survivalTime) || 0) / 60)}m ${(Number(ps.survivalTime) || 0) % 60}s`}
                         />
                       </td>
 
@@ -829,7 +823,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={ps.healing}
+                          value={ps.healing ?? ''}
                           onChange={(e) => handlePlayerFieldChange(ps.id, 'healing', e.target.value)}
                           className={`${inputCls} w-14 text-emerald-600 dark:text-emerald-400`}
                         />
@@ -840,7 +834,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={ps.damageReceived}
+                          value={ps.damageReceived ?? ''}
                           onChange={(e) => handlePlayerFieldChange(ps.id, 'damageReceived', e.target.value)}
                           className={`${inputCls} w-16 text-amber-600 dark:text-amber-400`}
                         />
@@ -851,7 +845,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={ps.knockouts || 0}
+                          value={ps.knockouts ?? ''}
                           onChange={(e) => handlePlayerFieldChange(ps.id, 'knockouts', e.target.value)}
                           className={`${inputCls} w-12 text-slate-500`}
                         />
@@ -862,7 +856,7 @@ export function MatchInlineScorecardEditor({
                         <input
                           type="number"
                           min={0}
-                          value={ps.assists || 0}
+                          value={ps.assists ?? ''}
                           onChange={(e) => handlePlayerFieldChange(ps.id, 'assists', e.target.value)}
                           className={`${inputCls} w-12 text-slate-500`}
                         />

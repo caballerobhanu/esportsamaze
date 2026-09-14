@@ -5,6 +5,11 @@ import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { isAdmin } from '@/lib/admin-auth';
 import { revalidatePath } from 'next/cache';
 
+/**
+ * Detail (telemetry) fields are `number | null` on the way in: a blank editor
+ * input means "not recorded" and must stay NULL. `undefined` means the caller
+ * did not send the field at all, so the stored value is left untouched.
+ */
 export interface InlineTeamResultUpdateInput {
   id: string;
   teamId?: string;
@@ -13,9 +18,9 @@ export interface InlineTeamResultUpdateInput {
   placePoints: number;
   elimsPoints: number;
   bonusPoints?: number;
-  damage?: number;
-  smokesUsed?: number;
-  rescues?: number;
+  damage?: number | null;
+  smokesUsed?: number | null;
+  rescues?: number | null;
   shortCode?: string | null;
 }
 
@@ -24,16 +29,21 @@ export interface InlinePlayerStatUpdateInput {
   playerId?: string;
   teamId?: string | null;
   playerElims: number;
-  damage?: number;
-  survivalTime?: number;
-  healing?: number;
-  damageReceived?: number;
-  knockouts?: number;
-  assists?: number;
-  vehicleElims?: number;
-  grenadeElims?: number;
-  isMvp?: boolean;
+  damage?: number | null;
+  survivalTime?: number | null;
+  healing?: number | null;
+  damageReceived?: number | null;
+  knockouts?: number | null;
+  assists?: number | null;
+  vehicleElims?: number | null;
+  grenadeElims?: number | null;
+  isMvp?: boolean | null;
   role?: string | null;
+}
+
+/** `null` clears the field, `undefined` leaves it as stored. */
+function detail<T>(value: T | null | undefined): T | null | undefined {
+  return value === undefined ? undefined : value;
 }
 
 export async function updateInlineTeamResultAction(input: InlineTeamResultUpdateInput) {
@@ -56,9 +66,9 @@ export async function updateInlineTeamResultAction(input: InlineTeamResultUpdate
       elimsPoints,
       bonusPoints,
       totalPoints,
-      damage: input.damage ?? 0,
-      smokesUsed: input.smokesUsed ?? 0,
-      rescues: input.rescues ?? 0,
+      damage: detail(input.damage),
+      smokesUsed: detail(input.smokesUsed),
+      rescues: detail(input.rescues),
       shortCode: input.shortCode ?? undefined,
       teamId: input.teamId ?? undefined,
     },
@@ -94,9 +104,9 @@ export async function batchUpdateTeamResultsAction(inputs: InlineTeamResultUpdat
           elimsPoints,
           bonusPoints,
           totalPoints,
-          damage: input.damage ?? 0,
-          smokesUsed: input.smokesUsed ?? 0,
-          rescues: input.rescues ?? 0,
+          damage: detail(input.damage),
+          smokesUsed: detail(input.smokesUsed),
+          rescues: detail(input.rescues),
           shortCode: input.shortCode ?? undefined,
           teamId: input.teamId ?? undefined,
         },
@@ -118,15 +128,15 @@ export async function updateInlinePlayerStatAction(input: InlinePlayerStatUpdate
     where: { id: input.id },
     data: {
       playerElims: input.playerElims,
-      damage: input.damage ?? 0,
-      survivalTime: input.survivalTime ?? 0,
-      healing: input.healing ?? 0,
-      damageReceived: input.damageReceived ?? 0,
-      knockouts: input.knockouts ?? 0,
-      assists: input.assists ?? 0,
-      vehicleElims: input.vehicleElims ?? 0,
-      grenadeElims: input.grenadeElims ?? 0,
-      isMvp: !!input.isMvp,
+      damage: detail(input.damage),
+      survivalTime: detail(input.survivalTime),
+      healing: detail(input.healing),
+      damageReceived: detail(input.damageReceived),
+      knockouts: detail(input.knockouts),
+      assists: detail(input.assists),
+      vehicleElims: detail(input.vehicleElims),
+      grenadeElims: detail(input.grenadeElims),
+      isMvp: detail(input.isMvp),
       role: input.role ?? undefined,
       playerId: input.playerId ?? undefined,
       teamId: input.teamId ?? undefined,
@@ -153,15 +163,15 @@ export async function batchUpdatePlayerStatsAction(inputs: InlinePlayerStatUpdat
         where: { id: input.id },
         data: {
           playerElims: input.playerElims,
-          damage: input.damage ?? 0,
-          survivalTime: input.survivalTime ?? 0,
-          healing: input.healing ?? 0,
-          damageReceived: input.damageReceived ?? 0,
-          knockouts: input.knockouts ?? 0,
-          assists: input.assists ?? 0,
-          vehicleElims: input.vehicleElims ?? 0,
-          grenadeElims: input.grenadeElims ?? 0,
-          isMvp: !!input.isMvp,
+          damage: detail(input.damage),
+          survivalTime: detail(input.survivalTime),
+          healing: detail(input.healing),
+          damageReceived: detail(input.damageReceived),
+          knockouts: detail(input.knockouts),
+          assists: detail(input.assists),
+          vehicleElims: detail(input.vehicleElims),
+          grenadeElims: detail(input.grenadeElims),
+          isMvp: detail(input.isMvp),
           role: input.role ?? undefined,
           playerId: input.playerId ?? undefined,
           teamId: input.teamId ?? undefined,

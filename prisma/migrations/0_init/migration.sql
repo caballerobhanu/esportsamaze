@@ -13,15 +13,34 @@ CREATE TYPE "MatchStatus" AS ENUM ('SCHEDULED', 'LIVE', 'COMPLETED', 'POSTPONED'
 -- CreateEnum
 CREATE TYPE "TransferType" AS ENUM ('JOINED', 'LEFT', 'LOANED', 'BENCHED');
 
+-- CreateEnum
+CREATE TYPE "KraftonBoard" AS ENUM ('TEAM', 'PLAYER');
+
+-- CreateTable
+CREATE TABLE "GameFamily" (
+    "id" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "logoUrl" TEXT,
+    "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "GameFamily_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateTable
 CREATE TABLE "Game" (
     "id" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "shortName" TEXT,
     "genre" "GameGenre" NOT NULL,
     "developer" TEXT,
     "logoUrl" TEXT,
+    "logoDarkUrl" TEXT,
     "bannerUrl" TEXT,
+    "familyId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -41,6 +60,7 @@ CREATE TABLE "Team" (
     "region" TEXT,
     "founded" TIMESTAMP(3),
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "isVerified" BOOLEAN NOT NULL DEFAULT true,
     "sponsors" TEXT,
     "socialLinks" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -61,6 +81,7 @@ CREATE TABLE "Player" (
     "role" TEXT,
     "birthDate" TIMESTAMP(3),
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "isVerified" BOOLEAN NOT NULL DEFAULT true,
     "isPlayer" BOOLEAN NOT NULL DEFAULT true,
     "staffRole" TEXT,
     "gameId" TEXT,
@@ -76,6 +97,7 @@ CREATE TABLE "Player" (
 CREATE TABLE "Transfer" (
     "id" TEXT NOT NULL,
     "playerId" TEXT NOT NULL,
+    "fromTeamId" TEXT,
     "teamId" TEXT NOT NULL,
     "type" "TransferType" NOT NULL,
     "staffRole" TEXT,
@@ -164,6 +186,7 @@ CREATE TABLE "Tournament" (
     "gameId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
+    "shortName" TEXT,
     "series" TEXT,
     "season" TEXT,
     "seriesValue" INTEGER,
@@ -207,46 +230,13 @@ CREATE TABLE "Tournament" (
 );
 
 -- CreateTable
-CREATE TABLE "TeamRanking" (
+CREATE TABLE "TournamentGame" (
     "id" TEXT NOT NULL,
-    "tournamentId" TEXT,
-    "tier" TEXT NOT NULL,
-    "endDate" TIMESTAMP(3) NOT NULL,
-    "teamId" TEXT NOT NULL,
-    "rank" INTEGER NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "tournamentId" TEXT NOT NULL,
+    "gameId" TEXT NOT NULL,
+    "position" INTEGER NOT NULL DEFAULT 0,
 
-    CONSTRAINT "TeamRanking_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "PlayerRanking" (
-    "id" TEXT NOT NULL,
-    "tournamentId" TEXT,
-    "tier" TEXT NOT NULL,
-    "endDate" TIMESTAMP(3) NOT NULL,
-    "playerId" TEXT NOT NULL,
-    "teamId" TEXT,
-    "finishes" INTEGER NOT NULL DEFAULT 0,
-    "mvpTourney" INTEGER NOT NULL DEFAULT 0,
-    "igl" INTEGER NOT NULL DEFAULT 0,
-    "survivor" INTEGER NOT NULL DEFAULT 0,
-    "mvpFinals" INTEGER NOT NULL DEFAULT 0,
-    "emerging" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "PlayerRanking_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "RankingTransferRule" (
-    "id" TEXT NOT NULL,
-    "oldTeamId" TEXT NOT NULL,
-    "newTeamId" TEXT NOT NULL,
-    "before" TIMESTAMP(3) NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "RankingTransferRule_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "TournamentGame_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -339,26 +329,26 @@ CREATE TABLE "MatchTeamResult" (
     "elimsPoints" INTEGER NOT NULL DEFAULT 0,
     "bonusPoints" INTEGER NOT NULL DEFAULT 0,
     "totalPoints" INTEGER NOT NULL DEFAULT 0,
-    "damage" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "survivalTime" INTEGER NOT NULL DEFAULT 0,
-    "healing" INTEGER NOT NULL DEFAULT 0,
-    "damageReceived" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "headshots" INTEGER NOT NULL DEFAULT 0,
-    "assists" INTEGER NOT NULL DEFAULT 0,
-    "knockouts" INTEGER NOT NULL DEFAULT 0,
-    "longestElim" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "vehicleElims" INTEGER NOT NULL DEFAULT 0,
-    "grenadeElims" INTEGER NOT NULL DEFAULT 0,
-    "smokesUsed" INTEGER NOT NULL DEFAULT 0,
-    "grenadesUsed" INTEGER NOT NULL DEFAULT 0,
-    "molotovsUsed" INTEGER NOT NULL DEFAULT 0,
-    "flashUsed" INTEGER NOT NULL DEFAULT 0,
-    "utilitiesTotal" INTEGER NOT NULL DEFAULT 0,
-    "airdrops" INTEGER NOT NULL DEFAULT 0,
-    "rescues" INTEGER NOT NULL DEFAULT 0,
-    "distDrove" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "distWalk" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "totalDist" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "damage" DOUBLE PRECISION,
+    "survivalTime" INTEGER,
+    "healing" INTEGER,
+    "damageReceived" DOUBLE PRECISION,
+    "headshots" INTEGER,
+    "assists" INTEGER,
+    "knockouts" INTEGER,
+    "longestElim" DOUBLE PRECISION,
+    "vehicleElims" INTEGER,
+    "grenadeElims" INTEGER,
+    "smokesUsed" INTEGER,
+    "grenadesUsed" INTEGER,
+    "molotovsUsed" INTEGER,
+    "flashUsed" INTEGER,
+    "utilitiesTotal" INTEGER,
+    "airdrops" INTEGER,
+    "rescues" INTEGER,
+    "distDrove" DOUBLE PRECISION,
+    "distWalk" DOUBLE PRECISION,
+    "totalDist" DOUBLE PRECISION,
     "won" BOOLEAN NOT NULL DEFAULT false,
     "score" INTEGER,
     "rawData" JSONB,
@@ -382,30 +372,30 @@ CREATE TABLE "MatchPlayerStat" (
     "teamElimsPoints" INTEGER NOT NULL DEFAULT 0,
     "teamBonusPoints" INTEGER NOT NULL DEFAULT 0,
     "teamTotalPoints" INTEGER NOT NULL DEFAULT 0,
-    "damage" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "survivalTime" INTEGER NOT NULL DEFAULT 0,
-    "healing" INTEGER NOT NULL DEFAULT 0,
-    "damageReceived" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "headshots" INTEGER NOT NULL DEFAULT 0,
-    "assists" INTEGER NOT NULL DEFAULT 0,
-    "knockouts" INTEGER NOT NULL DEFAULT 0,
-    "longestElim" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "vehicleElims" INTEGER NOT NULL DEFAULT 0,
-    "grenadeElims" INTEGER NOT NULL DEFAULT 0,
-    "smokesUsed" INTEGER NOT NULL DEFAULT 0,
-    "grenadesUsed" INTEGER NOT NULL DEFAULT 0,
-    "molotovsUsed" INTEGER NOT NULL DEFAULT 0,
-    "flashUsed" INTEGER NOT NULL DEFAULT 0,
-    "utilitiesTotal" INTEGER NOT NULL DEFAULT 0,
-    "airdrops" INTEGER NOT NULL DEFAULT 0,
-    "rescues" INTEGER NOT NULL DEFAULT 0,
-    "distDrove" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "distWalk" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "totalDist" DOUBLE PRECISION NOT NULL DEFAULT 0,
-    "isMvp" BOOLEAN NOT NULL DEFAULT false,
-    "playerPowerplay" INTEGER NOT NULL DEFAULT 0,
+    "damage" DOUBLE PRECISION,
+    "survivalTime" INTEGER,
+    "healing" INTEGER,
+    "damageReceived" DOUBLE PRECISION,
+    "headshots" INTEGER,
+    "assists" INTEGER,
+    "knockouts" INTEGER,
+    "longestElim" DOUBLE PRECISION,
+    "vehicleElims" INTEGER,
+    "grenadeElims" INTEGER,
+    "smokesUsed" INTEGER,
+    "grenadesUsed" INTEGER,
+    "molotovsUsed" INTEGER,
+    "flashUsed" INTEGER,
+    "utilitiesTotal" INTEGER,
+    "airdrops" INTEGER,
+    "rescues" INTEGER,
+    "distDrove" DOUBLE PRECISION,
+    "distWalk" DOUBLE PRECISION,
+    "totalDist" DOUBLE PRECISION,
+    "isMvp" BOOLEAN,
+    "playerPowerplay" INTEGER,
     "kills" INTEGER NOT NULL DEFAULT 0,
-    "deaths" INTEGER NOT NULL DEFAULT 0,
+    "deaths" INTEGER,
     "rawData" JSONB,
 
     CONSTRAINT "MatchPlayerStat_pkey" PRIMARY KEY ("id")
@@ -416,10 +406,16 @@ CREATE TABLE "Article" (
     "id" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
     "title" TEXT NOT NULL,
+    "subHeadline" TEXT,
     "excerpt" TEXT,
+    "keyTakeaways" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "content" TEXT NOT NULL,
     "coverImage" TEXT,
+    "coverImageAlt" TEXT,
+    "coverImageCaption" TEXT,
+    "coverImageCredit" TEXT,
     "category" TEXT NOT NULL DEFAULT 'GENERAL',
+    "categories" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "authorName" TEXT NOT NULL DEFAULT 'Esports Amaze Staff',
     "authorRole" TEXT DEFAULT 'Editor',
@@ -428,12 +424,16 @@ CREATE TABLE "Article" (
     "readTimeMinutes" INTEGER NOT NULL DEFAULT 3,
     "publishedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "views" INTEGER NOT NULL DEFAULT 0,
+    "allowComments" BOOLEAN NOT NULL DEFAULT true,
+    "faqs" JSONB,
     "metaTitle" TEXT,
     "metaDescription" TEXT,
     "ogImage" TEXT,
     "focusKeyword" TEXT,
+    "secondaryKeywords" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "tournamentId" TEXT,
     "teamId" TEXT,
+    "playerId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
@@ -446,9 +446,15 @@ CREATE TABLE "ArticleRevision" (
     "id" TEXT NOT NULL,
     "articleId" TEXT NOT NULL,
     "title" TEXT NOT NULL,
+    "subHeadline" TEXT,
     "excerpt" TEXT,
+    "keyTakeaways" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "content" TEXT NOT NULL,
     "coverImage" TEXT,
+    "coverImageAlt" TEXT,
+    "coverImageCaption" TEXT,
+    "coverImageCredit" TEXT,
+    "categories" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "authorName" TEXT NOT NULL,
     "authorRole" TEXT,
@@ -456,6 +462,9 @@ CREATE TABLE "ArticleRevision" (
     "metaDescription" TEXT,
     "ogImage" TEXT,
     "focusKeyword" TEXT,
+    "secondaryKeywords" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "faqs" JSONB,
+    "playerId" TEXT,
     "wordCount" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -498,6 +507,79 @@ CREATE TABLE "MediaAsset" (
     CONSTRAINT "MediaAsset_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ComparePick" (
+    "id" TEXT NOT NULL,
+    "entityType" TEXT NOT NULL,
+    "entityId" TEXT NOT NULL,
+    "picks" INTEGER NOT NULL DEFAULT 1,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ComparePick_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "KraftonEvent" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "tier" TEXT NOT NULL DEFAULT 'Tier 1',
+    "tournamentId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "KraftonEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "KraftonEntry" (
+    "id" TEXT NOT NULL,
+    "eventId" TEXT NOT NULL,
+    "board" "KraftonBoard" NOT NULL,
+    "entityId" TEXT,
+    "entityName" TEXT NOT NULL,
+    "teamName" TEXT,
+    "teamId" TEXT,
+    "rank" INTEGER NOT NULL DEFAULT 0,
+    "finishes" INTEGER NOT NULL DEFAULT 0,
+    "mvp" INTEGER NOT NULL DEFAULT 0,
+    "finalsMvp" INTEGER NOT NULL DEFAULT 0,
+    "igl" INTEGER NOT NULL DEFAULT 0,
+    "survivor" INTEGER NOT NULL DEFAULT 0,
+    "emerging" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "KraftonEntry_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "KraftonTransfer" (
+    "id" TEXT NOT NULL,
+    "fromTeamId" TEXT NOT NULL,
+    "fromName" TEXT NOT NULL,
+    "toTeamId" TEXT NOT NULL,
+    "toName" TEXT NOT NULL,
+    "cutoff" TIMESTAMP(3) NOT NULL,
+    "mode" TEXT NOT NULL DEFAULT 'add',
+    "amount" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "KraftonTransfer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SiteSetting" (
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SiteSetting_pkey" PRIMARY KEY ("key")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "GameFamily_slug_key" ON "GameFamily"("slug");
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Game_slug_key" ON "Game"("slug");
 
@@ -505,10 +587,37 @@ CREATE UNIQUE INDEX "Game_slug_key" ON "Game"("slug");
 CREATE UNIQUE INDEX "Team_slug_key" ON "Team"("slug");
 
 -- CreateIndex
+CREATE INDEX "Team_name_idx" ON "Team"("name");
+
+-- CreateIndex
+CREATE INDEX "Team_tag_idx" ON "Team"("tag");
+
+-- CreateIndex
+CREATE INDEX "Team_gameId_idx" ON "Team"("gameId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Player_slug_key" ON "Player"("slug");
 
 -- CreateIndex
+CREATE INDEX "Player_ign_idx" ON "Player"("ign");
+
+-- CreateIndex
+CREATE INDEX "Player_currentTeamId_idx" ON "Player"("currentTeamId");
+
+-- CreateIndex
+CREATE INDEX "Player_gameId_idx" ON "Player"("gameId");
+
+-- CreateIndex
+CREATE INDEX "Player_isPlayer_status_idx" ON "Player"("isPlayer", "status");
+
+-- CreateIndex
 CREATE INDEX "Transfer_playerId_idx" ON "Transfer"("playerId");
+
+-- CreateIndex
+CREATE INDEX "Transfer_fromTeamId_idx" ON "Transfer"("fromTeamId");
+
+-- CreateIndex
+CREATE INDEX "Transfer_teamId_idx" ON "Transfer"("teamId");
 
 -- CreateIndex
 CREATE INDEX "Transfer_date_idx" ON "Transfer"("date");
@@ -535,22 +644,22 @@ CREATE UNIQUE INDEX "TournamentVenue_tournamentId_venueId_key" ON "TournamentVen
 CREATE UNIQUE INDEX "Tournament_slug_key" ON "Tournament"("slug");
 
 -- CreateIndex
-CREATE INDEX "TeamRanking_tier_endDate_idx" ON "TeamRanking"("tier", "endDate");
+CREATE INDEX "Tournament_status_startDate_idx" ON "Tournament"("status", "startDate");
 
 -- CreateIndex
-CREATE INDEX "TeamRanking_teamId_idx" ON "TeamRanking"("teamId");
+CREATE INDEX "Tournament_name_idx" ON "Tournament"("name");
 
 -- CreateIndex
-CREATE INDEX "TeamRanking_tournamentId_idx" ON "TeamRanking"("tournamentId");
+CREATE INDEX "Tournament_gameId_idx" ON "Tournament"("gameId");
 
 -- CreateIndex
-CREATE INDEX "PlayerRanking_tier_endDate_idx" ON "PlayerRanking"("tier", "endDate");
+CREATE INDEX "Tournament_series_idx" ON "Tournament"("series");
 
 -- CreateIndex
-CREATE INDEX "PlayerRanking_playerId_idx" ON "PlayerRanking"("playerId");
+CREATE INDEX "TournamentGame_gameId_idx" ON "TournamentGame"("gameId");
 
 -- CreateIndex
-CREATE INDEX "PlayerRanking_tournamentId_idx" ON "PlayerRanking"("tournamentId");
+CREATE UNIQUE INDEX "TournamentGame_tournamentId_gameId_key" ON "TournamentGame"("tournamentId", "gameId");
 
 -- CreateIndex
 CREATE INDEX "TournamentTeam_teamId_idx" ON "TournamentTeam"("teamId");
@@ -572,6 +681,9 @@ CREATE INDEX "Match_status_scheduledAt_idx" ON "Match"("status", "scheduledAt");
 
 -- CreateIndex
 CREATE INDEX "MatchGame_matchId_idx" ON "MatchGame"("matchId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MatchGame_matchId_sequence_key" ON "MatchGame"("matchId", "sequence");
 
 -- CreateIndex
 CREATE INDEX "MatchTeamResult_teamId_idx" ON "MatchTeamResult"("teamId");
@@ -601,6 +713,18 @@ CREATE INDEX "Article_category_idx" ON "Article"("category");
 CREATE INDEX "Article_featured_idx" ON "Article"("featured");
 
 -- CreateIndex
+CREATE INDEX "Article_title_idx" ON "Article"("title");
+
+-- CreateIndex
+CREATE INDEX "Article_tournamentId_idx" ON "Article"("tournamentId");
+
+-- CreateIndex
+CREATE INDEX "Article_teamId_idx" ON "Article"("teamId");
+
+-- CreateIndex
+CREATE INDEX "Article_playerId_idx" ON "Article"("playerId");
+
+-- CreateIndex
 CREATE INDEX "ArticleRevision_articleId_createdAt_idx" ON "ArticleRevision"("articleId", "createdAt");
 
 -- CreateIndex
@@ -618,6 +742,30 @@ CREATE INDEX "Comment_status_idx" ON "Comment"("status");
 -- CreateIndex
 CREATE UNIQUE INDEX "MediaAsset_filename_key" ON "MediaAsset"("filename");
 
+-- CreateIndex
+CREATE INDEX "ComparePick_entityType_picks_idx" ON "ComparePick"("entityType", "picks");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ComparePick_entityType_entityId_key" ON "ComparePick"("entityType", "entityId");
+
+-- CreateIndex
+CREATE INDEX "KraftonEvent_endDate_idx" ON "KraftonEvent"("endDate");
+
+-- CreateIndex
+CREATE INDEX "KraftonEntry_board_entityId_idx" ON "KraftonEntry"("board", "entityId");
+
+-- CreateIndex
+CREATE INDEX "KraftonEntry_eventId_idx" ON "KraftonEntry"("eventId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "KraftonEntry_eventId_board_entityName_key" ON "KraftonEntry"("eventId", "board", "entityName");
+
+-- CreateIndex
+CREATE INDEX "KraftonTransfer_toTeamId_idx" ON "KraftonTransfer"("toTeamId");
+
+-- AddForeignKey
+ALTER TABLE "Game" ADD CONSTRAINT "Game_familyId_fkey" FOREIGN KEY ("familyId") REFERENCES "GameFamily"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "Team" ADD CONSTRAINT "Team_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -629,6 +777,9 @@ ALTER TABLE "Player" ADD CONSTRAINT "Player_currentTeamId_fkey" FOREIGN KEY ("cu
 
 -- AddForeignKey
 ALTER TABLE "Transfer" ADD CONSTRAINT "Transfer_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Transfer" ADD CONSTRAINT "Transfer_fromTeamId_fkey" FOREIGN KEY ("fromTeamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Transfer" ADD CONSTRAINT "Transfer_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -661,25 +812,10 @@ ALTER TABLE "Tournament" ADD CONSTRAINT "Tournament_winnerTeamId_fkey" FOREIGN K
 ALTER TABLE "Tournament" ADD CONSTRAINT "Tournament_runnerUpTeamId_fkey" FOREIGN KEY ("runnerUpTeamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TeamRanking" ADD CONSTRAINT "TeamRanking_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "TournamentGame" ADD CONSTRAINT "TournamentGame_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TeamRanking" ADD CONSTRAINT "TeamRanking_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PlayerRanking" ADD CONSTRAINT "PlayerRanking_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PlayerRanking" ADD CONSTRAINT "PlayerRanking_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "PlayerRanking" ADD CONSTRAINT "PlayerRanking_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "RankingTransferRule" ADD CONSTRAINT "RankingTransferRule_oldTeamId_fkey" FOREIGN KEY ("oldTeamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "RankingTransferRule" ADD CONSTRAINT "RankingTransferRule_newTeamId_fkey" FOREIGN KEY ("newTeamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "TournamentGame" ADD CONSTRAINT "TournamentGame_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "TournamentStage" ADD CONSTRAINT "TournamentStage_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -733,6 +869,9 @@ ALTER TABLE "Article" ADD CONSTRAINT "Article_tournamentId_fkey" FOREIGN KEY ("t
 ALTER TABLE "Article" ADD CONSTRAINT "Article_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Article" ADD CONSTRAINT "Article_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ArticleRevision" ADD CONSTRAINT "ArticleRevision_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "Article"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -740,3 +879,10 @@ ALTER TABLE "ArticleReaction" ADD CONSTRAINT "ArticleReaction_articleId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "Comment" ADD CONSTRAINT "Comment_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "Article"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KraftonEvent" ADD CONSTRAINT "KraftonEvent_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KraftonEntry" ADD CONSTRAINT "KraftonEntry_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "KraftonEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

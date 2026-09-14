@@ -19,6 +19,7 @@ import {
   Crosshair,
   Swords,
   BarChart3,
+  Gift,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { fetchEntityStanding } from '@/lib/krafton-data';
@@ -95,16 +96,53 @@ interface PrizeRankEntry {
   playerName?: string;
 }
 
-/** Individual (PLAYER-recipient) cash awards for this player from a tournament's prize distribution JSON. */
-function extractIndividualPrizes(prizeDistribution: unknown, playerId: string, ign: string) {
+/** A cash amount, or — when the honour carried no cash — what it was instead. */
+interface IndividualPrize {
+  label: string;
+  amount: number;
+  /** Set for a non-cash honour: the item ("TVS Raider Bike") or the title. */
+  rewardNote: string | null;
+  rewardType: string;
+}
+
+/**
+ * Individual (PLAYER-recipient) awards for this player from a tournament's prize
+ * distribution JSON.
+ *
+ * Non-cash honours count. "Best IGL" stored as a TITLE with 0 prize, or a
+ * "TVS Most Wicked Player" ITEM, used to be filtered out by an `amount > 0`
+ * guard, so a player's profile silently hid them; they now carry the title /
+ * custom reward in place of a currency amount.
+ */
+function extractIndividualPrizes(
+  prizeDistribution: unknown,
+  playerId: string,
+  ign: string,
+): IndividualPrize[] {
   const rows = flattenPrizeRanks(prizeDistribution);
-  const out: { label: string; amount: number }[] = [];
+  const out: IndividualPrize[] = [];
   for (const r of rows) {
     if (!r || r.recipientType !== 'PLAYER') continue;
-    const isMe = r.playerId ? r.playerId === playerId : (typeof r.playerName === 'string' ? r.playerName : '').trim().toLowerCase() === ign.toLowerCase();
+    const isMe = r.playerId
+      ? r.playerId === playerId
+      : (typeof r.playerName === 'string' ? r.playerName : '').trim().toLowerCase() ===
+        ign.toLowerCase();
     if (!isMe) continue;
-    const amount = Number(r.prize ?? 0);
-    if (amount > 0) out.push({ label: String(r.rank ?? 'Cash prize'), amount });
+
+    const amount = Number(r.prize ?? 0) || 0;
+    const label = String(r.rank ?? '').trim() || 'Award';
+    const rewardType = r.rewardType === 'ITEM' || r.rewardType === 'TITLE' ? r.rewardType : 'MONEY';
+    const customReward =
+      typeof r.customReward === 'string' && r.customReward.trim() ? r.customReward.trim() : null;
+
+    // A cash prize, or an honour with no price tag (item / title).
+    if (amount > 0) {
+      out.push({ label, amount, rewardNote: null, rewardType });
+      continue;
+    }
+    if (rewardType === 'ITEM' || rewardType === 'TITLE') {
+      out.push({ label, amount: 0, rewardNote: customReward || label, rewardType });
+    }
   }
   return out;
 }
@@ -179,7 +217,6 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         kills: true,
         playerElims: true,
         assists: true,
-        deaths: true,
         matchGameId: true,
         teamId: true,
         matchGame: {
@@ -489,6 +526,8 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     currency: string | null;
     usd: number;
     dateKey: number;
+    /** Non-cash honour (a title or an item) shown instead of an amount. */
+    rewardNote?: string | null;
   }
 
   const earningLines: EarningLine[] = [];
@@ -519,6 +558,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         currency: row.tournament.currency,
         usd: await usdFor(prize.amount, row.tournament.currency, row.tournament.startDate),
         dateKey,
+        rewardNote: prize.rewardNote,
       });
     }
   }
@@ -537,6 +577,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         currency: t.currency,
         usd: await usdFor(prize.amount, t.currency, t.startDate),
         dateKey: t.startDate?.getTime() ?? 0,
+        rewardNote: prize.rewardNote,
       });
     }
   }
@@ -922,10 +963,19 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
                               )}
                             </td>
                             <td className="py-4 text-right font-black">
-                              <EarningsAmount
-                                amountUsd={line.usd}
-                                native={{ amount: line.amount, currency: line.currency ?? 'USD' }}
-                              />
+                              {line.rewardNote ? (
+                                // A non-cash honour has no amount to convert, so it
+                                // shows what it actually was instead of "0".
+                                <span className="inline-flex items-center gap-1.5 text-sm font-black text-slate-700 dark:text-slate-200">
+                                  <Gift className="h-3.5 w-3.5 text-indigo-500" />
+                                  {line.rewardNote}
+                                </span>
+                              ) : (
+                                <EarningsAmount
+                                  amountUsd={line.usd}
+                                  native={{ amount: line.amount, currency: line.currency ?? 'USD' }}
+                                />
+                              )}
                             </td>
                           </tr>
                         ))}

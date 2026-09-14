@@ -4,7 +4,7 @@ services:
     container_name: esportsamaze_postgres
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-esportsamaze}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

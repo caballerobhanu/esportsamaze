@@ -12,11 +12,19 @@ import {
   BGMI_PUBGM_MAPS,
   EVENT_TYPES,
   getPlacementPoints,
-  computeUtilitiesTotal,
-  computeTotalDistance,
   computeTotalPoints,
   readKillMultiplier,
 } from '@/lib/tournament-math';
+import {
+  PLAYER_DETAIL_FIELDS,
+  TEAM_DETAIL_FIELDS,
+  collectSuppliedFields,
+  deriveTotalDistance,
+  deriveUtilitiesTotal,
+  playerDetailPayload,
+  teamDetailPayload,
+  withImportProvenance,
+} from '@/lib/match-stat-fields';
 import { MatchInfoInputs } from '@/components/admin/match-info-inputs';
 import { MatchBatchImporter } from '@/components/admin/match-batch-importer';
 import { MatchGroupedList } from '@/components/admin/match-grouped-list';
@@ -349,15 +357,15 @@ async function saveTeamResult(formData: FormData) {
   const bonusPoints = fNum(formData, 'bonusPoints') ?? 0;
   const totalPoints = computeTotalPoints({ placePoints, elimsPoints, bonusPoints });
 
-  const smokesUsed = fNum(formData, 'smokesUsed') ?? 0;
-  const grenadesUsed = fNum(formData, 'grenadesUsed') ?? 0;
-  const molotovsUsed = fNum(formData, 'molotovsUsed') ?? 0;
-  const flashUsed = fNum(formData, 'flashUsed') ?? 0;
-  const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
+  const smokesUsed = fNum(formData, 'smokesUsed');
+  const grenadesUsed = fNum(formData, 'grenadesUsed');
+  const molotovsUsed = fNum(formData, 'molotovsUsed');
+  const flashUsed = fNum(formData, 'flashUsed');
+  const utilitiesTotal = deriveUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
 
-  const distDrove = fNum(formData, 'distDrove') ?? 0;
-  const distWalk = fNum(formData, 'distWalk') ?? 0;
-  const totalDist = computeTotalDistance({ distDrove, distWalk });
+  const distDrove = fNum(formData, 'distDrove');
+  const distWalk = fNum(formData, 'distWalk');
+  const totalDist = deriveTotalDistance({ distDrove, distWalk });
 
   const payload = {
     shortCode: fOpt(formData, 'shortCode'),
@@ -368,23 +376,24 @@ async function saveTeamResult(formData: FormData) {
     elimsPoints,
     bonusPoints,
     totalPoints,
-    damage: fNum(formData, 'damage') ?? 0,
-    survivalTime: fNum(formData, 'survivalTime') ?? 0,
-    healing: fNum(formData, 'healing') ?? 0,
-    damageReceived: fNum(formData, 'damageReceived') ?? 0,
-    headshots: fNum(formData, 'headshots') ?? 0,
-    assists: fNum(formData, 'assists') ?? 0,
-    knockouts: fNum(formData, 'knockouts') ?? 0,
-    longestElim: fNum(formData, 'longestElim') ?? 0,
-    vehicleElims: fNum(formData, 'vehicleElims') ?? 0,
-    grenadeElims: fNum(formData, 'grenadeElims') ?? 0,
+    // Detail fields: a blank input means "not recorded" and stays NULL, never 0.
+    damage: fNum(formData, 'damage'),
+    survivalTime: fNum(formData, 'survivalTime'),
+    healing: fNum(formData, 'healing'),
+    damageReceived: fNum(formData, 'damageReceived'),
+    headshots: fNum(formData, 'headshots'),
+    assists: fNum(formData, 'assists'),
+    knockouts: fNum(formData, 'knockouts'),
+    longestElim: fNum(formData, 'longestElim'),
+    vehicleElims: fNum(formData, 'vehicleElims'),
+    grenadeElims: fNum(formData, 'grenadeElims'),
     smokesUsed,
     grenadesUsed,
     molotovsUsed,
     flashUsed,
     utilitiesTotal,
-    airdrops: fNum(formData, 'airdrops') ?? 0,
-    rescues: fNum(formData, 'rescues') ?? 0,
+    airdrops: fNum(formData, 'airdrops'),
+    rescues: fNum(formData, 'rescues'),
     distDrove,
     distWalk,
     totalDist,
@@ -441,15 +450,15 @@ async function savePlayerStat(formData: FormData) {
   const playerId = fStr(formData, 'playerId');
   if (!matchGameId || !playerId) redirect('/admin/matches');
 
-  const smokesUsed = fNum(formData, 'smokesUsed') ?? 0;
-  const grenadesUsed = fNum(formData, 'grenadesUsed') ?? 0;
-  const molotovsUsed = fNum(formData, 'molotovsUsed') ?? 0;
-  const flashUsed = fNum(formData, 'flashUsed') ?? 0;
-  const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
+  const smokesUsed = fNum(formData, 'smokesUsed');
+  const grenadesUsed = fNum(formData, 'grenadesUsed');
+  const molotovsUsed = fNum(formData, 'molotovsUsed');
+  const flashUsed = fNum(formData, 'flashUsed');
+  const utilitiesTotal = deriveUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
 
-  const distDrove = fNum(formData, 'distDrove') ?? 0;
-  const distWalk = fNum(formData, 'distWalk') ?? 0;
-  const totalDist = computeTotalDistance({ distDrove, distWalk });
+  const distDrove = fNum(formData, 'distDrove');
+  const distWalk = fNum(formData, 'distWalk');
+  const totalDist = deriveTotalDistance({ distDrove, distWalk });
 
   const playerElims = fNum(formData, 'playerElims') ?? 0;
 
@@ -465,28 +474,30 @@ async function savePlayerStat(formData: FormData) {
     teamElimsPoints: fNum(formData, 'teamElimsPoints') ?? 0,
     teamBonusPoints: fNum(formData, 'teamBonusPoints') ?? 0,
     teamTotalPoints: fNum(formData, 'teamTotalPoints') ?? 0,
-    damage: fNum(formData, 'damage') ?? 0,
-    survivalTime: fNum(formData, 'survivalTime') ?? 0,
-    healing: fNum(formData, 'healing') ?? 0,
-    damageReceived: fNum(formData, 'damageReceived') ?? 0,
-    headshots: fNum(formData, 'headshots') ?? 0,
-    assists: fNum(formData, 'assists') ?? 0,
-    knockouts: fNum(formData, 'knockouts') ?? 0,
-    longestElim: fNum(formData, 'longestElim') ?? 0,
-    vehicleElims: fNum(formData, 'vehicleElims') ?? 0,
-    grenadeElims: fNum(formData, 'grenadeElims') ?? 0,
+    // Detail fields: a blank input means "not recorded" and stays NULL, never 0.
+    damage: fNum(formData, 'damage'),
+    survivalTime: fNum(formData, 'survivalTime'),
+    healing: fNum(formData, 'healing'),
+    damageReceived: fNum(formData, 'damageReceived'),
+    headshots: fNum(formData, 'headshots'),
+    assists: fNum(formData, 'assists'),
+    knockouts: fNum(formData, 'knockouts'),
+    longestElim: fNum(formData, 'longestElim'),
+    vehicleElims: fNum(formData, 'vehicleElims'),
+    grenadeElims: fNum(formData, 'grenadeElims'),
     smokesUsed,
     grenadesUsed,
     molotovsUsed,
     flashUsed,
     utilitiesTotal,
-    airdrops: fNum(formData, 'airdrops') ?? 0,
-    rescues: fNum(formData, 'rescues') ?? 0,
+    airdrops: fNum(formData, 'airdrops'),
+    rescues: fNum(formData, 'rescues'),
     distDrove,
     distWalk,
     totalDist,
-    isMvp: formData.get('isMvp') === 'on',
-    playerPowerplay: fNum(formData, 'playerPowerplay') ?? 0,
+    // An unchecked box cannot mean "explicitly not MVP" — only "not recorded".
+    isMvp: formData.get('isMvp') === 'on' ? true : null,
+    playerPowerplay: fNum(formData, 'playerPowerplay'),
     kills: playerElims,
   };
 
@@ -556,15 +567,7 @@ async function importBatchTeamResultsAction(formData: FormData) {
         const bonusPoints = Number(r.bonusPoints || 0);
         const totalPoints = Number(r.totalPoints || (placePoints + elimsPoints + bonusPoints));
 
-        const smokesUsed = Number(r.smokesUsed || 0);
-        const grenadesUsed = Number(r.grenadesUsed || 0);
-        const molotovsUsed = Number(r.molotovsUsed || 0);
-        const flashUsed = Number(r.flashUsed || 0);
-        const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
-
-        const distDrove = Number(r.distDrove || 0);
-        const distWalk = Number(r.distWalk || 0);
-        const totalDist = computeTotalDistance({ distDrove, distWalk });
+        const supplied = collectSuppliedFields(r, TEAM_DETAIL_FIELDS);
 
         const payload = {
           shortCode: r.shortCode || null,
@@ -575,26 +578,8 @@ async function importBatchTeamResultsAction(formData: FormData) {
           elimsPoints,
           bonusPoints,
           totalPoints,
-          damage: Number(r.damage || 0),
-          survivalTime: Number(r.survivalTime || 1680),
-          healing: Number(r.healing || 0),
-          damageReceived: Number(r.damageReceived || 0),
-          headshots: Number(r.headshots || 0),
-          assists: Number(r.assists || 0),
-          knockouts: Number(r.knockouts || 0),
-          longestElim: Number(r.longestElim || 0),
-          vehicleElims: Number(r.vehicleElims || 0),
-          grenadeElims: Number(r.grenadeElims || 0),
-          smokesUsed,
-          grenadesUsed,
-          molotovsUsed,
-          flashUsed,
-          utilitiesTotal,
-          airdrops: Number(r.airdrops || 0),
-          rescues: Number(r.rescues || 0),
-          distDrove,
-          distWalk,
-          totalDist,
+          // Detail fields: absent input stays NULL, never a fabricated 0/1680.
+          ...teamDetailPayload(r),
           won: isWwcd,
           score: totalPoints,
         };
@@ -605,11 +590,12 @@ async function importBatchTeamResultsAction(formData: FormData) {
             where: {
               matchGameId_teamId: { matchGameId, teamId: r.teamId },
             },
+            // Provenance is stamped on create only — the first import stays immutable.
             update: payload,
             create: {
               matchGameId,
               teamId: r.teamId,
-              ...payload,
+              ...withImportProvenance(payload, 'bulk-json', supplied),
             },
           });
           continue;
@@ -619,7 +605,7 @@ async function importBatchTeamResultsAction(formData: FormData) {
           data: {
             matchGameId,
             teamId: r.teamId,
-            ...payload,
+            ...withImportProvenance(payload, 'bulk-json', supplied),
           },
         });
       }
@@ -670,15 +656,7 @@ async function importBatchPlayerStatsAction(formData: FormData) {
         if (!r.playerId) continue;
         const playerElims = Number(r.playerElims || r.elims || 0);
 
-        const smokesUsed = Number(r.smokesUsed || 0);
-        const grenadesUsed = Number(r.grenadesUsed || 0);
-        const molotovsUsed = Number(r.molotovsUsed || 0);
-        const flashUsed = Number(r.flashUsed || 0);
-        const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
-
-        const distDrove = Number(r.distDrove || 0);
-        const distWalk = Number(r.distWalk || 0);
-        const totalDist = computeTotalDistance({ distDrove, distWalk });
+        const supplied = collectSuppliedFields(r, PLAYER_DETAIL_FIELDS);
 
         const payload = {
           teamId: r.teamId || null,
@@ -692,28 +670,8 @@ async function importBatchPlayerStatsAction(formData: FormData) {
           teamElimsPoints: Number(r.teamElimsPoints || 0),
           teamBonusPoints: Number(r.teamBonusPoints || 0),
           teamTotalPoints: Number(r.teamTotalPoints || 0),
-          damage: Number(r.damage || 0),
-          survivalTime: Number(r.survivalTime || 0),
-          healing: Number(r.healing || 0),
-          damageReceived: Number(r.damageReceived || 0),
-          headshots: Number(r.headshots || 0),
-          assists: Number(r.assists || 0),
-          knockouts: Number(r.knockouts || 0),
-          longestElim: Number(r.longestElim || 0),
-          vehicleElims: Number(r.vehicleElims || 0),
-          grenadeElims: Number(r.grenadeElims || 0),
-          smokesUsed,
-          grenadesUsed,
-          molotovsUsed,
-          flashUsed,
-          utilitiesTotal,
-          airdrops: Number(r.airdrops || 0),
-          rescues: Number(r.rescues || 0),
-          distDrove,
-          distWalk,
-          totalDist,
-          isMvp: r.isMvp === true,
-          playerPowerplay: Number(r.playerPowerplay || 0),
+          // Detail fields: absent input stays NULL, never a fabricated 0.
+          ...playerDetailPayload(r),
           kills: playerElims,
         };
 
@@ -723,11 +681,12 @@ async function importBatchPlayerStatsAction(formData: FormData) {
             where: {
               matchGameId_playerId: { matchGameId, playerId: r.playerId },
             },
+            // Provenance is stamped on create only — the first import stays immutable.
             update: payload,
             create: {
               matchGameId,
               playerId: r.playerId,
-              ...payload,
+              ...withImportProvenance(payload, 'bulk-json', supplied),
             },
           });
           continue;
@@ -737,7 +696,7 @@ async function importBatchPlayerStatsAction(formData: FormData) {
           data: {
             matchGameId,
             playerId: r.playerId,
-            ...payload,
+            ...withImportProvenance(payload, 'bulk-json', supplied),
           },
         });
       }
@@ -1114,6 +1073,10 @@ export default async function AdminMatchesPage({
                 <p className="text-[11px] font-bold uppercase text-slate-400">
                   + Add Single Player Match Performance
                 </p>
+                <p className="text-[11px] text-slate-400">
+                  Leave a detail field blank when it wasn&rsquo;t recorded — a blank is stored as
+                  unknown (NULL), never as a 0. Eliminations is the only required stat.
+                </p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                   <div className="col-span-2">
@@ -1143,7 +1106,7 @@ export default async function AdminMatchesPage({
                   </div>
                   <div>
                     <label className={labelCls}>Damage</label>
-                    <input type="number" name="damage" defaultValue={0} className={inputCls} />
+                    <input type="number" name="damage" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>MVP?</label>
@@ -1154,77 +1117,77 @@ export default async function AdminMatchesPage({
                   </div>
                   <div>
                     <label className={labelCls}>Powerplay (Zone 1)</label>
-                    <input type="number" name="playerPowerplay" defaultValue={0} className={inputCls} />
+                    <input type="number" name="playerPowerplay" className={inputCls} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                   <div>
                     <label className={labelCls}>Survival Time (s)</label>
-                    <input type="number" name="survivalTime" defaultValue={0} className={inputCls} />
+                    <input type="number" name="survivalTime" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Healing (HP)</label>
-                    <input type="number" name="healing" defaultValue={0} className={inputCls} />
+                    <input type="number" name="healing" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Dmg Received</label>
-                    <input type="number" name="damageReceived" defaultValue={0} className={inputCls} />
+                    <input type="number" name="damageReceived" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Vehicle Elims</label>
-                    <input type="number" name="vehicleElims" defaultValue={0} className={inputCls} />
+                    <input type="number" name="vehicleElims" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Grenade Elims</label>
-                    <input type="number" name="grenadeElims" defaultValue={0} className={inputCls} />
+                    <input type="number" name="grenadeElims" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Headshots</label>
-                    <input type="number" name="headshots" defaultValue={0} className={inputCls} />
+                    <input type="number" name="headshots" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Assists</label>
-                    <input type="number" name="assists" defaultValue={0} className={inputCls} />
+                    <input type="number" name="assists" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Knockouts</label>
-                    <input type="number" name="knockouts" defaultValue={0} className={inputCls} />
+                    <input type="number" name="knockouts" className={inputCls} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
                   <div>
                     <label className={labelCls}>Longest Elim (m)</label>
-                    <input type="number" step="any" name="longestElim" defaultValue={0} className={inputCls} />
+                    <input type="number" step="any" name="longestElim" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Smokes</label>
-                    <input type="number" name="smokesUsed" defaultValue={0} className={inputCls} />
+                    <input type="number" name="smokesUsed" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Grenades</label>
-                    <input type="number" name="grenadesUsed" defaultValue={0} className={inputCls} />
+                    <input type="number" name="grenadesUsed" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Molotovs</label>
-                    <input type="number" name="molotovsUsed" defaultValue={0} className={inputCls} />
+                    <input type="number" name="molotovsUsed" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Flash</label>
-                    <input type="number" name="flashUsed" defaultValue={0} className={inputCls} />
+                    <input type="number" name="flashUsed" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Airdrops</label>
-                    <input type="number" name="airdrops" defaultValue={0} className={inputCls} />
+                    <input type="number" name="airdrops" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Rescues</label>
-                    <input type="number" name="rescues" defaultValue={0} className={inputCls} />
+                    <input type="number" name="rescues" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Dist Walk (m)</label>
-                    <input type="number" name="distWalk" defaultValue={0} className={inputCls} />
+                    <input type="number" name="distWalk" className={inputCls} />
                   </div>
                 </div>
 

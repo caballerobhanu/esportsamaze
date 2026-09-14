@@ -8,11 +8,19 @@ import { isAdmin } from '@/lib/admin-auth';
 import {
   getPlacementPoints,
   computeTotalPoints,
-  computeUtilitiesTotal,
-  computeTotalDistance,
   parseWwcd,
   readKillMultiplier,
 } from '@/lib/tournament-math';
+import {
+  PLAYER_DETAIL_FIELDS,
+  TEAM_DETAIL_FIELDS,
+  collectSuppliedFields,
+  playerDetailPayload,
+  requestedTeamDetailPayload,
+  teamDetailPayload,
+  withImportProvenance,
+} from '@/lib/match-stat-fields';
+import { decideTeamResultWrite, readTeamResultRow, type TeamResultScoring } from '@/lib/team-result-write';
 
 export interface MatrixCellSavePayload {
   teamId: string;
@@ -340,7 +348,12 @@ export async function bulkUniversalMatchImportAction(
         return heavyByTournamentId.get(tournamentId)!;
       };
 
-      const pendingTeamResults: Array<{ matchGameId: string; teamId: string; payload: any }> = [];
+      const pendingTeamResults: Array<{
+        matchGameId: string;
+        teamId: string;
+        payload: any;
+        supplied: string[];
+      }> = [];
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -636,15 +649,7 @@ export async function bulkUniversalMatchImportAction(
             ? Number(row.totalPoints)
             : computeTotalPoints({ placePoints, elimsPoints, bonusPoints });
 
-        const smokesUsed = Number(row.smokesUsed || 0);
-        const grenadesUsed = Number(row.grenadesUsed || 0);
-        const molotovsUsed = Number(row.molotovsUsed || 0);
-        const flashUsed = Number(row.flashUsed || 0);
-        const utilitiesTotal = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
-
-        const distDrove = Number(row.distDrove || 0);
-        const distWalk = Number(row.distWalk || 0);
-        const totalDist = computeTotalDistance({ distDrove, distWalk });
+        const supplied = collectSuppliedFields(row, TEAM_DETAIL_FIELDS);
 
         const payload = {
           mp: 1,
@@ -654,26 +659,8 @@ export async function bulkUniversalMatchImportAction(
           elimsPoints,
           bonusPoints,
           totalPoints,
-          damage: Number(row.damage || 0),
-          survivalTime: Number(row.survivalTime || 1680),
-          healing: Number(row.healing || 0),
-          damageReceived: Number(row.damageReceived || 0),
-          headshots: Number(row.headshots || 0),
-          assists: Number(row.assists || 0),
-          knockouts: Number(row.knockouts || 0),
-          longestElim: Number(row.longestElim || 0),
-          vehicleElims: Number(row.vehicleElims || 0),
-          grenadeElims: Number(row.grenadeElims || 0),
-          smokesUsed,
-          grenadesUsed,
-          molotovsUsed,
-          flashUsed,
-          utilitiesTotal,
-          airdrops: Number(row.airdrops || 0),
-          rescues: Number(row.rescues || 0),
-          distDrove,
-          distWalk,
-          totalDist,
+          // Detail fields: absent input stays NULL, never a fabricated 0/1680.
+          ...teamDetailPayload(row),
           won: isWwcd,
           score: totalPoints,
         };
@@ -682,6 +669,7 @@ export async function bulkUniversalMatchImportAction(
           matchGameId,
           teamId: matchedTeam.id,
           payload,
+          supplied,
         });
       }
 
@@ -695,11 +683,12 @@ export async function bulkUniversalMatchImportAction(
               where: {
                 matchGameId_teamId: { matchGameId: item.matchGameId, teamId: item.teamId },
               },
+              // Provenance is stamped on create only — the first import stays immutable.
               update: item.payload,
               create: {
                 matchGameId: item.matchGameId,
                 teamId: item.teamId,
-                ...item.payload,
+                ...withImportProvenance(item.payload, 'bulk-json', item.supplied),
               },
             })
           )
@@ -800,20 +789,7 @@ export async function saveMultiMatchMatrixAction(
               ? Number(res.totalPoints)
               : computeTotalPoints({ placePoints, elimsPoints, bonusPoints });
 
-          const smokesUsed = Number(res.smokesUsed || 0);
-          const grenadesUsed = Number(res.grenadesUsed || 0);
-          const molotovsUsed = Number(res.molotovsUsed || 0);
-          const flashUsed = Number(res.flashUsed || 0);
-          const utilitiesTotal = computeUtilitiesTotal({
-            smokesUsed,
-            grenadesUsed,
-            molotovsUsed,
-            flashUsed,
-          });
-
-          const distDrove = Number(res.distDrove || 0);
-          const distWalk = Number(res.distWalk || 0);
-          const totalDist = computeTotalDistance({ distDrove, distWalk });
+          const supplied = collectSuppliedFields(res, TEAM_DETAIL_FIELDS);
 
           const payload = {
             mp: 1,
@@ -823,26 +799,8 @@ export async function saveMultiMatchMatrixAction(
             elimsPoints,
             bonusPoints,
             totalPoints,
-            damage: Number(res.damage || 0),
-            survivalTime: Number(res.survivalTime || 1680),
-            healing: Number(res.healing || 0),
-            damageReceived: Number(res.damageReceived || 0),
-            headshots: Number(res.headshots || 0),
-            assists: Number(res.assists || 0),
-            knockouts: Number(res.knockouts || 0),
-            longestElim: Number(res.longestElim || 0),
-            vehicleElims: Number(res.vehicleElims || 0),
-            grenadeElims: Number(res.grenadeElims || 0),
-            smokesUsed,
-            grenadesUsed,
-            molotovsUsed,
-            flashUsed,
-            utilitiesTotal,
-            airdrops: Number(res.airdrops || 0),
-            rescues: Number(res.rescues || 0),
-            distDrove,
-            distWalk,
-            totalDist,
+            // Detail fields: absent input stays NULL, never a fabricated 0/1680.
+            ...teamDetailPayload(res),
             won: isWwcd,
             score: totalPoints,
           };
@@ -852,11 +810,12 @@ export async function saveMultiMatchMatrixAction(
             where: {
               matchGameId_teamId: { matchGameId, teamId: res.teamId },
             },
+            // Provenance is stamped on create only — the first import stays immutable.
             update: payload,
             create: {
               matchGameId,
               teamId: res.teamId,
-              ...payload,
+              ...withImportProvenance(payload, 'matrix-import', supplied),
             },
           });
         }
@@ -1111,15 +1070,25 @@ export async function bulkUniversalPlayerMatchImportAction(
     // back every row instead of committing a partial player dataset.
     await prisma.$transaction(
       async (tx) => {
-        const teamResultsCache = new Map<string, any>();
+        const teamResultsCache = new Map<string, TeamResultScoring>();
         const preloadedGames = new Set<string>();
-        const pendingTeamResults = new Map<string, { matchGameId: string; teamId: string; payload: any }>();
-        const pendingPlayerStats: Array<{ matchGameId: string; playerId: string; payload: any }> = [];
+        const pendingTeamResults = new Map<
+          string,
+          { matchGameId: string; teamId: string; payload: any; supplied: string[] }
+        >();
+        const pendingPlayerStats: Array<{
+          matchGameId: string;
+          playerId: string;
+          payload: any;
+          supplied: string[];
+        }> = [];
         const heavyByTournamentId = new Map<string, { stages: any[]; teams: any[]; matches: any[] }>();
-        // Teams whose result row is being authored by THIS import: their
-        // elims are the sum of the individual player rows seen so far, not
-        // one player's kills. `dbBackedTeams` marks (game, team) pairs that
-        // already had a DB result before the run — those are authoritative.
+        // `teamAwareTeams` marks (game, team) pairs whose result this run is
+        // authoring: their elims are the sum of the individual player rows seen
+        // so far, not one player's kills. `dbBackedTeams` marks (game, team)
+        // pairs that already had a DB result before the run — those are
+        // authoritative, and a paste with no team-level column leaves them
+        // untouched (see `decideTeamResultWrite`).
         const teamAwareTeams = new Set<string>();
         const dbBackedTeams = new Set<string>();
       const loadHeavy = async (tournamentId: string) => {
@@ -1381,10 +1350,26 @@ export async function bulkUniversalPlayerMatchImportAction(
           preloadedGames.add(matchGameId);
           const existingTRs = await tx.matchTeamResult.findMany({
             where: { matchGameId },
-            select: { id: true, matchGameId: true, teamId: true, rank: true, placePoints: true, elimsPoints: true },
+            select: {
+              matchGameId: true,
+              teamId: true,
+              rank: true,
+              wwcd: true,
+              placePoints: true,
+              elimsPoints: true,
+              bonusPoints: true,
+              totalPoints: true,
+            },
           });
           for (const tr of existingTRs) {
-            teamResultsCache.set(`${tr.matchGameId}_${tr.teamId}`, tr);
+            teamResultsCache.set(`${tr.matchGameId}_${tr.teamId}`, {
+              rank: tr.rank,
+              wwcd: tr.wwcd,
+              placePoints: tr.placePoints,
+              elimsPoints: tr.elimsPoints,
+              bonusPoints: tr.bonusPoints,
+              totalPoints: tr.totalPoints,
+            });
             dbBackedTeams.add(`${tr.matchGameId}_${tr.teamId}`);
           }
         }
@@ -1666,27 +1651,22 @@ export async function bulkUniversalPlayerMatchImportAction(
         }
 
         // 6. Cascade / Non-destructive Team Result Check (Requirement 3)
+        //
+        // A player paste carries no team scorecard, so the cascade may only
+        // speak for a team the DB does not have yet, or when the row brings an
+        // explicit team-level column. `decideTeamResultWrite` owns that call;
+        // everything below feeds it and applies its verdict.
         const teamResultKey = `${matchGameId}_${matchedTeam.id}`;
-        let existingTeamResult = teamResultsCache.get(teamResultKey);
+        const existingTeamResult = teamResultsCache.get(teamResultKey);
+        const hasDbTeamResult = dbBackedTeams.has(teamResultKey);
 
-        const teamRank = Number(row.team_rank || row.teamRank) || (existingTeamResult ? existingTeamResult.rank : 1);
-        const isTeamWwcd = parseWwcd(row.team_wwcd ?? row.teamWwcd ?? row.wwcd, teamRank);
-
-        const teamPlacePoints =
-          row.team_place != null && String(row.team_place).trim() !== ''
-            ? Number(row.team_place)
-            : existingTeamResult
-            ? existingTeamResult.placePoints
-            : getPlacementPoints(teamRank, pointsMatrix);
-
-        const rawTeamElims = row.team_elims ?? row.teamElims;
-        const hasExplicitTeamElims = rawTeamElims != null && String(rawTeamElims).trim() !== '';
-        if (hasExplicitTeamElims) teamAwareTeams.add(teamResultKey);
+        const teamInput = readTeamResultRow(row);
+        if (teamInput.elimsCount !== null) teamAwareTeams.add(teamResultKey);
 
         let teamElimsCount: number;
-        if (hasExplicitTeamElims) {
-          teamElimsCount = Number(rawTeamElims);
-        } else if (teamAwareTeams.has(teamResultKey) || dbBackedTeams.has(teamResultKey)) {
+        if (teamInput.elimsCount !== null) {
+          teamElimsCount = teamInput.elimsCount;
+        } else if (teamAwareTeams.has(teamResultKey) || hasDbTeamResult) {
           // A team-level figure already exists (explicit column earlier in the
           // paste, or a pre-existing DB result) — inherit it for every player
           // row of the team instead of recomputing from one player.
@@ -1701,78 +1681,54 @@ export async function bulkUniversalPlayerMatchImportAction(
             Number(row.elims || row.kills || 0);
         }
 
-        const teamElimsPoints = teamElimsCount * killMultiplier;
-        const teamTotalPoints =
-          row.team_total != null && String(row.team_total).trim() !== ''
-            ? Number(row.team_total)
-            : computeTotalPoints({ placePoints: teamPlacePoints, elimsPoints: teamElimsPoints, bonusPoints: 0 });
-
-        const teamPayload = {
-          shortCode: matchedTeam.tag || matchedTeam.name.slice(0, 3).toUpperCase(),
+        const teamWrite = decideTeamResultWrite({
+          row,
+          hasDbRow: hasDbTeamResult,
+          existing: existingTeamResult ?? null,
+          placePointsForRank: (rank) => getPlacementPoints(rank, pointsMatrix),
+          elimsCount: teamElimsCount,
+          killMultiplier,
+        });
+        const teamScoring = teamWrite.scoring;
+        const {
           rank: teamRank,
           wwcd: isTeamWwcd,
           placePoints: teamPlacePoints,
           elimsPoints: teamElimsPoints,
-          bonusPoints: 0,
           totalPoints: teamTotalPoints,
-          survivalTime: Number(row.survivalTime) || 0,
-          damage: Number(row.damage) || 0,
-          healing: Number(row.healing) || 0,
-          damageReceived: Number(row.damageReceived) || 0,
-          headshots: Number(row.headshots) || 0,
-          assists: Number(row.assists) || 0,
-          knockouts: Number(row.knockouts) || 0,
-          longestElim: Number(row.longestElim) || 0,
-          vehicleElims: Number(row.vehicleElims) || 0,
-          grenadeElims: Number(row.grenadeElims) || 0,
-          smokesUsed: Number(row.smokesUsed) || 0,
-          grenadesUsed: Number(row.grenadesUsed) || 0,
-          molotovsUsed: Number(row.molotovsUsed) || 0,
-          flashUsed: Number(row.flashUsed) || 0,
-          utilitiesTotal: Number(row.utilities) || 0,
-          airdrops: Number(row.airdrops) || 0,
-          rescues: Number(row.rescues) || 0,
-          distDrove: Number(row.distDrove) || 0,
-          distWalk: Number(row.distWalk) || 0,
-          totalDist: Number(row.total_dist || row.totalDist) || 0,
-          won: isTeamWwcd,
-          score: teamTotalPoints,
-        };
+        } = teamScoring;
 
-        // Cache so subsequent players of the same team can inherit values
-        teamResultsCache.set(teamResultKey, {
-          rank: teamRank,
-          placePoints: teamPlacePoints,
-          elimsPoints: teamElimsPoints,
-        });
+        if (teamWrite.shouldWrite) {
+          const teamPayload = {
+            shortCode: matchedTeam.tag || matchedTeam.name.slice(0, 3).toUpperCase(),
+            rank: teamRank,
+            wwcd: isTeamWwcd,
+            placePoints: teamPlacePoints,
+            elimsPoints: teamElimsPoints,
+            bonusPoints: teamScoring.bonusPoints,
+            totalPoints: teamTotalPoints,
+            // Only the detail columns the row carried: an update then leaves the
+            // stored telemetry of the others alone instead of NULLing it. A
+            // paste never owns a team's telemetry, so NULL here means "the row
+            // said nothing", not "the row wants this cleared".
+            ...requestedTeamDetailPayload(row),
+            won: isTeamWwcd,
+            score: teamTotalPoints,
+          };
 
-        pendingTeamResults.set(teamResultKey, {
-          matchGameId,
-          teamId: matchedTeam.id,
-          payload: teamPayload,
-        });
+          // Cache so subsequent players of the same team can inherit values
+          teamResultsCache.set(teamResultKey, teamScoring);
+
+          pendingTeamResults.set(teamResultKey, {
+            matchGameId,
+            teamId: matchedTeam.id,
+            payload: teamPayload,
+            supplied: collectSuppliedFields(row, TEAM_DETAIL_FIELDS),
+          });
+        }
 
         // 7. Upsert Player Stats into MatchPlayerStat
         const playerElims = Number(row.elims || row.kills || 0);
-        const smokesUsed = Number(row.smokesUsed || 0);
-        const grenadesUsed = Number(row.grenadesUsed || 0);
-        const molotovsUsed = Number(row.molotovsUsed || 0);
-        const flashUsed = Number(row.flashUsed || 0);
-        const calculatedUtilities = computeUtilitiesTotal({ smokesUsed, grenadesUsed, molotovsUsed, flashUsed });
-        const utilitiesTotal = row.utilities != null ? Number(row.utilities) : calculatedUtilities;
-
-        const distDrove = Number(row.distDrove || 0);
-        const distWalk = Number(row.distWalk || 0);
-        const totalDist =
-          row.total_dist != null || row.totalDist != null
-            ? Number(row.total_dist || row.totalDist)
-            : distDrove + distWalk;
-
-        const isMvp =
-          row.isMvp === true ||
-          row.isMvp === 1 ||
-          String(row.isMvp).toLowerCase() === 'true' ||
-          String(row.isMvp).toLowerCase() === 'yes';
 
         const playerStatPayload = {
           teamId: matchedTeam.id,
@@ -1780,33 +1736,16 @@ export async function bulkUniversalPlayerMatchImportAction(
           role: row.role && String(row.role).trim() ? String(row.role).trim() : 'Assaulter',
           mp: 1,
           playerElims,
+          // The team snapshot mirrors the team result exactly — inherited when
+          // the row brought no team column, so bonus stays in the total.
           teamRank,
           teamWwcd: isTeamWwcd,
           teamPlacePoints,
           teamElimsPoints,
+          teamBonusPoints: teamScoring.bonusPoints,
           teamTotalPoints,
-          damage: Number(row.damage) || 0,
-          survivalTime: Number(row.survivalTime) || 0,
-          healing: Number(row.healing) || 0,
-          damageReceived: Number(row.damageReceived) || 0,
-          headshots: Number(row.headshots) || 0,
-          assists: Number(row.assists) || 0,
-          knockouts: Number(row.knockouts) || 0,
-          longestElim: Number(row.longestElim) || 0,
-          vehicleElims: Number(row.vehicleElims) || 0,
-          grenadeElims: Number(row.grenadeElims) || 0,
-          smokesUsed,
-          grenadesUsed,
-          molotovsUsed,
-          flashUsed,
-          utilitiesTotal,
-          airdrops: Number(row.airdrops) || 0,
-          rescues: Number(row.rescues) || 0,
-          distDrove,
-          distWalk,
-          totalDist,
-          isMvp,
-          playerPowerplay: Number(row.playerPowerplay || 0),
+          // Detail fields: absent input stays NULL, never a fabricated 0.
+          ...playerDetailPayload(row),
           kills: playerElims,
         };
 
@@ -1814,6 +1753,7 @@ export async function bulkUniversalPlayerMatchImportAction(
           matchGameId,
           playerId: matchedPlayer.id,
           payload: playerStatPayload,
+          supplied: collectSuppliedFields(row, PLAYER_DETAIL_FIELDS),
         });
       }
 
@@ -1828,11 +1768,12 @@ export async function bulkUniversalPlayerMatchImportAction(
               where: {
                 matchGameId_teamId: { matchGameId: item.matchGameId, teamId: item.teamId },
               },
+              // Provenance is stamped on create only — the first import stays immutable.
               update: item.payload,
               create: {
                 matchGameId: item.matchGameId,
                 teamId: item.teamId,
-                ...item.payload,
+                ...withImportProvenance(item.payload, 'bulk-json', item.supplied),
               },
             })
           )
@@ -1848,11 +1789,12 @@ export async function bulkUniversalPlayerMatchImportAction(
               where: {
                 matchGameId_playerId: { matchGameId: item.matchGameId, playerId: item.playerId },
               },
+              // Provenance is stamped on create only — the first import stays immutable.
               update: item.payload,
               create: {
                 matchGameId: item.matchGameId,
                 playerId: item.playerId,
-                ...item.payload,
+                ...withImportProvenance(item.payload, 'bulk-json', item.supplied),
               },
             })
           )

@@ -407,26 +407,29 @@ model MatchTeamResult {
   elimsPoints    Int       @default(0) // Elimination Points
   bonusPoints    Int       @default(0) // Bonus Points
   totalPoints    Int       @default(0) // placePoints + elimsPoints + bonusPoints
-  damage         Float     @default(0) // Damage done
-  survivalTime   Int       @default(0) // Survival time in seconds
-  healing        Int       @default(0) // Healing items used
-  damageReceived Float     @default(0) // Damage received
-  headshots      Int       @default(0) // Headshots count
-  assists        Int       @default(0) // Assists count
-  knockouts      Int       @default(0) // Knockouts count
-  longestElim    Float     @default(0) // Longest elimination distance (meters)
-  vehicleElims   Int       @default(0) // Vehicle eliminations
-  grenadeElims   Int       @default(0) // Grenade eliminations
-  smokesUsed     Int       @default(0) // Smokes used
-  grenadesUsed   Int       @default(0) // Grenades used
-  molotovsUsed   Int       @default(0) // Molotovs used
-  flashUsed      Int       @default(0) // Flash used
-  utilitiesTotal Int       @default(0) // smokes + grenades + molotovs + flash
-  airdrops       Int       @default(0) // Airdrops looted
-  rescues        Int       @default(0) // Rescues / revives done
-  distDrove      Float     @default(0) // Distance drove in vehicle
-  distWalk       Float     @default(0) // Distance walked
-  totalDist      Float     @default(0) // distDrove + distWalk
+  // Detail / telemetry fields — nullable with NO default. A surviving
+  // `@default(0)` would silently re-fabricate the zeros the nullable-stats
+  // migration removes, making "not recorded" look like a real zero again.
+  damage         Float?   // Damage done
+  survivalTime   Int?     // Survival time in seconds
+  healing        Int?     // Healing items used
+  damageReceived Float?   // Damage received
+  headshots      Int?     // Headshots count
+  assists        Int?     // Assists count
+  knockouts      Int?     // Knockouts count
+  longestElim    Float?   // Longest elimination distance (meters)
+  vehicleElims   Int?     // Vehicle eliminations
+  grenadeElims   Int?     // Grenade eliminations
+  smokesUsed     Int?     // Smokes used
+  grenadesUsed   Int?     // Grenades used
+  molotovsUsed   Int?     // Molotovs used
+  flashUsed      Int?     // Flash used
+  utilitiesTotal Int?     // smokes + grenades + molotovs + flash
+  airdrops       Int?     // Airdrops looted
+  rescues        Int?     // Rescues / revives done
+  distDrove      Float?   // Distance drove in vehicle
+  distWalk       Float?   // Distance walked
+  totalDist      Float?   // distDrove + distWalk
   won            Boolean   @default(false) // Legacy alias for won
   score          Int?      // Legacy score
   rawData        Json?
@@ -455,30 +458,31 @@ model MatchPlayerStat {
   teamElimsPoints Int      @default(0)
   teamBonusPoints Int      @default(0)
   teamTotalPoints Int      @default(0)
-  damage         Float     @default(0)
-  survivalTime   Int       @default(0)
-  healing        Int       @default(0)
-  damageReceived Float     @default(0)
-  headshots      Int       @default(0)
-  assists        Int       @default(0)
-  knockouts      Int       @default(0)
-  longestElim    Float     @default(0)
-  vehicleElims   Int       @default(0)
-  grenadeElims   Int       @default(0)
-  smokesUsed     Int       @default(0)
-  grenadesUsed   Int       @default(0)
-  molotovsUsed   Int       @default(0)
-  flashUsed      Int       @default(0)
-  utilitiesTotal Int       @default(0)
-  airdrops       Int       @default(0)
-  rescues        Int       @default(0)
-  distDrove      Float     @default(0)
-  distWalk       Float     @default(0)
-  totalDist      Float     @default(0)
-  isMvp          Boolean   @default(false)
-  playerPowerplay Int      @default(0) // Eliminations in Zone 1 / Powerplay
+  // Detail / telemetry fields — nullable with NO default (see MatchTeamResult).
+  damage         Float?
+  survivalTime   Int?
+  healing        Int?
+  damageReceived Float?
+  headshots      Int?
+  assists        Int?
+  knockouts      Int?
+  longestElim    Float?
+  vehicleElims   Int?
+  grenadeElims   Int?
+  smokesUsed     Int?
+  grenadesUsed   Int?
+  molotovsUsed   Int?
+  flashUsed      Int?
+  utilitiesTotal Int?
+  airdrops       Int?
+  rescues        Int?
+  distDrove      Float?
+  distWalk       Float?
+  totalDist      Float?
+  isMvp          Boolean?
+  playerPowerplay Int?     // Eliminations in Zone 1 / Powerplay
   kills          Int       @default(0) // Legacy alias for playerElims
-  deaths         Int       @default(0)
+  deaths         Int?
   rawData        Json?
 
   // One stat row per player per game (see MatchTeamResult for the rationale).

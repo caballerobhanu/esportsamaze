@@ -93,8 +93,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     let teamAElimsInShared = 0;
     let teamBElimsInShared = 0;
 
-    let lifetimeA = { matches: 0, wwcd: 0, elims: 0, damage: 0, totalPoints: 0 };
-    let lifetimeB = { matches: 0, wwcd: 0, elims: 0, damage: 0, totalPoints: 0 };
+    let lifetimeA = { matches: 0, wwcd: 0, elims: 0, totalPoints: 0 };
+    let lifetimeB = { matches: 0, wwcd: 0, elims: 0, totalPoints: 0 };
 
     if (teamA && teamB && !isSameTeam) {
       const [resultsA, resultsB] = await Promise.all([
@@ -107,14 +107,12 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
         lifetimeA.matches += 1;
         if (r.wwcd) lifetimeA.wwcd += 1;
         lifetimeA.elims += r.elimsPoints;
-        lifetimeA.damage += r.damage;
         lifetimeA.totalPoints += r.totalPoints;
       }
       for (const r of resultsB) {
         lifetimeB.matches += 1;
         if (r.wwcd) lifetimeB.wwcd += 1;
         lifetimeB.elims += r.elimsPoints;
-        lifetimeB.damage += r.damage;
         lifetimeB.totalPoints += r.totalPoints;
       }
 
@@ -591,8 +589,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   let elimsSharedA = 0;
   let elimsSharedB = 0;
 
-  let lifetimeA = { matches: 0, elims: 0, damage: 0 };
-  let lifetimeB = { matches: 0, elims: 0, damage: 0 };
+  let lifetimeA = { matches: 0, elims: 0, damage: 0, damageSamples: 0 };
+  let lifetimeB = { matches: 0, elims: 0, damage: 0, damageSamples: 0 };
 
   if (playerA && playerB && !isSamePlayer) {
     const [statsA, statsB] = await Promise.all([
@@ -600,15 +598,19 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
       getPlayerCompareResults(playerB.id),
     ]);
 
+    // `damageSamples` is the count of rows that actually recorded damage, so the
+    // average below divides by its own denominator — a NULL never becomes a 0.
     for (const s of statsA) {
       lifetimeA.matches++;
       lifetimeA.elims += s.playerElims;
-      lifetimeA.damage += s.damage;
+      lifetimeA.damage += s.damage ?? 0;
+      if (s.damage != null) lifetimeA.damageSamples++;
     }
     for (const s of statsB) {
       lifetimeB.matches++;
       lifetimeB.elims += s.playerElims;
-      lifetimeB.damage += s.damage;
+      lifetimeB.damage += s.damage ?? 0;
+      if (s.damage != null) lifetimeB.damageSamples++;
     }
 
     const mapB = new Map(statsB.map((s) => [s.matchGameId, s]));
@@ -875,36 +877,48 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                         label: 'Total Career Matches',
                         valA: lifetimeA.matches,
                         valB: lifetimeB.matches,
-                        format: (v: number) => `${v}`,
+                        format: (v: number | null) => `${v ?? 0}`,
                       },
                       {
                         label: 'Career Eliminations',
                         valA: lifetimeA.elims,
                         valB: lifetimeB.elims,
-                        format: (v: number) => `${v} Kills`,
+                        format: (v: number | null) => `${v ?? 0} Kills`,
                       },
                       {
                         label: 'Eliminations / Match',
-                        valA: lifetimeA.matches ? lifetimeA.elims / lifetimeA.matches : 0,
-                        valB: lifetimeB.matches ? lifetimeB.elims / lifetimeB.matches : 0,
-                        format: (v: number) => `${v.toFixed(2)}`,
+                        valA: lifetimeA.matches ? lifetimeA.elims / lifetimeA.matches : null,
+                        valB: lifetimeB.matches ? lifetimeB.elims / lifetimeB.matches : null,
+                        format: (v: number | null) => (v === null ? '—' : v.toFixed(2)),
                       },
                       {
                         label: 'Avg Damage / Match',
-                        valA: lifetimeA.matches ? lifetimeA.damage / lifetimeA.matches : 0,
-                        valB: lifetimeB.matches ? lifetimeB.damage / lifetimeB.matches : 0,
-                        format: (v: number) => `${Math.round(v)}`,
+                        // Divided by the rows that recorded damage, so a player with
+                        // no recorded damage shows "—" instead of a fake 0.
+                        valA:
+                          lifetimeA.damageSamples > 0
+                            ? lifetimeA.damage / lifetimeA.damageSamples
+                            : null,
+                        valB:
+                          lifetimeB.damageSamples > 0
+                            ? lifetimeB.damage / lifetimeB.damageSamples
+                            : null,
+                        format: (v: number | null) => (v === null ? '—' : `${Math.round(v)}`),
                       },
                       {
                         label: 'Primary Role',
-                        valA: 0,
-                        valB: 0,
+                        valA: null,
+                        valB: null,
                         formatCustomA: playerA.role || 'Athlete',
                         formatCustomB: playerB.role || 'Athlete',
                       },
                     ].map(({ label, valA, valB, format, formatCustomA, formatCustomB }) => {
-                      const aWins = valA > valB;
-                      const bWins = valB > valA;
+                      // Unrecorded ("—") metrics rank as no better than a zero here,
+                      // but they are still rendered as "—", never as a real 0.
+                      const aValue = valA ?? 0;
+                      const bValue = valB ?? 0;
+                      const aWins = aValue > bValue;
+                      const bWins = bValue > aValue;
                       return (
                         <tr key={label} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
                           <td className={`p-4 text-sm ${aWins ? 'font-black text-[#0A5FC4] dark:text-blue-300' : 'font-medium text-slate-400'}`}>

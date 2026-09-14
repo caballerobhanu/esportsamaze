@@ -9,6 +9,7 @@ import {
   Copy,
   Check,
   AlertCircle,
+  AlertTriangle,
   Sparkles,
   Shield,
   Trash2,
@@ -21,6 +22,7 @@ import {
   XCircle,
   Loader2,
   Clock,
+  Eye,
 } from 'lucide-react';
 import {
   bulkUniversalMatchImportAction,
@@ -31,6 +33,7 @@ import {
   type BulkUniversalPlayerImportResult,
 } from '@/app/admin/(panel)/matches/matrix/actions';
 import { parseWwcd } from '@/lib/tournament-math';
+import { parsePaste, pasteColumnsFor, summarisePasteColumns, describeScoringFallbacks } from '@/lib/paste-table-parse';
 
 const USER_EXACT_TEAM_HEADERS =
   'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tType\tteam\trank\twwcd\tplacePoints\telims\tbonusPoints\ttotalPoints\tsurvivalTime\tdamage\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tairdrops\trescues\tdistDrove\tdistWalk';
@@ -230,450 +233,49 @@ export function BulkJsonMatchImporter({
     }
   };
 
-  // Parse raw text into structured rows. The memo stays pure — parse errors
-  // are pushed into state by the effect below, never set during render.
-  const parseResult = React.useMemo<{ rows: any[]; error: string | null }>(() => {
-    if (!rawText.trim()) return { rows: [], error: null };
+  // Parse raw text into structured rows. The parser itself is pure and lives in
+  // `lib/paste-table-parse.ts`, so the "absent column stays undefined (NULL),
+  // never 0" rule is unit-tested; this memo only adapts it to React state.
+  const parseResult = React.useMemo(
+    () => parsePaste(rawText, inputMode, importTarget),
+    [rawText, inputMode, importTarget],
+  );
 
-    if (inputMode === 'json') {
-      try {
-        const parsed = JSON.parse(rawText);
-        if (!Array.isArray(parsed)) {
-          return { rows: [], error: 'JSON root must be an Array of objects.' };
-        }
-        return { rows: parsed, error: null };
-      } catch (err: any) {
-        return { rows: [], error: `JSON Syntax Error: ${err?.message || err}` };
+  const parsedRows: Record<string, any>[] = parseResult.rows;
+
+  // ISO/TSV pastes resolve columns by header name, so an absent column maps to
+  // NULL. JSON rows carry explicit keys, so "found" is the key union and there is
+  // nothing to warn about.
+  const isTabularPaste = parseResult.mode !== 'json';
+
+  // What the paste will actually write. Rendered before submit as a guard against
+  // silently ingesting the wrong columns — see the positional-mode warning below.
+  const columnPreview = React.useMemo(() => {
+    if (isTabularPaste) return summarisePasteColumns(parsedRows, importTarget);
+
+    const keys = new Set<string>();
+    for (const row of parsedRows) {
+      if (row && typeof row === 'object') {
+        for (const key of Object.keys(row)) keys.add(key);
       }
     }
-
-    // Excel / TSV / CSV Parsing
-    const lines = rawText
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-
-    if (lines.length === 0) return { rows: [], error: null };
-
-    const delimiter = lines[0].includes('\t') ? '\t' : lines[0].includes(',') ? ',' : /\s{2,}/;
-    const headerTokens = lines[0]
-      .split(delimiter)
-      .map((t) => t.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-
-    // Check if line 0 is a header
-    const hasHeader = headerTokens.some(
-      (t) =>
-        t.includes('tourn') ||
-        t.includes('stage') ||
-        t.includes('stagematch') ||
-        t.includes('overall') ||
-        t.includes('team') ||
-        t.includes('player') ||
-        t.includes('rank') ||
-        t.includes('elim') ||
-        t.includes('place')
-    );
-
-    const colMap: Record<string, number> = {};
-
-    if (hasHeader) {
-      headerTokens.forEach((token, idx) => {
-        const clean = token.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
-        switch (clean) {
-          case 'tournament':
-          case 'tourney':
-          case 'tournament_name':
-            colMap['tournament'] = idx;
-            break;
-          case 'stage':
-          case 'stage_name':
-            colMap['stage'] = idx;
-            break;
-          case 'date':
-          case 'match_date':
-            colMap['date'] = idx;
-            break;
-          case 'timeformat':
-          case 'time_format':
-          case 'tz':
-            colMap['timeformat'] = idx;
-            break;
-          case 'time':
-          case 'match_time':
-            colMap['time'] = idx;
-            break;
-          case 'overallmatch':
-          case 'overall_match':
-          case 'overall':
-          case 'overallmatchnumber':
-            colMap['overallmatch'] = idx;
-            break;
-          case 'stagematch':
-          case 'stage_match':
-          case 'match':
-          case 'matchnumber':
-          case 'stagematchnumber':
-            colMap['stagematch'] = idx;
-            break;
-          case 'map':
-          case 'mapname':
-          case 'map_name':
-            colMap['map'] = idx;
-            break;
-          case 'group':
-          case 'groupname':
-          case 'group_name':
-            colMap['group'] = idx;
-            break;
-          case 'type':
-          case 'matchtype':
-          case 'match_type':
-          case 'environment':
-            colMap['type'] = idx;
-            break;
-          case 'verified':
-          case 'isverified':
-          case 'qualifier':
-          case 'isqualifier':
-          case 'openqualifier':
-            colMap['isverified'] = idx;
-            break;
-          case 'player':
-          case 'ign':
-          case 'player_ign':
-          case 'playername':
-          case 'player_name':
-            colMap['player'] = idx;
-            break;
-          case 'team':
-          case 'teamname':
-          case 'team_name':
-          case 'squad':
-          case 'tag':
-            colMap['team'] = idx;
-            break;
-          case 'role':
-          case 'player_role':
-            colMap['role'] = idx;
-            break;
-          case 'elims':
-          case 'kills':
-          case 'player_elims':
-          case 'playerelims':
-          case 'finishes':
-          case 'kp':
-            colMap['elims'] = idx;
-            break;
-          case 'team_rank':
-          case 'teamrank':
-            colMap['team_rank'] = idx;
-            break;
-          case 'team_wwcd':
-          case 'teamwwcd':
-          case 'iswwcd':
-          case 'is_wwcd':
-            colMap['team_wwcd'] = idx;
-            colMap['wwcd'] = idx;
-            break;
-          case 'team_place':
-          case 'teamplace':
-          case 'team_placepoints':
-          case 'teamplacepoints':
-            colMap['team_place'] = idx;
-            break;
-          case 'team_elims':
-          case 'teamelims':
-          case 'team_elimspoints':
-          case 'teamelimspoints':
-            colMap['team_elims'] = idx;
-            break;
-          case 'team_total':
-          case 'teamtotal':
-          case 'team_totalpoints':
-          case 'teamtotalpoints':
-            colMap['team_total'] = idx;
-            break;
-          case 'rank':
-          case 'pos':
-          case 'placement':
-            colMap['rank'] = idx;
-            break;
-          case 'wwcd':
-          case 'winner':
-          case 'chicken':
-          case 'win':
-          case 'won':
-            colMap['wwcd'] = idx;
-            colMap['team_wwcd'] = idx;
-            break;
-          case 'placepoints':
-          case 'place_points':
-          case 'pp':
-            colMap['placepoints'] = idx;
-            break;
-          case 'bonuspoints':
-          case 'bonus_points':
-          case 'bonus':
-            colMap['bonuspoints'] = idx;
-            break;
-          case 'totalpoints':
-          case 'total_points':
-          case 'total':
-          case 'pts':
-          case 'points':
-            colMap['totalpoints'] = idx;
-            break;
-          case 'damage':
-          case 'dmg':
-          case 'player_damage':
-            colMap['damage'] = idx;
-            break;
-          case 'survivaltime':
-          case 'survival_time':
-          case 'surv':
-          case 'survived':
-            colMap['survivaltime'] = idx;
-            break;
-          case 'healing':
-          case 'heal':
-          case 'heals':
-            colMap['healing'] = idx;
-            break;
-          case 'damagereceived':
-          case 'damage_received':
-          case 'dmgrcv':
-          case 'dmg_rcv':
-            colMap['damagereceived'] = idx;
-            break;
-          case 'headshots':
-          case 'headshot':
-          case 'hs':
-            colMap['headshots'] = idx;
-            break;
-          case 'assists':
-          case 'assist':
-          case 'ast':
-            colMap['assists'] = idx;
-            break;
-          case 'knockouts':
-          case 'knockout':
-          case 'knocks':
-          case 'knock':
-            colMap['knockouts'] = idx;
-            break;
-          case 'longestelim':
-          case 'longest_elim':
-          case 'longestkill':
-            colMap['longestelim'] = idx;
-            break;
-          case 'vehicleelims':
-          case 'vehicle_elims':
-          case 'vehiclekills':
-            colMap['vehicleelims'] = idx;
-            break;
-          case 'grenadeelims':
-          case 'grenade_elims':
-          case 'grenadekills':
-          case 'nadeelims':
-            colMap['grenadeelims'] = idx;
-            break;
-          case 'smokesused':
-          case 'smokes_used':
-          case 'smokes':
-          case 'smoke':
-            colMap['smokesused'] = idx;
-            break;
-          case 'grenadesused':
-          case 'grenades_used':
-          case 'grenades':
-          case 'nades':
-            colMap['grenadesused'] = idx;
-            break;
-          case 'molotovsused':
-          case 'molotovs_used':
-          case 'molotovs':
-          case 'molis':
-            colMap['molotovsused'] = idx;
-            break;
-          case 'flashused':
-          case 'flash_used':
-          case 'flash':
-            colMap['flashused'] = idx;
-            break;
-          case 'utilities':
-          case 'util':
-          case 'utilitiestotal':
-          case 'total_utilities':
-            colMap['utilities'] = idx;
-            break;
-          case 'airdrops':
-          case 'airdrop':
-          case 'drops':
-          case 'crates':
-            colMap['airdrops'] = idx;
-            break;
-          case 'rescues':
-          case 'rescue':
-          case 'revives':
-          case 'revive':
-            colMap['rescues'] = idx;
-            break;
-          case 'distdrove':
-          case 'dist_drove':
-          case 'drove':
-          case 'drive':
-            colMap['distdrove'] = idx;
-            break;
-          case 'distwalk':
-          case 'dist_walk':
-          case 'walk':
-          case 'walked':
-            colMap['distwalk'] = idx;
-            break;
-          case 'total_dist':
-          case 'totaldist':
-          case 'total_distance':
-          case 'distance':
-            colMap['total_dist'] = idx;
-            break;
-          case 'playerpowerplay':
-          case 'player_powerplay':
-          case 'powerplay':
-            colMap['playerpowerplay'] = idx;
-            break;
-          case 'ismvp':
-          case 'is_mvp':
-          case 'mvp':
-            colMap['ismvp'] = idx;
-            break;
-        }
-      });
-    }
-
-    const dataLines = hasHeader ? lines.slice(1) : lines;
-
-    const rows = dataLines
-      .map((line) => {
-        const parts = line.split(delimiter).map((p) => p.trim().replace(/^["']|["']$/g, ''));
-        if (parts.length < 2) return null;
-
-        const getVal = (key: string, defaultColIdx?: number) => {
-          if (hasHeader) {
-            if (colMap[key] != null && parts[colMap[key]] !== undefined && parts[colMap[key]] !== '') {
-              return parts[colMap[key]];
-            }
-            return undefined;
-          }
-          if (defaultColIdx != null && parts[defaultColIdx] !== undefined && parts[defaultColIdx] !== '') {
-            return parts[defaultColIdx];
-          }
-          return undefined;
-        };
-
-        if (importTarget === 'players') {
-          return {
-            Tournament: getVal('tournament', 0) || '',
-            Stage: getVal('stage', 1) || 'Grand Finals',
-            Date: getVal('date', 2),
-            TimeFormat: getVal('timeformat', 3) || 'IST',
-            Time: getVal('time', 4),
-            OverallMatch: getVal('overallmatch', 5) ? Number(getVal('overallmatch', 5)) : undefined,
-            StageMatch: getVal('stagematch', 6) ? Number(getVal('stagematch', 6)) : 1,
-            Map: getVal('map', 7) || 'Erangel',
-            Group: getVal('group', 8),
-            Type: getVal('type') || getVal('matchtype'),
-            isVerified: getVal('isverified'),
-            player: getVal('player', 9) || '',
-            team: getVal('team', 10) || '',
-            role: getVal('role', 11),
-            elims: getVal('elims', 12) != null ? Number(getVal('elims', 12)) : 0,
-            playerPowerplay: getVal('playerpowerplay', 13) != null ? Number(getVal('playerpowerplay', 13)) : undefined,
-            team_rank: getVal('team_rank', 14) != null ? Number(getVal('team_rank', 14)) : undefined,
-            team_wwcd: (() => {
-              const raw = getVal('team_wwcd', 15) ?? getVal('wwcd');
-              if (raw != null) return parseWwcd(raw);
-              const r = getVal('team_rank', 14) != null ? Number(getVal('team_rank', 14)) : undefined;
-              return r === 1 ? true : undefined;
-            })(),
-            team_place: getVal('team_place', 16) != null ? Number(getVal('team_place', 16)) : undefined,
-            team_elims: getVal('team_elims', 17) != null ? Number(getVal('team_elims', 17)) : undefined,
-            team_total: getVal('team_total', 18) != null ? Number(getVal('team_total', 18)) : undefined,
-            damage: getVal('damage', 19) != null ? Number(getVal('damage', 19)) : undefined,
-            survivalTime: getVal('survivaltime', 20) != null ? Number(getVal('survivaltime', 20)) : undefined,
-            healing: getVal('healing', 21) != null ? Number(getVal('healing', 21)) : undefined,
-            damageReceived: getVal('damagereceived', 22) != null ? Number(getVal('damagereceived', 22)) : undefined,
-            headshots: getVal('headshots', 23) != null ? Number(getVal('headshots', 23)) : undefined,
-            assists: getVal('assists', 24) != null ? Number(getVal('assists', 24)) : undefined,
-            knockouts: getVal('knockouts', 25) != null ? Number(getVal('knockouts', 25)) : undefined,
-            longestElim: getVal('longestelim', 26) != null ? Number(getVal('longestelim', 26)) : undefined,
-            vehicleElims: getVal('vehicleelims', 27) != null ? Number(getVal('vehicleelims', 27)) : undefined,
-            grenadeElims: getVal('grenadeelims', 28) != null ? Number(getVal('grenadeelims', 28)) : undefined,
-            smokesUsed: getVal('smokesused', 29) != null ? Number(getVal('smokesused', 29)) : undefined,
-            grenadesUsed: getVal('grenadesused', 30) != null ? Number(getVal('grenadesused', 30)) : undefined,
-            molotovsUsed: getVal('molotovsused', 31) != null ? Number(getVal('molotovsused', 31)) : undefined,
-            flashUsed: getVal('flashused', 32) != null ? Number(getVal('flashused', 32)) : undefined,
-            utilities: getVal('utilities', 33) != null ? Number(getVal('utilities', 33)) : undefined,
-            airdrops: getVal('airdrops', 34) != null ? Number(getVal('airdrops', 34)) : undefined,
-            rescues: getVal('rescues', 35) != null ? Number(getVal('rescues', 35)) : undefined,
-            distDrove: getVal('distdrove', 36) != null ? Number(getVal('distdrove', 36)) : undefined,
-            distWalk: getVal('distwalk', 37) != null ? Number(getVal('distwalk', 37)) : undefined,
-            total_dist: getVal('total_dist', 38) != null ? Number(getVal('total_dist', 38)) : undefined,
-            isMvp: getVal('ismvp', 39) != null ? getVal('ismvp', 39) : undefined,
-          };
-        }
-
-        // Team Row fallback
-        const teamRankVal = getVal('rank', 10) != null ? Number(getVal('rank', 10)) : 1;
-        const rawTeamWwcd = getVal('wwcd', 11) ?? getVal('team_wwcd') ?? getVal('teamwwcd') ?? getVal('winner') ?? getVal('chicken') ?? getVal('win');
-        const isTeamWwcdVal = rawTeamWwcd != null ? parseWwcd(rawTeamWwcd, teamRankVal) : teamRankVal === 1;
-
-        return {
-          Tournament: getVal('tournament', 0) || '',
-          Stage: getVal('stage', 1) || 'Grand Finals',
-          Date: getVal('date', 2) || undefined,
-          TimeFormat: getVal('timeformat', 3) || 'IST',
-          Time: getVal('time', 4) || undefined,
-          OverallMatch: getVal('overallmatch', 5) || undefined,
-          StageMatch: getVal('stagematch', 6) || 1,
-          Map: getVal('map', 7) || 'Erangel',
-          Group: getVal('group', 8) || undefined,
-          team: getVal('team', 9) || '',
-          rank: teamRankVal,
-          wwcd: isTeamWwcdVal,
-          placePoints: getVal('placepoints', 12) != null ? Number(getVal('placepoints', 12)) : undefined,
-          elims: getVal('elims', 13) != null ? Number(getVal('elims', 13)) : 0,
-          bonusPoints: getVal('bonuspoints', 14) != null ? Number(getVal('bonuspoints', 14)) : 0,
-          totalPoints: getVal('totalpoints', 15) != null ? Number(getVal('totalpoints', 15)) : undefined,
-          survivalTime: getVal('survivaltime', 16) != null ? Number(getVal('survivaltime', 16)) : 1680,
-          damage: getVal('damage', 17) != null ? Number(getVal('damage', 17)) : 0,
-          healing: getVal('healing', 18) != null ? Number(getVal('healing', 18)) : 0,
-          damageReceived: getVal('damagereceived', 19) != null ? Number(getVal('damagereceived', 19)) : 0,
-          headshots: getVal('headshots', 20) != null ? Number(getVal('headshots', 20)) : 0,
-          assists: getVal('assists', 21) != null ? Number(getVal('assists', 21)) : 0,
-          knockouts: getVal('knockouts', 22) != null ? Number(getVal('knockouts', 22)) : 0,
-          longestElim: getVal('longestelim', 23) != null ? Number(getVal('longestelim', 23)) : 0,
-          vehicleElims: getVal('vehicleelims', 24) != null ? Number(getVal('vehicleelims', 24)) : 0,
-          grenadeElims: getVal('grenadeelims', 25) != null ? Number(getVal('grenadeelims', 25)) : 0,
-          smokesUsed: getVal('smokesused', 26) != null ? Number(getVal('smokesused', 26)) : 0,
-          grenadesUsed: getVal('grenadesused', 27) != null ? Number(getVal('grenadesused', 27)) : 0,
-          molotovsUsed: getVal('molotovsused', 28) != null ? Number(getVal('molotovsused', 28)) : 0,
-          flashUsed: getVal('flashused', 29) != null ? Number(getVal('flashused', 29)) : 0,
-          airdrops: getVal('airdrops', 30) != null ? Number(getVal('airdrops', 30)) : 0,
-          rescues: getVal('rescues', 31) != null ? Number(getVal('rescues', 31)) : 0,
-          distDrove: getVal('distdrove', 32) != null ? Number(getVal('distdrove', 32)) : 0,
-          distWalk: getVal('distwalk', 33) != null ? Number(getVal('distwalk', 33)) : 0,
-        };
-      })
-      .filter(Boolean);
-
-    return { rows, error: null };
-  }, [rawText, inputMode, importTarget]);
-
-  const parsedRows: any[] = parseResult.rows;
+    return {
+      present: pasteColumnsFor(importTarget).filter((column) => keys.has(column.key)),
+      missingDetails: [],
+    };
+  }, [parsedRows, importTarget, isTabularPaste]);
 
   React.useEffect(() => {
     setParseError(parseResult.error);
   }, [parseResult]);
+
+  // Scoring columns the paste never supplied. These are invisible in the parsed
+  // rows (the mapper derives them or writes 0), so the preview has to name them —
+  // a mistyped `Bonus Pts` header otherwise lands as a plausible wrong total.
+  const scoringFallbacks = React.useMemo(
+    () => describeScoringFallbacks(parseResult, importTarget),
+    [parseResult, importTarget],
+  );
 
   const handleCopyHeaders = () => {
     const headers = importTarget === 'players' ? USER_EXACT_PLAYER_HEADERS : USER_EXACT_TEAM_HEADERS;
@@ -977,6 +579,111 @@ export function BulkJsonMatchImporter({
         )}
       </div>
 
+      {/* ── Pre-import column check ── */}
+      {parsedRows.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+            <Eye className="w-4 h-4 text-blue-500" />
+            Pre-import column check
+          </h3>
+
+          {parseResult.mode === 'positional' && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+              <div>
+                <span className="font-bold block">
+                  No header row detected — columns are being read by position
+                </span>
+                Without a header the importer matches values to columns by order, so a column you
+                left out shifts everything after it into the wrong slot. Re-paste with the header row
+                (or use <span className="font-bold">Copy Header Row</span> above) before ingesting.
+              </div>
+            </div>
+          )}
+
+          {parseResult.unrecognisedHeaders.length > 0 && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-start gap-2.5 text-xs text-rose-800 dark:text-rose-300">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+              <div>
+                <span className="font-bold block">
+                  Not recognised, ignored: {parseResult.unrecognisedHeaders.join(', ')}
+                </span>
+                These headers matched no known column, so their values are being dropped —
+                a scoring column that reads back as 0 or &ldquo;Auto&rdquo; is usually one of these.
+                Re-paste with a corrected header (or use{' '}
+                <span className="font-bold">Copy Header Row</span> above) before ingesting.
+              </div>
+            </div>
+          )}
+
+          {scoringFallbacks.length > 0 && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-800 dark:text-amber-300">
+              <span className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500" />
+                Scoring columns not supplied ({scoringFallbacks.length})
+              </span>
+              <ul className="mt-1.5 list-disc list-inside space-y-0.5">
+                {scoringFallbacks.map((column) => (
+                  <li key={column.key}>{column.consequence}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Columns found · will be stored ({columnPreview.present.length})
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {columnPreview.present.length === 0 ? (
+                  <span className="text-[11px] text-slate-400">None recognised.</span>
+                ) : (
+                  columnPreview.present.map((column) => (
+                    <span
+                      key={column.key}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
+                    >
+                      {column.label}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {isTabularPaste && (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Not provided → stored blank ({columnPreview.missingDetails.length})
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {columnPreview.missingDetails.length === 0 ? (
+                    <span className="text-[11px] text-slate-400">
+                      Every detail column was provided.
+                    </span>
+                  ) : (
+                    columnPreview.missingDetails.map((column) => (
+                      <span
+                        key={column.key}
+                        className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                      >
+                        {column.label}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+            A missing detail column is stored as NULL, never as a fabricated 0 — an absent damage
+            column will not read back as &ldquo;zero damage&rdquo;. Scoring columns (elims, bonus points)
+            always keep a real zero, because every scorecard has one.
+          </p>
+        </div>
+      )}
+
       {/* ── Live Preview Grid ── */}
       {parsedRows.length > 0 && (
         <div className="space-y-3">
@@ -1105,7 +812,7 @@ export function BulkJsonMatchImporter({
                             </td>
                             {hasPowerplayCol && (
                               <td className="py-2 px-3 text-center font-bold text-purple-600 dark:text-purple-400">
-                                {row.playerPowerplay != null ? row.playerPowerplay : 0}
+                                {row.playerPowerplay != null ? row.playerPowerplay : '—'}
                               </td>
                             )}
                             {hasDamageCol && (
@@ -1161,7 +868,7 @@ export function BulkJsonMatchImporter({
                             )}
                             {parsedRows.some((r) => r.damage != null && r.damage > 0) && (
                               <td className="py-2 px-3 text-center text-slate-600 dark:text-slate-400">
-                                {row.damage || 0}
+                                {row.damage != null ? row.damage : '—'}
                               </td>
                             )}
                           </>

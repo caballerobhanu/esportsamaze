@@ -11,6 +11,7 @@ import { readdirSync, readFileSync, existsSync } from 'fs';
 import path from 'path';
 import prisma from '../lib/prisma';
 import type { Prisma } from '@prisma/client';
+import { PLAYER_DETAIL_FIELDS, TEAM_DETAIL_FIELDS, deriveTotalDistance } from '../lib/match-stat-fields';
 
 /** All DateTime columns across the schema — ISO strings from JSON must be revived. */
 const DATE_FIELDS = new Set([
@@ -58,6 +59,34 @@ function findSnapshot(): string {
   throw new Error(
     'No snapshot found in prisma/backups/. Run `npm run db:backup` first — the seed restores from a snapshot and refuses to guess.'
   );
+}
+
+/**
+ * Snapshot rows already carry the database's own values, nulls included. A field
+ * missing from the snapshot must become an explicit `null` rather than rely on a
+ * column default — `undefined` would let `createMany` fall back to `@default(0)`
+ * and re-fabricate the zeros this migration exists to remove. `rawData` is never
+ * rebuilt: it rides along untouched from the snapshot.
+ */
+function fillMissingDetailFields(
+  rows: Record<string, unknown>[],
+  fields: readonly string[]
+): Record<string, unknown>[] {
+  return rows.map((row) => {
+    const out: Record<string, unknown> = { ...row };
+    for (const field of fields) {
+      if (!(field in out)) out[field] = null;
+    }
+    // Never fabricate a distance: `0 + 0` used to invent a real-looking zero for
+    // events that never recorded distances at all.
+    if (!('totalDist' in row)) {
+      out.totalDist = deriveTotalDistance({
+        distDrove: out.distDrove as number | null,
+        distWalk: out.distWalk as number | null,
+      });
+    }
+    return out;
+  });
 }
 
 async function insertMany<T>(
@@ -156,61 +185,10 @@ export async function main() {
   await insertMany<Prisma.MatchCreateManyInput>('Matches', snapshot.matches, (d) => prisma.match.createMany({ data: d }));
   await insertMany<Prisma.MatchGameCreateManyInput>('Match Games', snapshot.matchGames, (d) => prisma.matchGame.createMany({ data: d }));
 
-  const sanitizedTeamResults = (snapshot.matchTeamResults || []).map((r) => {
-    const drove = Number(r.distDrove ?? 0);
-    const walk = Number(r.distWalk ?? 0);
-    const dist = r.totalDist != null ? Number(r.totalDist) : (drove + walk);
-    return {
-      distDrove: drove,
-      distWalk: walk,
-      utilitiesTotal: 0,
-      healing: 0,
-      damageReceived: 0,
-      headshots: 0,
-      assists: 0,
-      knockouts: 0,
-      longestElim: 0,
-      vehicleElims: 0,
-      grenadeElims: 0,
-      smokesUsed: 0,
-      grenadesUsed: 0,
-      molotovsUsed: 0,
-      flashUsed: 0,
-      airdrops: 0,
-      rescues: 0,
-      ...r,
-      totalDist: dist,
-    };
-  });
+  const sanitizedTeamResults = fillMissingDetailFields(snapshot.matchTeamResults || [], TEAM_DETAIL_FIELDS);
   await insertMany<Prisma.MatchTeamResultCreateManyInput>('Match Team Results', sanitizedTeamResults, (d) => prisma.matchTeamResult.createMany({ data: d }));
 
-  const sanitizedPlayerStats = (snapshot.matchPlayerStats || []).map((r) => {
-    const drove = Number(r.distDrove ?? 0);
-    const walk = Number(r.distWalk ?? 0);
-    const dist = r.totalDist != null ? Number(r.totalDist) : (drove + walk);
-    return {
-      distDrove: drove,
-      distWalk: walk,
-      utilitiesTotal: 0,
-      healing: 0,
-      damageReceived: 0,
-      headshots: 0,
-      assists: 0,
-      knockouts: 0,
-      longestElim: 0,
-      vehicleElims: 0,
-      grenadeElims: 0,
-      smokesUsed: 0,
-      grenadesUsed: 0,
-      molotovsUsed: 0,
-      flashUsed: 0,
-      airdrops: 0,
-      rescues: 0,
-      playerPowerplay: 0,
-      ...r,
-      totalDist: dist,
-    };
-  });
+  const sanitizedPlayerStats = fillMissingDetailFields(snapshot.matchPlayerStats || [], PLAYER_DETAIL_FIELDS);
   await insertMany<Prisma.MatchPlayerStatCreateManyInput>('Match Player Stats', sanitizedPlayerStats, (d) => prisma.matchPlayerStat.createMany({ data: d }));
   await insertMany<Prisma.MediaAssetCreateManyInput>('Media Assets', snapshot.mediaAssets, (d) => prisma.mediaAsset.createMany({ data: d }));
   await insertMany<Prisma.ArticleCreateManyInput>('Articles', snapshot.articles, (d) => prisma.article.createMany({ data: d }));

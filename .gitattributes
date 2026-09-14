@@ -1,0 +1,2 @@
+# Ensure Prisma migration files retain LF line endings across Windows and Linux
+prisma/migrations/**/*.sql text eol=lf

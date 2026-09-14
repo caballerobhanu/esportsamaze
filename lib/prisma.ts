@@ -4,10 +4,10 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 // Fallback to load .env / .env.production when invoked from standalone scripts (outside Next.js)
-if (!process.env.DATABASE_URL && typeof process !== 'undefined') {
+if (!process.env.DATABASE_URL && typeof process !== 'undefined' && !process.env.NEXT_RUNTIME) {
   for (const file of ['.env.production', '.env.local', '.env']) {
     try {
-      const p = path.resolve(process.cwd(), file);
+      const p = path.resolve(/*turbopackIgnore: true*/ process.cwd(), file);
       if (fs.existsSync(p)) {
         const content = fs.readFileSync(p, 'utf8');
         for (const line of content.split('\n')) {
@@ -34,7 +34,7 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const connectionString =
     process.env.DATABASE_URL ||
-    `postgresql://postgres:${process.env.POSTGRES_PASSWORD || 'password123'}@localhost:5433/esportsamaze?schema=public`;
+    `postgresql://postgres:${process.env.POSTGRES_PASSWORD || 'password123'}@localhost:${process.env.POSTGRES_PORT || '5433'}/esportsamaze?schema=public`;
 
   const adapter = new PrismaPg({ connectionString });
 
