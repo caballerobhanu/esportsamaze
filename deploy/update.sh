@@ -28,7 +28,8 @@ npm audit --omit=dev --audit-level=high || {
     echo "Review vulnerabilities using 'npm audit' before proceeding with public launch."
 }
 
-echo ">>> [4/7] Pre-migration database backup & test suite validation..."
+echo ">>> [4/7] Generating Prisma Client, pre-migration backup & test suite validation..."
+npx prisma generate
 mkdir -p /var/backups/esportsamaze
 BACKUP_TIMESTAMP=$(date +"%Y-%m-%d_%H%M%S")
 if docker ps --format '{{.Names}}' | grep -q "esportsamaze_postgres"; then
@@ -37,8 +38,7 @@ if docker ps --format '{{.Names}}' | grep -q "esportsamaze_postgres"; then
 fi
 npm test
 
-echo ">>> [5/7] Generating Prisma client & synchronizing database schema..."
-npx prisma generate
+echo ">>> [5/7] Synchronizing database schema..."
 npx prisma db push --accept-data-loss
 
 echo ">>> [6/7] Building Next.js production bundle..."
