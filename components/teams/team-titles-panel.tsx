@@ -49,7 +49,7 @@ function AwardRow({ award }: { award: TeamAward }) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-white/10 dark:bg-white/5">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-extrabold">{award.label}</p>
+        <p className="text-sm font-extrabold text-slate-900 dark:text-white">{award.label}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] font-bold text-slate-400">
           {award.recipientKind === 'PLAYER' && award.playerName && (
             <>
@@ -91,25 +91,28 @@ function AwardRow({ award }: { award: TeamAward }) {
 /** Podium styling for 1st / 2nd / 3rd finishes. */
 const podiumMeta: Record<
   number,
-  { rankLabel: string; badge: string; ring: string; chip: string }
+  { rankLabel: string; badge: string; ring: string; chip: string; card: string }
 > = {
   1: {
     rankLabel: 'Champion',
-    badge: 'bg-amber-400 text-slate-950',
-    ring: 'border-amber-400/60 ring-amber-400/30',
-    chip: 'border-amber-400/40 bg-amber-400/10 text-amber-600 dark:text-amber-300',
+    badge: 'bg-amber-400 text-slate-950 font-black shadow-sm',
+    ring: 'border-amber-400/60 ring-amber-400/25 dark:border-amber-400/40 dark:ring-amber-400/20',
+    chip: 'border border-amber-400/40 bg-amber-400/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/15 dark:text-amber-300',
+    card: 'border-amber-300/80 bg-amber-50/70 hover:border-amber-400 dark:border-amber-400/30 dark:bg-amber-400/[0.06] dark:hover:bg-amber-400/[0.1] dark:hover:border-amber-400/50',
   },
   2: {
     rankLabel: 'Runner-up',
-    badge: 'bg-slate-400 text-white',
-    ring: 'border-slate-400/60 ring-slate-400/30',
-    chip: 'border-slate-300 bg-slate-100 text-slate-600 dark:border-white/15 dark:bg-white/5 dark:text-slate-300',
+    badge: 'bg-slate-300 text-slate-900 dark:bg-slate-700 dark:text-slate-100 font-black shadow-sm',
+    ring: 'border-slate-300 ring-slate-400/20 dark:border-slate-500/40 dark:ring-slate-400/20',
+    chip: 'border border-slate-300 bg-slate-100 text-slate-700 dark:border-white/15 dark:bg-white/10 dark:text-slate-300',
+    card: 'border-slate-200 bg-slate-50/70 hover:border-slate-300 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20',
   },
   3: {
     rankLabel: '3rd place',
-    badge: 'bg-orange-700/80 text-white',
-    ring: 'border-orange-600/50 ring-orange-600/20',
-    chip: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300',
+    badge: 'bg-amber-700 text-white font-black shadow-sm',
+    ring: 'border-amber-700/40 ring-amber-700/20 dark:border-amber-600/40 dark:ring-amber-600/20',
+    chip: 'border border-amber-700/30 bg-amber-700/10 text-amber-800 dark:border-amber-600/30 dark:bg-amber-600/15 dark:text-amber-300',
+    card: 'border-amber-700/20 bg-orange-50/50 hover:border-amber-700/40 dark:border-amber-700/30 dark:bg-amber-700/[0.05] dark:hover:border-amber-700/50',
   },
 };
 
@@ -185,10 +188,10 @@ export function TeamTitlesPanel({
                 <Link
                   key={event.id}
                   href={`/tournaments/${event.slug}`}
-                  className={`relative flex items-center gap-4 overflow-hidden rounded-2xl border bg-slate-50/60 p-4 ring-4 ring-offset-2 ring-offset-white transition hover:-translate-y-0.5 hover:shadow-md dark:ring-offset-[#0b1220] ${meta.ring}`}
+                  className={`relative flex items-center gap-4 overflow-hidden rounded-2xl border p-4 ring-4 ring-offset-2 ring-offset-white transition hover:-translate-y-0.5 hover:shadow-md dark:ring-offset-[#0b1220] ${meta.card} ${meta.ring}`}
                 >
                   {/* Emblem */}
-                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
+                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#070b14]">
                     {event.imageUrl || event.imageDarkUrl ? (
                       <ThemeLogo
                         lightSrc={event.imageUrl}
@@ -210,10 +213,10 @@ export function TeamTitlesPanel({
                       <Crown className="h-3 w-3" />
                       {meta.rankLabel}
                     </span>
-                    <p className="mt-1.5 line-clamp-2 text-sm font-extrabold leading-snug">
+                    <p className="mt-1.5 line-clamp-2 text-sm font-extrabold leading-snug text-slate-900 dark:text-white">
                       {event.name}
                     </p>
-                    <p className="mt-0.5 text-[10px] font-bold text-slate-400">
+                    <p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
                       {event.startedAtMs ? new Date(event.startedAtMs).getUTCFullYear() : ''}
                       {event.prizeWon ? ` · ${formatPrizePool(event.prizeWon, event.currency, null, false)}` : ''}
                     </p>
@@ -255,7 +258,7 @@ export function TeamTitlesPanel({
                   {[...totalByCurrency.entries()].map(([currency, total]) => (
                     <div
                       key={currency}
-                      className="flex items-baseline justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#0b1220]"
+                      className="flex items-baseline justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/[0.03]"
                     >
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                         Total won
@@ -274,10 +277,10 @@ export function TeamTitlesPanel({
                   <Link
                     key={event.id}
                     href={`/tournaments/${event.slug}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-[#0b1220]"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-500/50"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-extrabold">{event.name}</p>
+                      <p className="truncate text-xs font-extrabold text-slate-900 dark:text-white">{event.name}</p>
                       {event.finalRank && (
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                           Finish #{event.finalRank}

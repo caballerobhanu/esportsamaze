@@ -463,10 +463,10 @@ export function Navbar() {
                     Search eSportsAmaze
                   </h4>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                    Type the name of any BGMI team (e.g. <em>GodLike</em>, <em>Soul</em>), player (e.g. <em>Jonathan</em>), or tournament.
+                    Type the name of any BGMI team (e.g. <em>Team Soul</em>, <em>GodLike</em>), player (e.g. <em>Jonathan</em>), or tournament.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
-                    {['GodLike', 'Team Soul', 'Jonathan', 'BGIS 2026', 'Carnival Gaming'].map((tag) => (
+                    {['Team Soul', 'Team Apex Gaming', 'GodLike Esports', 'BMPS 2026', 'Jonathan'].map((tag) => (
                       <button
                         key={tag}
                         onClick={() => setSearchQuery(tag)}
