@@ -340,16 +340,23 @@ export function RankingsBoardClient({
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs dark:border-white/10 dark:bg-slate-800 dark:text-white"
                 aria-label="Select snapshot date"
               >
-                {projectedDate && (
-                  <option key={projectedDate} value={projectedDate}>
-                    Projected ({projectedDate})
-                  </option>
-                )}
+                {/*
+                  * Latest first, unlike the pill bar. React does not render
+                  * `selected` for a controlled <select> — it applies the value
+                  * at hydration — so the browser shows the first option until
+                  * then. Latest in slot one keeps the default correct even
+                  * before the JS lands.
+                  */}
                 {snapshotDates.map((d, i) => (
                   <option key={d} value={d}>
                     {i === 0 ? `Latest (${d})` : d}
                   </option>
                 ))}
+                {projectedDate && (
+                  <option key={projectedDate} value={projectedDate}>
+                    Projected ({projectedDate})
+                  </option>
+                )}
               </select>
             </div>
 
@@ -357,7 +364,7 @@ export function RankingsBoardClient({
             <div className="hidden sm:block space-y-2">
               <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                 <Calendar className="h-3 w-3" />
-                <span>Historical Ranking Snapshots (Latest 7 Updates)</span>
+                <span>Ranking Snapshots</span>
               </div>
               <div className="relative">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
