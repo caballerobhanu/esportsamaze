@@ -6,7 +6,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Calendar,
   Clock,
+  Crown,
   Flame,
+  ListOrdered,
   Medal,
   Search,
   Sparkles,
@@ -14,9 +16,24 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import type { RankedBoardEntity, TransferRule, UnifiedNextUpdate } from '@/lib/krafton-standings';
+import type {
+  RankOneReign,
+  RankedBoardEntity,
+  TransferRule,
+  UnifiedNextUpdate,
+} from '@/lib/krafton-standings';
 import { KraftonRulesDialog } from '@/components/rankings/krafton-rules-dialog';
 import { KraftonTransferLedgerDialog } from '@/components/rankings/krafton-transfer-ledger-dialog';
+import { RankOneLeaderboard, RankOneTimeline } from '@/components/rankings/rank-one-panels';
+
+type BoardView = 'standings' | 'timeline' | 'days';
+
+/** Sub-views that sit inside each board (Teams / Players). */
+const BOARD_VIEWS: { id: BoardView; label: string; icon: typeof Trophy }[] = [
+  { id: 'standings', label: 'Standings', icon: ListOrdered },
+  { id: 'timeline', label: '#1 Timeline', icon: Crown },
+  { id: 'days', label: '#1 Days', icon: Calendar },
+];
 
 export interface EntityLogoMeta {
   logoUrl: string | null;
@@ -89,6 +106,7 @@ export function RankingsBoardClient({
   logosMap,
   transfers,
   nextUpdate,
+  reigns,
 }: {
   board: 'TEAM' | 'PLAYER';
   ranked: RankedBoardEntity[];
@@ -97,6 +115,8 @@ export function RankingsBoardClient({
   logosMap: Record<string, EntityLogoMeta>;
   transfers: TransferRule[];
   nextUpdate?: UnifiedNextUpdate | null;
+  /** Spells at rank #1, oldest first — powers the Timeline and Days views. */
+  reigns: RankOneReign[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,6 +126,7 @@ export function RankingsBoardClient({
   // Search & quick filter state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filterTier, setFilterTier] = React.useState<'ALL' | 'TOP10' | 'TOP25' | 'MULTI'>('ALL');
+  const [boardView, setBoardView] = React.useState<BoardView>('standings');
 
   // Filtered rows
   const filtered = React.useMemo(() => {
@@ -214,6 +235,39 @@ export function RankingsBoardClient({
         )}
       </div>
 
+      {/* ── Board sub-view dock: the standings, or who held #1 ── */}
+      <div className="flex w-fit items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
+        {BOARD_VIEWS.map((view) => {
+          const Icon = view.icon;
+          const active = boardView === view.id;
+          return (
+            <button
+              key={view.id}
+              type="button"
+              onClick={() => setBoardView(view.id)}
+              aria-pressed={active}
+              className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+                active
+                  ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600'
+                  : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {view.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {boardView === 'timeline' && (
+        <RankOneTimeline reigns={reigns} logosMap={logosMap} detailBase={detailBase} />
+      )}
+
+      {boardView === 'days' && (
+        <RankOneLeaderboard reigns={reigns} logosMap={logosMap} detailBase={detailBase} />
+      )}
+
+      {boardView === 'standings' && (
+        <>
       {/* ── Unified Next Update Alert Strip ── */}
       {nextUpdate && (
         <div
@@ -625,6 +679,8 @@ export function RankingsBoardClient({
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

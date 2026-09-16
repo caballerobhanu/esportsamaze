@@ -19,7 +19,7 @@ interface TeamRosterPageProps {
 
 export async function generateMetadata({ params }: TeamRosterPageProps): Promise<Metadata> {
   const { slug } = await params;
-  return teamMetadata(slug, 'Roster');
+  return teamMetadata(slug, 'roster');
 }
 
 export default async function TeamRosterPage({ params }: TeamRosterPageProps) {
@@ -35,7 +35,7 @@ export default async function TeamRosterPage({ params }: TeamRosterPageProps) {
     loadLineupPlayers(lineupPlayerIds),
   ]);
 
-  const { playerIdToSlug, ignToSlug } = buildPlayerSlugMaps(
+  const { playerIdToSlug } = buildPlayerSlugMaps(
     team.players,
     team.transfers.map((transfer) => transfer.player),
     lineupPlayers,
@@ -43,12 +43,7 @@ export default async function TeamRosterPage({ params }: TeamRosterPageProps) {
 
   return (
     <TeamTabShell team={team} activeTab="roster">
-      <TeamRosterPanel
-        team={team}
-        metrics={metrics}
-        playerIdToSlug={playerIdToSlug}
-        ignToSlug={ignToSlug}
-      />
+      <TeamRosterPanel team={team} metrics={metrics} playerIdToSlug={playerIdToSlug} />
     </TeamTabShell>
   );
 }

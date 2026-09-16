@@ -21,7 +21,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return tournamentMetadata(slug, 'Prize Pool');
+  return tournamentMetadata(slug, 'prizepool');
 }
 
 export default async function TournamentPrizePoolPage({

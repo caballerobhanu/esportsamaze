@@ -17,6 +17,7 @@ export async function fetchBoardEntries(board: KraftonBoard): Promise<EntryRow[]
       event: {
         select: {
           name: true,
+          shortName: true,
           endDate: true,
           tier: true,
           tournamentId: true,
@@ -30,6 +31,7 @@ export async function fetchBoardEntries(board: KraftonBoard): Promise<EntryRow[]
       id: r.id,
       eventId: r.eventId,
       eventName: r.event.name,
+      eventShortName: r.event.shortName,
       eventEndDate: r.event.endDate,
       tier: r.event.tier,
       board: r.board,
@@ -105,6 +107,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
         event: {
           select: {
             name: true,
+            shortName: true,
             endDate: true,
             tier: true,
             tournamentId: true,
@@ -119,6 +122,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
           id: r.id,
           eventId: r.eventId,
           eventName: r.event.name,
+          eventShortName: r.event.shortName,
           eventEndDate: r.event.endDate,
           tier: r.event.tier,
           board: r.board,
@@ -155,6 +159,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
       event: {
         select: {
           name: true,
+          shortName: true,
           endDate: true,
           tier: true,
           tournamentId: true,
@@ -170,6 +175,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
         id: r.id,
         eventId: r.eventId,
         eventName: r.event.name,
+        eventShortName: r.event.shortName,
         eventEndDate: r.event.endDate,
         tier: r.event.tier,
         board: r.board,
@@ -229,6 +235,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
         event: {
           select: {
             name: true,
+            shortName: true,
             endDate: true,
             tier: true,
             tournamentId: true,
@@ -243,6 +250,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
           id: r.id,
           eventId: r.eventId,
           eventName: r.event.name,
+          eventShortName: r.event.shortName,
           eventEndDate: r.event.endDate,
           tier: r.event.tier,
           board: r.board,
@@ -281,6 +289,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
       event: {
         select: {
           name: true,
+          shortName: true,
           endDate: true,
           tier: true,
           tournamentId: true,
@@ -294,6 +303,7 @@ export async function fetchEntityEntries(board: KraftonBoard, key: string): Prom
       id: r.id,
       eventId: r.eventId,
       eventName: r.event.name,
+      eventShortName: r.event.shortName,
       eventEndDate: r.event.endDate,
       tier: r.event.tier,
       board: r.board,
@@ -403,6 +413,8 @@ export async function fetchBoardSnapshot(
   ranked: RankedBoardEntity[];
   snapshotDates: string[];
   selectedDate: string;
+  /** The raw rows the board was built from — reused for the #1-reign views. */
+  entries: EntryRow[];
 }> {
   const [entries, transfers] = await Promise.all([
     fetchBoardEntries(board),
@@ -427,5 +439,6 @@ export async function fetchBoardSnapshot(
     ranked,
     snapshotDates,
     selectedDate,
+    entries,
   };
 }

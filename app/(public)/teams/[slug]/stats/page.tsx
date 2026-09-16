@@ -6,6 +6,7 @@ import { TeamTabShell } from '@/components/teams/team-tab-shell';
 import {
   loadRelatedTeams,
   loadTeamContext,
+  loadTeamEventMetrics,
   loadTeamHeadToHead,
   loadTeamMapStats,
   loadTeamMatchSummary,
@@ -21,7 +22,7 @@ interface TeamStatsPageProps {
 
 export async function generateMetadata({ params }: TeamStatsPageProps): Promise<Metadata> {
   const { slug } = await params;
-  return teamMetadata(slug, 'Stats');
+  return teamMetadata(slug, 'stats');
 }
 
 export default async function TeamStatsPage({ params }: TeamStatsPageProps) {
@@ -30,13 +31,14 @@ export default async function TeamStatsPage({ params }: TeamStatsPageProps) {
   const team = await loadTeamContext(slug);
   if (!team) notFound();
 
-  const [matchSummary, tournaments, tournamentsGF, maps, headToHead, related] = await Promise.all([
+  const [matchSummary, tournaments, tournamentsGF, maps, headToHead, related, eventMetrics] = await Promise.all([
     loadTeamMatchSummary(team.id),
     loadTeamTournamentStats(team.id, false),
     loadTeamTournamentStats(team.id, true),
     loadTeamMapStats(team.id),
     loadTeamHeadToHead(team.id),
     loadRelatedTeams(team.id, team.gameId, team.region),
+    loadTeamEventMetrics(team.id),
   ]);
 
   return (
@@ -49,6 +51,7 @@ export default async function TeamStatsPage({ params }: TeamStatsPageProps) {
         maps={maps}
         headToHead={headToHead}
         related={related}
+        eventMetrics={eventMetrics}
       />
     </TeamTabShell>
   );

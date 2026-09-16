@@ -12,6 +12,24 @@ import { unstable_cache } from 'next/cache';
 import type { Metadata } from 'next';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { parseRoster } from '@/lib/team-roster';
+import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
+import {
+  TEAM_TAB_SEGMENT,
+  teamTabDescription,
+  teamTabTitle,
+  type TeamTabId,
+} from '@/lib/seo-titles';
+import { deriveMoves, type Appearance } from '@/lib/player-moves';
+import { resolveEventTotals } from '@/lib/tournament-totals';
+import {
+  DETAIL_METRIC_SPECS,
+  TEAM_BASIC_KEYS,
+  TEAM_METRIC_COLUMNS,
+  aggregateMetricsByEvent,
+  mergeEventMetrics,
+  type EventMetricRow,
+} from '@/lib/event-metrics';
 import {
   TEAM_PROFILE_CACHE_TAG,
   binPlacements,
@@ -64,6 +82,8 @@ export interface TeamContextTournament {
   id: string;
   tournamentId: string;
   name: string;
+  /** Admin-entered short label, shown in place of `name` on mobile. */
+  shortName: string | null;
   slug: string;
   currency: string;
   startedAtMs: number | null;
@@ -124,6 +144,10 @@ export interface TeamContext {
   status: string | null;
   foundedYear: number | null;
   sponsors: string | null;
+  /** Null follows the site-wide switch for team pages. */
+  showViewCount: boolean | null;
+  /** Null follows the site-wide window for team pages. */
+  viewCountWindow: string | null;
   socials: Record<string, string>;
   gameId: string | null;
   game: { name: string; slug: string } | null;
@@ -193,6 +217,7 @@ export const loadTeamContext = unstable_cache(
               select: {
                 id: true,
                 name: true,
+                shortName: true,
                 slug: true,
                 currency: true,
                 startDate: true,
@@ -210,7 +235,32 @@ export const loadTeamContext = unstable_cache(
 
     if (!team) return null;
 
-    const [transfers, prevCandidate, nextCandidate] = await Promise.all([
+    // Movements come from event participation, not from the transfer ledger: a
+    // player has moved only when they appear for a different team in a LATER
+    // event. Missing from an event is not a departure, and a first appearance is
+    // not an arrival. The ledger is layered on top for what rosters cannot prove.
+    const linkedPlayerIds = new Set<string>();
+    for (const roster of team.tournamentRosters) {
+      for (const entry of parseRoster(roster.rosterJson)) {
+        if (entry.playerId) linkedPlayerIds.add(entry.playerId);
+      }
+    }
+    const involvedIds = [...linkedPlayerIds];
+
+    const [historySquads, adminTransfers, prevCandidate, nextCandidate] = await Promise.all([
+      involvedIds.length > 0
+        ? prisma.tournamentTeam.findMany({
+            where: {
+              OR: involvedIds.map((id) => ({ rosterJson: { array_contains: [{ playerId: id }] } })),
+            },
+            select: {
+              teamId: true,
+              rosterJson: true,
+              team: { select: TRANSFER_PARTY_SELECT },
+              tournament: { select: { startDate: true } },
+            },
+          })
+        : Promise.resolve([]),
       prisma.transfer.findMany({
         where: { OR: [{ teamId: team.id }, { fromTeamId: team.id }] },
         orderBy: { date: 'desc' },
@@ -252,6 +302,180 @@ export const loadTeamContext = unstable_cache(
         }),
     ]);
 
+    /* ── Movements, derived then topped up with admin records ── */
+
+    // Every team a linked player turned out for, so a player's whole event
+    // timeline is visible from either end of a move.
+    const partyByTeamId = new Map<string, TransferParty>();
+    for (const squad of historySquads) {
+      const party = toTransferParty(squad.team);
+      if (party) partyByTeamId.set(squad.teamId, party);
+    }
+
+    const appearances: Appearance[] = [];
+    const staffRoleByPlayerTeam = new Map<string, string | null>();
+    for (const squad of historySquads) {
+      for (const entry of parseRoster(squad.rosterJson)) {
+        if (!entry.playerId || !linkedPlayerIds.has(entry.playerId)) continue;
+        appearances.push({
+          playerId: entry.playerId,
+          teamId: squad.teamId,
+          date: squad.tournament.startDate,
+        });
+        staffRoleByPlayerTeam.set(`${entry.playerId}|${squad.teamId}`, entry.staffRole ?? null);
+      }
+    }
+
+    const moves = deriveMoves(appearances).filter(
+      (move) => move.fromTeamId === team.id || move.toTeamId === team.id,
+    );
+
+    const movePlayerIds = [
+      ...new Set([...moves.map((move) => move.playerId), ...adminTransfers.map((t) => t.player.id)]),
+    ];
+    const movePlayers = movePlayerIds.length
+      ? await prisma.player.findMany({
+          where: { id: { in: movePlayerIds } },
+          select: { id: true, ign: true, slug: true, avatarUrl: true, role: true },
+        })
+      : [];
+    const playerById = new Map(movePlayers.map((player) => [player.id, player]));
+
+    const moveRows: TeamContextTransfer[] = [];
+    for (const move of moves) {
+      const player = playerById.get(move.playerId);
+      if (!player) continue;
+      const arrived = move.toTeamId === team.id;
+      moveRows.push({
+        id: `move:${move.playerId}:${move.fromTeamId}:${move.toTeamId}`,
+        type: arrived ? 'JOINED' : 'LEFT',
+        staffRole:
+          staffRoleByPlayerTeam.get(
+            `${move.playerId}|${arrived ? move.toTeamId : move.fromTeamId}`,
+          ) ?? null,
+        dateMs: move.date.getTime(),
+        player: {
+          id: player.id,
+          ign: player.ign,
+          slug: player.slug,
+          avatarUrl: player.avatarUrl,
+          role: player.role,
+        },
+        direction: arrived ? 'ARRIVED' : 'DEPARTED',
+        counterpart: partyByTeamId.get(arrived ? move.fromTeamId : move.toTeamId) ?? null,
+      });
+    }
+
+    /* ── Event line-ups, entered rosters plus reported-only players ── */
+
+    // Reported (match-free) totals can name a player for this team at an event
+    // that has no squads or scorecards at all. Entered rosters always win, so a
+    // reported row only fills what the squad list does not already cover.
+    const reportedLineups = await prisma.tournamentPlayerTotals.findMany({
+      where: { teamId: team.id },
+      select: {
+        playerId: true,
+        tournamentId: true,
+        player: { select: { id: true, ign: true } },
+        tournament: {
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            slug: true,
+            currency: true,
+            startDate: true,
+            prizeDistribution: true,
+            imageUrl: true,
+            imageDarkUrl: true,
+          },
+        },
+      },
+    });
+
+    const reportedByEvent = new Map<
+      string,
+      { tournament: (typeof reportedLineups)[number]['tournament']; players: { playerId: string; ign: string }[] }
+    >();
+    for (const row of reportedLineups) {
+      const entry = reportedByEvent.get(row.tournamentId) ?? { tournament: row.tournament, players: [] };
+      if (!entry.players.some((player) => player.playerId === row.playerId)) {
+        entry.players.push({ playerId: row.playerId, ign: row.player.ign });
+      }
+      reportedByEvent.set(row.tournamentId, entry);
+    }
+
+    const reportedEntry = (player: { playerId: string; ign: string }) => ({
+      playerId: player.playerId,
+      ign: player.ign,
+      role: null,
+      captain: false,
+      isStaff: false,
+      staffRole: null,
+      statusTag: null,
+      reported: true,
+    });
+
+    const enteredRosters = team.tournamentRosters.filter((tt) => Boolean(tt?.tournament));
+
+    const tournaments = enteredRosters.map((tt) => {
+      const reported = reportedByEvent.get(tt.tournamentId);
+      let rosterJson = tt.rosterJson;
+
+      if (reported) {
+        const linked = new Set(
+          (Array.isArray(rosterJson) ? rosterJson : [])
+            .map((entry) => (entry && typeof entry === 'object' ? (entry as { playerId?: string | null }).playerId : null))
+            .filter((id): id is string => Boolean(id)),
+        );
+        const additions = reported.players.filter((player) => !linked.has(player.playerId));
+        if (additions.length > 0) {
+          rosterJson = [...(Array.isArray(rosterJson) ? rosterJson : []), ...additions.map(reportedEntry)];
+        }
+      }
+
+      return {
+        id: tt.id,
+        tournamentId: tt.tournament.id,
+        name: tt.tournament.name,
+        shortName: tt.tournament.shortName?.trim() || null,
+        slug: tt.tournament.slug,
+        currency: tt.tournament.currency,
+        startedAtMs: tt.tournament.startDate ? tt.tournament.startDate.getTime() : null,
+        finalRank: tt.finalRank,
+        prizeWon: tt.prizeWon,
+        rosterJson,
+        prizeDistribution: tt.tournament.prizeDistribution,
+        imageUrl: tt.tournament.imageUrl,
+        imageDarkUrl: tt.tournament.imageDarkUrl,
+      };
+    });
+
+    // Events this team appears in ONLY as reported totals — no squads, no
+    // scorecards — so they have no TournamentTeam row to map from.
+    const enteredTournamentIds = new Set(enteredRosters.map((tt) => tt.tournamentId));
+    for (const [tournamentId, entry] of reportedByEvent) {
+      if (enteredTournamentIds.has(tournamentId)) continue;
+      tournaments.push({
+        id: `reported:${tournamentId}`,
+        tournamentId,
+        name: entry.tournament.name,
+        shortName: entry.tournament.shortName?.trim() || null,
+        slug: entry.tournament.slug,
+        currency: entry.tournament.currency,
+        startedAtMs: entry.tournament.startDate ? entry.tournament.startDate.getTime() : null,
+        finalRank: null,
+        prizeWon: null,
+        rosterJson: entry.players.map(reportedEntry),
+        prizeDistribution: entry.tournament.prizeDistribution,
+        imageUrl: entry.tournament.imageUrl,
+        imageDarkUrl: entry.tournament.imageDarkUrl,
+      });
+    }
+
+    // The reported-only events are appended out of order, so re-sort the whole set.
+    tournaments.sort((a, b) => (b.startedAtMs ?? 0) - (a.startedAtMs ?? 0));
+
     const socials = (team.socialLinks ?? {}) as Record<string, unknown>;
 
     return {
@@ -266,6 +490,8 @@ export const loadTeamContext = unstable_cache(
       status: team.status,
       foundedYear: team.founded ? new Date(team.founded).getUTCFullYear() : null,
       sponsors: team.sponsors,
+      showViewCount: team.showViewCount,
+      viewCountWindow: team.viewCountWindow,
       socials: Object.fromEntries(
         Object.entries(socials)
           .filter(([, value]) => typeof value === 'string' && value.length > 0)
@@ -282,53 +508,60 @@ export const loadTeamContext = unstable_cache(
         staffRole: player.staffRole,
         isPlayer: player.isPlayer,
       })),
-      tournaments: team.tournamentRosters
-        .filter((tt) => Boolean(tt?.tournament))
-        .map((tt) => ({
-          id: tt.id,
-          tournamentId: tt.tournament.id,
-          name: tt.tournament.name,
-          slug: tt.tournament.slug,
-          currency: tt.tournament.currency,
-          startedAtMs: tt.tournament.startDate ? tt.tournament.startDate.getTime() : null,
-          finalRank: tt.finalRank,
-          prizeWon: tt.prizeWon,
-          rosterJson: tt.rosterJson,
-          prizeDistribution: tt.tournament.prizeDistribution,
-          imageUrl: tt.tournament.imageUrl,
-          imageDarkUrl: tt.tournament.imageDarkUrl,
-        })),
+      tournaments,
       won: team.tournamentsWon.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
       runnerUp: team.tournamentsRunnerUp.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
-      transfers: transfers.map((transfer) => {
-        // The query matches this team on either end, so the direction has to be
-        // derived per row — the row's own `type` describes the player's move to
-        // the DESTINATION team and means the opposite when read from the origin.
-        const arrived = transfer.teamId === team.id;
-        const departed = transfer.fromTeamId === team.id;
-        const direction: TransferDirection =
-          arrived && departed ? 'BOTH' : arrived ? 'ARRIVED' : 'DEPARTED';
+      transfers: [
+        ...moveRows,
+        // Admin-recorded moves that the rosters do not already imply.
+        ...adminTransfers
+          .filter(
+            (transfer) =>
+              !moves.some(
+                (move) =>
+                  move.playerId === transfer.player.id &&
+                  move.fromTeamId ===
+                    (transfer.type === 'LEFT' ? transfer.teamId : transfer.fromTeamId) &&
+                  move.toTeamId === (transfer.type === 'LEFT' ? '' : transfer.teamId),
+              ),
+          )
+          .map((transfer) => {
+            // A LEFT row names the team the player LEFT in `teamId` (and carries
+            // no origin), so it can only ever be a departure — the generic branch
+            // below would read it as an arrival.
+            let direction: TransferDirection;
+            let otherRow: TransferPartyRow;
+            if (transfer.type === 'LEFT') {
+              direction = 'DEPARTED';
+              otherRow = null;
+            } else {
+              // Every other type names its DESTINATION in `teamId`, so it reads
+              // as an arrival here and as a departure from the origin's side.
+              const arrived = transfer.teamId === team.id;
+              const departed = transfer.fromTeamId === team.id;
+              direction = arrived && departed ? 'BOTH' : arrived ? 'ARRIVED' : 'DEPARTED';
 
-        // The counterpart is whichever end is NOT this team. A self-referential
-        // row has no counterpart, so it renders as null rather than as this team.
-        const otherRow = arrived ? transfer.fromTeam : transfer.team;
+              // The counterpart is whichever end is NOT this team.
+              otherRow = arrived ? transfer.fromTeam : transfer.team;
+            }
 
-        return {
-          id: transfer.id,
-          type: transfer.type,
-          staffRole: transfer.staffRole,
-          dateMs: transfer.date.getTime(),
-          player: {
-            id: transfer.player.id,
-            ign: transfer.player.ign,
-            slug: transfer.player.slug,
-            avatarUrl: transfer.player.avatarUrl,
-            role: transfer.player.role,
-          },
-          direction,
-          counterpart: toTransferParty(otherRow?.id === team.id ? null : otherRow),
-        };
-      }),
+            return {
+              id: transfer.id,
+              type: transfer.type,
+              staffRole: transfer.staffRole,
+              dateMs: transfer.date.getTime(),
+              player: {
+                id: transfer.player.id,
+                ign: transfer.player.ign,
+                slug: transfer.player.slug,
+                avatarUrl: transfer.player.avatarUrl,
+                role: transfer.player.role,
+              },
+              direction,
+              counterpart: toTransferParty(otherRow?.id === team.id ? null : otherRow),
+            };
+          }),
+      ].sort((a, b) => b.dateMs - a.dateMs),
       prevTeam: prevTeam
         ? { id: prevTeam.id, slug: prevTeam.slug, tag: prevTeam.tag, name: prevTeam.name }
         : null,
@@ -468,6 +701,8 @@ export const loadTeamRosterMetrics = unstable_cache(
 export interface TeamTournamentRow {
   tournamentId: string;
   name: string;
+  /** Admin-entered short label, shown in place of `name` on mobile. */
+  shortName: string | null;
   slug: string;
   currency: string;
   matches: number;
@@ -499,6 +734,7 @@ export const loadTeamTournamentStats = unstable_cache(
       {
         tournament_id: string;
         name: string;
+        short_name: string | null;
         slug: string;
         currency: string;
         matches: number;
@@ -509,7 +745,7 @@ export const loadTeamTournamentStats = unstable_cache(
         elims_points: number;
       }[]
     >(Prisma.sql`
-      SELECT m."tournamentId" AS tournament_id, t.name, t.slug, t.currency,
+      SELECT m."tournamentId" AS tournament_id, t.name, t."shortName" AS short_name, t.slug, t.currency,
              COUNT(*)::int AS matches,
              SUM(CASE WHEN r."wwcd" THEN 1 ELSE 0 END)::int AS wins,
              SUM(CASE WHEN r."rank" BETWEEN 1 AND 5 THEN 1 ELSE 0 END)::int AS top_five,
@@ -529,7 +765,7 @@ export const loadTeamTournamentStats = unstable_cache(
               OR LOWER(COALESCE(s.name, '')) = 'gf'
             )`
           : Prisma.empty}
-      GROUP BY m."tournamentId", t.name, t.slug, t.currency
+      GROUP BY m."tournamentId", t.name, t."shortName", t.slug, t.currency
       ORDER BY matches DESC, name ASC
     `);
 
@@ -542,6 +778,7 @@ export const loadTeamTournamentStats = unstable_cache(
     return rows.map((row) => ({
       tournamentId: row.tournament_id,
       name: row.name,
+      shortName: row.short_name?.trim() || null,
       slug: row.slug,
       currency: row.currency,
       matches: row.matches,
@@ -893,10 +1130,10 @@ export interface TeamMatchRow {
   scheduledAtMs: number;
   /** The event this row belongs to — the grouping key for the history table. */
   tournamentId: string;
-  /** `shortName` when the event has one, else the full name. */
+  /** Always the full official name — rendered at full width on desktop. */
   tournamentName: string;
-  /** Always the full name, so the short label stays discoverable on hover. */
-  tournamentFullName: string;
+  /** Admin-entered short label, or null so the display can derive a fallback. */
+  tournamentShortName: string | null;
   tournamentSlug: string;
   stageLabel: string | null;
   mapName: string | null;
@@ -984,8 +1221,8 @@ export async function loadTeamMatchPage(
         id: row.id,
         scheduledAtMs: row.matchGame.match.scheduledAt.getTime(),
         tournamentId: tournament?.id ?? '',
-        tournamentName: tournament?.shortName?.trim() || fullName,
-        tournamentFullName: fullName,
+        tournamentName: fullName,
+        tournamentShortName: tournament?.shortName?.trim() || null,
         tournamentSlug: tournament?.slug ?? '',
         stageLabel: row.matchGame.match.stage?.name ?? null,
         mapName: row.matchGame.mapName,
@@ -1004,10 +1241,12 @@ export async function loadTeamMatchPage(
 
 export interface TeamMatchTournamentOption {
   id: string;
-  /** `shortName` when set, else the full name — the chip label. */
+  /** `shortName` when set, else the full name. */
   name: string;
-  /** Always the full name, exposed as the chip's `title`. */
+  /** Always the full official name — shown at full width on desktop. */
   fullName: string;
+  /** Admin-entered short label, or null so the chip can derive a fallback. */
+  shortName: string | null;
   slug: string;
 }
 
@@ -1044,6 +1283,7 @@ export const loadTeamMatchFilterOptions = unstable_cache(
         id: row.id,
         name: row.shortName?.trim() || row.name,
         fullName: row.name,
+        shortName: row.shortName?.trim() || null,
         slug: row.slug,
       })),
       maps: maps.map((row) => row.mapName).filter((name): name is string => Boolean(name)),
@@ -1074,18 +1314,128 @@ export const loadLineupPlayers = unstable_cache(
   { tags: TAGS, revalidate: REVALIDATE },
 );
 
+/* ── Detailed event metrics (match-wise, reported, or both) ────────────── */
+
+const TEAM_METRIC_SELECT = {
+  damage: true,
+  assists: true,
+  knockouts: true,
+  survivalTime: true,
+  grenadeElims: true,
+  utilitiesTotal: true,
+  matchGame: { select: { match: { select: { tournamentId: true } } } },
+} satisfies Prisma.MatchTeamResultSelect;
+
+/**
+ * The team's detailed metrics per event, resolved per metric.
+ *
+ * Scorecard values win wherever the team has them; an event with no scorecards
+ * contributes whatever its reported day / stage / event slices hold instead. An
+ * event with neither is absent. Scoring (matches, points, WWCD, placement) stays
+ * on the per-tournament record, so it is never shown twice.
+ */
+export const loadTeamEventMetrics = unstable_cache(
+  async (teamId: string): Promise<EventMetricRow[]> => {
+    const [matchRows, totals] = await Promise.all([
+      prisma.matchTeamResult.findMany({ where: { teamId }, select: TEAM_METRIC_SELECT }),
+      prisma.tournamentTeamTotals.findMany({ where: { teamId } }),
+    ]);
+
+    const matchAggregates = aggregateMetricsByEvent(
+      matchRows,
+      (row) => row.matchGame.match.tournamentId,
+      DETAIL_METRIC_SPECS,
+    );
+
+    const ladder = resolveEventTotals(
+      totals.map((row) => ({
+        tournamentId: row.tournamentId,
+        scope: row.scope,
+        stageId: row.stageId,
+        label: row.label,
+        metrics: {
+          placement: row.placement,
+          matches: row.matches,
+          wwcd: row.wwcd,
+          placePoints: row.placePoints,
+          elimsPoints: row.elimsPoints,
+          bonusPoints: row.bonusPoints,
+          totalPoints: row.totalPoints,
+        },
+      })),
+    );
+
+    const tournamentIds = [...new Set([...matchAggregates.keys(), ...ladder.keys()])];
+    const tournaments = tournamentIds.length
+      ? await prisma.tournament.findMany({
+          where: { id: { in: tournamentIds } },
+          select: {
+            id: true,
+            name: true,
+            shortName: true,
+            series: true,
+            season: true,
+            slug: true,
+            startDate: true,
+          },
+        })
+      : [];
+    const identities = new Map(
+      tournaments.map((tournament) => [
+        tournament.id,
+        {
+          tournamentId: tournament.id,
+          tournamentName: tournament.name,
+          tournamentShortName: tournament.shortName,
+          tournamentSeries: tournament.series,
+          tournamentSeason: tournament.season,
+          tournamentSlug: tournament.slug,
+          startDateMs: tournament.startDate ? tournament.startDate.getTime() : null,
+        },
+      ]),
+    );
+
+    return mergeEventMetrics({
+      matchAggregates,
+      ladder,
+      identityFor: (tournamentId) => identities.get(tournamentId) ?? null,
+      basicKeys: TEAM_BASIC_KEYS,
+      columns: TEAM_METRIC_COLUMNS,
+    });
+  },
+  ['team-event-metrics'],
+  { tags: TAGS, revalidate: REVALIDATE },
+);
+
 /* ── Metadata ──────────────────────────────────────────────────────────── */
 
 /** Shared metadata for the base route and its tab routes. */
-export async function teamMetadata(slug: string, tabLabel?: string): Promise<Metadata> {
+export async function teamMetadata(slug: string, tab: TeamTabId = 'overview'): Promise<Metadata> {
   const team = await loadTeamContext(slug);
-  if (!team) return { title: 'Team Not Found — eSportsAmaze' };
+  if (!team) return { title: `Team Not Found — ${SITE_NAME}` };
 
   const label = `${team.name}${team.tag ? ` [${team.tag}]` : ''}`;
-  const suffix = tabLabel ? ` — ${tabLabel}` : '';
+  const game = team.game?.name || null;
+  const segment = TEAM_TAB_SEGMENT[tab];
+  // Canonical resolves to the stored slug so tag/name look-alikes consolidate.
+  const canonicalSlug = team.slug || slug;
+  const path = segment ? `/teams/${canonicalSlug}/${segment}` : `/teams/${canonicalSlug}`;
+  // The title carries the name alone — the tag costs ~8 characters that a long
+  // team name needs more, and it is kept in the description and the structured
+  // data instead.
+  const title = teamTabTitle(tab, team.name);
+  const description = teamTabDescription(tab, label, game);
+
   return {
-    title: `${label}${suffix} — eSportsAmaze`,
-    description: `${label} profile — roster, tournament history, KRAFTON ranking and match statistics.`,
-    openGraph: { images: team.logoUrl ? [team.logoUrl] : undefined },
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'profile',
+      url: absoluteUrl(path),
+      ...(team.logoUrl ? { images: [team.logoUrl] } : {}),
+    },
+    ...canonical(path),
   };
 }

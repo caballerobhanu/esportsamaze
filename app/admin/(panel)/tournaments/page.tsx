@@ -5,6 +5,7 @@ import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save,
 import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
+import { applyRosterMembership } from '@/lib/player-transfers';
 import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
@@ -604,15 +605,27 @@ async function saveTournament(formData: FormData) {
             seed: squad.seed ?? null,
             seedLabel: squad.seedLabel ?? null,
             seedTournamentId: squad.seedTournamentId ?? null,
-            rosterJson: (Array.isArray(squad.roster) ? squad.roster : []).map((p: any) => ({
-              playerId: p.playerId ?? null,
-              ign: String(p.ign ?? ''),
-              role: p.role ?? null,
-              captain: !!p.captain,
-              isStaff: !!p.isStaff,
-              staffRole: p.staffRole ?? (p.isStaff ? p.role ?? 'Coach' : null),
-              statusTag: p.statusTag ?? null,
-            })),
+            // One entry per linked player: a player cannot hold two roster slots
+            // in the same team (duplicates are what made "Beast"/"Beastog" collide).
+            rosterJson: (() => {
+              const seen = new Set<string>();
+              return (Array.isArray(squad.roster) ? squad.roster : [])
+                .map((p: any) => ({
+                  playerId: p.playerId ?? null,
+                  ign: String(p.ign ?? ''),
+                  role: p.role ?? null,
+                  captain: !!p.captain,
+                  isStaff: !!p.isStaff,
+                  staffRole: p.staffRole ?? (p.isStaff ? p.role ?? 'Coach' : null),
+                  statusTag: p.statusTag ?? null,
+                }))
+                .filter((entry) => {
+                  if (!entry.playerId) return true;
+                  if (seen.has(entry.playerId)) return false;
+                  seen.add(entry.playerId);
+                  return true;
+                });
+            })(),
             logoUrl: logoLight ?? (squad.eventLogoUrl || null),
             logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
             shortName: squad.shortName ?? null,
@@ -635,8 +648,11 @@ async function saveTournament(formData: FormData) {
           });
         }
 
-        // Automated Transfer History Logging - Batched high-speed execution
-        // Only process transfers for explicitly linked players (ignore unlinked IGN entries)
+        // Roster membership only. The Transfer ledger is admin-only history, so an
+        // import records NO transfer — adding an older event (BGIS in January)
+        // can therefore never invent a move or an origin. One player, one team per
+        // event: the first squad that claims a player wins.
+        const eventDate = startDate || new Date();
         const explicitPlayerIds = Array.from(
           new Set(
             squadsList
@@ -651,100 +667,22 @@ async function saveTournament(formData: FormData) {
           explicitPlayerIds.length > 0
             ? await tx.player.findMany({
                 where: { id: { in: explicitPlayerIds } },
-                select: { id: true, ign: true, currentTeamId: true },
+                select: { id: true },
               })
             : [];
 
-        const playerByIdMap = new Map<string, { id: string; ign: string; currentTeamId: string | null }>();
-        for (const pl of playersById) {
-          playerByIdMap.set(pl.id, pl);
-        }
-
-        interface PendingTransfer {
-          player: { id: string; ign: string; currentTeamId: string | null };
-          targetTeamId: string;
-          prevTeamId: string | null;
-          transferType: 'LOANED' | 'BENCHED' | 'JOINED';
-          staffRole: string | null;
-        }
-
-        const pendingTransfers: PendingTransfer[] = [];
+        const knownPlayerIds = new Set(playersById.map((player) => player.id));
+        const claimedTeamByPlayer = new Map<string, string>();
 
         for (const squad of squadsList) {
           if (!squad?.teamId) continue;
           const roster = Array.isArray(squad.roster) ? squad.roster : [];
           for (const p of roster) {
-            if (!p.playerId) continue;
-            const player = playerByIdMap.get(p.playerId);
-
-            if (player && player.currentTeamId !== squad.teamId) {
-              const transferType =
-                p.statusTag === 'LOANED'
-                  ? 'LOANED'
-                  : p.statusTag === 'BENCHED'
-                  ? 'BENCHED'
-                  : 'JOINED';
-
-              pendingTransfers.push({
-                player,
-                targetTeamId: squad.teamId,
-                prevTeamId: player.currentTeamId,
-                transferType,
-                staffRole: p.isStaff ? p.staffRole || p.role || 'Staff' : null,
-              });
-            }
-          }
-        }
-
-        if (pendingTransfers.length > 0) {
-          const existingTransfers = await tx.transfer.findMany({
-            where: {
-              OR: pendingTransfers.map((pt) => ({
-                playerId: pt.player.id,
-                teamId: pt.targetTeamId,
-                fromTeamId: pt.prevTeamId,
-              })),
-            },
-            select: { playerId: true, teamId: true, fromTeamId: true },
-          });
-
-          const existingSet = new Set(
-            existingTransfers.map((et) => `${et.playerId}:${et.teamId}:${et.fromTeamId ?? 'null'}`)
-          );
-
-          for (const pt of pendingTransfers) {
-            const key = `${pt.player.id}:${pt.targetTeamId}:${pt.prevTeamId ?? 'null'}`;
-            if (!existingSet.has(key)) {
-              await tx.transfer.create({
-                data: {
-                  playerId: pt.player.id,
-                  fromTeamId: pt.prevTeamId,
-                  teamId: pt.targetTeamId,
-                  type: pt.transferType,
-                  staffRole: pt.staffRole,
-                  date: startDate || new Date(),
-                  notes: `Tournament roster entry for ${name}`,
-                },
-              });
-              existingSet.add(key);
-            }
-
-            // Update player's active team only if this tournament date is not superseded by a newer transfer
-            const newerTransfer = await tx.transfer.findFirst({
-              where: {
-                playerId: pt.player.id,
-                date: { gt: startDate || new Date() },
-              },
-            });
-            if (!newerTransfer) {
-              await tx.player.update({
-                where: { id: pt.player.id },
-                data: {
-                  currentTeamId: pt.targetTeamId,
-                },
-              });
-              pt.player.currentTeamId = pt.targetTeamId;
-            }
+            const playerId = p?.playerId;
+            if (!playerId || !knownPlayerIds.has(playerId)) continue;
+            if (claimedTeamByPlayer.has(playerId)) continue;
+            claimedTeamByPlayer.set(playerId, squad.teamId);
+            await applyRosterMembership(tx, playerId, squad.teamId, eventDate);
           }
         }
 
@@ -1044,7 +982,8 @@ export default async function AdminTournamentsPage({
           },
         },
       })
-    : null;
+     : null;
+
 
   const initialOrganizers =
     editing?.organizers.map((to) => ({

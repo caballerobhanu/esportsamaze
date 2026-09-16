@@ -16,6 +16,11 @@ export interface RosterEntry {
   captain?: boolean;
   isStaff?: boolean;
   staffRole?: string | null;
+  /**
+   * Set on a line-up entry that came from REPORTED totals rather than the squads
+   * the event was entered with — there are no match scorecards behind it.
+   */
+  reported?: boolean;
 }
 
 /**
@@ -36,6 +41,7 @@ export function parseRoster(json: unknown): RosterEntry[] {
             captain?: boolean;
             isStaff?: boolean;
             staffRole?: string | null;
+            reported?: boolean;
           })
     )
     .filter((entry): entry is RosterEntry => Boolean(entry && entry.ign));
@@ -74,45 +80,26 @@ export interface PlayerSlugSource {
 }
 
 export interface PlayerSlugMaps {
-  /** playerId → slug */
+  /** playerId → slug. The only key that may link a line-up entry to a profile. */
   playerIdToSlug: Record<string, string>;
-  /** lowercased IGN → slug */
-  ignToSlug: Record<string, string>;
 }
 
 /**
- * Builds the lookup tables the event line-ups use to turn a roster entry into a
- * player-profile link. Roster players and transfer records win over the
- * fallback list, which only exists to cover line-up members no longer attached
- * to the team.
+ * Builds the lookup the event line-ups use to turn a roster entry into a
+ * player-profile link, keyed strictly by player id.
+ *
+ * There is deliberately no IGN-keyed fallback: look-alike names ("beast" /
+ * "beast04" / "beastog") are different people, and a name-keyed map silently
+ * pointed all of them at one profile.
  */
 export function buildPlayerSlugMaps(
   roster: readonly PlayerSlugSource[],
-  transfers: readonly PlayerSlugSource[],
+  transfers: readonly PlayerSlugSource[] = [],
   extra: readonly PlayerSlugSource[] = [],
 ): PlayerSlugMaps {
   const playerIdToSlug: Record<string, string> = {};
-  const ignToSlug: Record<string, string> = {};
-
-  const claimIgn = (player: PlayerSlugSource, overwrite: boolean) => {
-    const key = player.ign.trim().toLowerCase();
-    if (!key) return;
-    if (overwrite || !ignToSlug[key]) {
-      ignToSlug[key] = player.slug ?? '';
-    }
-  };
-
-  for (const player of roster) {
-    if (player.slug) playerIdToSlug[player.id] = player.slug;
-    claimIgn(player, true);
-  }
-  for (const player of transfers) {
+  for (const player of [...roster, ...transfers, ...extra]) {
     if (player.slug) playerIdToSlug[player.id] = player.slug;
   }
-  for (const player of extra) {
-    if (player.slug) playerIdToSlug[player.id] = player.slug;
-    claimIgn(player, false);
-  }
-
-  return { playerIdToSlug, ignToSlug };
+  return { playerIdToSlug };
 }

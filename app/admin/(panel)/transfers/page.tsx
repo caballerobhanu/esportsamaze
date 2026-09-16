@@ -1,10 +1,16 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { Copy, Pencil, Trash2, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fDate } from '@/lib/admin-forms';
+import {
+  createTransfer,
+  updateTransfer,
+  deleteTransfer as deleteTransferRecord,
+} from '@/lib/player-transfers';
+import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
+import type { PlayerTransferType } from '@/lib/player-transfer-rule';
 import { Combobox } from '@/components/admin/combobox';
 
 export const dynamic = 'force-dynamic';
@@ -30,81 +36,37 @@ async function saveTransfer(formData: FormData) {
 
   const id = fStr(formData, 'id');
   const playerId = fStr(formData, 'playerId');
-  const fromTeamId = fStr(formData, 'fromTeamId') || null;
   const teamId = fStr(formData, 'teamId');
   const date = fDate(formData, 'date');
   if (!playerId || !teamId || !date) {
     redirect(id ? `/admin/transfers?edit=${id}&error=required` : '/admin/transfers?error=required');
   }
 
-  const data = {
+  // No fromTeamId: the origin is derived from the timeline, not entered.
+  const input = {
     playerId,
-    fromTeamId,
     teamId,
-    type: (fStr(formData, 'type') || 'JOINED') as
-      | 'JOINED'
-      | 'LEFT'
-      | 'LOANED'
-      | 'BENCHED',
+    type: (fStr(formData, 'type') || 'JOINED') as PlayerTransferType,
     staffRole: fStr(formData, 'staffRole') || null,
     date,
     notes: fStr(formData, 'notes') || null,
   };
 
-  if (id) {
-    try {
-      await prisma.transfer.update({ where: { id }, data });
-    } catch {
-      redirect(`/admin/transfers?edit=${id}&error=save-failed`);
-    }
-  } else {
-    try {
-      await prisma.transfer.create({ data });
-    } catch {
-      redirect('/admin/transfers?error=save-failed');
-    }
+  // Row and membership cache move together, or not at all — lib/player-transfers.ts
+  // recomputes Player.currentTeamId from the ledger once the row is written.
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (id) {
+        await updateTransfer(tx, id, input);
+      } else {
+        await createTransfer(tx, input);
+      }
+    });
+  } catch {
+    redirect(id ? `/admin/transfers?edit=${id}&error=save-failed` : '/admin/transfers?error=save-failed');
   }
 
-  // Sync the player's "current team" with this move — unless a later-dated
-  // transfer already supersedes it (backfilled ledger entries stay consistent).
-  const laterMove = await prisma.transfer.findFirst({
-    where: { playerId, date: { gt: date }, ...(id ? { id: { not: id } } : {}) },
-    select: { id: true },
-  });
-  if (!laterMove) {
-    if (data.type === 'JOINED' || data.type === 'LOANED') {
-      const player = await prisma.player.findUnique({
-        where: { id: playerId },
-        select: { currentTeamId: true },
-      });
-      // Team→team move: if the player is still marked with the old team, detach first.
-      if (data.fromTeamId && player?.currentTeamId === data.fromTeamId) {
-        await prisma.player.update({
-          where: { id: playerId },
-          data: { currentTeamId: null },
-        });
-      }
-      await prisma.player.update({
-        where: { id: playerId },
-        data: { currentTeamId: teamId },
-      });
-    } else if (data.type === 'LEFT') {
-      // Only detach when the player is still marked with the team they left
-      const player = await prisma.player.findUnique({
-        where: { id: playerId },
-        select: { currentTeamId: true },
-      });
-      if (player?.currentTeamId === teamId) {
-        await prisma.player.update({
-          where: { id: playerId },
-          data: { currentTeamId: null },
-        });
-      }
-    }
-    // BENCHED keeps the player on the roster — no change
-  }
-
-  revalidatePath('/admin/transfers');
+  revalidateTransferSurfaces();
   redirect('/admin/transfers');
 }
 
@@ -114,12 +76,16 @@ async function deleteTransfer(formData: FormData) {
   const id = fStr(formData, 'id');
   if (id) {
     try {
-      await prisma.transfer.delete({ where: { id } });
+      // Deleting the latest move hands the player back to the previous team
+      // instead of stranding them on a team with no backing ledger row.
+      await prisma.$transaction(async (tx) => {
+        await deleteTransferRecord(tx, id);
+      });
     } catch {
       redirect('/admin/transfers?error=delete-failed');
     }
   }
-  revalidatePath('/admin/transfers');
+  revalidateTransferSurfaces();
   redirect('/admin/transfers');
 }
 
@@ -231,17 +197,6 @@ export default async function AdminTransfersPage({
                 defaultValue={source?.playerId ?? ''}
                 placeholder="Type a player IGN…"
                 ariaLabel="Player"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>From Team</label>
-              <Combobox
-                name="fromTeamId"
-                options={teamOptions}
-                defaultValue={source?.fromTeamId ?? ''}
-                placeholder="Previous team (optional)…"
-                emptyOptionLabel="— Unspecified —"
-                ariaLabel="From Team"
               />
             </div>
             <div>

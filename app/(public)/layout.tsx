@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import type { Metadata } from 'next';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { CookieConsent } from '@/components/cookie-consent';
@@ -8,6 +9,21 @@ import { MaintenanceView } from '@/components/maintenance/maintenance-view';
 import { AdminMaintenanceBanner } from '@/components/maintenance/admin-banner';
 
 export const dynamic = 'force-dynamic';
+
+/*
+ * While the gate is up, every public route serves the placeholder — so none of
+ * them may be indexed. This lives in the layout because the layout is what
+ * applies the gate: one directive covers the whole subtree, and the root
+ * layout's index/follow stands whenever the gate is down.
+ *
+ * Without this, a maintenance window silently replaces the content of every
+ * indexed URL with a "coming soon" page that then gets indexed in its place.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const maintenance = await getMaintenanceSettings();
+  if (!maintenance.enabled) return {};
+  return { robots: { index: false, follow: false } };
+}
 
 // Shared chrome for every public page. Admin routes live outside this group
 // and keep their own panel layout.

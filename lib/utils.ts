@@ -145,6 +145,9 @@ export function getTournamentShortName(tournament: {
 
   const acronym = words
     .filter((w) => !/^(of|the|and|in|for|de|la)$/i.test(w))
+    // A year is already appended below, and its leading digit would otherwise
+    // be treated as an initial ("…ShowDown 2025" → "BMIS2 2025").
+    .filter((w) => !/^\d+$/.test(w))
     .map((w) => w[0])
     .join('')
     .toUpperCase();

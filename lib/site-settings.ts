@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { isViewWindow, type ViewWindow } from '@/lib/view-window';
 
 export interface MaintenanceSettings {
   enabled: boolean;
@@ -18,8 +19,20 @@ export interface MaintenanceSettings {
   };
 }
 
+/**
+ * Fail-OPEN on purpose.
+ *
+ * These are the values used when the settings row is missing or the read
+ * throws. `enabled: true` here meant a database hiccup silently re-gated the
+ * whole public site behind a "coming soon" placeholder — which is the single
+ * worst thing that can happen to a live site, because the placeholder is what
+ * gets served (and indexed) instead of the content. While the site is public,
+ * unknown state must mean "serve the site", not "hide it".
+ *
+ * Turning maintenance ON is always an explicit admin action.
+ */
 export const DEFAULT_MAINTENANCE_SETTINGS: MaintenanceSettings = {
-  enabled: true,
+  enabled: false,
   mode: 'COMING_SOON',
   title: 'Coming Soon - The Arena Awakens',
   subtitle:
@@ -111,6 +124,74 @@ export async function updateMaintenanceSettings(
 
 export async function toggleMaintenanceMode(enabled: boolean): Promise<MaintenanceSettings> {
   return updateMaintenanceSettings({ enabled });
+}
+
+export interface ViewCountSettings {
+  tournaments: boolean;
+  teams: boolean;
+  players: boolean;
+  /** Which window each type's public count covers unless a page overrides it. */
+  tournamentWindow: ViewWindow;
+  teamWindow: ViewWindow;
+  playerWindow: ViewWindow;
+}
+
+/** Off by default: a low count reads worse than no count, so showing is opt-in per type. */
+export const DEFAULT_VIEW_COUNT_SETTINGS: ViewCountSettings = {
+  tournaments: false,
+  teams: false,
+  players: false,
+  tournamentWindow: 'LIFETIME',
+  teamWindow: 'LIFETIME',
+  playerWindow: 'LIFETIME',
+};
+
+const VIEW_COUNT_SETTINGS_KEY = 'view_count_visibility';
+
+export async function getViewCountSettings(): Promise<ViewCountSettings> {
+  try {
+    const model = getSiteSettingModel();
+    if (!model) return DEFAULT_VIEW_COUNT_SETTINGS;
+
+    const row = await model.findUnique({ where: { key: VIEW_COUNT_SETTINGS_KEY } });
+    if (!row?.value) return DEFAULT_VIEW_COUNT_SETTINGS;
+
+    const parsed = JSON.parse(row.value) as Partial<ViewCountSettings>;
+    return {
+      tournaments: parsed.tournaments ?? false,
+      teams: parsed.teams ?? false,
+      players: parsed.players ?? false,
+      tournamentWindow: isViewWindow(parsed.tournamentWindow) ? parsed.tournamentWindow : 'LIFETIME',
+      teamWindow: isViewWindow(parsed.teamWindow) ? parsed.teamWindow : 'LIFETIME',
+      playerWindow: isViewWindow(parsed.playerWindow) ? parsed.playerWindow : 'LIFETIME',
+    };
+  } catch (error) {
+    console.error('[SiteSettings] Failed to fetch view-count settings:', error);
+    return DEFAULT_VIEW_COUNT_SETTINGS;
+  }
+}
+
+export async function updateViewCountSettings(
+  updates: Partial<ViewCountSettings>
+): Promise<ViewCountSettings> {
+  const merged = { ...(await getViewCountSettings()), ...updates };
+
+  const model = getSiteSettingModel();
+  if (model) {
+    await model.upsert({
+      where: { key: VIEW_COUNT_SETTINGS_KEY },
+      update: { value: JSON.stringify(merged) },
+      create: { key: VIEW_COUNT_SETTINGS_KEY, value: JSON.stringify(merged) },
+    });
+  }
+
+  try {
+    revalidatePath('/', 'layout');
+  } catch {
+    // May be called outside request context during tests
+  }
+
+  return merged;
 }
 
 export interface BrandingSettings {

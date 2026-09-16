@@ -8,15 +8,35 @@ import {
 import prisma from '@/lib/prisma';
 import { DirectoryPagination } from '@/components/directory-pagination';
 import { TeamsDirectoryExplorer } from '@/components/teams/teams-directory-explorer';
+import { directoryMetadata, SITE_NAME } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'Teams Hub | eSportsAmaze — Rosters, Profiles & Tournament History',
-  description:
-    'Browse every esports team in the eSportsAmaze wiki — verified rosters, regional info, and tournament history for BGMI, PUBG Mobile and more.',
-};
+/*
+ * Filter and page state over the same directory. Filtered views (a search box
+ * above all) are unbounded crawl space and stay out of the index; pagination is
+ * a real page and self-canonicalises; sorting is dropped from the canonical.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+
+  return {
+    title: `BGMI Teams — Rosters, Rankings & Results | ${SITE_NAME}`,
+    description:
+      'Every esports team on eSportsAmaze — verified BGMI, PUBG Mobile and multi-game rosters, regional info, KRAFTON rankings and tournament history.',
+    ...directoryMetadata({
+      path: '/teams',
+      params,
+      filterKeys: ['q', 'status', 'game', 'family', 'region', 'letter'],
+      defaults: { status: 'ALL', game: 'ALL', family: 'ALL', region: 'ALL', letter: 'ALL' },
+    }),
+  };
+}
 
 const PAGE_SIZE = 200;
 

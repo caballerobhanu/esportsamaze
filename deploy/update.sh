@@ -41,6 +41,11 @@ npm test
 echo ">>> [5/7] Synchronizing database schema..."
 npx prisma db push --accept-data-loss
 
+# The esportsamaze.in redirect rules are NOT regenerated here. They are a
+# .htaccess installed once into the old domain's document root on Hostinger,
+# and the wiki behind it is frozen, so new tournaments do not add pages. If you
+# ever need to refresh them:
+#   npx tsx scripts/build-legacy-redirects.ts
 echo ">>> [6/7] Building Next.js production bundle..."
 npm run build
 

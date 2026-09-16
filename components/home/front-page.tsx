@@ -2,9 +2,13 @@ import Link from 'next/link';
 import { getCategoryMeta, timeAgo } from '@/lib/news';
 import type { ArticleCardData } from '@/lib/news-queries';
 import { CoverImage } from '@/components/news/cover-image';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 
 export interface LiveTournamentTeaser {
   name: string;
+  shortName?: string | null;
+  series?: string | null;
+  season?: string | null;
   slug: string;
   stageName: string;
 }
@@ -161,7 +165,12 @@ export function FrontPage({
                   href={`/tournaments/${liveTournament.slug}`}
                   className="mt-3 block text-lg font-black leading-snug tracking-tight text-slate-950 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
                 >
-                  {liveTournament.name}
+                  <TournamentShortName
+                    name={liveTournament.name}
+                    shortName={liveTournament.shortName}
+                    series={liveTournament.series}
+                    season={liveTournament.season}
+                  />
                 </Link>
                 <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{liveTournament.stageName}</p>
                 <Link

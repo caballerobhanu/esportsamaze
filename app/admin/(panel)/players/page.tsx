@@ -5,6 +5,8 @@ import { Pencil, Trash2, Plus, Copy, CheckCircle2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
+import { setRosterMembership } from '@/lib/player-transfers';
+import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
@@ -39,6 +41,9 @@ async function savePlayer(formData: FormData) {
     'player-avatar'
   );
 
+  const desiredTeamId = fOpt(formData, 'currentTeamId');
+  const staffRole = fOpt(formData, 'staffRole');
+
   const data = {
     ign,
     slug,
@@ -49,33 +54,41 @@ async function savePlayer(formData: FormData) {
     birthDate: fDate(formData, 'birthDate'),
     status: fStr(formData, 'status') || 'ACTIVE',
     isPlayer: formData.get('isPlayer') === 'on',
-    staffRole: fOpt(formData, 'staffRole'),
+    staffRole,
     gameId: fOpt(formData, 'gameId'),
-    currentTeamId: fOpt(formData, 'currentTeamId'),
     socialLinks: fSocials(formData),
   };
 
-  if (id) {
-    const existing = await prisma.player.findUnique({
-      where: { id },
-      select: { avatarUrl: true },
-    });
-    await prisma.player.update({
-      where: { id },
-      data: {
-        ...data,
-        // uploaded file wins, then manual URL, then keep previous image
-        avatarUrl:
-          avatarUpload ?? fOpt(formData, 'avatarUrl') ?? existing?.avatarUrl ?? null,
-      },
-    });
-  } else {
-    await prisma.player.create({
-      data: { ...data, avatarUrl: avatarUpload ?? fOpt(formData, 'avatarUrl') },
-    });
-  }
+  await prisma.$transaction(async (tx) => {
+    let playerId: string;
+    if (id) {
+      const existing = await tx.player.findUnique({
+        where: { id },
+        select: { avatarUrl: true },
+      });
+      await tx.player.update({
+        where: { id },
+        data: {
+          ...data,
+          // uploaded file wins, then manual URL, then keep previous image
+          avatarUrl:
+            avatarUpload ?? fOpt(formData, 'avatarUrl') ?? existing?.avatarUrl ?? null,
+        },
+      });
+      playerId = id;
+    } else {
+      const created = await tx.player.create({
+        data: { ...data, avatarUrl: avatarUpload ?? fOpt(formData, 'avatarUrl') },
+      });
+      playerId = created.id;
+    }
+
+    // Roster membership is a stored slot; the Transfer ledger is admin-only history.
+    await setRosterMembership(tx, playerId, desiredTeamId);
+  });
 
   revalidatePath('/admin/players');
+  revalidateTransferSurfaces();
   redirect('/admin/players');
 }
 
@@ -94,28 +107,34 @@ async function duplicatePlayer(formData: FormData) {
     return Boolean(clash);
   });
 
-  const created = await prisma.player.create({
-    data: {
-      ign: baseIgn,
-      slug,
-      firstName: source.firstName,
-      lastName: source.lastName,
-      avatarUrl: source.avatarUrl,
-      nationality: source.nationality,
-      birthDate: source.birthDate,
-      status: source.status,
-      isVerified: source.isVerified,
-      isPlayer: source.isPlayer,
-      role: source.role,
-      staffRole: source.staffRole,
-      gameId: source.gameId,
-      currentTeamId: source.currentTeamId,
-      socialLinks: source.socialLinks ?? undefined,
-    },
+  const created = await prisma.$transaction(async (tx) => {
+    const copy = await tx.player.create({
+      data: {
+        ign: baseIgn,
+        slug,
+        firstName: source.firstName,
+        lastName: source.lastName,
+        avatarUrl: source.avatarUrl,
+        nationality: source.nationality,
+        birthDate: source.birthDate,
+        status: source.status,
+        isVerified: source.isVerified,
+        isPlayer: source.isPlayer,
+        role: source.role,
+        staffRole: source.staffRole,
+        gameId: source.gameId,
+        socialLinks: source.socialLinks ?? undefined,
+      },
+    });
+    // The copy keeps the source's roster slot (membership is stored, not history).
+    if (source.currentTeamId) {
+      await setRosterMembership(tx, copy.id, source.currentTeamId);
+    }
+    return copy;
   });
 
   revalidatePath('/admin/players');
-  revalidatePath('/players');
+  revalidateTransferSurfaces();
   redirect(`/admin/players?edit=${created.id}&saved=copy`);
 }
 

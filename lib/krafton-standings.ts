@@ -118,6 +118,8 @@ export interface EntryRow {
   id: string;
   eventId: string;
   eventName: string;
+  /** Display label for narrow viewports — null when the event has no short name. */
+  eventShortName: string | null;
   eventEndDate: Date;
   tier: string;
   board: string;
@@ -162,6 +164,7 @@ export interface EventContribution {
   entryId: string;
   eventId: string;
   eventName: string;
+  eventShortName: string | null;
   endDate: Date;
   tier: string;
   rank: number;
@@ -213,6 +216,7 @@ function contributionFor(e: EntryRow, asOfInput: Date | string): EventContributi
     entryId: e.id,
     eventId: e.eventId,
     eventName: e.eventName,
+    eventShortName: e.eventShortName,
     endDate,
     tier: e.tier,
     rank: e.rank,
@@ -325,6 +329,7 @@ export function computeBoard(
           entryId: `transfer-${t.id}`,
           eventId: `transfer-${t.id}`,
           eventName: `Point transfer from ${t.fromName}`,
+          eventShortName: null,
           endDate: cutoffDate,
           tier: '—',
           rank: 0,
@@ -866,6 +871,83 @@ export function computeEntityRankMilestones(
     isCurrentlyInTop5,
     currentRank,
   };
+}
+
+/** One unbroken spell at rank #1. */
+export interface RankOneReign {
+  entityKey: string;
+  entityId: string | null;
+  entityName: string;
+  /** ISO date the entity first held #1 in this spell. */
+  startDate: string;
+  /** ISO date the next holder took over — or `asOf` for the live spell. */
+  endDate: string;
+  days: number;
+  isCurrent: boolean;
+}
+
+/**
+ * Who held rank #1, coalesced into unbroken spells.
+ *
+ * Uses the same snapshot dates and day accounting as `computeEntityRankMilestones`
+ * so a reign's `days` agrees with the per-entity "days at peak" on a detail page:
+ * a snapshot date is worth the gap to the NEXT date, and the final date is worth
+ * one day. A spell therefore ends on the date its successor takes over, which
+ * means consecutive spells share a boundary — the handover day.
+ *
+ * Returned oldest first.
+ */
+export function computeRankOneReigns(
+  entries: EntryRow[],
+  transfers: TransferRule[] = [],
+  asOf: Date = new Date()
+): RankOneReign[] {
+  const dateStringsAsc = generateHistoricalSnapshotDates(entries, asOf).sort();
+  const todayStr = asOf.toISOString().slice(0, 10);
+  if (!dateStringsAsc.includes(todayStr)) {
+    dateStringsAsc.push(todayStr);
+    dateStringsAsc.sort();
+  }
+
+  const snapshots = dateStringsAsc.map((dateStr, index) => {
+    const d = new Date(`${dateStr}T23:59:59Z`);
+    const isLast = index === dateStringsAsc.length - 1;
+    const days = isLast
+      ? 1
+      : Math.max(
+          0,
+          Math.round(
+            (new Date(`${dateStringsAsc[index + 1]}T23:59:59Z`).getTime() - d.getTime()) / DAY
+          )
+        );
+    return { dateStr, days, top: computeBoard(entries, transfers, d)[0] ?? null };
+  });
+
+  const reigns: RankOneReign[] = [];
+  snapshots.forEach((snapshot, index) => {
+    if (!snapshot.top) return;
+    const nextDateStr = snapshots[index + 1]?.dateStr ?? todayStr;
+    const current = reigns[reigns.length - 1];
+
+    if (current && current.entityKey === snapshot.top.key) {
+      current.endDate = nextDateStr;
+      current.days += snapshot.days;
+      return;
+    }
+
+    reigns.push({
+      entityKey: snapshot.top.key,
+      entityId: snapshot.top.entityId ?? null,
+      entityName: snapshot.top.entityName,
+      startDate: snapshot.dateStr,
+      endDate: nextDateStr,
+      days: snapshot.days,
+      isCurrent: false,
+    });
+  });
+
+  if (reigns.length > 0) reigns[reigns.length - 1].isCurrent = true;
+  return reigns;
 }
 
 

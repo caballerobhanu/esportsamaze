@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, getTournamentShortName } from '@/lib/utils';
 
 type EventTab = 'active' | 'past';
 type EventStatus = 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELED';
@@ -271,7 +271,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
                     style={bandStyle}
                   >
                     <span className="truncate text-[10px] font-black uppercase tracking-wide">
-                      {event.shortName || event.name}
+                      {getTournamentShortName({ name: event.name, shortName: event.shortName })}
                     </span>
                   </div>
 

@@ -196,16 +196,10 @@ export function MatchBatchImporter({
         if (teamPlayer) return teamPlayer;
       }
 
-      // 2. Exact match
-      const exact = allPlayers.find((p) => p.ign.toLowerCase() === clean);
-      if (exact) return exact;
-
-      // 3. Match without team tags (e.g. "SoulMortal" -> "Mortal")
-      const sub = allPlayers.find((p) => {
-        const pIgn = p.ign.toLowerCase();
-        return clean.includes(pIgn) || pIgn.includes(clean);
-      });
-      return sub;
+      // 2. Exact match only. Substring matching is deliberately absent: an IGN that
+      // merely contains another ("beast04" contains "beast") is a different player,
+      // and matching it silently attached one player's scorecards to another.
+      return allPlayers.find((p) => p.ign.toLowerCase() === clean);
     },
     [allPlayers, allTeams]
   );

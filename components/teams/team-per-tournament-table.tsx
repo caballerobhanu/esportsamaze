@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 
 import { formatAverage, formatRate } from '@/lib/team-stats';
 import type { TeamTournamentRow } from '@/lib/team-data';
@@ -81,7 +82,7 @@ export function TeamPerTournamentTable({
                     href={`/tournaments/${row.slug}`}
                     className="line-clamp-1 max-w-[240px] font-bold transition-colors hover:text-[#0A5FC4]"
                   >
-                    {row.name}
+                    <TournamentShortName name={row.name} shortName={row.shortName} />
                   </Link>
                 </td>
                 <td className={`${td} font-black`}>{row.matches}</td>

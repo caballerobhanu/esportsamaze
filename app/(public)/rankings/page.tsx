@@ -1,20 +1,48 @@
 import type { Metadata } from 'next';
 import prisma from '@/lib/prisma';
 import { fetchBoardSnapshot, fetchTeamTransfers, fetchFutureKraftonEvents } from '@/lib/krafton-data';
-import { computeNextDecay, computeUnifiedNextUpdate } from '@/lib/krafton-standings';
+import { computeNextDecay, computeRankOneReigns, computeUnifiedNextUpdate } from '@/lib/krafton-standings';
 import type { KraftonBoard } from '@prisma/client';
 import {
   EntityLogoMeta,
   RankingsBoardClient,
 } from '@/components/rankings/rankings-board-client';
 
+import { absoluteUrl, breadcrumbJsonLd, canonical, rankedItemListJsonLd, SITE_NAME } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
+
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'KRAFTON Rankings | eSportsAmaze — Official Team & Player Standings',
-  description:
-    'Official KRAFTON ranking points for BGMI esports — tier-based event points with rolling decay, updated as events are entered.',
-};
+/*
+ * `?date=` is view state — a snapshot of the same board — so it is stripped and
+ * every snapshot canonicalises to the live board. `?board=` is not: the team and
+ * player leaderboards are different datasets answering different queries, so
+ * each keeps its own canonical and its own title.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const isPlayers = parseBoard(params) === 'PLAYER';
+
+  if (isPlayers) {
+    return {
+      title: `BGMI KRAFTON Rankings — Player Leaderboard | ${SITE_NAME}`,
+      description:
+        'Official KRAFTON ranking points for BGMI players — tier-based event points with MVP, finish and award bonuses, plus rolling decay.',
+      ...canonical('/rankings?board=players'),
+    };
+  }
+
+  return {
+    title: `BGMI KRAFTON Rankings — Team Points Table | ${SITE_NAME}`,
+    description:
+      'Official KRAFTON ranking points for BGMI esports teams — tier-based event points with rolling decay, updated as events are entered.',
+    ...canonical('/rankings'),
+  };
+}
 
 function parseBoard(params: { board?: string }): KraftonBoard {
   return params.board === 'players' ? 'PLAYER' : 'TEAM';
@@ -29,11 +57,15 @@ export default async function RankingsPage({
   const board: KraftonBoard = parseBoard(params);
   const isPlayers = board === 'PLAYER';
 
-  const [{ ranked, snapshotDates, selectedDate }, transfers, futureEvents] = await Promise.all([
+  const [{ ranked, snapshotDates, selectedDate, entries }, transfers, futureEvents] = await Promise.all([
     fetchBoardSnapshot(board, params.date),
     fetchTeamTransfers(),
     fetchFutureKraftonEvents(),
   ]);
+
+  // Who held #1 and for how long — computed from the same entries the board was
+  // built from, so both views agree. Point transfers only apply to the team board.
+  const reigns = computeRankOneReigns(entries, isPlayers ? [] : transfers);
 
   // Earliest upcoming decay across top entities
   let earliestDecay: ReturnType<typeof computeNextDecay> = null;
@@ -86,8 +118,30 @@ export default async function RankingsPage({
     }
   }
 
+  const boardPath = isPlayers ? '/rankings?board=players' : '/rankings';
+
+  // The board itself as an ordered list, so the ranking is machine-readable
+  // rather than only visually ordered. Entities linked to a site profile get a
+  // URL; the rest stay name-only rather than pointing somewhere invented.
+  const rankingJsonLd = rankedItemListJsonLd(
+    ranked.map((entry) => {
+      const slug = entry.entityId ? logosMap[entry.entityId]?.slug : null;
+      return {
+        name: entry.entityName,
+        type: isPlayers ? ('Person' as const) : ('SportsTeam' as const),
+        url: slug ? absoluteUrl(`/rankings/${isPlayers ? 'player' : 'team'}/${slug}`) : null,
+      };
+    }),
+    isPlayers ? 'KRAFTON player rankings' : 'KRAFTON team rankings'
+  );
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', path: '/' },
+    { name: 'KRAFTON Rankings', path: boardPath },
+  ]);
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      <JsonLd data={[rankingJsonLd, breadcrumbs]} />
       <main className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 sm:py-8">
         <RankingsBoardClient
           board={board}
@@ -97,6 +151,7 @@ export default async function RankingsPage({
           logosMap={logosMap}
           transfers={transfers}
           nextUpdate={nextUpdate}
+          reigns={reigns}
         />
       </main>
     </div>

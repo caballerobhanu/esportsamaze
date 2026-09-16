@@ -13,6 +13,7 @@ import {
   computeNextDecay,
   computeUnifiedNextUpdate,
   computeEntityRankMilestones,
+  computeRankOneReigns,
   parseTeamPaste,
   parsePlayerPaste,
   type EntryRow,
@@ -24,6 +25,7 @@ const entry = (over: Partial<EntryRow>): EntryRow => ({
   id: 'e1',
   eventId: 'ev1',
   eventName: 'Test Event',
+  eventShortName: null,
   eventEndDate: d('2024-06-30'),
   tier: 'Tier 1',
   board: 'TEAM',
@@ -455,6 +457,110 @@ test('computeEntityRankMilestones calculates peak rank, days at peak, and days i
   assert.equal(bMilestones.isCurrentlyAtHighest, true);
   assert.equal(bMilestones.daysInTop5, 31);
   assert.equal(bMilestones.isCurrentlyInTop5, true);
+});
+
+test('computeRankOneReigns splits the #1 spell at each handover', () => {
+  // Same scenario as the milestones test: Team A leads from Jan 1, Team B takes
+  // over on Jan 11 and still holds it on Jan 31.
+  const entries: EntryRow[] = [
+    entry({
+      id: 'e1',
+      eventId: 'ev1',
+      eventName: 'Event 1',
+      eventEndDate: d('2024-01-01T00:00:00Z'),
+      tier: 'Publisher',
+      entityId: 'team-a',
+      entityName: 'Team A',
+      rank: 1,
+    }),
+    entry({
+      id: 'e2',
+      eventId: 'ev1',
+      eventName: 'Event 1',
+      eventEndDate: d('2024-01-01T00:00:00Z'),
+      tier: 'Publisher',
+      entityId: 'team-b',
+      entityName: 'Team B',
+      rank: 2,
+    }),
+    entry({
+      id: 'e3',
+      eventId: 'ev2',
+      eventName: 'Event 2',
+      eventEndDate: d('2024-01-11T00:00:00Z'),
+      tier: 'Publisher',
+      entityId: 'team-b',
+      entityName: 'Team B',
+      rank: 1,
+    }),
+    entry({
+      id: 'e4',
+      eventId: 'ev2',
+      eventName: 'Event 2',
+      eventEndDate: d('2024-01-11T00:00:00Z'),
+      tier: 'Publisher',
+      entityId: 'team-a',
+      entityName: 'Team A',
+      rank: 3,
+    }),
+  ];
+
+  const reigns = computeRankOneReigns(entries, [], d('2024-01-31T00:00:00Z'));
+
+  assert.deepEqual(
+    reigns.map((r) => [r.entityName, r.startDate, r.endDate, r.days, r.isCurrent]),
+    [
+      ['Team A', '2024-01-01', '2024-01-11', 10, false],
+      ['Team B', '2024-01-11', '2024-01-31', 21, true],
+    ],
+  );
+  // The two spells together cover exactly the same days the per-entity milestone
+  // reports (10 + 21), so the two views cannot disagree.
+  assert.equal(
+    reigns.reduce((sum, r) => sum + r.days, 0),
+    31,
+  );
+});
+
+test('computeRankOneReigns records a team that takes #1 back', () => {
+  // Only one team scores in events 2 and 3, which breaks the symmetry a straight
+  // rank swap would otherwise produce.
+  const entries: EntryRow[] = [
+    entry({ id: 'a1', eventId: 'ev1', eventName: 'E1', eventEndDate: d('2024-01-01T00:00:00Z'), tier: 'Publisher', entityId: 'a', entityName: 'A', rank: 1 }),
+    entry({ id: 'b1', eventId: 'ev1', eventName: 'E1', eventEndDate: d('2024-01-01T00:00:00Z'), tier: 'Publisher', entityId: 'b', entityName: 'B', rank: 3 }),
+    entry({ id: 'b2', eventId: 'ev2', eventName: 'E2', eventEndDate: d('2024-01-11T00:00:00Z'), tier: 'Publisher', entityId: 'b', entityName: 'B', rank: 1 }),
+    entry({ id: 'a2', eventId: 'ev3', eventName: 'E3', eventEndDate: d('2024-01-21T00:00:00Z'), tier: 'Publisher', entityId: 'a', entityName: 'A', rank: 1 }),
+  ];
+
+  const reigns = computeRankOneReigns(entries, [], d('2024-01-31T00:00:00Z'));
+
+  assert.deepEqual(
+    reigns.map((r) => [r.entityName, r.startDate, r.endDate, r.days, r.isCurrent]),
+    [
+      ['A', '2024-01-01', '2024-01-11', 10, false],
+      ['B', '2024-01-11', '2024-01-21', 10, false],
+      ['A', '2024-01-21', '2024-01-31', 11, true],
+    ],
+  );
+});
+
+test('computeRankOneReigns keeps one unbroken spell for a single leader', () => {
+  const entries: EntryRow[] = [
+    entry({ id: 'a1', eventId: 'ev1', eventName: 'E1', eventEndDate: d('2024-01-01T00:00:00Z'), tier: 'Publisher', entityId: 'a', entityName: 'A', rank: 1 }),
+  ];
+
+  const reigns = computeRankOneReigns(entries, [], d('2024-01-31T00:00:00Z'));
+
+  assert.equal(reigns.length, 1);
+  assert.equal(reigns[0].entityName, 'A');
+  assert.equal(reigns[0].entityId, 'a');
+  assert.equal(reigns[0].startDate, '2024-01-01');
+  assert.equal(reigns[0].endDate, '2024-01-31');
+  assert.equal(reigns[0].isCurrent, true);
+});
+
+test('computeRankOneReigns returns nothing without entries', () => {
+  assert.deepEqual(computeRankOneReigns([], [], d('2024-01-31T00:00:00Z')), []);
 });
 
 

@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 
 import { TeamOverviewPanel, type KraftonSummary } from '@/components/teams/team-overview-panel';
 import { TeamTabShell } from '@/components/teams/team-tab-shell';
+import { PageViews } from '@/components/ui/page-views';
+import { JsonLd } from '@/components/seo/json-ld';
+import { sportsTeamJsonLd } from '@/lib/seo';
 import { fetchEntityStanding } from '@/lib/krafton-data';
 import {
   loadTeamContext,
@@ -45,8 +48,33 @@ export default async function TeamOverviewPage({ params }: TeamPageProps) {
       ? recentFormPoints.reduce((sum, value) => sum + value, 0) / recentFormPoints.length
       : null;
 
+  const teamJsonLd = sportsTeamJsonLd({
+    name: team.name,
+    slug: team.slug,
+    tag: team.tag,
+    displayName: team.displayName,
+    logoUrl: team.logoUrl,
+    region: team.region,
+    foundedYear: team.foundedYear,
+    members: team.players.map((player) => ({
+      name: player.ign,
+      slug: player.slug,
+      role: player.role,
+    })),
+    sameAs: Object.values(team.socials),
+  });
+
   return (
     <TeamTabShell team={team} activeTab="overview" kraftonRank={krafton?.rank ?? null}>
+      <JsonLd data={teamJsonLd} />
+      <PageViews
+        type="TEAM"
+        id={team.id}
+        override={team.showViewCount}
+        windowOverride={team.viewCountWindow}
+        className="mb-4"
+      />
+
       <TeamOverviewPanel
         team={team}
         matchSummary={matchSummary}

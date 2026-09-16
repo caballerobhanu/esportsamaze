@@ -14,6 +14,7 @@ const tournament = (
   overrides: Partial<AwardTournamentInput> & { tournamentId: string },
 ): AwardTournamentInput => ({
   name: overrides.tournamentId,
+  shortName: null,
   slug: overrides.tournamentId,
   currency: 'INR',
   startedAtMs: 0,

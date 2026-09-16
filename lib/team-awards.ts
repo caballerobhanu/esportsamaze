@@ -34,6 +34,8 @@ export type AwardResolution = 'award-team' | 'roster' | 'ledger';
 export interface AwardTournamentInput {
   tournamentId: string;
   name: string;
+  /** Admin-entered short label, or null so the display can derive a fallback. */
+  shortName: string | null;
   slug: string;
   currency: string;
   /** `null` when the event has no start date. Used only for ordering. */
@@ -54,6 +56,8 @@ export interface TeamAward {
   key: string;
   tournamentId: string;
   tournamentName: string;
+  /** Admin-entered short label, shown in place of `tournamentName` on mobile. */
+  tournamentShortName: string | null;
   tournamentSlug: string;
   currency: string;
   /** The row's `rank` field — for awards this is the honour's name. */
@@ -91,7 +95,6 @@ export interface CollectTeamAwardsInput {
   /** The transfer ledger — the fallback for players who have since left. */
   transfers: readonly AwardPlayerRef[];
   playerIdToSlug?: Record<string, string>;
-  ignToSlug?: Record<string, string>;
 }
 
 /**
@@ -129,26 +132,21 @@ export function describeAwardReward(award: TeamAward): AwardReward {
   return { kind: 'NONE' };
 }
 
-const normalizeIgn = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
-
 export function collectTeamAwards({
   teamId,
   tournaments,
   roster,
   transfers,
   playerIdToSlug = {},
-  ignToSlug = {},
 }: CollectTeamAwardsInput): TeamAwards {
   const awards: TeamAward[] = [];
   const unresolved: UnresolvedAward[] = [];
 
-  // Display names for players referenced only by id on the award row.
+  // Display names for players referenced only by id on the award row. Keyed by id
+  // only — a name-keyed lookup would draw look-alike IGNs together.
   const byId = new Map<string, AwardPlayerRef>();
-  const byIgn = new Map<string, AwardPlayerRef>();
   for (const player of [...roster, ...transfers]) {
     byId.set(player.id, player);
-    const key = normalizeIgn(player.ign);
-    if (key && !byIgn.has(key)) byIgn.set(key, player);
   }
 
   for (const tournament of tournaments) {
@@ -156,25 +154,17 @@ export function collectTeamAwards({
     if (rows.length === 0) continue;
 
     // The event roster carries the players who were actually on this team then,
-    // including anyone who has since left.
+    // including anyone who has since left. Matched by player id only: an entry
+    // with no id is not evidence that this name belongs to any given player.
     const rosterEntries = parseRoster(tournament.rosterJson);
     const eventPlayerIds = new Set<string>();
-    const eventIgns = new Set<string>();
     const eventSlugs = new Set<string>();
     for (const entry of rosterEntries) {
       if (entry.playerId) eventPlayerIds.add(entry.playerId);
-      const ign = normalizeIgn(entry.ign);
-      if (ign) {
-        eventIgns.add(ign);
-        if (!byIgn.has(ign)) {
-          byIgn.set(ign, { id: entry.playerId ?? '', ign: entry.ign, slug: entry.slug ?? null });
-        }
-      }
       if (entry.slug) eventSlugs.add(entry.slug.toLowerCase());
     }
 
     const ledgerIds = new Set(transfers.map((player) => player.id));
-    const ledgerIgns = new Set(transfers.map((player) => normalizeIgn(player.ign)).filter(Boolean));
 
     rows.forEach((row, rowIndex) => {
       const label = String(row.rank ?? '').trim();
@@ -194,7 +184,6 @@ export function collectTeamAwards({
       // not ours, so it is neither shown here nor reported as unresolved.
       if (rowTeamId && rowTeamId !== teamId) return;
 
-      const ign = normalizeIgn(playerName);
       // The only way a slug can match is award.playerId → known slug → a roster
       // entry that recorded a slug but no player id.
       const awardSlug = (
@@ -206,10 +195,8 @@ export function collectTeamAwards({
       let resolvedBy: AwardResolution | null = null;
       if (rowTeamId) resolvedBy = 'award-team';
       else if (playerId && eventPlayerIds.has(playerId)) resolvedBy = 'roster';
-      else if (ign && eventIgns.has(ign)) resolvedBy = 'roster';
       else if (awardSlug && eventSlugs.has(awardSlug)) resolvedBy = 'roster';
       else if (playerId && ledgerIds.has(playerId)) resolvedBy = 'ledger';
-      else if (ign && ledgerIgns.has(ign)) resolvedBy = 'ledger';
 
       if (!resolvedBy) {
         // Report it instead of guessing: a team-level honour with no team on the
@@ -228,17 +215,16 @@ export function collectTeamAwards({
         return;
       }
 
-      const known = (playerId ? byId.get(playerId) : null) ?? (ign ? byIgn.get(ign) : null) ?? null;
+      const known = playerId ? byId.get(playerId) ?? null : null;
       const slugFromMap = playerId ? playerIdToSlug[playerId] : undefined;
       const slug =
-        (slugFromMap && slugFromMap.length > 0 ? slugFromMap : null) ??
-        known?.slug ??
-        (ign && ignToSlug[ign] ? ignToSlug[ign] : null);
+        (slugFromMap && slugFromMap.length > 0 ? slugFromMap : null) ?? known?.slug ?? null;
 
       awards.push({
         key: `${tournament.tournamentId}:${rowIndex}`,
         tournamentId: tournament.tournamentId,
         tournamentName: tournament.name,
+        tournamentShortName: tournament.shortName,
         tournamentSlug: tournament.slug,
         currency: tournament.currency,
         label,

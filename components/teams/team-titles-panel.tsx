@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Award, Crown, Gift, Medal, Trophy } from 'lucide-react';
 
 import { ThemeLogo } from '@/components/ui/theme-logo';
+import { TournamentName } from '@/components/ui/tournament-name';
 import { describeAwardReward, type TeamAward } from '@/lib/team-awards';
 import type { TeamContext } from '@/lib/team-data';
 import { formatPrizePool } from '@/lib/utils';
@@ -70,7 +71,7 @@ function AwardRow({ award }: { award: TeamAward }) {
             href={`/tournaments/${award.tournamentSlug}`}
             className="transition-colors hover:text-[#0A5FC4]"
           >
-            {award.tournamentName}
+            <TournamentName name={award.tournamentName} shortName={award.tournamentShortName} />
           </Link>
         </p>
       </div>
@@ -214,7 +215,7 @@ export function TeamTitlesPanel({
                       {meta.rankLabel}
                     </span>
                     <p className="mt-1.5 line-clamp-2 text-sm font-extrabold leading-snug text-slate-900 dark:text-white">
-                      {event.name}
+                      <TournamentName name={event.name} shortName={event.shortName} />
                     </p>
                     <p className="mt-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
                       {event.startedAtMs ? new Date(event.startedAtMs).getUTCFullYear() : ''}
@@ -280,7 +281,9 @@ export function TeamTitlesPanel({
                     className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-500/50"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-extrabold text-slate-900 dark:text-white">{event.name}</p>
+                      <p className="truncate text-xs font-extrabold text-slate-900 dark:text-white">
+                        <TournamentName name={event.name} shortName={event.shortName} />
+                      </p>
                       {event.finalRank && (
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                           Finish #{event.finalRank}

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Swords, Trophy } from 'lucide-react';
 
 import { DirectoryPagination } from '@/components/directory-pagination';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 import { TeamMatchFilters, type TeamMatchFilterState } from './team-match-filters';
 import { groupRowsByEvent } from '@/lib/team-stats';
 import {
@@ -55,14 +56,13 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
         {row.tournamentSlug ? (
           <Link
             href={`/tournaments/${row.tournamentSlug}`}
-            title={row.tournamentFullName}
             className="line-clamp-1 max-w-[220px] font-bold transition-colors hover:text-[#0A5FC4]"
           >
-            {row.tournamentName}
+            <TournamentShortName name={row.tournamentName} shortName={row.tournamentShortName} />
           </Link>
         ) : (
-          <span className="font-bold" title={row.tournamentFullName}>
-            {row.tournamentName}
+          <span className="font-bold">
+            <TournamentShortName name={row.tournamentName} shortName={row.tournamentShortName} />
           </span>
         )}
       </td>
@@ -201,14 +201,13 @@ export function TeamMatchesPanel({
                           {head.tournamentSlug ? (
                             <Link
                               href={`/tournaments/${head.tournamentSlug}`}
-                              title={head.tournamentFullName}
                               className="text-[10px] font-black uppercase tracking-[.16em] text-[#0A5FC4] transition-colors hover:underline dark:text-blue-300"
                             >
-                              {head.tournamentName}
+                              <TournamentShortName name={head.tournamentName} shortName={head.tournamentShortName} />
                             </Link>
                           ) : (
                             <span className="text-[10px] font-black uppercase tracking-[.16em] text-slate-500 dark:text-slate-300">
-                              {head.tournamentName}
+                              <TournamentShortName name={head.tournamentName} shortName={head.tournamentShortName} />
                             </span>
                           )}
                           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">

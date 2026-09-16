@@ -26,6 +26,14 @@ import {
 } from '@/lib/standings-config';
 import { countryCodeFor } from '@/lib/countries';
 import { CURRENCY_SYMBOLS } from '@/lib/utils';
+import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
+import {
+  TOURNAMENT_TAB_SEGMENT,
+  tournamentTabDescription,
+  tournamentTabTitle,
+} from '@/lib/seo-titles';
+import { resolveTotalsLadder, type ReportedTotalsRow } from '@/lib/tournament-totals';
+import type { MetricAggregate } from '@/lib/player-stats';
 import type { StageGroup, TeamPerformanceRow, PlayerPerformanceRow } from '@/components/tournaments/estatic/panel-types';
 
 /* ── The one big fetch (moved verbatim from the former single page) ── */
@@ -52,6 +60,26 @@ async function fetchTournament(rawSlug: string) {
         sponsors: { include: { sponsor: true } },
         venues: { include: { venue: true } },
         stages: { orderBy: { sequence: 'asc' } },
+        // Reported (match-free) totals: day / stage / event slices entered by hand
+        // for events with no scorecards. Never mixed with the match data below.
+        teamTotals: {
+          include: {
+            team: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                tag: true,
+                slug: true,
+                logoUrl: true,
+                imageDarkUrl: true,
+              },
+            },
+          },
+        },
+        playerTotals: {
+          include: { player: { select: { id: true, ign: true, slug: true } }, team: { select: { name: true } } },
+        },
         teams: {
           orderBy: [{ finalRank: 'asc' }, { seed: 'asc' }],
           include: {
@@ -342,7 +370,7 @@ export function firstVisibleTabPath(ctx: TournamentContext): string {
 
 export async function tournamentMetadata(
   rawSlug: string,
-  suffix?: string
+  tab: TournamentTabId = 'overview'
 ): Promise<Metadata> {
   try {
     const decoded = decodeURIComponent(rawSlug).trim();
@@ -357,21 +385,46 @@ export async function tournamentMetadata(
           { name: { equals: decoded, mode: 'insensitive' } },
         ],
       },
-      select: { name: true },
+      select: {
+        name: true,
+        shortName: true,
+        slug: true,
+        status: true,
+        standingsConfig: true,
+        game: { select: { name: true, shortName: true } },
+      },
     });
+
     if (tournament) {
-      const title = suffix
-        ? `${tournament.name} — ${suffix} | eSportsAmaze`
-        : `${tournament.name} — eSportsAmaze Standings, Matches & Stats`;
+      const name = tournament.shortName || tournament.name;
+      const game = tournament.game?.shortName || tournament.game?.name || null;
+      const segment = TOURNAMENT_TAB_SEGMENT[tab];
+      const path = segment
+        ? `/tournaments/${tournament.slug}/${segment}`
+        : `/tournaments/${tournament.slug}`;
+      const title = tournamentTabTitle(tab, name, tournament.status);
+      const description = tournamentTabDescription(tab, tournament.name, game);
+
+      // A tab the admin switched off still resolves as a route, so it must be
+      // kept out of the index explicitly.
+      const visibleTabs =
+        normalizeStandingsConfig(tournament.standingsConfig).visibleTabs ?? [
+          ...ALL_TOURNAMENT_TAB_IDS,
+        ];
+      const hidden = !visibleTabs.includes(tab);
+
       return {
         title,
-        description: `Official stage-wise standings, match scorecards, prize pool distribution, participating team rosters, and top fraggers for ${tournament.name}.`,
+        description,
+        openGraph: { title, description, type: 'website', url: absoluteUrl(path) },
+        ...canonical(path),
+        ...(hidden ? { robots: { index: false, follow: true } } : {}),
       };
     }
   } catch {
     /* fall through */
   }
-  return { title: 'Tournament Details | eSportsAmaze' };
+  return { title: `Tournament Details | ${SITE_NAME}` };
 }
 
 /* ── Shared derived data ── */
@@ -670,6 +723,180 @@ export function buildStandingsData(ctx: TournamentContext) {
     standingsMatches,
     teamsMeta: buildTeamsMeta(ctx),
   };
+}
+
+/* ── Reported totals (match-free: day → stage → event) ─────────────────── */
+
+const REPORTED_TEAM_KEYS = [
+  'placement',
+  'matches',
+  'wwcd',
+  'placePoints',
+  'elimsPoints',
+  'bonusPoints',
+  'totalPoints',
+  'finishes',
+] as const;
+
+const REPORTED_PLAYER_KEYS = [
+  'matches',
+  'playerElims',
+  'damage',
+  'headshots',
+  'assists',
+  'knockouts',
+  'survivalTime',
+  'healing',
+  'airdrops',
+  'rescues',
+] as const;
+
+export interface ReportedTeamTotal {
+  teamId: string;
+  name: string;
+  displayName: string | null;
+  tag: string | null;
+  slug: string | null;
+  logoUrl: string | null;
+  logoDarkUrl: string | null;
+  placement: number | null;
+  matches: number | null;
+  wwcd: number | null;
+  placePoints: number | null;
+  elimsPoints: number | null;
+  bonusPoints: number | null;
+  totalPoints: number | null;
+  finishes: number | null;
+  /** Summed from child slices rather than entered at this level. */
+  derived: boolean;
+  /** Metrics only some contributing slices reported — partial, not a full total. */
+  partial: string[];
+}
+
+export interface ReportedPlayerTotal {
+  playerId: string;
+  ign: string;
+  slug: string | null;
+  teamName: string | null;
+  matches: number | null;
+  playerElims: number | null;
+  damage: number | null;
+  headshots: number | null;
+  assists: number | null;
+  knockouts: number | null;
+  survivalTime: number | null;
+  healing: number | null;
+  airdrops: number | null;
+  rescues: number | null;
+  derived: boolean;
+  partial: string[];
+}
+
+function reportedMetrics(row: Record<string, unknown>, keys: readonly string[]): Record<string, number | null> {
+  const metrics: Record<string, number | null> = {};
+  for (const key of keys) {
+    metrics[key] = typeof row[key] === 'number' ? (row[key] as number) : null;
+  }
+  return metrics;
+}
+
+function partialKeys(metrics: Record<string, MetricAggregate>): string[] {
+  return Object.entries(metrics)
+    .filter(([, metric]) => metric.samples < metric.total)
+    .map(([key]) => key);
+}
+
+/**
+ * Resolves the reported ladder to each entity's EVENT-level total.
+ *
+ * A level is read from its own row only when it has no child rows, so the event
+ * total is the sum of the day / stage slices where those exist — never a parent
+ * plus its own children. Metrics only some slices reported are flagged partial
+ * rather than presented as a complete total, and a blank stays null (not 0).
+ */
+export function buildReportedTotals(ctx: TournamentContext) {
+  const teamSlices = new Map<string, ReportedTotalsRow[]>();
+  for (const row of ctx.tournament.teamTotals) {
+    const list = teamSlices.get(row.teamId) ?? [];
+    list.push({
+      scope: row.scope,
+      stageId: row.stageId,
+      label: row.label,
+      metrics: reportedMetrics(row as unknown as Record<string, unknown>, REPORTED_TEAM_KEYS),
+    });
+    teamSlices.set(row.teamId, list);
+  }
+
+  const teams: ReportedTeamTotal[] = [];
+  for (const [teamId, slices] of teamSlices) {
+    const event = resolveTotalsLadder(slices).find((slice) => slice.scope === 'EVENT');
+    if (!event) continue;
+    // The event's own squad row supplies overrides (event display name, logo);
+    // otherwise the Team record itself does. A reported-only team has no
+    // TournamentTeam row at all, so falling back to the id would print a cuid.
+    const squad = ctx.tournament.teams.find((tt) => tt.teamId === teamId);
+    const record = ctx.tournament.teamTotals.find((row) => row.teamId === teamId)?.team;
+    teams.push({
+      teamId,
+      name: record?.name ?? teamId,
+      displayName: squad?.displayName ?? record?.displayName ?? null,
+      tag: squad?.shortName ?? record?.tag ?? null,
+      slug: record?.slug ?? null,
+      logoUrl: squad?.logoUrl ?? record?.logoUrl ?? null,
+      logoDarkUrl: squad?.logoDarkUrl ?? record?.imageDarkUrl ?? null,
+      placement: event.metrics.placement?.value ?? null,
+      matches: event.metrics.matches?.value ?? null,
+      wwcd: event.metrics.wwcd?.value ?? null,
+      placePoints: event.metrics.placePoints?.value ?? null,
+      elimsPoints: event.metrics.elimsPoints?.value ?? null,
+      bonusPoints: event.metrics.bonusPoints?.value ?? null,
+      totalPoints: event.metrics.totalPoints?.value ?? null,
+      finishes: event.metrics.finishes?.value ?? null,
+      derived: event.derived,
+      partial: partialKeys(event.metrics),
+    });
+  }
+  teams.sort((a, b) => (b.totalPoints ?? -1) - (a.totalPoints ?? -1) || a.name.localeCompare(b.name));
+
+  const playerSlices = new Map<string, ReportedTotalsRow[]>();
+  for (const row of ctx.tournament.playerTotals) {
+    const list = playerSlices.get(row.playerId) ?? [];
+    list.push({
+      scope: row.scope,
+      stageId: row.stageId,
+      label: row.label,
+      metrics: reportedMetrics(row as unknown as Record<string, unknown>, REPORTED_PLAYER_KEYS),
+    });
+    playerSlices.set(row.playerId, list);
+  }
+
+  const players: ReportedPlayerTotal[] = [];
+  for (const [playerId, slices] of playerSlices) {
+    const event = resolveTotalsLadder(slices).find((slice) => slice.scope === 'EVENT');
+    if (!event) continue;
+    const row = ctx.tournament.playerTotals.find((entry) => entry.playerId === playerId);
+    players.push({
+      playerId,
+      ign: row?.player?.ign ?? playerId,
+      slug: row?.player?.slug ?? null,
+      teamName: row?.team?.name ?? null,
+      matches: event.metrics.matches?.value ?? null,
+      playerElims: event.metrics.playerElims?.value ?? null,
+      damage: event.metrics.damage?.value ?? null,
+      headshots: event.metrics.headshots?.value ?? null,
+      assists: event.metrics.assists?.value ?? null,
+      knockouts: event.metrics.knockouts?.value ?? null,
+      survivalTime: event.metrics.survivalTime?.value ?? null,
+      healing: event.metrics.healing?.value ?? null,
+      airdrops: event.metrics.airdrops?.value ?? null,
+      rescues: event.metrics.rescues?.value ?? null,
+      derived: event.derived,
+      partial: partialKeys(event.metrics),
+    });
+  }
+  players.sort((a, b) => (b.playerElims ?? -1) - (a.playerElims ?? -1) || a.ign.localeCompare(b.ign));
+
+  return { teams, players };
 }
 
 /* ── Matches tab ── */

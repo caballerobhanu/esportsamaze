@@ -17,24 +17,178 @@ import {
 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
+  COMPARE_GAME_WINDOW,
+  aggregateByMap,
+  getPlayerCompareMetrics,
   getPlayerCompareProfile,
   getPlayerCompareResults,
   getPopularCompareOptions,
+  getTeamCompareMetrics,
   getTeamCompareProfile,
   getTeamCompareResults,
+  getPlayerCompareEvents,
+  getTeamCompareEvents,
   recordComparePicks,
+  type CompareEventEntry,
+  type CompareMetricValue,
+  type CompareMetrics,
+  type CompareRange,
 } from '@/lib/compare-stats';
+import { fetchEntityStanding, type EntityStanding } from '@/lib/krafton-data';
+import { COMPARE_METRIC_COLUMNS, formatSurvivalAverage } from '@/lib/event-metrics';
+import { BenchmarkNote, BenchmarkTable, type BenchmarkRow } from '@/components/compare/benchmark-table';
+import { MapGrid } from '@/components/compare/map-grid';
+import { KraftonRankBand } from '@/components/compare/krafton-rank-band';
+import { ConsistencyCompare } from '@/components/compare/consistency-compare';
+import { FormCompare, type CompareFormPoint } from '@/components/compare/form-compare';
+import { EventOverlap, type CompareEventRow } from '@/components/compare/event-overlap';
+import { canonical, SITE_NAME } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Head-to-Head Comparison | eSportsAmaze',
-  description: 'Compare esports teams and players side-by-side with match history, rankings, win rates, and direct head-to-head records.',
+/**
+ * Metrics that read better per game than as a running total: a damage or
+ * survival pile simply grows with games played, so a total flatters whoever has
+ * played more. Assists, knockouts and grenade elims stay as totals.
+ */
+const PER_GAME_METRICS = new Set(['damage', 'survivalTime', 'utilitiesTotal']);
+
+/**
+ * How a per-game figure prints. Damage is a big number where decimals are
+ * noise, survival needs seconds so two close averages don't render identically.
+ */
+const PER_GAME_FORMAT: Record<string, (value: number) => string> = {
+  damage: (value) => `${Math.round(value)}`,
+  survivalTime: formatSurvivalAverage,
+  utilitiesTotal: (value) => value.toFixed(2),
 };
+
+/**
+ * The detail metrics as benchmark rows — same labels and formats the profile
+ * cards use, so a comparison can never disagree with a profile about what a
+ * metric is called or how it prints.
+ */
+function buildMetricRows(a: CompareMetrics | null, b: CompareMetrics | null): BenchmarkRow[] {
+  return COMPARE_METRIC_COLUMNS.map((column) => {
+    const entryA = a?.metrics[column.key];
+    const entryB = b?.metrics[column.key];
+    const perGame = PER_GAME_METRICS.has(column.key);
+
+    // Averaged over the games that recorded the metric, never over every game.
+    const resolve = (entry: CompareMetricValue | undefined) => {
+      if (!entry || entry.value === null) return null;
+      if (!perGame) return entry.value;
+      return entry.samples > 0 ? entry.value / entry.samples : null;
+    };
+
+    const formatValue = (value: number | null) => {
+      if (value === null) return '—';
+      const perGameFormat = perGame ? PER_GAME_FORMAT[column.key] : undefined;
+      if (perGameFormat) return perGameFormat(value);
+      return column.format ? column.format(value) : value.toLocaleString('en-IN');
+    };
+
+    return {
+      label: perGame ? `Avg ${column.label} / Match` : column.label,
+      valA: resolve(entryA),
+      valB: resolve(entryB),
+      format: formatValue,
+      reportedA: entryA?.includesReported ?? false,
+      reportedB: entryB?.includesReported ?? false,
+    };
+  });
+}
+
+/** Events both sides appeared in, newest first, with each side's finishing rank. */
+function buildEventOverlap(eventsA: CompareEventEntry[], eventsB: CompareEventEntry[]): CompareEventRow[] {
+  const byId = new Map(eventsB.map((entry) => [entry.tournamentId, entry]));
+  const rows: CompareEventRow[] = [];
+
+  for (const entryA of eventsA) {
+    const entryB = byId.get(entryA.tournamentId);
+    if (!entryB) continue;
+    rows.push({
+      tournamentId: entryA.tournamentId,
+      name: entryA.name,
+      shortName: entryA.shortName,
+      series: entryA.series,
+      season: entryA.season,
+      slug: entryA.slug,
+      startDateMs: entryA.startDateMs,
+      rankA: entryA.rank,
+      rankB: entryB.rank,
+    });
+  }
+
+  rows.sort((a, b) => (b.startDateMs ?? 0) - (a.startDateMs ?? 0));
+  return rows;
+}
+
+/** Last ten games oldest → newest, for the form lanes. */
+function buildForm<T>(
+  rows: readonly T[],
+  valueOf: (row: T) => number,
+  winOf: (row: T) => boolean,
+  idOf: (row: T) => string,
+  titleOf: (row: T) => string,
+): CompareFormPoint[] {
+  return rows
+    .slice(0, 10)
+    .map((row) => ({ id: idOf(row), value: valueOf(row), highlight: winOf(row), title: titleOf(row) }))
+    .reverse();
+}
+
+/**
+ * The same lane, but tinting the best game rather than a won one — what an
+ * individual's form is judged on when there is no team result to read.
+ */
+function buildTopForm<T>(
+  rows: readonly T[],
+  valueOf: (row: T) => number,
+  idOf: (row: T) => string,
+  titleOf: (row: T) => string,
+): CompareFormPoint[] {
+  const recent = rows.slice(0, 10);
+  const best = recent.reduce((max, row) => Math.max(max, valueOf(row)), 0);
+  return recent
+    .map((row) => ({
+      id: idOf(row),
+      value: valueOf(row),
+      highlight: best > 0 && valueOf(row) === best,
+      title: titleOf(row),
+    }))
+    .reverse();
+}
+
+/*
+ * The bare picker is a real landing page and gets a canonical. Any URL carrying
+ * an entity pair is one of an unbounded set of permutations whose content is
+ * determined entirely by the query string, so it is kept out of the index —
+ * `follow` stays on so the links inside are still crawled.
+ */
+export async function generateMetadata({ searchParams }: ComparePageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const hasPairing = Boolean(params.teamA || params.teamB || params.playerA || params.playerB);
+
+  if (hasPairing) {
+    return {
+      title: `Head-to-Head Comparison | ${SITE_NAME}`,
+      robots: { index: false, follow: true },
+    };
+  }
+
+  return {
+    title: `Head-to-Head Comparison — Teams & Players | ${SITE_NAME}`,
+    description:
+      'Compare esports teams and players side-by-side with match history, KRAFTON rankings, win rates, and direct head-to-head records.',
+    ...canonical('/compare'),
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
 interface ComparePageProps {
   searchParams: Promise<{
     type?: string;
+    range?: string;
     teamA?: string;
     teamB?: string;
     playerA?: string;
@@ -42,9 +196,24 @@ interface ComparePageProps {
   }>;
 }
 
+/** Rebuilds the query with one key changed — used by both the mode and range tabs. */
+function toggleHref(params: Record<string, string | undefined>, key: string, value: string) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v) q.set(k, v);
+  }
+  q.set(key, value);
+  return `/compare?${q.toString()}`;
+}
+
 export default async function ComparePage({ searchParams }: ComparePageProps) {
   const params = await searchParams;
   const isPlayerMode = params.type === 'players';
+  const range: CompareRange = params.range === '6m' ? '6m' : 'lifetime';
+  const rangePeriod =
+    range === '6m'
+      ? 'the past six months'
+      : `up to the ${COMPARE_GAME_WINDOW.toLocaleString('en-IN')} most recent recorded games`;
 
   // Default picker lists: the 50 most-compared entities (recomputed at most
   // once per day). Typing queries /api/compare/search over the whole database.
@@ -92,26 +261,53 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     let teamBWwcdInShared = 0;
     let teamAElimsInShared = 0;
     let teamBElimsInShared = 0;
+    let teamAPointsInShared = 0;
+    let teamBPointsInShared = 0;
 
-    let lifetimeA = { matches: 0, wwcd: 0, elims: 0, totalPoints: 0 };
-    let lifetimeB = { matches: 0, wwcd: 0, elims: 0, totalPoints: 0 };
+    const lifetimeA = { matches: 0, wwcd: 0, placePoints: 0, elims: 0, totalPoints: 0 };
+    const lifetimeB = { matches: 0, wwcd: 0, placePoints: 0, elims: 0, totalPoints: 0 };
+    let teamMetricsA: CompareMetrics | null = null;
+    let teamMetricsB: CompareMetrics | null = null;
+    let teamResultsA: Awaited<ReturnType<typeof getTeamCompareResults>> = [];
+    let teamResultsB: Awaited<ReturnType<typeof getTeamCompareResults>> = [];
+    let teamStandingA: EntityStanding | null = null;
+    let teamStandingB: EntityStanding | null = null;
+    let teamEventsA: CompareEventEntry[] = [];
+    let teamEventsB: CompareEventEntry[] = [];
 
     if (teamA && teamB && !isSameTeam) {
-      const [resultsA, resultsB] = await Promise.all([
-        getTeamCompareResults(teamA.id),
-        getTeamCompareResults(teamB.id),
-      ]);
+      const [resultsA, resultsB, metricsA, metricsB, standingA, standingB, eventsA, eventsB] =
+        await Promise.all([
+          getTeamCompareResults(teamA.id, range),
+          getTeamCompareResults(teamB.id, range),
+          getTeamCompareMetrics(teamA.id, range),
+          getTeamCompareMetrics(teamB.id, range),
+          fetchEntityStanding('TEAM', teamA.id).catch(() => null),
+          fetchEntityStanding('TEAM', teamB.id).catch(() => null),
+          getTeamCompareEvents(teamA.id, range),
+          getTeamCompareEvents(teamB.id, range),
+        ]);
+      teamMetricsA = metricsA;
+      teamMetricsB = metricsB;
+      teamResultsA = resultsA;
+      teamResultsB = resultsB;
+      teamStandingA = standingA;
+      teamStandingB = standingB;
+      teamEventsA = eventsA;
+      teamEventsB = eventsB;
 
       // Calculate lifetime aggregates
       for (const r of resultsA) {
         lifetimeA.matches += 1;
         if (r.wwcd) lifetimeA.wwcd += 1;
+        lifetimeA.placePoints += r.placePoints;
         lifetimeA.elims += r.elimsPoints;
         lifetimeA.totalPoints += r.totalPoints;
       }
       for (const r of resultsB) {
         lifetimeB.matches += 1;
         if (r.wwcd) lifetimeB.wwcd += 1;
+        lifetimeB.placePoints += r.placePoints;
         lifetimeB.elims += r.elimsPoints;
         lifetimeB.totalPoints += r.totalPoints;
       }
@@ -127,20 +323,121 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
           if (rB.wwcd) teamBWwcdInShared++;
           teamAElimsInShared += rA.elimsPoints;
           teamBElimsInShared += rB.elimsPoints;
+          teamAPointsInShared += rA.totalPoints;
+          teamBPointsInShared += rB.totalPoints;
         }
       }
     }
 
+    const teamMapsA = aggregateByMap(
+      teamResultsA,
+      (row) => row.matchGame.mapName,
+      (row) => row.wwcd,
+      (row) => row.elimsPoints,
+    );
+    const teamMapsB = aggregateByMap(
+      teamResultsB,
+      (row) => row.matchGame.mapName,
+      (row) => row.wwcd,
+      (row) => row.elimsPoints,
+    );
+
+    const teamFormA = buildForm(
+      teamResultsA,
+      (row) => row.totalPoints,
+      (row) => row.wwcd,
+      (row) => row.matchGameId,
+      (row) => `${row.totalPoints} pts · rank #${row.rank}${row.wwcd ? ' · WWCD' : ''}`,
+    );
+    const teamFormB = buildForm(
+      teamResultsB,
+      (row) => row.totalPoints,
+      (row) => row.wwcd,
+      (row) => row.matchGameId,
+      (row) => `${row.totalPoints} pts · rank #${row.rank}${row.wwcd ? ' · WWCD' : ''}`,
+    );
+
+    const sharedEvents = buildEventOverlap(teamEventsA, teamEventsB);
+
     // Mode toggle keeps the ENTIRE current query (both modes' params) — a
-  // round-trip teams → players → teams restores the exact comparison.
-  const modeToggleHref = (type: string) => {
-    const q = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v) q.set(k, v);
-    }
-    q.set('type', type);
-    return `/compare?${q.toString()}`;
-  };
+    // round-trip teams → players → teams restores the exact comparison.
+    const modeToggleHref = (type: string) => toggleHref(params, 'type', type);
+    const rangeToggleHref = (next: CompareRange) => toggleHref(params, 'range', next);
+
+    const teamRows: BenchmarkRow[] =
+      teamA && teamB
+        ? [
+            {
+              label: 'Championships',
+              valA: teamA.tournamentsWon.length,
+              valB: teamB.tournamentsWon.length,
+              format: (v) => `${v ?? 0} Titles`,
+            },
+            {
+              label: 'Runner-up Finishes',
+              valA: teamA.tournamentsRunnerUp.length,
+              valB: teamB.tournamentsRunnerUp.length,
+              format: (v) => `${v ?? 0} Times`,
+            },
+            {
+              label: 'Matches Recorded',
+              valA: lifetimeA.matches,
+              valB: lifetimeB.matches,
+              format: (v) => `${v ?? 0} Games`,
+            },
+            {
+              label: 'Total Chicken Dinners',
+              valA: lifetimeA.wwcd,
+              valB: lifetimeB.wwcd,
+              format: (v) => `${v ?? 0} WWCD`,
+            },
+            {
+              label: 'Win Rate %',
+              valA: lifetimeA.matches ? (lifetimeA.wwcd / lifetimeA.matches) * 100 : 0,
+              valB: lifetimeB.matches ? (lifetimeB.wwcd / lifetimeB.matches) * 100 : 0,
+              format: (v) => `${(v ?? 0).toFixed(1)}%`,
+            },
+            // Scorecards store elimination POINTS, never a raw elimination count,
+            // so the label says points rather than implying a body count.
+            {
+              label: 'Placement Points',
+              valA: lifetimeA.placePoints,
+              valB: lifetimeB.placePoints,
+              format: (v) => `${v ?? 0}`,
+            },
+            {
+              label: 'Avg Placement Points / Match',
+              valA: lifetimeA.matches ? lifetimeA.placePoints / lifetimeA.matches : 0,
+              valB: lifetimeB.matches ? lifetimeB.placePoints / lifetimeB.matches : 0,
+              format: (v) => `${(v ?? 0).toFixed(2)}`,
+            },
+            {
+              label: 'Elimination Points',
+              valA: lifetimeA.elims,
+              valB: lifetimeB.elims,
+              format: (v) => `${v ?? 0}`,
+            },
+            {
+              label: 'Avg Elimination Points / Match',
+              valA: lifetimeA.matches ? lifetimeA.elims / lifetimeA.matches : 0,
+              valB: lifetimeB.matches ? lifetimeB.elims / lifetimeB.matches : 0,
+              format: (v) => `${(v ?? 0).toFixed(2)}`,
+            },
+            {
+              label: 'Total Points',
+              valA: lifetimeA.totalPoints,
+              valB: lifetimeB.totalPoints,
+              format: (v) => `${v ?? 0}`,
+            },
+            {
+              label: 'Avg Total Points / Match',
+              valA: lifetimeA.matches ? lifetimeA.totalPoints / lifetimeA.matches : 0,
+              valB: lifetimeB.matches ? lifetimeB.totalPoints / lifetimeB.matches : 0,
+              format: (v) => `${(v ?? 0).toFixed(2)}`,
+            },
+            ...buildMetricRows(teamMetricsA, teamMetricsB),
+          ]
+        : [];
 
     return (
       <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
@@ -161,20 +458,38 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                 </p>
               </div>
 
-              {/* Mode Switcher Tabs */}
-              <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10 shrink-0">
-                <Link
-                  href={modeToggleHref("teams")}
-                  className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600 transition-all"
-                >
-                  Teams
-                </Link>
-                <Link
-                  href={modeToggleHref("players")}
-                  className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white transition-all"
-                >
-                  Players
-                </Link>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* How much history the whole sheet covers */}
+                <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
+                  <Link
+                    href={rangeToggleHref('lifetime')}
+                    className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${range === 'lifetime' ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600' : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white'}`}
+                  >
+                    Lifetime
+                  </Link>
+                  <Link
+                    href={rangeToggleHref('6m')}
+                    className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${range === '6m' ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600' : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white'}`}
+                  >
+                    Past 6 months
+                  </Link>
+                </div>
+
+                {/* Mode Switcher Tabs */}
+                <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
+                  <Link
+                    href={modeToggleHref("teams")}
+                    className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600 transition-all"
+                  >
+                    Teams
+                  </Link>
+                  <Link
+                    href={modeToggleHref("players")}
+                    className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white transition-all"
+                  >
+                    Players
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -299,6 +614,16 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                 </div>
               </div>
 
+              {/* Rank leads the sheet — it is the one durable verdict on the pair */}
+              <section className="overflow-hidden rounded-3xl border border-slate-200 shadow-sm dark:border-white/10">
+                <KraftonRankBand
+                  labelA={teamA.name}
+                  rankA={teamStandingA?.rank ?? null}
+                  labelB={teamB.name}
+                  rankB={teamStandingB?.rank ?? null}
+                />
+              </section>
+
               {/* Direct Head-to-Head Records */}
               <section className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]">
@@ -406,6 +731,41 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                           />
                         </div>
                       </div>
+
+                      {/* Metric 4: Total points earned in the shared lobbies */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span className={teamAPointsInShared >= teamBPointsInShared ? 'text-[#0A5FC4] dark:text-blue-300 font-black' : 'text-slate-400'}>
+                            {teamAPointsInShared} pts
+                          </span>
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Points In Shared Matches</span>
+                          <span className={teamBPointsInShared >= teamAPointsInShared ? 'text-[#0A5FC4] dark:text-blue-300 font-black' : 'text-slate-400'}>
+                            {teamBPointsInShared} pts
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden flex">
+                          <div
+                            className="bg-[#0A5FC4] h-full transition-all"
+                            style={{
+                              width: `${
+                                teamAPointsInShared + teamBPointsInShared > 0
+                                  ? (teamAPointsInShared / (teamAPointsInShared + teamBPointsInShared)) * 100
+                                  : 50
+                              }%`,
+                            }}
+                          />
+                          <div
+                            className="bg-slate-400 dark:bg-slate-600 h-full transition-all"
+                            style={{
+                              width: `${
+                                teamAPointsInShared + teamBPointsInShared > 0
+                                  ? (teamBPointsInShared / (teamAPointsInShared + teamBPointsInShared)) * 100
+                                  : 50
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <p className="py-8 text-center text-xs text-slate-400">
@@ -414,6 +774,15 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                   )}
                 </div>
               </section>
+
+              <FormCompare
+                labelA={teamA.name}
+                labelB={teamB.name}
+                formA={teamFormA}
+                formB={teamFormB}
+                unit="pts"
+                highlightLabel="Match win"
+              />
 
               {/* Franchise Lifetime Statistics Comparison Table */}
               <section className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
@@ -426,79 +795,8 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-slate-50/30 border-b border-slate-100 dark:bg-white/[0.01] dark:border-white/5">
-                        <th className="py-3 px-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-400 w-1/3">{teamA.name}</th>
-                        <th className="py-3 px-4 text-center text-[11px] font-black uppercase tracking-wider text-slate-400 w-1/3">Benchmark Metric</th>
-                        <th className="py-3 px-4 text-right text-[11px] font-black uppercase tracking-wider text-slate-400 w-1/3">{teamB.name}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
-                      {[
-                        {
-                          label: 'Championships',
-                          valA: teamA.tournamentsWon.length,
-                          valB: teamB.tournamentsWon.length,
-                          format: (v: number) => `${v} Titles`,
-                        },
-                        {
-                          label: 'Runner-up Finishes',
-                          valA: teamA.tournamentsRunnerUp.length,
-                          valB: teamB.tournamentsRunnerUp.length,
-                          format: (v: number) => `${v} Times`,
-                        },
-                        {
-                          label: 'Matches Recorded',
-                          valA: lifetimeA.matches,
-                          valB: lifetimeB.matches,
-                          format: (v: number) => `${v} Games`,
-                        },
-                        {
-                          label: 'Total Chicken Dinners',
-                          valA: lifetimeA.wwcd,
-                          valB: lifetimeB.wwcd,
-                          format: (v: number) => `${v} WWCD`,
-                        },
-                        {
-                          label: 'Win Rate %',
-                          valA: lifetimeA.matches ? (lifetimeA.wwcd / lifetimeA.matches) * 100 : 0,
-                          valB: lifetimeB.matches ? (lifetimeB.wwcd / lifetimeB.matches) * 100 : 0,
-                          format: (v: number) => `${v.toFixed(1)}%`,
-                        },
-                        {
-                          label: 'Total Eliminations',
-                          valA: lifetimeA.elims,
-                          valB: lifetimeB.elims,
-                          format: (v: number) => `${v}`,
-                        },
-                        {
-                          label: 'Avg Elims / Match',
-                          valA: lifetimeA.matches ? lifetimeA.elims / lifetimeA.matches : 0,
-                          valB: lifetimeB.matches ? lifetimeB.elims / lifetimeB.matches : 0,
-                          format: (v: number) => `${v.toFixed(2)}`,
-                        },
-                      ].map(({ label, valA, valB, format }) => {
-                        const aWins = valA > valB;
-                        const bWins = valB > valA;
-                        return (
-                          <tr key={label} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
-                            <td className={`p-4 text-sm ${aWins ? 'font-black text-[#0A5FC4] dark:text-blue-300' : 'font-medium text-slate-400'}`}>
-                              {format(valA)} {aWins && '★'}
-                            </td>
-                            <td className="p-4 text-center font-black text-xs text-slate-500 uppercase tracking-wider">
-                              {label}
-                            </td>
-                            <td className={`p-4 text-right text-sm ${bWins ? 'font-black text-[#0A5FC4] dark:text-blue-300' : 'font-medium text-slate-400'}`}>
-                              {bWins && '★'} {format(valB)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <BenchmarkTable labelA={teamA.name} labelB={teamB.name} rows={teamRows} />
+                <BenchmarkNote period={rangePeriod} />
               </section>
 
               {/* Side by Side Active Roster */}
@@ -549,6 +847,28 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                   </div>
                 </section>
               </div>
+
+              <ConsistencyCompare
+                labelA={teamA.name}
+                labelB={teamB.name}
+                zeroA={teamResultsA.filter((row) => row.elimsPoints === 0).length}
+                zeroB={teamResultsB.filter((row) => row.elimsPoints === 0).length}
+                fiveA={teamResultsA.filter((row) => row.elimsPoints >= 5).length}
+                fiveB={teamResultsB.filter((row) => row.elimsPoints >= 5).length}
+                gamesA={teamResultsA.length}
+                gamesB={teamResultsB.length}
+                unit="Elim-Point"
+              />
+
+              <EventOverlap labelA={teamA.name} labelB={teamB.name} rows={sharedEvents} />
+
+              <MapGrid
+                labelA={teamA.name}
+                labelB={teamB.name}
+                mapsA={teamMapsA}
+                mapsB={teamMapsB}
+                elimsLabel="Elim Points"
+              />
             </>
           )}
         </div>
@@ -589,28 +909,45 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
   let elimsSharedA = 0;
   let elimsSharedB = 0;
 
-  let lifetimeA = { matches: 0, elims: 0, damage: 0, damageSamples: 0 };
-  let lifetimeB = { matches: 0, elims: 0, damage: 0, damageSamples: 0 };
+  const lifetimeA = { matches: 0, elims: 0 };
+  const lifetimeB = { matches: 0, elims: 0 };
+  let playerMetricsA: CompareMetrics | null = null;
+  let playerMetricsB: CompareMetrics | null = null;
+  let playerResultsA: Awaited<ReturnType<typeof getPlayerCompareResults>> = [];
+  let playerResultsB: Awaited<ReturnType<typeof getPlayerCompareResults>> = [];
+  let playerStandingA: EntityStanding | null = null;
+  let playerStandingB: EntityStanding | null = null;
+  let playerEventsA: CompareEventEntry[] = [];
+  let playerEventsB: CompareEventEntry[] = [];
 
   if (playerA && playerB && !isSamePlayer) {
-    const [statsA, statsB] = await Promise.all([
-      getPlayerCompareResults(playerA.id),
-      getPlayerCompareResults(playerB.id),
-    ]);
+    const [statsA, statsB, metricsA, metricsB, standingA, standingB, eventsA, eventsB] =
+      await Promise.all([
+        getPlayerCompareResults(playerA.id, range),
+        getPlayerCompareResults(playerB.id, range),
+        getPlayerCompareMetrics(playerA.id, range),
+        getPlayerCompareMetrics(playerB.id, range),
+        fetchEntityStanding('PLAYER', playerA.id).catch(() => null),
+        fetchEntityStanding('PLAYER', playerB.id).catch(() => null),
+        getPlayerCompareEvents(playerA.id, range),
+        getPlayerCompareEvents(playerB.id, range),
+      ]);
+    playerMetricsA = metricsA;
+    playerMetricsB = metricsB;
+    playerResultsA = statsA;
+    playerResultsB = statsB;
+    playerStandingA = standingA;
+    playerStandingB = standingB;
+    playerEventsA = eventsA;
+    playerEventsB = eventsB;
 
-    // `damageSamples` is the count of rows that actually recorded damage, so the
-    // average below divides by its own denominator — a NULL never becomes a 0.
     for (const s of statsA) {
       lifetimeA.matches++;
       lifetimeA.elims += s.playerElims;
-      lifetimeA.damage += s.damage ?? 0;
-      if (s.damage != null) lifetimeA.damageSamples++;
     }
     for (const s of statsB) {
       lifetimeB.matches++;
       lifetimeB.elims += s.playerElims;
-      lifetimeB.damage += s.damage ?? 0;
-      if (s.damage != null) lifetimeB.damageSamples++;
     }
 
     const mapB = new Map(statsB.map((s) => [s.matchGameId, s]));
@@ -624,16 +961,73 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
     }
   }
 
+  const playerMapsA = aggregateByMap(
+    playerResultsA,
+    (row) => row.matchGame.mapName,
+    // A player's map "win" is the team winning the game they played in.
+    (row) => row.teamWwcd,
+    (row) => row.playerElims,
+  );
+  const playerMapsB = aggregateByMap(
+    playerResultsB,
+    (row) => row.matchGame.mapName,
+    (row) => row.teamWwcd,
+    (row) => row.playerElims,
+  );
+
+  // A player's lane marks their best game, not a team result they did not own.
+  const playerFormA = buildTopForm(
+    playerResultsA,
+    (row) => row.playerElims,
+    (row) => row.matchGameId,
+    (row) => `${row.playerElims} elims${row.teamWwcd ? ' · WWCD' : ''}`,
+  );
+  const playerFormB = buildTopForm(
+    playerResultsB,
+    (row) => row.playerElims,
+    (row) => row.matchGameId,
+    (row) => `${row.playerElims} elims${row.teamWwcd ? ' · WWCD' : ''}`,
+  );
+
+  const sharedEvents = buildEventOverlap(playerEventsA, playerEventsB);
+
   // Mode toggle keeps the ENTIRE current query (both modes' params) — a
   // round-trip teams → players → teams restores the exact comparison.
-  const modeToggleHref = (type: string) => {
-    const q = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v) q.set(k, v);
-    }
-    q.set('type', type);
-    return `/compare?${q.toString()}`;
-  };
+  const modeToggleHref = (type: string) => toggleHref(params, 'type', type);
+  const rangeToggleHref = (next: CompareRange) => toggleHref(params, 'range', next);
+
+  const playerRows: BenchmarkRow[] =
+    playerA && playerB
+      ? [
+          {
+            label: 'Total Career Matches',
+            valA: lifetimeA.matches,
+            valB: lifetimeB.matches,
+            format: (v) => `${v ?? 0}`,
+          },
+          {
+            label: 'Career Eliminations',
+            valA: lifetimeA.elims,
+            valB: lifetimeB.elims,
+            format: (v) => `${v ?? 0} Kills`,
+          },
+          {
+            label: 'Eliminations / Match',
+            valA: lifetimeA.matches ? lifetimeA.elims / lifetimeA.matches : null,
+            valB: lifetimeB.matches ? lifetimeB.elims / lifetimeB.matches : null,
+            format: (v) => (v === null ? '—' : v.toFixed(2)),
+          },
+          ...buildMetricRows(playerMetricsA, playerMetricsB),
+          {
+            label: 'Primary Role',
+            valA: null,
+            valB: null,
+            format: () => '—',
+            formatCustomA: playerA.role || 'Athlete',
+            formatCustomB: playerB.role || 'Athlete',
+          },
+        ]
+      : [];
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
@@ -654,20 +1048,38 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
               </p>
             </div>
 
-            {/* Mode Switcher Tabs */}
-            <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10 shrink-0">
-              <Link
-                href={modeToggleHref("teams")}
-                className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white transition-all"
-              >
-                Teams
-              </Link>
-              <Link
-                href={modeToggleHref("players")}
-                className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600 transition-all"
-              >
-                Players
-              </Link>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {/* How much history the whole sheet covers */}
+              <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
+                <Link
+                  href={rangeToggleHref('lifetime')}
+                  className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${range === 'lifetime' ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600' : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white'}`}
+                >
+                  Lifetime
+                </Link>
+                <Link
+                  href={rangeToggleHref('6m')}
+                  className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${range === '6m' ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600' : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white'}`}
+                >
+                  Past 6 months
+                </Link>
+              </div>
+
+              {/* Mode Switcher Tabs */}
+              <div className="flex items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
+                <Link
+                  href={modeToggleHref("teams")}
+                  className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white transition-all"
+                >
+                  Teams
+                </Link>
+                <Link
+                  href={modeToggleHref("players")}
+                  className="rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600 transition-all"
+                >
+                  Players
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -794,6 +1206,16 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
               </div>
             </div>
 
+            {/* Rank leads the sheet — it is the one durable verdict on the pair */}
+            <section className="overflow-hidden rounded-3xl border border-slate-200 shadow-sm dark:border-white/10">
+              <KraftonRankBand
+                labelA={playerA.ign}
+                rankA={playerStandingA?.rank ?? null}
+                labelB={playerB.ign}
+                rankB={playerStandingB?.rank ?? null}
+              />
+            </section>
+
             {/* Direct Head-to-Head Encounters */}
             <section className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]">
@@ -851,6 +1273,15 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
               </div>
             </section>
 
+            <FormCompare
+              labelA={playerA.ign}
+              labelB={playerB.ign}
+              formA={playerFormA}
+              formB={playerFormB}
+              unit="elims"
+              highlightLabel="Top game"
+            />
+
             {/* Lifetime Career Benchmarks Table */}
             <section className="rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
               <div className="flex items-center px-6 py-4 border-b border-slate-100 bg-slate-50/50 dark:border-white/5 dark:bg-white/[0.02]">
@@ -862,81 +1293,31 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-slate-50/30 border-b border-slate-100 dark:bg-white/[0.01] dark:border-white/5">
-                      <th className="py-3 px-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-400 w-1/3">{playerA.ign}</th>
-                      <th className="py-3 px-4 text-center text-[11px] font-black uppercase tracking-wider text-slate-400 w-1/3">Benchmark Metric</th>
-                      <th className="py-3 px-4 text-right text-[11px] font-black uppercase tracking-wider text-slate-400 w-1/3">{playerB.ign}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
-                    {[
-                      {
-                        label: 'Total Career Matches',
-                        valA: lifetimeA.matches,
-                        valB: lifetimeB.matches,
-                        format: (v: number | null) => `${v ?? 0}`,
-                      },
-                      {
-                        label: 'Career Eliminations',
-                        valA: lifetimeA.elims,
-                        valB: lifetimeB.elims,
-                        format: (v: number | null) => `${v ?? 0} Kills`,
-                      },
-                      {
-                        label: 'Eliminations / Match',
-                        valA: lifetimeA.matches ? lifetimeA.elims / lifetimeA.matches : null,
-                        valB: lifetimeB.matches ? lifetimeB.elims / lifetimeB.matches : null,
-                        format: (v: number | null) => (v === null ? '—' : v.toFixed(2)),
-                      },
-                      {
-                        label: 'Avg Damage / Match',
-                        // Divided by the rows that recorded damage, so a player with
-                        // no recorded damage shows "—" instead of a fake 0.
-                        valA:
-                          lifetimeA.damageSamples > 0
-                            ? lifetimeA.damage / lifetimeA.damageSamples
-                            : null,
-                        valB:
-                          lifetimeB.damageSamples > 0
-                            ? lifetimeB.damage / lifetimeB.damageSamples
-                            : null,
-                        format: (v: number | null) => (v === null ? '—' : `${Math.round(v)}`),
-                      },
-                      {
-                        label: 'Primary Role',
-                        valA: null,
-                        valB: null,
-                        formatCustomA: playerA.role || 'Athlete',
-                        formatCustomB: playerB.role || 'Athlete',
-                      },
-                    ].map(({ label, valA, valB, format, formatCustomA, formatCustomB }) => {
-                      // Unrecorded ("—") metrics rank as no better than a zero here,
-                      // but they are still rendered as "—", never as a real 0.
-                      const aValue = valA ?? 0;
-                      const bValue = valB ?? 0;
-                      const aWins = aValue > bValue;
-                      const bWins = bValue > aValue;
-                      return (
-                        <tr key={label} className="hover:bg-slate-50/80 dark:hover:bg-white/[0.02] transition-colors">
-                          <td className={`p-4 text-sm ${aWins ? 'font-black text-[#0A5FC4] dark:text-blue-300' : 'font-medium text-slate-400'}`}>
-                            {formatCustomA || (format ? format(valA) : valA)} {aWins && '★'}
-                          </td>
-                          <td className="p-4 text-center font-black text-xs text-slate-500 uppercase tracking-wider">
-                            {label}
-                          </td>
-                          <td className={`p-4 text-right text-sm ${bWins ? 'font-black text-[#0A5FC4] dark:text-blue-300' : 'font-medium text-slate-400'}`}>
-                            {bWins && '★'} {formatCustomB || (format ? format(valB) : valB)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <BenchmarkTable labelA={playerA.ign} labelB={playerB.ign} rows={playerRows} />
+              <BenchmarkNote period={rangePeriod} />
             </section>
+
+            <ConsistencyCompare
+              labelA={playerA.ign}
+              labelB={playerB.ign}
+              zeroA={playerResultsA.filter((row) => row.playerElims === 0).length}
+              zeroB={playerResultsB.filter((row) => row.playerElims === 0).length}
+              fiveA={playerResultsA.filter((row) => row.playerElims >= 5).length}
+              fiveB={playerResultsB.filter((row) => row.playerElims >= 5).length}
+              gamesA={playerResultsA.length}
+              gamesB={playerResultsB.length}
+              unit="Elim"
+            />
+
+            <EventOverlap labelA={playerA.ign} labelB={playerB.ign} rows={sharedEvents} />
+
+            <MapGrid
+              labelA={playerA.ign}
+              labelB={playerB.ign}
+              mapsA={playerMapsA}
+              mapsB={playerMapsB}
+              elimsLabel="Elims"
+            />
           </>
         )}
       </div>

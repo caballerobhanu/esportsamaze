@@ -3,7 +3,7 @@ import Script from 'next/script';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
-import { organizationJsonLd, websiteJsonLd, serializeJsonLd } from '@/lib/seo';
+import { organizationJsonLd, websiteJsonLd, serializeJsonLd, baseUrl, SITE_NAME, SITE_SLOGAN } from '@/lib/seo';
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -18,14 +18,14 @@ import { getBrandingSettings } from '@/lib/site-settings';
 
 export async function generateMetadata(): Promise<Metadata> {
   const branding = await getBrandingSettings();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://esportsamaze.com';
+  const siteUrl = baseUrl();
   const favicon = branding.faviconUrl || '/favicon.ico';
 
   return {
     metadataBase: new URL(siteUrl),
-    title: 'eSportsAmaze | High-Performance Esports Statistics Platform',
+    title: `${SITE_NAME} | BGMI Points Table, Live Standings & Stats`,
     description:
-      'Comprehensive multi-game esports tournament engine and statistics database for BGMI, Valorant, CS2, MLBB, PUBG Mobile, Free Fire, and more.',
+      'Live BGMI points tables, standings, match results and player stats — updated minutes after every match.',
     icons: {
       icon: [{ url: favicon }],
       shortcut: [favicon],
@@ -36,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       type: 'website',
-      siteName: 'eSportsAmaze',
+      siteName: SITE_NAME,
       ...(branding.ogImageUrl
         ? {
             images: [
@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
                 url: branding.ogImageUrl,
                 width: 1200,
                 height: 630,
-                alt: 'eSportsAmaze — High-Performance Esports Statistics Platform',
+                alt: `eSportsAmaze — ${SITE_SLOGAN}`,
               },
             ],
           }

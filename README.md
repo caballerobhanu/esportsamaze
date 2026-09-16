@@ -50,6 +50,13 @@ npm run dev                   # http://localhost:3000
   re-checks `isAdmin()` fail-closed.
 - **Rankings** (`lib/krafton-rankings.ts`) port the rolling decayed-points system; transfer
   rules are DB-owned (`RankingTransferRule`) and managed in the admin Rankings panel.
+- **Player rosters** come from event participation. `Player.currentTeamId` is a stored roster
+  slot set by event/scorecard imports and admin edits; `currentTeamSince` gates older events
+  so a back-dated import (BGIS in January) cannot move a player back. The **Transfer ledger is
+  admin-only history** — imports never write it — and its only derived value is each row's
+  origin (`lib/player-transfer-rule.ts`). A profile's career history is built from event
+  rosters (`lib/player-career.ts`), and player identity is matched by id, never by name.
+  `scripts/migrate-transfer-model.ts` applied the one-off move to this model.
 - **Standings/stats** math is shared: `lib/tournament-math.ts` (pure functions, unit-tested)
   and `lib/match-standings.ts` (DB aggregation) share the same tie-break comparators.
 - **Uploads** are written to `uploads/` and served by `/api/media/[filename]` (SVGs are

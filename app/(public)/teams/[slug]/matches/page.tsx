@@ -26,7 +26,7 @@ function first(value: string | string[] | undefined): string {
 
 export async function generateMetadata({ params }: TeamMatchesPageProps): Promise<Metadata> {
   const { slug } = await params;
-  return teamMetadata(slug, 'Match history');
+  return teamMetadata(slug, 'matches');
 }
 
 export default async function TeamMatchesPage({ params, searchParams }: TeamMatchesPageProps) {

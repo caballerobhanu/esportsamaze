@@ -3,6 +3,7 @@ import { getCategoryMeta, timeAgo } from '@/lib/news';
 import type { ArticleCardData } from '@/lib/news-queries';
 import { CoverImage } from '@/components/news/cover-image';
 import { SectionHeading } from '@/components/home/section-heading';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 
 /**
  * Dense magazine news list: small thumb + category kicker + headline,
@@ -52,7 +53,16 @@ export function TheBrief({ articles }: { articles: ArticleCardData[] }) {
 
               <div className="mt-3 flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-2.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 <span className="truncate max-w-[180px]">
-                  {article.tournament?.name ?? article.team?.name ?? 'BGMI Circuit'}
+                  {article.tournament ? (
+                    <TournamentShortName
+                      name={article.tournament.name}
+                      shortName={article.tournament.shortName}
+                      series={article.tournament.series}
+                      season={article.tournament.season}
+                    />
+                  ) : (
+                    article.team?.name ?? 'BGMI Circuit'
+                  )}
                 </span>
                 <span className="text-[#0A5FC4] dark:text-blue-400 font-bold">{article.readTimeMinutes} min read</span>
               </div>

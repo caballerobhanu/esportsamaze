@@ -31,6 +31,7 @@ export async function saveKraftonEvent(formData: FormData) {
   if (!(await requireAdmin())) redirect('/admin/login');
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
+  const shortName = fStr(formData, 'shortName').trim() || null;
   const endDate = fStr(formData, 'endDate');
   if (!name || !endDate) redirect(`/admin/krafton${id ? `/${id}` : ''}?error=required`);
 
@@ -42,13 +43,13 @@ export async function saveKraftonEvent(formData: FormData) {
   if (id) {
     await prisma.kraftonEvent.update({
       where: { id },
-      data: { name, endDate: end, tier, tournamentId },
+      data: { name, shortName, endDate: end, tier, tournamentId },
     });
     refresh(id);
     redirect(`/admin/krafton/${id}?saved=1`);
   }
   const created = await prisma.kraftonEvent.create({
-    data: { name, endDate: end, tier, tournamentId },
+    data: { name, shortName, endDate: end, tier, tournamentId },
   });
   refresh(created.id);
   redirect(`/admin/krafton/${created.id}`);
@@ -65,6 +66,7 @@ export async function duplicateKraftonEvent(formData: FormData) {
   const copy = await prisma.kraftonEvent.create({
     data: {
       name: `${event.name} (copy)`,
+      shortName: event.shortName,
       endDate: event.endDate,
       tier: event.tier,
       tournamentId: event.tournamentId,

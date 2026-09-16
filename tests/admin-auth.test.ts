@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSessionToken, verifySessionToken, verifyPassword } from '../lib/admin-auth';
+import { createSessionToken, verifySessionToken, verifyPassword, resolveDevSecret } from '../lib/admin-auth';
+
+/** Long enough to be treated as a real dev secret rather than a flag. */
+const DEV_SECRET = 'local-dev-secret-0123456789';
 
 test('createSessionToken and verifySessionToken authenticate valid sessions', () => {
   const secret = 'super-secret-key-1234567890';
@@ -48,14 +51,48 @@ test('verifyPassword fails closed when ADMIN_PASSWORD is unset', () => {
   assert.equal(verifyPassword('changeme'), false);
   assert.equal(verifyPassword('any'), false);
 
-  // Only succeeds in dev if explicit ALLOW_DEV_AUTH=1
-  process.env.ALLOW_DEV_AUTH = '1';
-  assert.equal(verifyPassword('changeme'), true);
+  // The dev secret must be supplied explicitly, and it IS the password — no
+  // literal lives in the source for anyone to read off the repository.
+  process.env.ALLOW_DEV_AUTH = DEV_SECRET;
+  assert.equal(verifyPassword(DEV_SECRET), true);
+  assert.equal(verifyPassword('changeme'), false);
   assert.equal(verifyPassword('other'), false);
 
-  // Never succeeds in production
-  env.NODE_ENV = 'production';
+  // A placeholder flag is refused rather than honoured as a known secret
+  process.env.ALLOW_DEV_AUTH = '1';
+  assert.equal(verifyPassword('1'), false);
   assert.equal(verifyPassword('changeme'), false);
 
+  // Never succeeds in production, whatever the value
+  env.NODE_ENV = 'production';
+  process.env.ALLOW_DEV_AUTH = DEV_SECRET;
+  assert.equal(verifyPassword(DEV_SECRET), false);
+
   env.NODE_ENV = originalEnv;
+  delete process.env.ALLOW_DEV_AUTH;
+});
+
+test('resolveDevSecret refuses placeholders, short values and production', () => {
+  const env = process.env as Record<string, string | undefined>;
+  const originalEnv = env.NODE_ENV;
+  env.NODE_ENV = 'development';
+
+  delete process.env.ALLOW_DEV_AUTH;
+  assert.equal(resolveDevSecret(), null);
+
+  // The old "ALLOW_DEV_AUTH=1" flag is no longer a usable secret
+  process.env.ALLOW_DEV_AUTH = '1';
+  assert.equal(resolveDevSecret(), null);
+
+  process.env.ALLOW_DEV_AUTH = 'changeme';
+  assert.equal(resolveDevSecret(), null);
+
+  process.env.ALLOW_DEV_AUTH = `   ${DEV_SECRET}   `;
+  assert.equal(resolveDevSecret(), DEV_SECRET, 'surrounding whitespace is trimmed');
+
+  env.NODE_ENV = 'production';
+  assert.equal(resolveDevSecret(), null);
+
+  env.NODE_ENV = originalEnv;
+  delete process.env.ALLOW_DEV_AUTH;
 });

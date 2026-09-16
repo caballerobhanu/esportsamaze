@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TournamentName } from '@/components/ui/tournament-name';
 import {
   ArrowRight,
   BarChart3,
@@ -135,7 +136,7 @@ export function TeamOverviewPanel({
                   <Link href={`/tournaments/${event.slug}`} className="group block">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="line-clamp-2 text-sm font-extrabold transition-colors group-hover:text-[#0A5FC4]">
-                        {event.name}
+                        <TournamentName name={event.name} shortName={event.shortName} />
                       </h4>
                       {event.finalRank && (
                         <span className="shrink-0 rounded-md bg-[#0A5FC4]/10 px-2 py-0.5 text-xs font-black text-[#0A5FC4] dark:text-blue-300">

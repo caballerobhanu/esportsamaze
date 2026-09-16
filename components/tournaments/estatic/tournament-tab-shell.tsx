@@ -2,6 +2,9 @@ import { notFound } from 'next/navigation';
 import { EstaticTabNav } from './estatic-tab-nav';
 import { TournamentHero } from './tournament-hero';
 import type { TournamentContext } from '@/app/(public)/tournaments/[slug]/tournament-data';
+import { TOURNAMENT_AVAILABLE_TABS } from '@/lib/standings-config';
+import { breadcrumbJsonLd } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
 
 /**
  * Shared layout for tournament tab routes: hidden-tab guard (404), the
@@ -21,8 +24,19 @@ export function TournamentTabShell({
     notFound();
   }
 
+  // Breadcrumbs always carry the short event name, at every width.
+  const eventLabel = ctx.tournament.shortName || ctx.tournament.name;
+  const tabLabel = TOURNAMENT_AVAILABLE_TABS.find((tab) => tab.id === activeTab)?.label;
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', path: '/' },
+    { name: 'Tournaments', path: '/tournaments' },
+    { name: eventLabel, path: `/tournaments/${ctx.slug}` },
+    ...(tabLabel ? [{ name: tabLabel, path: `/tournaments/${ctx.slug}/${activeTab}` }] : []),
+  ]);
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      <JsonLd data={breadcrumbs} />
       <TournamentHero ctx={ctx} activeTab={activeTab} />
 
       {/* ============ ESTATIC BODY & TABS ============ */}

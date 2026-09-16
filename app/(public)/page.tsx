@@ -13,6 +13,7 @@ import { TheBrief } from '@/components/home/the-brief';
 import { EditorsPicks } from '@/components/home/editors-picks';
 import { StatsBand } from '@/components/home/stats-band';
 import { SectionHeading } from '@/components/home/section-heading';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
 import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
@@ -105,6 +106,9 @@ export default async function HomePage() {
       status: latestCompletedMatch.status,
       tournament: {
         name: latestCompletedMatch.tournament.name,
+        shortName: latestCompletedMatch.tournament.shortName,
+        series: latestCompletedMatch.tournament.series,
+        season: latestCompletedMatch.tournament.season,
         slug: latestCompletedMatch.tournament.slug,
       },
       stage: latestCompletedMatch.stage ? { name: latestCompletedMatch.stage.name } : null,
@@ -135,7 +139,7 @@ export default async function HomePage() {
       where: { status: 'SCHEDULED' },
       orderBy: { scheduledAt: 'asc' },
       include: {
-        tournament: { select: { id: true, name: true, slug: true } },
+        tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true } },
         stage: { select: { id: true, name: true } },
       },
     });
@@ -151,6 +155,9 @@ export default async function HomePage() {
         status: nextMatch.status,
         tournament: {
           name: nextMatch.tournament.name,
+          shortName: nextMatch.tournament.shortName,
+          series: nextMatch.tournament.series,
+          season: nextMatch.tournament.season,
           slug: nextMatch.tournament.slug,
         },
         stage: nextMatch.stage ? { name: nextMatch.stage.name } : null,
@@ -165,6 +172,9 @@ export default async function HomePage() {
   const tournamentCardSelect = {
     id: true,
     name: true,
+    shortName: true,
+    series: true,
+    season: true,
     slug: true,
     status: true,
     tier: true,
@@ -259,7 +269,14 @@ export default async function HomePage() {
   }
 
   const liveTournamentTeaser = liveTournament
-    ? { name: liveTournament.name, slug: liveTournament.slug, stageName }
+    ? {
+        name: liveTournament.name,
+        shortName: liveTournament.shortName,
+        series: liveTournament.series,
+        season: liveTournament.season,
+        slug: liveTournament.slug,
+        stageName,
+      }
     : null;
 
   // 8. Circuit Tournaments & Krafton Rankings pre-computed on server (SSR)
@@ -325,7 +342,7 @@ export default async function HomePage() {
         {/* Points table & fraggers for the ongoing tournament */}
         {liveTournament && (
           <HomeStandingsSection
-            tournamentTitle={liveTournament.name}
+            tournament={liveTournament}
             tournamentSlug={liveTournament.slug}
             stageName={stageName}
             standings={standings}
@@ -436,7 +453,12 @@ export default async function HomePage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <h3 className="text-base sm:text-lg font-black text-slate-900 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300 leading-snug">
-                            {tourney.name}
+                            <TournamentShortName
+                              name={tourney.name}
+                              shortName={tourney.shortName}
+                              series={tourney.series}
+                              season={tourney.season}
+                            />
                           </h3>
                           {organizerName && (
                             <p className="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">{organizerName}</p>

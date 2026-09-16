@@ -5,6 +5,8 @@ import { AlertTriangle, CheckCircle2, Copy, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
+import { setRosterMembership } from '@/lib/player-transfers';
+import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
@@ -167,17 +169,21 @@ async function attachTeamPerson(formData: FormData) {
   const teamId = fStr(formData, 'teamId');
   const playerId = fStr(formData, 'playerId');
   const role = fOpt(formData, 'role');
+  const staffRole = fOpt(formData, 'staffRole');
+  const isPlayer = formData.get('isPlayer') === 'on';
   if (!teamId || !playerId) redirect(`/admin/teams?edit=${teamId}&error=person`);
-  await prisma.player.update({
-    where: { id: playerId },
-    data: {
-      currentTeamId: teamId,
-      role: role || null,
-      staffRole: fOpt(formData, 'staffRole'),
-      isPlayer: formData.get('isPlayer') === 'on',
-    },
+
+  await prisma.$transaction(async (tx) => {
+    await tx.player.update({
+      where: { id: playerId },
+      data: { role: role || null, staffRole, isPlayer },
+    });
+    // Roster membership is a stored slot — attaching a person records no transfer.
+    await setRosterMembership(tx, playerId, teamId);
   });
+
   revalidatePath('/admin/teams');
+  revalidateTransferSurfaces();
   redirect(`/admin/teams?edit=${teamId}`);
 }
 
@@ -192,19 +198,26 @@ async function createTeamPerson(formData: FormData) {
     const clash = await prisma.player.findFirst({ where: { slug: s }, select: { id: true } });
     return Boolean(clash);
   });
-  await prisma.player.create({
-    data: {
-      ign,
-      slug,
-      role: fOpt(formData, 'role'),
-      staffRole: fOpt(formData, 'staffRole'),
-      isPlayer: formData.get('isPlayer') === 'on',
-      currentTeamId: teamId,
-      status: 'ACTIVE',
-      gameId: fOpt(formData, 'gameId'),
-    },
+  const staffRole = fOpt(formData, 'staffRole');
+
+  await prisma.$transaction(async (tx) => {
+    // Starts a free agent; the ledger records the appointment.
+    const created = await tx.player.create({
+      data: {
+        ign,
+        slug,
+        role: fOpt(formData, 'role'),
+        staffRole,
+        isPlayer: formData.get('isPlayer') === 'on',
+        status: 'ACTIVE',
+        gameId: fOpt(formData, 'gameId'),
+      },
+    });
+    await setRosterMembership(tx, created.id, teamId);
   });
+
   revalidatePath('/admin/teams');
+  revalidateTransferSurfaces();
   redirect(`/admin/teams?edit=${teamId}`);
 }
 
@@ -215,9 +228,12 @@ async function removeTeamPerson(formData: FormData) {
   const teamId = fStr(formData, 'teamId');
   const playerId = fStr(formData, 'playerId');
   if (teamId && playerId) {
-    await prisma.player.update({ where: { id: playerId }, data: { currentTeamId: null } });
+    await prisma.$transaction(async (tx) => {
+      await setRosterMembership(tx, playerId, null);
+    });
   }
   revalidatePath('/admin/teams');
+  revalidateTransferSurfaces();
   redirect(`/admin/teams?edit=${teamId}`);
 }
 

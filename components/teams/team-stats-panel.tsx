@@ -4,6 +4,8 @@ import { HeadToHeadBoard } from './head-to-head-board';
 import { PlacementDistribution } from './placement-distribution';
 import { RelatedTeamsBand } from './related-teams-band';
 import { TeamPerTournamentTable } from './team-per-tournament-table';
+import { EventMetrics } from '@/components/ui/event-metrics';
+import { TEAM_METRIC_COLUMNS, type EventMetricRow } from '@/lib/event-metrics';
 import { formatAverage, formatDuration, formatRate, scorecardLabel } from '@/lib/team-stats';
 import {
   type HeadToHeadRow,
@@ -60,6 +62,7 @@ export function TeamStatsPanel({
   maps,
   headToHead,
   related,
+  eventMetrics,
 }: {
   team: TeamContext;
   matchSummary: TeamMatchSummaryPayload;
@@ -68,6 +71,7 @@ export function TeamStatsPanel({
   maps: TeamMapRow[];
   headToHead: HeadToHeadRow[];
   related: RelatedTeamRow[];
+  eventMetrics: EventMetricRow[];
 }) {
   const teamSlug = team.slug || team.id;
   const hasMatchData = matchSummary.hasMatchData;
@@ -82,7 +86,7 @@ export function TeamStatsPanel({
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
             No match data yet. {team.name} has no scorecards on record, so placement distribution,
             per-tournament and per-map breakdowns and the head-to-head board can&rsquo;t be built.
-            Related teams are still shown below.
+            Related teams and any detailed metrics are still shown below.
           </p>
         </section>
       ) : (
@@ -187,9 +191,16 @@ export function TeamStatsPanel({
               value is left out rather than counted as a zero.
             </p>
           </SectionCard>
-
-          <HeadToHeadBoard rows={headToHead} teamSlug={teamSlug} teamName={team.name} />
         </>
+      )}
+
+      {/* Detailed metrics sit above the head-to-head board: they are the event
+          record, where the board is an opponent breakdown. Rendered outside the
+          match-data gate so an event with only reported totals still shows. */}
+      <EventMetrics rows={eventMetrics} columns={TEAM_METRIC_COLUMNS} />
+
+      {hasMatchData && (
+        <HeadToHeadBoard rows={headToHead} teamSlug={teamSlug} teamName={team.name} />
       )}
 
       <RelatedTeamsBand rows={related} teamName={team.name} />

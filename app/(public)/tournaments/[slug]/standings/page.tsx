@@ -1,10 +1,12 @@
 import { notFound } from 'next/navigation';
 import { TournamentTabShell } from '@/components/tournaments/estatic/tournament-tab-shell';
 import { EstaticStandingsPanel } from '@/components/tournaments/estatic/estatic-standings-panel';
+import { EstaticReportedStandings } from '@/components/tournaments/estatic/estatic-reported-totals';
 import {
   loadTournamentContext,
   tournamentMetadata,
   buildStandingsData,
+  buildReportedTotals,
   generateTournamentStaticParams,
 } from '../tournament-data';
 
@@ -21,7 +23,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return tournamentMetadata(slug, 'Standings');
+  return tournamentMetadata(slug, 'standings');
 }
 
 export default async function TournamentStandingsPage({
@@ -34,15 +36,25 @@ export default async function TournamentStandingsPage({
   if (!ctx) notFound();
 
   const data = buildStandingsData(ctx);
+  const reported = buildReportedTotals(ctx);
+
+  // Computed standings always win. Reported totals appear ONLY when there is no
+  // computed result to show — an event with both keeps its standings untouched,
+  // and reported data is shown additively on the statistics tab instead.
+  const hasComputedResults = data.standingsMatches.some((match) => match.results.length > 0);
 
   return (
     <TournamentTabShell ctx={ctx} activeTab="standings">
-      <EstaticStandingsPanel
-        stages={data.stageSummaries}
-        matches={data.standingsMatches}
-        teams={data.teamsMeta}
-        config={ctx.standingsConfig}
-      />
+      {hasComputedResults || reported.teams.length === 0 ? (
+        <EstaticStandingsPanel
+          stages={data.stageSummaries}
+          matches={data.standingsMatches}
+          teams={data.teamsMeta}
+          config={ctx.standingsConfig}
+        />
+      ) : (
+        <EstaticReportedStandings teams={reported.teams} />
+      )}
     </TournamentTabShell>
   );
 }

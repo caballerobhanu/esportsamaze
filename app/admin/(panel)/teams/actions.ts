@@ -12,7 +12,11 @@ export async function deleteTeamAction(teamId: string, cascade: boolean = true) 
 
   try {
     await prisma.$transaction(async (tx) => {
-      // 1. Unlink players belonging to this team
+      // Deliberate exception to the "ledger owns membership" rule: a LEFT
+      // movement cannot reference the team being deleted (FK), so the players
+      // are freed directly here. Do NOT resync afterwards — the ledger still
+      // holds their older JOINED rows, and a sync would re-attach them to a
+      // previous team instead of leaving them as free agents.
       await tx.player.updateMany({
         where: { currentTeamId: teamId },
         data: { currentTeamId: null },

@@ -137,6 +137,15 @@ export default async function KraftonEventEditorPage({
               <input name="name" required defaultValue={event.name} className={inputCls} />
             </div>
             <div>
+              <label className={labelCls}>Short Name</label>
+              <input
+                name="shortName"
+                defaultValue={event.shortName ?? ''}
+                placeholder="BGIS"
+                className={inputCls}
+              />
+            </div>
+            <div>
               <label className={labelCls}>End Date * (decay anchor)</label>
               <input name="endDate" type="date" required defaultValue={endDateStr} className={inputCls} />
             </div>

@@ -7,12 +7,30 @@ import { GameLogo } from '@/components/ui/game-capsule';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
 import { formatDate } from '@/lib/utils';
 import { DirectoryPagination } from '@/components/directory-pagination';
+import { directoryMetadata, SITE_NAME } from '@/lib/seo';
 
-export const metadata: Metadata = {
-  title: 'Tournaments Hub | eSportsAmaze — Official Standings, Matches & Stats',
-  description:
-    'Discover official BGMI, Valorant, CS2, MLBB, and Free Fire esports tournaments. Track live scorecards, match schedules, prize pools, and championship standings.',
-};
+/*
+ * Filter and page state over the same directory — see the note on /teams.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+
+  return {
+    title: `BGMI Tournaments — Standings & Results | ${SITE_NAME}`,
+    description:
+      'Browse official BGMI, Valorant, CS2, MLBB and Free Fire esports tournaments — points tables, match schedules, prize pools and championship results.',
+    ...directoryMetadata({
+      path: '/tournaments',
+      params,
+      filterKeys: ['q', 'status', 'game', 'tier'],
+      defaults: { status: 'ALL', game: 'ALL', tier: 'ALL' },
+    }),
+  };
+}
 
 const PAGE_SIZE = 200;
 

@@ -89,6 +89,16 @@ export default async function KraftonAdminPage({
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Short Name
+              </label>
+              <input
+                name="shortName"
+                placeholder="BGIS"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue) dark:border-slate-700 dark:bg-slate-900"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 End Date *
               </label>
               <input

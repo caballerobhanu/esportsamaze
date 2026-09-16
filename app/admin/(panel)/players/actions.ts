@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
+import { rebuildTransferOrigins, setRosterMembership } from '@/lib/player-transfers';
+import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 
 export async function bulkDeletePlayersAction(playerIds: string[], cascade: boolean = false) {
   if (!(await isAdmin())) {
@@ -87,6 +89,10 @@ export async function mergePlayersAction(sourcePlayerId: string, targetPlayerId:
         where: { playerId: sourcePlayerId },
         data: { playerId: targetPlayerId },
       });
+
+      // The target now owns the source's movements, so its derived origins may
+      // have changed.
+      await rebuildTransferOrigins(tx, targetPlayerId);
 
       // 4. Update TournamentTeam rosters where sourcePlayerId is stored
       const tourneyTeams = await tx.tournamentTeam.findMany({
@@ -203,28 +209,34 @@ export async function duplicatePlayerAction(playerId: string) {
       return Boolean(clash);
     });
 
-    const duplicate = await prisma.player.create({
-      data: {
-        ign: baseIgn,
-        slug,
-        firstName: source.firstName,
-        lastName: source.lastName,
-        avatarUrl: source.avatarUrl,
-        nationality: source.nationality,
-        birthDate: source.birthDate,
-        status: source.status,
-        isVerified: source.isVerified,
-        isPlayer: source.isPlayer,
-        role: source.role,
-        staffRole: source.staffRole,
-        gameId: source.gameId,
-        currentTeamId: source.currentTeamId,
-        socialLinks: source.socialLinks ?? undefined,
-      },
+    const duplicate = await prisma.$transaction(async (tx) => {
+      const copy = await tx.player.create({
+        data: {
+          ign: baseIgn,
+          slug,
+          firstName: source.firstName,
+          lastName: source.lastName,
+          avatarUrl: source.avatarUrl,
+          nationality: source.nationality,
+          birthDate: source.birthDate,
+          status: source.status,
+          isVerified: source.isVerified,
+          isPlayer: source.isPlayer,
+          role: source.role,
+          staffRole: source.staffRole,
+          gameId: source.gameId,
+          socialLinks: source.socialLinks ?? undefined,
+        },
+      });
+      // The copy keeps the source's roster slot (membership is stored, not history).
+      if (source.currentTeamId) {
+        await setRosterMembership(tx, copy.id, source.currentTeamId);
+      }
+      return copy;
     });
 
     revalidatePath('/admin/players');
-    revalidatePath('/players');
+    revalidateTransferSurfaces();
     return { success: true, newPlayerId: duplicate.id };
   } catch (error: any) {
     return { success: false, message: error.message || 'Failed to duplicate player' };

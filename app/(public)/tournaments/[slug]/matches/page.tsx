@@ -22,7 +22,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  return tournamentMetadata(slug, 'Matches');
+  return tournamentMetadata(slug, 'matches');
 }
 
 export default async function TournamentMatchesPage({

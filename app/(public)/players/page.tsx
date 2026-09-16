@@ -3,15 +3,33 @@ import { Crosshair, Users, ShieldCheck, Flame } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { DirectoryPagination } from '@/components/directory-pagination';
 import { PlayersDirectoryExplorer, type PlayersDirectoryItem } from '@/components/players/players-directory-explorer';
+import { directoryMetadata, SITE_NAME } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'Players Hub | eSportsAmaze — Pro Players, IGNs, Roles & Statistics',
-  description:
-    'Browse verified battle royale esports athletes, pro rosters, career statistics, and achievements across BGMI, PUBG Mobile and more.',
-};
+/*
+ * Filter and page state over the same directory — see the note on /teams.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+
+  return {
+    title: `BGMI Players — Stats, Teams & Profiles | ${SITE_NAME}`,
+    description:
+      'Verified esports athletes with in-game names, roles, teams and career statistics — BGMI, PUBG Mobile and other battle royale titles.',
+    ...directoryMetadata({
+      path: '/players',
+      params,
+      filterKeys: ['q', 'role', 'game', 'letter'],
+      defaults: { role: 'ALL', game: 'ALL' },
+    }),
+  };
+}
 
 const PAGE_SIZE = 200;
 const ROLES = ['ALL', 'Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];

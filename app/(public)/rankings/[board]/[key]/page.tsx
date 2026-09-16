@@ -18,7 +18,10 @@ import {
   computeUnifiedNextUpdate,
 } from '@/lib/krafton-standings';
 import { RankTrendChart } from '@/components/rankings/rank-trend-chart';
+import { TournamentName } from '@/components/ui/tournament-name';
 import type { KraftonBoard } from '@prisma/client';
+import { absoluteUrl, breadcrumbJsonLd, canonical, SITE_NAME } from '@/lib/seo';
+import { JsonLd } from '@/components/seo/json-ld';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,13 +32,36 @@ const isPlayerBoard = (board: string) => board === 'player';
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { board: boardParam, key } = await params;
   const board: KraftonBoard = isPlayerBoard(boardParam) ? 'PLAYER' : 'TEAM';
+  const isPlayers = isPlayerBoard(boardParam);
+  const boardSegment = isPlayers ? 'player' : 'team';
+  const boardLabel = isPlayers ? 'player' : 'team';
+
+  /*
+   * An entity's id and its slug both resolve to this same breakdown, and the
+   * site links both forms — the homepage uses ids, the rankings board uses
+   * slugs. Canonicalising to the slug form is what stops one entity existing at
+   * two indexed URLs. Snapshot query params never reach the canonical either.
+   */
+  const build = (entityName: string, canonicalKey: string): Metadata => {
+    const path = `/rankings/${boardSegment}/${canonicalKey}`;
+    const title = `${entityName} KRAFTON Ranking Points | ${SITE_NAME}`;
+    const description = `KRAFTON ranking points breakdown for ${entityName} — ${boardLabel} points earned at each event, placement and finish bonuses, award bonuses, decay schedule and rank trend.`;
+    return {
+      title,
+      description,
+      openGraph: { title, description, type: 'profile', url: absoluteUrl(path) },
+      ...canonical(path),
+    };
+  };
+
   try {
     const entries = await fetchEntityEntries(board, decodeURIComponent(key));
     const entityName = entries[0]?.entityName || decodeURIComponent(key).replace(/-/g, ' ');
-    return { title: `${entityName} — KRAFTON Ranking Breakdown | eSportsAmaze` };
+    // Mirror fetchProfileSlug(): a team falls back to its tag when slug is null.
+    const slug = await fetchProfileSlug(board, entries[0]?.entityId ?? null);
+    return build(entityName, slug || key);
   } catch {
-    const fallback = decodeURIComponent(key).replace(/-/g, ' ');
-    return { title: `${fallback} — KRAFTON Ranking Breakdown | eSportsAmaze` };
+    return build(decodeURIComponent(key).replace(/-/g, ' '), key);
   }
 }
 
@@ -116,8 +142,15 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
       : 999;
   const basePointsTotal = contributions.reduce((s, c) => s + (c.basePoints || 0), 0);
 
+  const breadcrumbs = breadcrumbJsonLd([
+    { name: 'Home', path: '/' },
+    { name: 'KRAFTON Rankings', path: isPlayers ? '/rankings?board=players' : '/rankings' },
+    { name: entityName, path: `/rankings/${isPlayers ? 'player' : 'team'}/${key}` },
+  ]);
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      <JsonLd data={breadcrumbs} />
       <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
         {/* Breadcrumb */}
         <div className="mb-6 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
@@ -378,11 +411,11 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                                 className="group/tourneylink inline-flex items-center gap-1 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400"
                                 title={`View tournament: ${c.eventName}`}
                               >
-                                <span>{c.eventName}</span>
+                                <TournamentName name={c.eventName} shortName={c.eventShortName} />
                                 <ArrowUpRight className="h-3.5 w-3.5 opacity-60 transition-transform group-hover/tourneylink:-translate-y-0.5 group-hover/tourneylink:translate-x-0.5 group-hover/tourneylink:opacity-100" />
                               </Link>
                             ) : (
-                              <span>{c.eventName}</span>
+                              <TournamentName name={c.eventName} shortName={c.eventShortName} />
                             )}
                             <span className="block text-[11px] font-normal text-slate-400">
                               {c.tier} · Concluded {fmtDate(c.endDate)}
@@ -521,11 +554,11 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                                   className="group/tourneylink inline-flex items-center gap-1 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400"
                                   title={`View tournament: ${c.eventName}`}
                                 >
-                                  <span>{c.eventName}</span>
+                                  <TournamentName name={c.eventName} shortName={c.eventShortName} />
                                   <ArrowUpRight className="h-3.5 w-3.5 opacity-60 transition-transform group-hover/tourneylink:-translate-y-0.5 group-hover/tourneylink:translate-x-0.5 group-hover/tourneylink:opacity-100" />
                                 </Link>
                               ) : (
-                                <span>{c.eventName}</span>
+                                <TournamentName name={c.eventName} shortName={c.eventShortName} />
                               )}
                               <span className="block text-[11px] font-normal text-slate-400">
                                 {c.tier} · Concluded {fmtDate(c.endDate)}

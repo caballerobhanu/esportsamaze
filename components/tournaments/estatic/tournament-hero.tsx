@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 import {
   Sparkles,
   ChevronLeft,
@@ -47,7 +48,9 @@ export function TournamentHero({ ctx, activeTab }: { ctx: TournamentContext; act
             <span className="shrink-0">/</span>
             <Link href="/tournaments" className="shrink-0 hover:text-[#0A5FC4]">Tournaments</Link>
             <span className="shrink-0">/</span>
-            <span className="truncate text-[#0A5FC4] dark:text-blue-300" title={tournament.name}>{tournament.name}</span>
+            <span className="truncate text-[#0A5FC4] dark:text-blue-300">
+              <TournamentShortName name={tournament.name} shortName={tournament.shortName} />
+            </span>
           </div>
 
           <div className="flex shrink-0 gap-2">

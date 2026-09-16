@@ -4,16 +4,65 @@ import crypto from 'crypto';
 const COOKIE_NAME = 'ea_admin';
 const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
+/** The dev-only auth secret must be a real secret, not a flag: 16 chars minimum. */
+const MIN_DEV_SECRET_LENGTH = 16;
+let devSecretWarned = false;
+
+function warnDevSecretOnce(message: string): void {
+  if (devSecretWarned) return;
+  devSecretWarned = true;
+  console.warn(message);
+}
+
+/**
+ * Dev-only auth secret, taken from the VALUE of ALLOW_DEV_AUTH.
+ *
+ * Deliberately NOT a hardcoded constant — see the twin in proxy.ts, which this
+ * must stay in step with. The edge gate and the server actions each derive the
+ * secret independently, so hardening one without the other leaves the two
+ * agreeing on different keys (the gate would let you in and every action would
+ * then reject you).
+ *
+ * The same value doubles as the dev login password, so a local setup needs one
+ * variable instead of a second literal baked into the source.
+ */
+export function resolveDevSecret(): string | null {
+  const raw = process.env.ALLOW_DEV_AUTH;
+  if (!raw) return null;
+
+  if (process.env.NODE_ENV === 'production') {
+    warnDevSecretOnce(
+      '[admin-auth] ALLOW_DEV_AUTH is set in a production build and is IGNORED. Configure ADMIN_PASSWORD or ADMIN_SESSION_SECRET instead.'
+    );
+    return null;
+  }
+
+  const value = raw.trim();
+  if (value.length < MIN_DEV_SECRET_LENGTH) {
+    warnDevSecretOnce(
+      `[admin-auth] ALLOW_DEV_AUTH is shorter than ${MIN_DEV_SECRET_LENGTH} characters and is IGNORED. ` +
+        'It IS the development session secret and login password, so set a long random value rather than a flag like "1".'
+    );
+    return null;
+  }
+
+  warnDevSecretOnce(
+    '[admin-auth] ALLOW_DEV_AUTH is active — the admin gate is using a DEVELOPMENT secret. Never set this on a deployed environment.'
+  );
+  return value;
+}
+
 function getAdminSecret(): string {
   const customSecret = process.env.ADMIN_SESSION_SECRET;
   if (customSecret) return customSecret;
 
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1') {
-      return 'changeme';
-    }
-    throw new Error('FATAL: ADMIN_PASSWORD or ADMIN_SESSION_SECRET must be configured. Set ALLOW_DEV_AUTH=1 only for local offline dev.');
+    const devSecret = resolveDevSecret();
+    if (devSecret) return devSecret;
+    throw new Error(
+      'FATAL: ADMIN_PASSWORD or ADMIN_SESSION_SECRET must be configured. Set ALLOW_DEV_AUTH to a long random dev secret (not "1") only for local offline dev.'
+    );
   }
 
   // Derive high-entropy 256-bit secret so raw password is never exposed as HMAC key
@@ -57,10 +106,10 @@ export function verifyPassword(input: string): boolean {
   if (!input) return false;
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1') {
-      return input === 'changeme';
-    }
-    return false;
+    // Dev-only fallback: the password is the ALLOW_DEV_AUTH value itself, so no
+    // literal is baked into the source. A short placeholder is refused.
+    const devSecret = resolveDevSecret();
+    return devSecret !== null && input === devSecret;
   }
   if (process.env.NODE_ENV === 'production' && input === 'changeme') {
     return false;

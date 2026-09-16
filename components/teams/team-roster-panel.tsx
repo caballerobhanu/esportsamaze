@@ -3,12 +3,14 @@
 import * as React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { TournamentName } from '@/components/ui/tournament-name';
 import {
   ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
   Briefcase,
   Building2,
+  ClipboardList,
   Eye,
   EyeOff,
   Swords,
@@ -21,12 +23,17 @@ import { formatAverage, formatRate, type PlayerElimMetrics } from '@/lib/team-st
 import { parseRoster } from '@/lib/team-roster';
 import type { TeamContext, TeamContextTransfer, TransferDirection } from '@/lib/team-data';
 
+/**
+ * Movement types that still earn a badge. JOINED/LEFT merely restate the
+ * Arrived/Departed pill beside them; only LOANED and BENCHED carry anything the
+ * direction cannot express, so those are the only ones shown.
+ */
+const TYPED_MOVEMENTS = new Set(['LOANED', 'BENCHED']);
+
 const transferTypeClass = (type: string) =>
-  type === 'LEFT'
-    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-    : type === 'LOANED'
-      ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400';
+  type === 'LOANED'
+    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400';
 
 /**
  * Direction as read from THIS team. `BOTH` (a row whose origin and destination
@@ -109,11 +116,13 @@ function TransferTimelineRow({ transfer }: { transfer: TeamContextTransfer }) {
         {meta.label}
       </span>
 
-      <span
-        className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider ${transferTypeClass(transfer.type)}`}
-      >
-        {transfer.type}
-      </span>
+      {TYPED_MOVEMENTS.has(transfer.type) && (
+        <span
+          className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider ${transferTypeClass(transfer.type)}`}
+        >
+          {transfer.type}
+        </span>
+      )}
 
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -165,12 +174,10 @@ export function TeamRosterPanel({
   team,
   metrics,
   playerIdToSlug,
-  ignToSlug,
 }: {
   team: TeamContext;
   metrics: Record<string, PlayerElimMetrics>;
   playerIdToSlug: Record<string, string>;
-  ignToSlug: Record<string, string>;
 }) {
   const [showStats, setShowStats] = React.useState(false);
 
@@ -352,7 +359,10 @@ export function TeamRosterPanel({
           </div>
           <p className="mb-6 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
             Rosters are tracked per event, so a player&rsquo;s line-up here reflects only the
-            events they played for {team.name}.
+            events they played for {team.name}. A{' '}
+            <ClipboardList className="inline h-3 w-3 -translate-y-px text-amber-600 dark:text-amber-400" />{' '}
+            mark means the appearance comes from reported totals for that event — there are no match
+            scorecards behind it.
           </p>
           <div className="space-y-5">
             {eventLineups.map(({ event, entries }) => (
@@ -365,7 +375,7 @@ export function TeamRosterPanel({
                     href={`/tournaments/${event.slug}`}
                     className="truncate text-sm font-extrabold transition-colors hover:text-[#0A5FC4]"
                   >
-                    {event.name}
+                    <TournamentName name={event.name} shortName={event.shortName} />
                   </Link>
                   <span className="shrink-0 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                     {event.startedAtMs ? new Date(event.startedAtMs).getUTCFullYear() : 'TBD'}
@@ -373,10 +383,10 @@ export function TeamRosterPanel({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {entries.map((entry, i) => {
+                    // Resolved by player id only — a name-only entry stays
+                    // unlinked rather than pointing at a look-alike profile.
                     const playerSlug =
-                      (entry.playerId && playerIdToSlug[entry.playerId]) ||
-                      entry.slug ||
-                      ignToSlug[entry.ign.trim().toLowerCase()];
+                      (entry.playerId && playerIdToSlug[entry.playerId]) || entry.slug || null;
                     const playerHref = playerSlug
                       ? `/players/${playerSlug}`
                       : entry.playerId
@@ -393,6 +403,14 @@ export function TeamRosterPanel({
                         {entry.staffRole && (
                           <span className="rounded bg-indigo-500/10 px-1 py-px text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-300">
                             {entry.staffRole}
+                          </span>
+                        )}
+                        {entry.reported && (
+                          <span
+                            title="From reported totals — this event has no match scorecards"
+                            className="flex items-center"
+                          >
+                            <ClipboardList className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                           </span>
                         )}
                       </>

@@ -48,15 +48,62 @@ async function isValidSessionToken(token: string, secret: string): Promise<boole
   return safeEqual(given, expected);
 }
 
+/** The dev-only auth secret must be a real secret, not a flag: 16 chars minimum. */
+const MIN_DEV_SECRET_LENGTH = 16;
+let devSecretWarned = false;
+
+function warnDevSecretOnce(message: string): void {
+  if (devSecretWarned) return;
+  devSecretWarned = true;
+  console.warn(message);
+}
+
+/**
+ * Dev-only auth secret, taken from the VALUE of ALLOW_DEV_AUTH.
+ *
+ * Deliberately NOT a hardcoded constant. A literal committed to the repo means
+ * anyone who can read the source can mint an admin session the moment a
+ * non-production environment is missing ADMIN_PASSWORD — and NODE_ENV is not
+ * reliably "production" on every host. So the flag has to carry the secret
+ * itself, and placeholder values are refused loudly rather than accepted.
+ *
+ * This must stay in step with `resolveDevSecret` in lib/admin-auth.ts: the edge
+ * gate and the server actions each derive the secret independently, so hardening
+ * one without the other leaves the two agreeing on different keys.
+ */
+function resolveDevSecret(): string | null {
+  const raw = process.env.ALLOW_DEV_AUTH;
+  if (!raw) return null;
+
+  if (process.env.NODE_ENV === 'production') {
+    warnDevSecretOnce(
+      '[admin-auth] ALLOW_DEV_AUTH is set in a production build and is IGNORED. Configure ADMIN_PASSWORD or ADMIN_SESSION_SECRET instead.'
+    );
+    return null;
+  }
+
+  const value = raw.trim();
+  if (value.length < MIN_DEV_SECRET_LENGTH) {
+    warnDevSecretOnce(
+      `[admin-auth] ALLOW_DEV_AUTH is shorter than ${MIN_DEV_SECRET_LENGTH} characters and is IGNORED. ` +
+        'It IS the development session secret, so set a long random value rather than a flag like "1".'
+    );
+    return null;
+  }
+
+  warnDevSecretOnce(
+    '[admin-auth] ALLOW_DEV_AUTH is active — the admin gate is using a DEVELOPMENT secret. Never set this on a deployed environment.'
+  );
+  return value;
+}
+
 async function getEdgeAdminSecret(): Promise<string | null> {
   const customSecret = process.env.ADMIN_SESSION_SECRET;
   if (customSecret) return customSecret;
 
   const password = process.env.ADMIN_PASSWORD;
   if (!password) {
-    return process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_AUTH === '1'
-      ? 'changeme'
-      : null;
+    return resolveDevSecret();
   }
 
   // Derive matching SHA-256 hex digest using Web Crypto

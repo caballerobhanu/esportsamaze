@@ -3,6 +3,8 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 
+import { TournamentName } from '@/components/ui/tournament-name';
+
 export interface TeamMatchFilterState {
   /** Tournament slug, or '' for all. */
   tournament: string;
@@ -33,7 +35,7 @@ export function TeamMatchFilters({
 }: {
   basePath: string;
   filters: TeamMatchFilterState;
-  tournaments: { id: string; name: string; fullName: string; slug: string }[];
+  tournaments: { id: string; name: string; fullName: string; shortName: string | null; slug: string }[];
   maps: string[];
 }) {
   const router = useRouter();
@@ -100,12 +102,9 @@ export function TeamMatchFilters({
               type="button"
               onClick={() => navigate({ tournament: tournament.slug })}
               aria-pressed={filters.tournament === tournament.slug}
-              // The chip shows the event's short name; the full name stays
-              // discoverable on hover.
-              title={tournament.fullName}
               className={`${chip} ${filters.tournament === tournament.slug ? chipOn : chipOff}`}
             >
-              {tournament.name}
+              <TournamentName name={tournament.fullName} shortName={tournament.shortName} />
             </button>
           ))}
         </div>

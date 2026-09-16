@@ -15,7 +15,7 @@ interface TeamTitlesPageProps {
 
 export async function generateMetadata({ params }: TeamTitlesPageProps): Promise<Metadata> {
   const { slug } = await params;
-  return teamMetadata(slug, 'Honours & Winnings');
+  return teamMetadata(slug, 'titles');
 }
 
 export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
@@ -29,7 +29,7 @@ export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
   // for players who have since left, the transfer ledger.
   const lineupPlayerIds = collectLineupPlayerIds(team.tournaments.map((event) => event.rosterJson));
   const lineupPlayers = await loadLineupPlayers(lineupPlayerIds);
-  const { playerIdToSlug, ignToSlug } = buildPlayerSlugMaps(
+  const { playerIdToSlug } = buildPlayerSlugMaps(
     team.players,
     team.transfers.map((transfer) => transfer.player),
     lineupPlayers,
@@ -40,6 +40,7 @@ export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
     tournaments: team.tournaments.map((event) => ({
       tournamentId: event.tournamentId,
       name: event.name,
+      shortName: event.shortName,
       slug: event.slug,
       currency: event.currency,
       startedAtMs: event.startedAtMs,
@@ -49,7 +50,6 @@ export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
     roster: team.players,
     transfers: team.transfers.map((transfer) => transfer.player),
     playerIdToSlug,
-    ignToSlug,
   });
 
   return (

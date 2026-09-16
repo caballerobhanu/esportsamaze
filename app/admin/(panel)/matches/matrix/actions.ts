@@ -21,6 +21,7 @@ import {
   withImportProvenance,
 } from '@/lib/match-stat-fields';
 import { decideTeamResultWrite, readTeamResultRow, type TeamResultScoring } from '@/lib/team-result-write';
+import { applyRosterMembership } from '@/lib/player-transfers';
 
 export interface MatrixCellSavePayload {
   teamId: string;
@@ -1018,7 +1019,7 @@ export async function bulkUniversalPlayerMatchImportAction(
                 ...rawTourneyNames.slice(0, 50).map((n) => ({ name: { contains: n, mode: 'insensitive' as const } })),
               ],
             },
-            select: { id: true, name: true, slug: true, gameId: true, formatDetails: true },
+            select: { id: true, name: true, slug: true, gameId: true, formatDetails: true, startDate: true },
           })
         : [],
       rawTeamNames.length > 0
@@ -1573,26 +1574,10 @@ export async function bulkUniversalPlayerMatchImportAction(
           matchedPlayer = playerOnOtherTeam;
         }
 
-        // If still not matched, check only for minor 1-char typo within this specific team's roster (never cross-team)
-        if (!matchedPlayer && existingTourneyTeam) {
-          const roster = Array.isArray(existingTourneyTeam.rosterJson)
-            ? (existingTourneyTeam.rosterJson as any[])
-            : [];
-          const candidate = roster.find((p) => {
-            const ign = cleanStr(typeof p === 'string' ? p : p?.ign);
-            if (!ign || Math.abs(ign.length - cleanPlayerIgn.length) > 1) return false;
-            let diffs = 0;
-            const maxL = Math.max(ign.length, cleanPlayerIgn.length);
-            for (let k = 0; k < maxL; k++) {
-              if (ign[k] !== cleanPlayerIgn[k]) diffs++;
-              if (diffs > 1) return false;
-            }
-            return diffs <= 1;
-          });
-          if (candidate && typeof candidate === 'object' && candidate.playerId) {
-            matchedPlayer = allPlayers.find((p) => p.id === candidate.playerId);
-          }
-        }
+        // Deliberately no approximate matching: an IGN merely *close* to a roster
+        // entry is not the same player ("beast" / "beast04" / "beastog" are three
+        // people). An unmatched row falls through to the create path below rather
+        // than being attached to whoever it resembles.
 
         const defaultPlayerRole = row.role && String(row.role).trim() ? String(row.role).trim() : 'Assaulter';
 
@@ -1604,11 +1589,14 @@ export async function bulkUniversalPlayerMatchImportAction(
               slug: pSlug,
               role: defaultPlayerRole,
               gameId: defaultGame.id,
-              currentTeamId: matchedTeam.id,
               isVerified: shouldVerifyPlayer,
               status: shouldVerifyPlayer ? 'ACTIVE' : 'UNVERIFIED',
             },
           });
+          // Roster membership from the event — no transfer is recorded (the
+          // ledger is admin-only history), and the event date gates it so an
+          // older scorecard cannot move a player back.
+          await applyRosterMembership(tx, matchedPlayer.id, matchedTeam.id, matchedTourney.startDate);
           allPlayers.push({ id: matchedPlayer.id, ign: matchedPlayer.ign, currentTeamId: matchedTeam.id });
           totalCreatedPlayers++;
         }

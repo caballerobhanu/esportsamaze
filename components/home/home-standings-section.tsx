@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { BarChart3, Crosshair, ArrowRight } from 'lucide-react';
+import { TournamentShortName } from '@/components/ui/tournament-name';
 import type { TeamStandingEntry, PlayerFraggerEntry } from '@/lib/match-standings';
 
 interface HomeStandingsSectionProps {
-  tournamentTitle: string;
+  tournament: { name: string; shortName?: string | null; series?: string | null; season?: string | null };
   tournamentSlug: string;
   stageName: string;
   standings: TeamStandingEntry[];
@@ -12,7 +13,7 @@ interface HomeStandingsSectionProps {
 
 /** Compact "tournament pulse": top-8 points table plus top-5 fraggers. */
 export function HomeStandingsSection({
-  tournamentTitle,
+  tournament,
   tournamentSlug,
   stageName,
   standings,
@@ -28,7 +29,12 @@ export function HomeStandingsSection({
               <BarChart3 className="h-4 w-4" />
             </div>
             <h2 className="text-xl font-extrabold leading-tight tracking-tight text-[var(--ed-ink)] sm:text-2xl">
-              {tournamentTitle}
+              <TournamentShortName
+                name={tournament.name}
+                shortName={tournament.shortName}
+                series={tournament.series}
+                season={tournament.season}
+              />
             </h2>
             <span className="shrink-0 rounded-full bg-[var(--ed-blue)]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[var(--ed-blue)]">
               {stageName}
