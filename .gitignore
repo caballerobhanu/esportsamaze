@@ -53,7 +53,9 @@ next-env.d.ts
 .gemini/
 .claude/
 .commandcode/
+.windsurf/
 AGENTS.md
+skills-lock.json
 
 # tokens & private data
 *cline-tokens*
