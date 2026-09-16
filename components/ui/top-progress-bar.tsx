@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 export function TopProgressBar() {
@@ -10,23 +10,32 @@ export function TopProgressBar() {
   const [progress, setProgress] = useState(0);
   const [, startTransition] = useTransition();
 
-  // Reset when navigation completes
+  // Mirrors `isNavigating` for the completion effect, which must key off the
+  // route change alone — adding `isNavigating` to its deps would finish the bar
+  // the moment navigation starts instead of when it lands.
+  const navigatingRef = useRef(false);
   useEffect(() => {
-    if (isNavigating) {
-      setProgress(100);
-      const timer = setTimeout(() => {
-        setIsNavigating(false);
-        setProgress(0);
-      }, 250);
-      return () => clearTimeout(timer);
-    }
+    navigatingRef.current = isNavigating;
+  }, [isNavigating]);
+
+  // Navigation landed: finish the bar, then clear it.
+  useEffect(() => {
+    if (!navigatingRef.current) return;
+    const finish = setTimeout(() => setProgress(100), 0);
+    const reset = setTimeout(() => {
+      setIsNavigating(false);
+      setProgress(0);
+    }, 250);
+    return () => {
+      clearTimeout(finish);
+      clearTimeout(reset);
+    };
   }, [pathname, searchParams]);
 
   // Trickle animation while navigating
   useEffect(() => {
     if (!isNavigating) return;
 
-    setProgress(25);
     const t1 = setTimeout(() => setProgress((p) => (p < 50 ? 50 : p)), 120);
     const t2 = setTimeout(() => setProgress((p) => (p < 75 ? 75 : p)), 350);
     const t3 = setTimeout(() => setProgress((p) => (p < 88 ? 88 : p)), 800);
@@ -79,6 +88,7 @@ export function TopProgressBar() {
 
         // Start progress bar immediately!
         startTransition(() => {
+          setProgress(25);
           setIsNavigating(true);
         });
       } catch {

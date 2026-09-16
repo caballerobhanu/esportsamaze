@@ -2,32 +2,32 @@ export default function TournamentLoading() {
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white">
       {/* Tournament Hero Skeleton */}
-      <section className="relative overflow-hidden border-b border-slate-200 bg-[#0c1220] text-white dark:border-white/10">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
         <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6 pt-5 pb-7 sm:pb-9">
           {/* Breadcrumb placeholder */}
           <div className="flex items-center gap-2">
-            <div className="h-3 w-12 rounded bg-white/10 animate-pulse" />
-            <span className="text-white/20">/</span>
-            <div className="h-3 w-20 rounded bg-white/10 animate-pulse" />
-            <span className="text-white/20">/</span>
-            <div className="h-3 w-28 rounded bg-white/10 animate-pulse" />
+            <div className="h-3 w-12 rounded bg-slate-200 dark:bg-white/10 animate-pulse" />
+            <span className="text-slate-300 dark:text-white/20">/</span>
+            <div className="h-3 w-20 rounded bg-slate-200 dark:bg-white/10 animate-pulse" />
+            <span className="text-slate-300 dark:text-white/20">/</span>
+            <div className="h-3 w-28 rounded bg-slate-200 dark:bg-white/10 animate-pulse" />
           </div>
 
           <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
             {/* Emblem placeholder */}
-            <div className="h-28 w-28 sm:h-36 sm:w-36 shrink-0 rounded-2xl bg-white/10 border border-white/10 animate-pulse" />
+            <div className="h-28 w-28 sm:h-36 sm:w-36 shrink-0 rounded-2xl bg-slate-100 border border-slate-200/80 dark:border-white/10 dark:bg-white/5 animate-pulse" />
 
             {/* Info placeholder */}
             <div className="flex-1 min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="h-6 w-20 rounded-full bg-white/10 animate-pulse" />
-                <div className="h-6 w-16 rounded-full bg-white/10 animate-pulse" />
+                <div className="h-6 w-20 rounded-full bg-slate-200 dark:bg-white/10 animate-pulse" />
+                <div className="h-6 w-16 rounded-full bg-slate-200 dark:bg-white/10 animate-pulse" />
               </div>
-              <div className="h-8 sm:h-10 w-3/4 max-w-md rounded-lg bg-white/15 animate-pulse" />
+              <div className="h-8 sm:h-10 w-3/4 max-w-md rounded-lg bg-slate-200 dark:bg-white/15 animate-pulse" />
               <div className="flex flex-wrap gap-4 pt-1">
-                <div className="h-4 w-32 rounded bg-white/10 animate-pulse" />
-                <div className="h-4 w-28 rounded bg-white/10 animate-pulse" />
-                <div className="h-4 w-24 rounded bg-white/10 animate-pulse" />
+                <div className="h-4 w-32 rounded bg-slate-200/80 dark:bg-white/10 animate-pulse" />
+                <div className="h-4 w-28 rounded bg-slate-200/80 dark:bg-white/10 animate-pulse" />
+                <div className="h-4 w-24 rounded bg-slate-200/80 dark:bg-white/10 animate-pulse" />
               </div>
             </div>
           </div>
