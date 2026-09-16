@@ -8,12 +8,10 @@ import { EarningsAmount } from '@/components/players/earnings-amount';
 import { flattenPrizeRanks } from '@/lib/standings-config';
 import { TournamentName } from '@/components/ui/tournament-name';
 import {
-  buildHeroProps,
   loadPlayerCareer,
   loadPlayerContext,
   loadPlayerKraftonDepth,
   loadPlayerMatches,
-  loadPlayerStanding,
   playerMetadata,
   usdConverter,
 } from '../player-data';
@@ -67,13 +65,11 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
   if (!context) notFound();
   const { player } = context;
 
-  const [matches, career, standing, krafton] = await Promise.all([
+  const [matches, career, krafton] = await Promise.all([
     loadPlayerMatches(player.id),
     loadPlayerCareer(player.id),
-    loadPlayerStanding(player.id),
     loadPlayerKraftonDepth(player),
   ]);
-  const hero = buildHeroProps(context, matches, standing);
 
   const { squadParticipations } = career;
   const lineupTournamentIds = new Set(squadParticipations.map((tt) => tt.tournament.id));
@@ -175,7 +171,7 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
   const careerNative = nativeTotalFor(earningLines);
 
   return (
-    <PlayerTabShell slug={slug} activeTab="honours" hero={hero}>
+    <PlayerTabShell slug={slug} activeTab="honours">
       <div className="space-y-8">
         {earningLines.length > 0 && (
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">

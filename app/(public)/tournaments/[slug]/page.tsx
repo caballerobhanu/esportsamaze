@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
-import { EstaticTabNav } from '@/components/tournaments/estatic/estatic-tab-nav';
-import { TournamentHero } from '@/components/tournaments/estatic/tournament-hero';
 import { EstaticOverviewPanel } from '@/components/tournaments/estatic/estatic-overview-panel';
 import { PageViews } from '@/components/ui/page-views';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -69,37 +67,31 @@ export default async function TournamentOverviewPage({
   ]);
 
   return (
-    <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+    <>
       <JsonLd data={[eventJsonLd, breadcrumbs]} />
-      <TournamentHero ctx={ctx} activeTab="overview" />
 
-      {/* ============ ESTATIC BODY & TABS ============ */}
-      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8">
-        <EstaticTabNav slug={ctx.slug} activeTab="overview" visibleTabs={ctx.visibleTabs as string[]} />
+      <PageViews
+        type="TOURNAMENT"
+        id={ctx.tournament.id}
+        override={ctx.tournament.showViewCount}
+        windowOverride={ctx.tournament.viewCountWindow}
+        className="pt-4"
+      />
 
-        <PageViews
-          type="TOURNAMENT"
-          id={ctx.tournament.id}
-          override={ctx.tournament.showViewCount}
-          windowOverride={ctx.tournament.viewCountWindow}
-          className="pt-4"
+      <main className="flex-1 pt-6 sm:pt-8 pb-24 md:pb-16">
+        <EstaticOverviewPanel
+          tournament={ctx.tournament}
+          featuredStageName={data.featuredStageName}
+          featuredStandings={data.featuredStandings}
+          overallFraggers={data.overallFraggers}
+          matches={data.overviewMatches}
+          teamsCount={ctx.totalTeamsCount}
+          resolvedWinner={ctx.resolvedWinner}
+          resolvedRunnerUp={ctx.resolvedRunnerUp}
+          teamsMeta={data.teamsMeta}
+          playerSlugById={data.playerSlugById}
         />
-
-        <main className="flex-1 pt-6 sm:pt-8 pb-24 md:pb-16">
-          <EstaticOverviewPanel
-            tournament={ctx.tournament}
-            featuredStageName={data.featuredStageName}
-            featuredStandings={data.featuredStandings}
-            overallFraggers={data.overallFraggers}
-            matches={data.overviewMatches}
-            teamsCount={ctx.totalTeamsCount}
-            resolvedWinner={ctx.resolvedWinner}
-            resolvedRunnerUp={ctx.resolvedRunnerUp}
-            teamsMeta={data.teamsMeta}
-            playerSlugById={data.playerSlugById}
-          />
-        </main>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }

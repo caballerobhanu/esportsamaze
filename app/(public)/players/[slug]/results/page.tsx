@@ -6,11 +6,8 @@ import { PlayerTabShell } from '@/components/players/player-tab-shell';
 import { EarningsAmount } from '@/components/players/earnings-amount';
 import { TournamentName } from '@/components/ui/tournament-name';
 import {
-  buildHeroProps,
   loadPlayerCareer,
   loadPlayerContext,
-  loadPlayerMatches,
-  loadPlayerStanding,
   playerMetadata,
   usdConverter,
 } from '../player-data';
@@ -44,12 +41,7 @@ export default async function PlayerResultsPage({ params }: { params: Promise<{ 
   if (!context) notFound();
   const { player } = context;
 
-  const [matches, career, standing] = await Promise.all([
-    loadPlayerMatches(player.id),
-    loadPlayerCareer(player.id),
-    loadPlayerStanding(player.id),
-  ]);
-  const hero = buildHeroProps(context, matches, standing);
+  const career = await loadPlayerCareer(player.id);
 
   const { squadParticipations, reportedRows } = career;
   const toUsd = await usdConverter();
@@ -104,7 +96,7 @@ export default async function PlayerResultsPage({ params }: { params: Promise<{ 
   const winnings = rows.filter((row) => row.prizeAmount > 0);
 
   return (
-    <PlayerTabShell slug={slug} activeTab="results" hero={hero}>
+    <PlayerTabShell slug={slug} activeTab="results">
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
         <div className="mb-7 flex items-start justify-between gap-4">
           <div>

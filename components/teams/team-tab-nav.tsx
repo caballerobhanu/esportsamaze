@@ -2,10 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, Users, Swords, Crosshair, Trophy } from 'lucide-react';
 
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { activeTabFromPathname } from '@/lib/nav';
 
 export const TEAM_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -25,8 +26,10 @@ export function teamTabHref(slug: string, tab: string): string {
  * families behave identically: floating pill dock on desktop, dropdown on
  * mobile, active tab resolved from the route segment.
  */
-export function TeamTabNav({ slug, activeTab }: { slug: string; activeTab: string }) {
+export function TeamTabNav({ slug }: { slug: string }) {
   const router = useRouter();
+  /* Rendered by the [slug] layout, so the active tab comes from the route. */
+  const activeTab = activeTabFromPathname(usePathname());
 
   const tabOptions = TEAM_TABS.map((tab) => ({
     value: tab.id,

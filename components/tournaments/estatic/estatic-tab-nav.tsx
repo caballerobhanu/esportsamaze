@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Trophy,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { activeTabFromPathname } from '@/lib/nav';
 
 const PREVIEW_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -34,15 +35,15 @@ export function tabHref(slug: string, tab: string): string {
 
 export function EstaticTabNav({
   slug,
-  activeTab,
   visibleTabs,
 }: {
   slug: string;
-  activeTab: string;
   visibleTabs?: string[];
 }) {
   const router = useRouter();
-  const normalizedActiveTab = activeTab === 'fraggers' ? 'statistics' : activeTab;
+  /* Rendered by the [slug] layout, so the active tab comes from the route. */
+  const routeTab = activeTabFromPathname(usePathname());
+  const normalizedActiveTab = routeTab === 'fraggers' ? 'statistics' : routeTab;
 
   const availableTabs = React.useMemo(() => {
     if (!visibleTabs || visibleTabs.length === 0) return PREVIEW_TABS;

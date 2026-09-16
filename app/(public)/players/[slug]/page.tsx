@@ -24,7 +24,6 @@ import { buildCareerHistory, type CareerAppearance } from '@/lib/player-career';
 import { eliminations } from '@/lib/player-stats';
 import { formatDate } from '@/lib/utils';
 import {
-  buildHeroProps,
   loadPlayerCareer,
   loadPlayerContext,
   loadPlayerMatches,
@@ -95,8 +94,6 @@ export default async function PlayerOverviewPage({ params }: PlayerPageProps) {
     loadPlayerCareer(player.id),
     loadPlayerStanding(player.id),
   ]);
-
-  const hero = buildHeroProps(context, matches, standing);
 
   const recentStats = matches.slice(0, 20);
   const chartPoints = recentStats.map((row) => ({
@@ -221,7 +218,7 @@ export default async function PlayerOverviewPage({ params }: PlayerPageProps) {
   });
 
   return (
-    <PlayerTabShell slug={slug} activeTab="overview" hero={hero}>
+    <PlayerTabShell slug={slug} activeTab="overview">
       <JsonLd data={playerJsonLd} />
       <PageViews
         type="PLAYER"

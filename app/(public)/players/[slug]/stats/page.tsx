@@ -6,12 +6,10 @@ import { EventMetrics } from '@/components/ui/event-metrics';
 import { eliminations } from '@/lib/player-stats';
 import { PLAYER_METRIC_COLUMNS } from '@/lib/event-metrics';
 import {
-  buildHeroProps,
   buildPlayerEventMetrics,
   loadPlayerCareer,
   loadPlayerContext,
   loadPlayerMatches,
-  loadPlayerStanding,
   playerMetadata,
 } from '../player-data';
 
@@ -27,12 +25,10 @@ export default async function PlayerStatsPage({ params }: { params: Promise<{ sl
   const context = await loadPlayerContext(slug);
   if (!context) notFound();
 
-  const [matches, career, standing] = await Promise.all([
+  const [matches, career] = await Promise.all([
     loadPlayerMatches(context.player.id),
     loadPlayerCareer(context.player.id),
-    loadPlayerStanding(context.player.id),
   ]);
-  const hero = buildHeroProps(context, matches, standing);
 
   // ── Match-wise performance: one line per game the player has a scorecard for.
   // The panel groups, filters and totals these in the browser, so every toggle
@@ -67,7 +63,7 @@ export default async function PlayerStatsPage({ params }: { params: Promise<{ sl
   const eventMetrics = buildPlayerEventMetrics(matches, career);
 
   return (
-    <PlayerTabShell slug={slug} activeTab="stats" hero={hero}>
+    <PlayerTabShell slug={slug} activeTab="stats">
       <div className="space-y-8">
         <PlayerEventStats lines={matchStatLines} />
 

@@ -65,7 +65,7 @@ export default async function TeamOverviewPage({ params }: TeamPageProps) {
   });
 
   return (
-    <TeamTabShell team={team} activeTab="overview" kraftonRank={krafton?.rank ?? null}>
+    <TeamTabShell team={team} activeTab="overview">
       <JsonLd data={teamJsonLd} />
       <PageViews
         type="TEAM"

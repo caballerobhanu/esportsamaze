@@ -1,32 +1,17 @@
 import Link from 'next/link';
 import { TournamentShortName } from '@/components/ui/tournament-name';
-import {
-  Sparkles,
-  ChevronLeft,
-  ChevronRight,
-  Crown,
-  Trophy,
-  Users,
-  Layers,
-  Swords,
-} from 'lucide-react';
+import { Crown, Trophy, Users, Layers, Swords } from 'lucide-react';
+import { EditionPagerButtons, EditionSwitcher } from './edition-nav';
 import { formatDate } from '@/lib/utils';
 import { ThemeLogo } from './theme-logo';
 import type { TournamentContext } from '@/app/(public)/tournaments/[slug]/tournament-data';
-
-/** Edition link that preserves the active tab (overview = base route). */
-function editionHref(slug: string, activeTab: string): string {
-  return activeTab === 'overview'
-    ? `/tournaments/${slug}`
-    : `/tournaments/${slug}/${activeTab}`;
-}
 
 /**
  * The estatic masthead shared by every tournament tab route:
  * breadcrumb + editions pager, emblem, title/chips, season switcher,
  * champion line, and the 4-cell stat band.
  */
-export function TournamentHero({ ctx, activeTab }: { ctx: TournamentContext; activeTab: string }) {
+export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
   const { tournament } = ctx;
 
   return (
@@ -52,26 +37,10 @@ export function TournamentHero({ ctx, activeTab }: { ctx: TournamentContext; act
             </span>
           </div>
 
-          <div className="flex shrink-0 gap-2">
-            {ctx.prevEdition && (
-              <Link
-                href={editionHref(ctx.prevEdition.slug, activeTab)}
-                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
-                title={`Previous Edition: ${ctx.prevEdition.name}`}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Link>
-            )}
-            {ctx.nextEdition && (
-              <Link
-                href={editionHref(ctx.nextEdition.slug, activeTab)}
-                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
-                title={`Next Edition: ${ctx.nextEdition.name}`}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            )}
-          </div>
+          <EditionPagerButtons
+            prevEdition={ctx.prevEdition}
+            nextEdition={ctx.nextEdition}
+          />
         </div>
 
         {/* Masthead grid: Emblem + Title */}
@@ -150,34 +119,11 @@ export function TournamentHero({ ctx, activeTab }: { ctx: TournamentContext; act
 
             {/* Season / Edition Switcher */}
             {ctx.editions.length > 1 && (
-              <div className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-2 text-xs">
-                {ctx.prevEdition && (
-                  <Link
-                    href={editionHref(ctx.prevEdition.slug, activeTab)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 font-bold text-slate-700 shadow-xs hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white transition-all group"
-                    title={ctx.prevEdition.name}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5 text-[#0A5FC4] transition-transform group-hover:-translate-x-0.5" />
-                    <span className="text-slate-400 font-medium">Previous:</span>
-                    <span>{ctx.prevEdition.season || ctx.prevEdition.name}</span>
-                  </Link>
-                )}
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#0A5FC4] px-3.5 py-1.5 font-black uppercase tracking-wider text-white shadow-sm shadow-blue-500/25">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  <span>Current: {tournament.season || tournament.series || 'Active Season'}</span>
-                </span>
-                {ctx.nextEdition && (
-                  <Link
-                    href={editionHref(ctx.nextEdition.slug, activeTab)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 font-bold text-slate-700 shadow-xs hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white transition-all group"
-                    title={ctx.nextEdition.name}
-                  >
-                    <span className="text-slate-400 font-medium">Next:</span>
-                    <span>{ctx.nextEdition.season || ctx.nextEdition.name}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-[#0A5FC4] transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                )}
-              </div>
+              <EditionSwitcher
+                prevEdition={ctx.prevEdition}
+                nextEdition={ctx.nextEdition}
+                currentLabel={tournament.season || tournament.series || 'Active Season'}
+              />
             )}
 
             {(ctx.resolvedWinner || ctx.resolvedRunnerUp) && (

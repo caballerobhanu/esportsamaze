@@ -4,6 +4,7 @@
    and the career-earnings fallback both need it. */
 
 import prisma from '@/lib/prisma';
+import { cache } from 'react';
 import type { Metadata } from 'next';
 import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
 import {
@@ -82,7 +83,12 @@ export interface PlayerContext {
   nextPlayer: { slug: string | null; ign: string } | null;
 }
 
-export async function loadPlayerContext(slug: string): Promise<PlayerContext | null> {
+/* Request-scoped memos: the [slug] layout renders the hero and the page renders
+   the panel, so both ask for the same rows on one render. `cache` keeps the real
+   objects (no serialization), so the Date fields the panels rely on survive. */
+export const loadPlayerContext = cache(loadPlayerContextUncached);
+
+async function loadPlayerContextUncached(slug: string): Promise<PlayerContext | null> {
   const player = await fetchPlayerProfile(slug);
   if (!player) return null;
 
@@ -102,7 +108,9 @@ export async function loadPlayerContext(slug: string): Promise<PlayerContext | n
  * Every recorded match for the player. Nullable telemetry comes through as null
  * so "not recorded" can never be read as a zero downstream.
  */
-export async function loadPlayerMatches(playerId: string) {
+export const loadPlayerMatches = cache(loadPlayerMatchesUncached);
+
+async function loadPlayerMatchesUncached(playerId: string) {
   return prisma.matchPlayerStat
     .findMany({
       where: { playerId },
@@ -313,7 +321,9 @@ export function buildPlayerEventMetrics(matches: PlayerMatchRow[], career: Playe
 }
 
 /** Current KRAFTON standing — cheap enough to sit in the hero. */
-export async function loadPlayerStanding(playerId: string) {
+export const loadPlayerStanding = cache(loadPlayerStandingUncached);
+
+async function loadPlayerStandingUncached(playerId: string) {
   try {
     return await fetchEntityStanding('PLAYER', playerId);
   } catch {

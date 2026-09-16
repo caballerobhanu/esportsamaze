@@ -4,6 +4,7 @@
    (revalidate = 180) and must never touch cookies or searchParams. */
 
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import prisma from '@/lib/prisma';
 import {
   calculateTournamentStandings,
@@ -227,7 +228,12 @@ export interface TournamentContext {
   totalTeamsCount: number;
 }
 
-export async function loadTournamentContext(rawSlug: string): Promise<TournamentContext | null> {
+/* Request-scoped memo: the [slug] layout renders the masthead and the page
+   renders the panel, so both ask for the context on the same render. React
+   dedupes them into one load instead of fetching the tournament twice. */
+export const loadTournamentContext = cache(loadTournamentContextUncached);
+
+async function loadTournamentContextUncached(rawSlug: string): Promise<TournamentContext | null> {
   const tournament = await fetchTournament(rawSlug);
   if (!tournament) return null;
 
