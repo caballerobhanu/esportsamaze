@@ -170,6 +170,16 @@ export function RankingsBoardClient({
 
   const isHistorical = selectedDate !== snapshotDates[0];
 
+  /*
+   * One future entry, and only for a decay step-down. Decay applies a fixed
+   * multiplier, so the resulting points and ranks are knowable in advance. An
+   * event conclusion is not projectable — its results do not exist yet — so no
+   * future entry is offered for it, and the selector stays as it was.
+   */
+  const projectedDate =
+    nextUpdate?.type === 'decay' ? new Date(nextUpdate.date).toISOString().slice(0, 10) : null;
+  const isProjected = projectedDate !== null && selectedDate === projectedDate;
+
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* ── Masthead ── */}
@@ -223,7 +233,7 @@ export function RankingsBoardClient({
         {isHistorical && (
           <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-50 px-3.5 py-1 text-xs font-bold text-amber-800 dark:border-amber-400/20 dark:bg-amber-950/30 dark:text-amber-300">
             <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-            <span>Viewing Frozen Snapshot: {selectedDate}</span>
+            <span>{isProjected ? 'Projected Snapshot' : 'Viewing Frozen Snapshot'}: {selectedDate}</span>
             <button
               type="button"
               onClick={() => handleDateSelect(snapshotDates[0])}
@@ -303,7 +313,9 @@ export function RankingsBoardClient({
       {/* ── Snapshot Date Timeline Strip (Latest 7 updates) ── */}
       {snapshotDates.length > 0 && (() => {
         const top7 = snapshotDates.slice(0, 7);
-        const visibleDates = top7.includes(selectedDate) ? top7 : [selectedDate, ...top7.slice(0, 6)];
+        const visibleDates = (
+          top7.includes(selectedDate) ? top7 : [selectedDate, ...top7.slice(0, 6)]
+        ).concat(projectedDate && !top7.includes(projectedDate) ? [projectedDate] : []);
 
         return (
           <div>
@@ -324,6 +336,11 @@ export function RankingsBoardClient({
                     {i === 0 ? `Latest (${d})` : d}
                   </option>
                 ))}
+                {projectedDate && (
+                  <option key={projectedDate} value={projectedDate}>
+                    Projected ({projectedDate})
+                  </option>
+                )}
               </select>
             </div>
 
@@ -350,7 +367,13 @@ export function RankingsBoardClient({
                             : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10'
                         }`}
                       >
-                        <span>{isLatest ? `Latest (${dateStr})` : dateStr}</span>
+                        <span>
+                          {isLatest
+                            ? `Latest (${dateStr})`
+                            : dateStr === projectedDate
+                              ? `Projected (${dateStr})`
+                              : dateStr}
+                        </span>
                       </button>
                     );
                   })}
@@ -542,7 +565,11 @@ export function RankingsBoardClient({
             {isPlayers ? 'Player Standings' : 'Team Standings'} · Showing {filtered.length} of {ranked.length}
           </h2>
           <span className="text-[11px] font-bold text-slate-400">
-            {isHistorical ? `Snapshot as of ${selectedDate}` : 'Decay-adjusted as of today'}
+            {isProjected
+              ? `Projected as of ${selectedDate} — points after the next decay step-down`
+              : isHistorical
+                ? `Snapshot as of ${selectedDate}`
+                : 'Decay-adjusted as of today'}
           </span>
         </div>
 

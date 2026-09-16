@@ -441,7 +441,21 @@ export async function fetchBoardSnapshot(
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const snapshotDates = generateHistoricalSnapshotDates(entries);
-  const selectedDate = snapshotIso && snapshotDates.includes(snapshotIso) ? snapshotIso : snapshotDates[0] || todayIso;
+
+  /*
+   * A projected snapshot: a well-formed future date is honoured so the board can
+   * be shown as it will stand once the next decay step-down lands. Decay changes
+   * points by a fixed multiplier, so the board is knowable in advance — unlike an
+   * event conclusion, whose results nobody has. Anything else (malformed, or a
+   * past date that is not a real snapshot) falls back to the latest board rather
+   * than rendering a made-up one.
+   */
+  const isProjected =
+    Boolean(snapshotIso) && /^\d{4}-\d{2}-\d{2}$/.test(snapshotIso as string) && (snapshotIso as string) > todayIso;
+  const selectedDate =
+    snapshotIso && (snapshotDates.includes(snapshotIso) || isProjected)
+      ? snapshotIso
+      : snapshotDates[0] || todayIso;
 
   // Selected date as of Date: live Date() for latest snapshot
   const asOf = selectedDate === snapshotDates[0] || selectedDate === todayIso ? new Date() : new Date(`${selectedDate}T23:59:59Z`);
