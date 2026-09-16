@@ -151,7 +151,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
 
   return (
     <section className="border-b border-slate-200 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-[#0b1220]/90">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-3.5 space-y-3">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-3 sm:py-3.5 space-y-3">
         {/* Header: label + tab toggle on the right */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -195,7 +195,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
-                className="aspect-[3/4] w-[132px] sm:w-[148px] shrink-0 rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-sand)]/60 animate-pulse"
+                className="aspect-[3/4] w-[112px] sm:w-[148px] shrink-0 rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-sand)]/60 animate-pulse"
               />
             ))}
           </div>
@@ -249,14 +249,14 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
                   : 'text-[var(--ed-ink)]';
 
               const cardClasses = cn(
-                'group relative aspect-[3/4] w-[132px] sm:w-[148px] shrink-0 overflow-hidden rounded-2xl flex flex-col cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md'
+                'group relative aspect-[3/4] w-[112px] sm:w-[148px] shrink-0 overflow-hidden rounded-2xl flex flex-col cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md'
               );
 
               const inner = (
                 <>
                   {/* Top 3/4 — full-bleed logo plate (no circle, no border) */}
                   <div
-                    className="relative aspect-square w-full flex items-center justify-center p-4"
+                    className="relative aspect-square w-full flex items-center justify-center p-2.5 sm:p-4"
                     style={plateStyle}
                   >
                     <EventLogo

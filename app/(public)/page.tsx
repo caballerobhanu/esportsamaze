@@ -314,7 +314,7 @@ export default async function HomePage() {
   return (
     <div className="relative min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white transition-colors">
       {/* Signature broadcast radial bloom */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] overflow-hidden">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] overflow-hidden sm:h-[520px]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,95,196,0.15),transparent_65%),linear-gradient(115deg,transparent_42%,rgba(10,95,196,0.03)_42%,rgba(10,95,196,0.03)_43%,transparent_43%)] dark:bg-[radial-gradient(circle_at_50%_0%,rgba(37,99,235,0.22),transparent_65%),linear-gradient(115deg,transparent_42%,rgba(255,255,255,0.02)_42%,rgba(255,255,255,0.02)_43%,transparent_43%)]" />
       </div>
 
@@ -322,7 +322,7 @@ export default async function HomePage() {
       <EventsSection initialTournaments={circuitTournaments} />
 
       {/* 2. Main body — the front page, then match center, news, reference data */}
-      <main className="relative mx-auto w-full max-w-[1200px] flex-1 space-y-10 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-10">
+      <main className="relative mx-auto w-full max-w-[1200px] flex-1 space-y-8 px-4 py-6 sm:space-y-12 sm:px-6 sm:py-10">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd(pool.slice(0, 10))) }}

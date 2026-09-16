@@ -171,7 +171,7 @@ export function RankingsBoardClient({
   const isHistorical = selectedDate !== snapshotDates[0];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* ── Masthead ── */}
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
         <div className="space-y-3">
@@ -179,7 +179,7 @@ export function RankingsBoardClient({
             <Trophy className="h-3.5 w-3.5" />
             <span>Official KRAFTON Standings</span>
           </div>
-          <h1 className="text-4xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-5xl">
+          <h1 className="text-3xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-5xl">
             {isPlayers ? 'Player Rankings' : 'Team Rankings'}
           </h1>
           <p className="max-w-2xl text-xs sm:text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">

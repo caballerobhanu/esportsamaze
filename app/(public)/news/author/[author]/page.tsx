@@ -73,7 +73,7 @@ export default async function NewsAuthorPage({
   return (
     <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
       {/* Masthead */}
-      <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)] py-9 sm:py-12">
+      <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)] py-7 sm:py-12">
         <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
           <nav className="ed-label flex items-center gap-2">
             <Link href="/" className="hover:text-[var(--ed-blue)]">Home</Link>
@@ -99,7 +99,7 @@ export default async function NewsAuthorPage({
         </div>
       </section>
 
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-6">
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
         {articles.length === 0 ? (
           <ArchiveEmptyState
             heading="Nothing published yet"

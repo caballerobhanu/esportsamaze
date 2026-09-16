@@ -132,6 +132,9 @@ body {
    ═══════════════════════════════════════════════════════════ */
 
 :root {
+  /* Safe-area inset, resolved once so the sticky chrome can offset against it.
+     0px on every non-notched device and in desktop browsers. */
+  --ed-safe-top: env(safe-area-inset-top, 0px);
   --ed-canvas: #f5f7fa;
   --ed-surface: #ffffff;
   --ed-sand: #eaeef4;

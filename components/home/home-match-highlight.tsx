@@ -134,13 +134,13 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
           </div>
 
           {/* Right 7 cols: Top Squads in this match */}
-          <div className="min-w-0 p-5 md:col-span-7 sm:p-6 space-y-3">
+          <div className="min-w-0 p-4 md:col-span-7 sm:p-6 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 dark:text-slate-500">Match Standings</span>
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{match.mapName || 'Erangel'}</span>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-white/10">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
                   <tr>
@@ -182,7 +182,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
         </div>
       ) : (
         /* Upcoming Match View */
-        <div className="space-y-3 p-8 text-center sm:p-10">
+        <div className="space-y-3 p-6 text-center sm:p-10">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--ed-blue)]/10 text-[var(--ed-blue)] text-xl font-bold">
             <Clock className="h-6 w-6" />
           </div>

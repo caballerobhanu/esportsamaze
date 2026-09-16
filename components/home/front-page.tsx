@@ -49,7 +49,7 @@ export function FrontPage({
           No stories published yet. Check back soon for esports coverage!
         </div>
       ) : (
-        <div className="mt-7 grid gap-8 lg:grid-cols-12 lg:gap-10">
+        <div className="mt-5 grid gap-8 sm:mt-7 lg:grid-cols-12 lg:gap-10">
           {/* Lead + secondaries */}
           <div className="min-w-0 lg:col-span-8">
             {lead && (
@@ -86,7 +86,7 @@ export function FrontPage({
             )}
 
             {secondary.length > 0 && (
-              <div className="mt-8 grid gap-7 border-t border-slate-200 dark:border-white/10 pt-8 sm:grid-cols-2">
+              <div className="mt-6 grid gap-7 border-t border-slate-200 dark:border-white/10 pt-6 sm:mt-8 sm:grid-cols-2 sm:pt-8">
                 {secondary.map((article) => (
                   <article key={article.id}>
                     <Link href={`/news/${article.slug}`} className="group flex h-full flex-col gap-3">

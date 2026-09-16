@@ -169,7 +169,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
         </div>
 
         {/* Top Hero Card — matches profile page #0A5FC4 design */}
-        <section className="mb-8 overflow-hidden rounded-3xl bg-[#0A5FC4] p-6 text-white shadow-xl shadow-blue-900/15 sm:p-8">
+        <section className="mb-6 overflow-hidden rounded-3xl bg-[#0A5FC4] p-5 text-white shadow-xl shadow-blue-900/15 sm:mb-8 sm:p-8">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
             <div>
               <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[.15em] text-blue-100">
@@ -213,7 +213,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
             <div className="flex items-center gap-4 self-start sm:self-auto">
               <div className="text-left sm:text-right">
                 <p className="text-[10px] font-black uppercase tracking-[.2em] text-blue-200">Official Rank</p>
-                <p className="mt-1 text-5xl font-black tracking-tight text-white">#{rank}</p>
+                <p className="mt-1 text-4xl font-black tracking-tight text-white sm:text-5xl">#{rank}</p>
               </div>
               <Trophy className="hidden h-10 w-10 text-amber-300 sm:block" />
             </div>

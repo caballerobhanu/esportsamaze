@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Crown,
   Globe,
-  ShieldCheck,
 } from 'lucide-react';
 
 import { ThemeLogo } from '@/components/ui/theme-logo';
@@ -61,91 +60,92 @@ export function TeamHero({
         {team.tag || team.name}
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-5 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 pt-3 sm:px-6 sm:pt-5 lg:px-8">
         {/* breadcrumb + pager */}
-        <div className="mb-10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
+        <div className="mb-3 flex items-center justify-between gap-3 sm:mb-10">
+          <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[.15em] text-slate-400 dark:text-slate-500 sm:gap-2 sm:text-[11px] sm:tracking-[.18em]">
             <Link href="/" className="hover:text-[#0A5FC4]">Home</Link>
             <span>/</span>
-            <span>{team.game?.name || 'Esports'}</span>
+            <span className="truncate max-w-[110px] sm:max-w-none">
+              <span className="sm:hidden">{team.game?.name?.toLowerCase().includes('battlegrounds') ? 'BGMI' : (team.game?.name || 'Esports')}</span>
+              <span className="hidden sm:inline">{team.game?.name || 'Esports'}</span>
+            </span>
             <span>/</span>
             <span className="text-[#0A5FC4] dark:text-blue-300">Team profile</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             {team.prevTeam && (
               <Link
                 href={teamHref(team.prevTeam)}
-                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
+                className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Previous team: ${team.prevTeam.name}`}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Link>
             )}
             {team.nextTeam && (
               <Link
                 href={teamHref(team.nextTeam)}
-                className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
+                className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Next team: ${team.nextTeam.name}`}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Link>
             )}
           </div>
         </div>
 
-        <div className="grid items-center gap-10 pb-10 lg:grid-cols-[auto_1fr] lg:pb-12">
+        <div className="grid items-center gap-4 pb-5 sm:gap-10 sm:pb-10 lg:grid-cols-[auto_1fr] lg:pb-12">
           {/* Logo card */}
           <div className="flex justify-center">
             <div className="relative">
-              <div className="absolute -inset-3 rotate-2 rounded-[2.8rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20" />
-              <div className="relative flex h-48 w-48 items-center justify-center overflow-hidden rounded-[2.5rem] border-8 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-56 sm:w-56">
+              <div className="absolute -inset-2 rotate-2 rounded-[1.8rem] bg-[#0A5FC4]/10 dark:bg-[#0A5FC4]/20 sm:-inset-3 sm:rounded-[2.8rem]" />
+              <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-[1.8rem] border-4 border-white bg-gradient-to-br from-blue-100 via-slate-100 to-blue-200 shadow-[0_25px_70px_-20px_rgba(10,95,196,.5)] dark:border-[#182338] dark:from-blue-950 dark:via-slate-900 dark:to-[#0A5FC4]/30 sm:h-56 sm:w-56 sm:rounded-[2.5rem] sm:border-8">
                 {team.logoUrl || team.imageDarkUrl ? (
                   <ThemeLogo
                     lightSrc={team.logoUrl}
                     darkSrc={team.imageDarkUrl}
                     alt={team.name}
-                    className="object-contain p-4"
+                    className="object-contain p-3 sm:p-4"
                     priority
                   />
                 ) : (
-                  <div className="text-5xl font-black text-[#0A5FC4]/40">
+                  <div className="text-4xl font-black text-[#0A5FC4]/40 sm:text-5xl">
                     {team.tag || team.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
-                <div className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-white dark:border-[#182338]">
-                  <ShieldCheck className="h-4 w-4" strokeWidth={2.5} />
-                </div>
               </div>
             </div>
           </div>
 
           {/* Identity */}
           <div className="text-center lg:text-left">
-            <div className="mb-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <div className="mb-2.5 flex flex-wrap items-center justify-center gap-1.5 sm:mb-4 sm:gap-2 lg:justify-start">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 sm:px-3 sm:py-1.5 sm:text-[11px]">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {team.status || 'Active'}
               </span>
-              <span className="rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
-                {team.game?.name || 'Esports'}
+              <span className="rounded-full bg-[#0A5FC4]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300 sm:px-3 sm:py-1.5 sm:text-[11px]">
+                <span className="sm:hidden">{team.game?.name?.toLowerCase().includes('battlegrounds') ? 'BGMI' : (team.game?.name || 'Esports')}</span>
+                <span className="hidden sm:inline">{team.game?.name || 'Esports'}</span>
               </span>
               {titles > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
-                  <Crown className="h-3.5 w-3.5" /> {titles}× Champion
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px]">
+                  <Crown className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {titles}× Champion
                 </span>
               )}
               {typeof kraftonRank === 'number' && (
                 <Link
                   href={`/rankings/team/${team.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#0A5FC4]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] transition hover:bg-[#0A5FC4]/20 dark:bg-[#0A5FC4]/20 dark:text-blue-300"
+                  className="inline-flex items-center gap-1 rounded-full bg-[#0A5FC4]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] transition hover:bg-[#0A5FC4]/20 dark:bg-[#0A5FC4]/20 dark:text-blue-300 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px]"
                 >
-                  <BarChart3 className="h-3.5 w-3.5" /> #{kraftonRank} KRAFTON Ranking
+                  <BarChart3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> #{kraftonRank} KRAFTON Ranking
                 </Link>
               )}
             </div>
-            <h1 className="text-4xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
+            <h1 className="text-2xl font-black uppercase tracking-[-.05em] text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
               {team.name}
             </h1>
-            <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 sm:mt-4 sm:text-sm">
               {team.region || 'Global'} region
               {team.sponsors && (
                 <>

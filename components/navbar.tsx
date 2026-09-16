@@ -225,7 +225,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10">
+      <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10 pt-[var(--ed-safe-top)]">
         <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6">
           <div className="relative flex items-center justify-between h-14 gap-4">
             {/* SET 1 (left aligned): Logo + spacing + nav items */}
@@ -405,7 +405,7 @@ export function Navbar() {
       {/* COMMAND PALETTE SEARCH MODAL (No screen swipe / layout jump)     */}
       {/* ================================================================ */}
       {searchOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 pb-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[calc(4rem+var(--ed-safe-top))] sm:pt-[calc(6rem+var(--ed-safe-top))] px-4 pb-6">
           {/* Subtle blurred backdrop */}
           <div
             className="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm transition-opacity"

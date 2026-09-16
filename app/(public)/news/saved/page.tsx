@@ -32,7 +32,7 @@ export default function SavedStoriesPage() {
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-6">
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
         <div className="kicker inline-flex items-center gap-2 text-[var(--ed-blue)]">
           <Bookmark className="h-3 w-3" aria-hidden />
           Your reading list

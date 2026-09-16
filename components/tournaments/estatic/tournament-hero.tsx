@@ -4,7 +4,6 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
   Crown,
   Trophy,
   Users,
@@ -102,9 +101,6 @@ export function TournamentHero({ ctx, activeTab }: { ctx: TournamentContext; act
                     {tournament.name.slice(0, 4).toUpperCase()}
                   </div>
                 )}
-                <div className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-white dark:border-[#182338]">
-                  <ShieldCheck className="h-4 w-4" strokeWidth={2.5} />
-                </div>
               </div>
             </div>
           </div>

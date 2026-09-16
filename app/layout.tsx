@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Suspense } from 'react';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
+import { TopProgressBar } from '@/components/ui/top-progress-bar';
 import { organizationJsonLd, websiteJsonLd, serializeJsonLd, baseUrl, SITE_NAME, SITE_SLOGAN } from '@/lib/seo';
 
 const jakarta = Plus_Jakarta_Sans({
@@ -88,7 +90,12 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         )}
-        <ThemeProvider defaultTheme="light">{children}</ThemeProvider>
+        <ThemeProvider defaultTheme="light">
+          <Suspense fallback={null}>
+            <TopProgressBar />
+          </Suspense>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
