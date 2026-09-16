@@ -36,7 +36,7 @@ interface PlayerPageProps {
 }
 type SocialMap = Record<string, string>;
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 180;
 
 const socialIcons: Record<string, typeof Globe> = {
   instagram: Camera,

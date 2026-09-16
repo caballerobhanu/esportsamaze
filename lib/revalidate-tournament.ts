@@ -25,6 +25,10 @@ export function revalidateTournamentPages(slug?: string | null): void {
     revalidateTag('compare-stats', 'max');
     // Team profile aggregates (lib/team-data.ts) — matches, placements, totals
     revalidateTag(TEAM_PROFILE_CACHE_TAG, 'max');
+    // Player profile routes are ISR (revalidate = 180) and derive from the same
+    // scorecards. The layout scope covers the base route and every tab in one
+    // call, so a match paste cannot leave a player page stale for 180s.
+    revalidatePath('/players/[slug]', 'layout');
     revalidatePath('/tournaments');
     if (slug) {
       revalidatePath(`/tournaments/${slug}`);
