@@ -6,7 +6,6 @@ import {
   type TeamResultScoring,
   type TeamResultWriteInput,
 } from '../lib/team-result-write';
-import { requestedTeamDetailPayload } from '../lib/match-stat-fields';
 import { parsePaste } from '../lib/paste-table-parse';
 
 /**
@@ -125,15 +124,27 @@ describe('team result write decision', () => {
     assert.equal(decision.scoring.totalPoints, stored.placePoints + 8 + stored.bonusPoints);
   });
 
-  it('(b) treats supplied team telemetry as team-level data', () => {
-    const decision = decide({ row: { damage: 1200 } });
+  it('does not treat a player sheet telemetry column as team-level data', () => {
+    // The BMPS player paste carried damage, survival and the rest. On a player
+    // sheet those columns are the player's, so the stored team row must be left
+    // completely alone. Reading them as team telemetry is what replaced every
+    // team's recorded figures with the last player row of the game.
+    const decision = decide({
+      row: { player: 'Nyrox', team: 'Team Soul', elims: 4, damage: 1200, survivalTime: 1400, healing: 300 },
+    });
+
+    assert.equal(decision.shouldWrite, false);
+    assert.equal(decision.skippedExistingRow, true);
+    assert.deepEqual(decision.scoring, stored);
+    // Still reported as carried, but only informationally.
+    assert.ok(decision.suppliedDetailFields.includes('damage'));
+  });
+
+  it('still writes when the row brings an explicit team column', () => {
+    const decision = decide({ row: { player: 'Nyrox', team: 'Team Soul', damage: 1200, team_total: 26 } });
 
     assert.equal(decision.shouldWrite, true);
-    assert.deepEqual(decision.suppliedScoringFields, []);
-    assert.deepEqual(decision.suppliedDetailFields, ['damage']);
-    // Writing telemetry still never resets the scoring the row stayed silent on.
-    assert.equal(decision.scoring.bonusPoints, stored.bonusPoints);
-    assert.equal(decision.scoring.rank, stored.rank);
+    assert.equal(decision.scoring.totalPoints, 26);
   });
 
   it('(c) authors a team row the DB does not have yet', () => {
@@ -203,19 +214,27 @@ describe('a real BGMS player paste', () => {
   });
 });
 
-describe('requestedTeamDetailPayload', () => {
-  it('carries only the telemetry the row supplied', () => {
-    // A genuinely-supplied 0 is data; an absent or blank column is omitted, so a
-    // Prisma update leaves the stored value instead of NULLing it.
-    assert.deepEqual(requestedTeamDetailPayload({ damage: 0, healing: '', headshots: undefined }), { damage: 0 });
+describe('a player paste that carries telemetry columns', () => {
+  // The BMPS 2026 shape: a player sheet with damage / survival / healing on it.
+  // Before the fix these columns made every row look like it brought team-level
+  // data, so each player wrote its own figures onto the team result and the last
+  // row of the game won.
+  const paste = [
+    'Tournament\tStage\tMap\tplayer\tteam\trole\telims\tdamage\tsurvivalTime\thealing',
+    'BMPS 2026\tGrand Finals\tErangel\tNyrox\tTeam Soul\tAssaulter\t4\t1200\t1400\t300',
+  ].join('\n');
+
+  it('never writes the stored team result', () => {
+    const [row] = parsePaste(paste, 'excel', 'players').rows;
+    const decision = decide({ row });
+
+    assert.equal(decision.shouldWrite, false);
+    assert.deepEqual(decision.scoring, stored);
   });
 
-  it('keeps derived telemetry only when its parts were supplied', () => {
-    assert.deepEqual(requestedTeamDetailPayload({ smokesUsed: 2, grenadesUsed: 3 }), {
-      smokesUsed: 2,
-      grenadesUsed: 3,
-      utilitiesTotal: 5,
-    });
-    assert.deepEqual(requestedTeamDetailPayload({}), {});
+  it('still authors a missing team row, without telemetry', () => {
+    const [row] = parsePaste(paste, 'excel', 'players').rows;
+
+    assert.equal(decide({ row, hasDbRow: false, existing: null }).shouldWrite, true);
   });
 });

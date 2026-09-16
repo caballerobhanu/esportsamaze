@@ -19,12 +19,21 @@
  *   - a team result the DB does not have yet is authored as before, so a player
  *     paste can still create a missing team row.
  *
- * "Team-level column" means the `team_*` scoring fields this importer has always
- * read (`team_rank`/`teamRank`, `team_wwcd`/`teamWwcd`/`wwcd`,
- * `team_place`/`teamPlace`, `team_elims`/`teamElims`, `team_total`/`teamTotal`),
- * any bonus column, or a `TEAM_DETAIL_FIELDS` telemetry column. Detection and
- * value reading share one alias table, so a column can never count as supplied
- * without also being read, or be read without counting as supplied.
+ * "Team-level column" means only the `team_*` scoring fields this importer has
+ * always read (`team_rank`/`teamRank`, `team_wwcd`/`teamWwcd`/`wwcd`,
+ * `team_place`/`teamPlace`, `team_elims`/`teamElims`, `team_total`/`teamTotal`)
+ * and any bonus column. Detection and value reading share one alias table, so a
+ * column can never count as supplied without also being read, or be read without
+ * counting as supplied.
+ *
+ * A generic telemetry column (`TEAM_DETAIL_FIELDS` — damage, survival time,
+ * healing, …) is deliberately NOT team-level data here. `playerDetailPayload` is
+ * `teamDetailPayload` plus the player-only fields, so a player sheet's `damage`
+ * column *is* the player's damage. Reading it as the team's is what let a BMPS
+ * player paste overwrite every team's recorded telemetry with one player's
+ * numbers — the last row processed for that team. Team telemetry is owned by the
+ * team-scorecard path (`bulkUniversalMatchImportAction`), which writes
+ * `teamDetailPayload` itself and never calls this module.
  *
  * `bulkUniversalMatchImportAction` (the team-scorecard path) deliberately keeps
  * its old behaviour — it owns the rows it writes — so it uses
@@ -156,7 +165,11 @@ export interface TeamResultWriteDecision {
   scoring: TeamResultScoring;
   /** Canonical team-level scoring keys the row carried. */
   suppliedScoringFields: TeamResultRowKey[];
-  /** Supplied team telemetry columns, per `TEAM_DETAIL_FIELDS`. */
+  /**
+   * Telemetry columns the row carried, per `TEAM_DETAIL_FIELDS`. Informational
+   * only: on a player sheet these are the player's figures, and they never reach
+   * the team result.
+   */
   suppliedDetailFields: string[];
   /** True when a stored row exists and the paste brought nothing for it. */
   skippedExistingRow: boolean;
@@ -173,7 +186,9 @@ export function decideTeamResultWrite(input: TeamResultWriteInput): TeamResultWr
   const suppliedDetailFields = collectSuppliedFields(input.row, TEAM_DETAIL_FIELDS);
   const existing = input.hasDbRow ? input.existing : null;
 
-  const pastesTeamLevelData = rowValues.supplied.length > 0 || suppliedDetailFields.length > 0;
+  // Only the explicit team_* scoring columns count. A generic telemetry column
+  // belongs to the player on a player sheet, so it cannot speak for the team.
+  const pastesTeamLevelData = rowValues.supplied.length > 0;
 
   if (existing && !pastesTeamLevelData) {
     // The paste says nothing about this team: its stored scoring and telemetry

@@ -255,25 +255,6 @@ export function teamDetailPayload(row: object) {
   };
 }
 
-/**
- * Team detail payload for an upsert that must not touch telemetry the row did
- * not carry. `teamDetailPayload` resolves an absent column to NULL, which is
- * correct for a `create` (the column is unnamed either way) but wrong for an
- * `update`: NULL overwrites a recorded value with "never recorded". Dropping the
- * NULLs leaves Prisma to skip those columns in an update and to fall back to
- * NULL — the same value — in a create.
- *
- * Used by the player paste cascade, whose rows never own team telemetry. The
- * team-scorecard importer keeps `teamDetailPayload`: it owns the rows it writes.
- */
-export function requestedTeamDetailPayload(row: object) {
-  const payload: Record<string, unknown> = {};
-  for (const [field, value] of Object.entries(teamDetailPayload(row))) {
-    if (value !== null) payload[field] = value;
-  }
-  return payload;
-}
-
 /** Team detail fields plus the player-only ones. */
 export function playerDetailPayload(row: object) {
   return {

@@ -16,7 +16,6 @@ import {
   TEAM_DETAIL_FIELDS,
   collectSuppliedFields,
   playerDetailPayload,
-  requestedTeamDetailPayload,
   teamDetailPayload,
   withImportProvenance,
 } from '@/lib/match-stat-fields';
@@ -1695,11 +1694,11 @@ export async function bulkUniversalPlayerMatchImportAction(
             elimsPoints: teamElimsPoints,
             bonusPoints: teamScoring.bonusPoints,
             totalPoints: teamTotalPoints,
-            // Only the detail columns the row carried: an update then leaves the
-            // stored telemetry of the others alone instead of NULLing it. A
-            // paste never owns a team's telemetry, so NULL here means "the row
-            // said nothing", not "the row wants this cleared".
-            ...requestedTeamDetailPayload(row),
+            // No telemetry here on purpose. These are player rows, and a player
+            // sheet's damage / survival / healing columns are the player's own
+            // figures — writing them into the team result is what replaced every
+            // team's recorded telemetry with the last player row of the game.
+            // Team telemetry belongs to the team-scorecard import alone.
             won: isTeamWwcd,
             score: teamTotalPoints,
           };
