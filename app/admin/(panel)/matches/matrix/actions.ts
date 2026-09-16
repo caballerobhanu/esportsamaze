@@ -704,6 +704,11 @@ export async function bulkUniversalMatchImportAction(
       revalidatePath('/admin/matches');
       revalidatePath('/admin/matches/matrix');
       revalidatePath('/tournaments');
+      // A team scorecard is the source of every team aggregate, so this has to
+      // purge the cached profile data too. Without it the team stats and
+      // tournament statistics pages keep serving the pre-import figures until
+      // the 900s cache TTL lapses — which reads as "the paste didn't work".
+      revalidateTournamentPages();
     } catch {
       // Ignored in script contexts
     }
