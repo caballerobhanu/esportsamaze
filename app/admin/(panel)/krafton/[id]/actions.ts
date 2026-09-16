@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import prisma from '@/lib/prisma';
+import { KRAFTON_CACHE_TAG } from '@/lib/krafton-data';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
 import { parsePlayerPaste, parseTeamPaste } from '@/lib/krafton-standings';
@@ -16,7 +17,7 @@ function refresh(eventId?: string) {
   revalidatePath('/admin/krafton');
   revalidatePath('/rankings');
   try {
-    revalidateTag('krafton-rankings', 'max');
+    revalidateTag(KRAFTON_CACHE_TAG, 'max');
   } catch {
     // ignore if called outside action context
   }

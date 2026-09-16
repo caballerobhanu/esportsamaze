@@ -1,6 +1,7 @@
 /* Server-side data access for the KRAFTON rankings system (v2).
    Fetches entry rows shaped for the board engine and resolves site links. */
 
+import { unstable_cache } from 'next/cache';
 import prisma from '@/lib/prisma';
 import type { KraftonBoard } from '@prisma/client';
 import type { EntryRow, RankedBoardEntity, TransferRule } from '@/lib/krafton-standings';
@@ -9,6 +10,16 @@ import {
   computeBoardWithRankChanges,
   generateHistoricalSnapshotDates,
 } from '@/lib/krafton-standings';
+
+/** Purged by both KRAFTON admin actions whenever a board or an entry is saved. */
+export const KRAFTON_CACHE_TAG = 'krafton-rankings';
+
+/**
+ * A rank also steps down with the calendar, and nothing writes on that date — so
+ * for this data the TTL, not the tag, is what catches a decay step-down. Daily
+ * bounds the staleness to a day; the tag makes an admin's new input visible at once.
+ */
+const KRAFTON_REVALIDATE = 86_400;
 
 export async function fetchBoardEntries(board: KraftonBoard): Promise<EntryRow[]> {
   const rows = await prisma.kraftonEntry.findMany({
@@ -386,24 +397,31 @@ export interface EntityStanding {
   finishes: number;
 }
 
-/** New-system rank for a profile page: position within its board (live decay). */
-export async function fetchEntityStanding(
-  board: KraftonBoard,
-  entityId: string
-): Promise<EntityStanding | null> {
-  const entries = await fetchBoardEntries(board);
-  if (entries.length === 0) return null;
-  const transfers = board === 'TEAM' ? await fetchTeamTransfers() : [];
-  const ranked = computeBoard(entries, transfers).map((e, i) => ({ ...e, rank: i + 1 }));
-  const me = ranked.find((e) => e.entityId === entityId);
-  if (!me) return null;
-  return {
-    rank: me.rank,
-    points: me.totalPoints,
-    events: me.events,
-    finishes: me.contributions.reduce((sum, c) => sum + c.finishes, 0),
-  };
-}
+/**
+ * New-system rank for a profile page: position within its board (live decay).
+ *
+ * Cached because it is the expensive read behind every player and team profile:
+ * it pulls the entire board and scores it. Its result is four numbers, so unlike
+ * the entry fetchers below it survives the cache's serialization untouched.
+ */
+export const fetchEntityStanding = unstable_cache(
+  async (board: KraftonBoard, entityId: string): Promise<EntityStanding | null> => {
+    const entries = await fetchBoardEntries(board);
+    if (entries.length === 0) return null;
+    const transfers = board === 'TEAM' ? await fetchTeamTransfers() : [];
+    const ranked = computeBoard(entries, transfers).map((e, i) => ({ ...e, rank: i + 1 }));
+    const me = ranked.find((e) => e.entityId === entityId);
+    if (!me) return null;
+    return {
+      rank: me.rank,
+      points: me.totalPoints,
+      events: me.events,
+      finishes: me.contributions.reduce((sum, c) => sum + c.finishes, 0),
+    };
+  },
+  ['krafton-entity-standing'],
+  { tags: [KRAFTON_CACHE_TAG], revalidate: KRAFTON_REVALIDATE }
+);
 
 /** Fetches historical snapshot dates and computes the board with rank changes for a given snapshot. */
 export async function fetchBoardSnapshot(
