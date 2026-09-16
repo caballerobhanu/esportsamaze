@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import prisma from '@/lib/prisma';
 import { fetchBoardSnapshot, fetchTeamTransfers, fetchFutureKraftonEvents } from '@/lib/krafton-data';
-import { computeNextDecay, computeRankOneReigns, computeUnifiedNextUpdate } from '@/lib/krafton-standings';
+import { computeBoard, computeNextDecay, computeRankOneReigns, computeUnifiedNextUpdate } from '@/lib/krafton-standings';
 import type { KraftonBoard } from '@prisma/client';
 import {
   EntityLogoMeta,
@@ -67,9 +67,24 @@ export default async function RankingsPage({
   // built from, so both views agree. Point transfers only apply to the team board.
   const reigns = computeRankOneReigns(entries, isPlayers ? [] : transfers);
 
+  /*
+   * The next update — and the projected snapshot built from it — describes the
+   * LIVE board, never the snapshot being viewed.
+   *
+   * Deriving it from the selected board made the projection move: open the
+   * projected date and that board has already stepped down, so the milestone it
+   * projected is no longer pending and `computeNextDecay` returns the following
+   * one. The pill then showed a different date from the one selected and stopped
+   * matching the selection altogether.
+   */
+  const liveRanked =
+    selectedDate === snapshotDates[0]
+      ? ranked
+      : computeBoard(entries, isPlayers ? [] : transfers).map((entity, i) => ({ ...entity, rank: i + 1 }));
+
   // Earliest upcoming decay across top entities
   let earliestDecay: ReturnType<typeof computeNextDecay> = null;
-  for (const entity of ranked) {
+  for (const entity of liveRanked) {
     const nd = computeNextDecay(entity.contributions);
     if (nd) {
       if (!earliestDecay || nd.daysRemaining < earliestDecay.daysRemaining) {
