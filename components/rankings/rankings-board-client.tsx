@@ -312,10 +312,19 @@ export function RankingsBoardClient({
 
       {/* ── Snapshot Date Timeline Strip (Latest 7 updates) ── */}
       {snapshotDates.length > 0 && (() => {
-        const top7 = snapshotDates.slice(0, 7);
-        const visibleDates = (
-          top7.includes(selectedDate) ? top7 : [selectedDate, ...top7.slice(0, 6)]
-        ).concat(projectedDate && !top7.includes(projectedDate) ? [projectedDate] : []);
+        /*
+         * Seven pills in a fixed order, identical whether or not one is
+         * selected: the projected step-down first when the next update is a
+         * decay, then the latest board, then the five before it. A conclusion
+         * cannot be projected, so that case stays latest + six.
+         *
+         * Deriving the list from `selectedDate` (the previous behaviour) made
+         * the projected pill move to the front and duplicate once it was
+         * clicked, which read as several future snapshots.
+         */
+        const visibleDates = projectedDate
+          ? [projectedDate, ...snapshotDates.slice(0, 6)]
+          : snapshotDates.slice(0, 7);
 
         return (
           <div>
@@ -331,16 +340,16 @@ export function RankingsBoardClient({
                 className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs dark:border-white/10 dark:bg-slate-800 dark:text-white"
                 aria-label="Select snapshot date"
               >
-                {snapshotDates.map((d, i) => (
-                  <option key={d} value={d}>
-                    {i === 0 ? `Latest (${d})` : d}
-                  </option>
-                ))}
                 {projectedDate && (
                   <option key={projectedDate} value={projectedDate}>
                     Projected ({projectedDate})
                   </option>
                 )}
+                {snapshotDates.map((d, i) => (
+                  <option key={d} value={d}>
+                    {i === 0 ? `Latest (${d})` : d}
+                  </option>
+                ))}
               </select>
             </div>
 
