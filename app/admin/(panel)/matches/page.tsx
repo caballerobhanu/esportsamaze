@@ -282,6 +282,7 @@ async function deleteMatch(formData: FormData) {
     }
   }
   revalidatePath('/admin/matches');
+  revalidateTournamentPages();
   const query = [
     tournamentId ? `tournamentId=${tournamentId}` : '',
     stageId && stageId !== 'ALL' ? `stageId=${stageId}` : '',
@@ -439,6 +440,7 @@ async function deleteTeamResult(formData: FormData) {
     }
   }
   revalidatePath('/admin/matches');
+  revalidateTournamentPages();
   redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
 }
 
@@ -515,6 +517,7 @@ async function savePlayerStat(formData: FormData) {
   });
 
   revalidatePath('/admin/matches');
+  revalidateTournamentPages();
   redirect(mg ? `/admin/matches?edit=${mg.matchId}#player-stats` : '/admin/matches');
 }
 
@@ -531,6 +534,7 @@ async function deletePlayerStat(formData: FormData) {
     }
   }
   revalidatePath('/admin/matches');
+  revalidateTournamentPages();
   redirect(matchId ? `/admin/matches?edit=${matchId}` : '/admin/matches');
 }
 
