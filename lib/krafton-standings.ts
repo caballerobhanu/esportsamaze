@@ -748,7 +748,10 @@ export function computeUnifiedNextUpdate(
       date: nextDecay.date,
       dateStr: nextDecay.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }),
       title: `${nextDecay.eventName} Decay Step-down`,
-      description: `Points step down to ${Math.round(nextDecay.toMultiplier * 100)}%${nextDecay.estimatedPointLoss ? ` (projected -${nextDecay.estimatedPointLoss} pts)` : ''}`,
+      // The multiplier is the same for every entity; the point loss is not —
+      // it depends on each entity's own contributions, so a single figure would
+      // be wrong for everyone who is not the entity it was computed from.
+      description: `Points step down to ${Math.round(nextDecay.toMultiplier * 100)}%`,
     });
   }
 
