@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SITE_SLOGAN } from '@/lib/seo';
 
 /**
  * Closing masthead above the footer: the site statement (the page's single h1),
@@ -36,7 +37,7 @@ export function StatsBand({
       <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-6 sm:py-12">
         <div className="grid gap-8 md:grid-cols-2 md:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400">eSportsAmaze</p>
+            <p className="text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-400">{SITE_SLOGAN}</p>
             <h1 className="mt-2 text-2xl sm:text-3xl lg:text-4xl font-black uppercase leading-tight tracking-tight text-slate-950 dark:text-white">
               Esports statistics and tournament coverage
             </h1>

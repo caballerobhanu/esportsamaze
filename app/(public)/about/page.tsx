@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalPage } from '@/components/legal-page';
+import { SITE_SLOGAN } from '@/lib/seo';
 
 export const metadata: Metadata = {
   title: 'About — eSportsAmaze',
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <LegalPage kicker="The project" title="About eSportsAmaze" updated="September 2026">
+    <LegalPage kicker={SITE_SLOGAN} title="About eSportsAmaze" updated="September 2026">
       <p>
         <strong>eSportsAmaze</strong> is a high-performance esports statistics platform covering
         competitive <strong>Battlegrounds Mobile India (BGMI)</strong> and the wider Indian esports

@@ -24,8 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(siteUrl),
     title: `${SITE_NAME} | BGMI Points Table, Live Standings & Stats`,
-    description:
-      'Live BGMI points tables, standings, match results and player stats — updated minutes after every match.',
+    description: `${SITE_SLOGAN} BGMI points tables, live standings, match results and player stats — updated minutes after every match.`,
     icons: {
       icon: [{ url: favicon }],
       shortcut: [favicon],
