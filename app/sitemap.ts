@@ -7,7 +7,8 @@ import {
   normalizeStandingsConfig,
   type TournamentTabId,
 } from '@/lib/standings-config';
-import { fetchBoardEntries } from '@/lib/krafton-data';
+import { fetchBoardEntries, fetchTeamTransfers } from '@/lib/krafton-data';
+import { computeBoard } from '@/lib/krafton-standings';
 import {
   PLAYER_TAB_ROUTES,
   TEAM_TAB_ROUTES,
@@ -67,33 +68,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = baseUrl();
 
   try {
-    const [tournaments, teams, players, articles, teamEntries, playerEntries] = await Promise.all([
-      prisma.tournament.findMany({
-        select: { slug: true, updatedAt: true, standingsConfig: true },
-        orderBy: { updatedAt: 'desc' },
-        take: 5000,
-      }),
-      prisma.team.findMany({
-        where: { slug: { not: null } },
-        select: { slug: true, updatedAt: true },
-        orderBy: { updatedAt: 'desc' },
-        take: 5000,
-      }),
-      prisma.player.findMany({
-        where: { slug: { not: null } },
-        select: { slug: true, updatedAt: true },
-        orderBy: { updatedAt: 'desc' },
-        take: 5000,
-      }),
-      prisma.article.findMany({
-        where: publishedVisibility(),
-        select: { slug: true, updatedAt: true, tags: true, category: true },
-        orderBy: { publishedAt: 'desc' },
-        take: 5000,
-      }),
-      fetchBoardEntries('TEAM').catch(() => []),
-      fetchBoardEntries('PLAYER').catch(() => []),
-    ]);
+    const [tournaments, teams, players, articles, teamEntries, playerEntries, transfers] =
+      await Promise.all([
+        prisma.tournament.findMany({
+          select: { slug: true, updatedAt: true, standingsConfig: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 5000,
+        }),
+        prisma.team.findMany({
+          where: { slug: { not: null } },
+          select: { slug: true, updatedAt: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 5000,
+        }),
+        prisma.player.findMany({
+          where: { slug: { not: null } },
+          select: { slug: true, updatedAt: true },
+          orderBy: { updatedAt: 'desc' },
+          take: 5000,
+        }),
+        prisma.article.findMany({
+          where: publishedVisibility(),
+          select: { slug: true, updatedAt: true, tags: true, category: true },
+          orderBy: { publishedAt: 'desc' },
+          take: 5000,
+        }),
+        fetchBoardEntries('TEAM').catch(() => []),
+        fetchBoardEntries('PLAYER').catch(() => []),
+        fetchTeamTransfers().catch(() => []),
+      ]);
 
     const articlesLatest = latest(articles.map((a) => a.updatedAt));
     const tournamentsLatest = latest(tournaments.map((t) => t.updatedAt));
@@ -197,10 +200,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     /*
      * KRAFTON breakdown pages are the highest-intent URLs on the site, so every
-     * linked entity gets one. Keys are resolved through the same rule the pages
-     * and fetchProfileSlug() use — teams fall back to their tag when slug is
-     * null — otherwise the listed URL would not match its own canonical.
+     * entity with an actual ranking gets one. Keys are resolved through the same
+     * rule the pages and fetchProfileSlug() use — teams fall back to their tag
+     * when slug is null — otherwise the listed URL would not match its own
+     * canonical.
+     *
+     * Entities with no qualifying events are left out: their breakdown page has
+     * nothing on it yet (a team whose only entry is for a future event scores
+     * `events: 0` today). This is not permanent — the sitemap rebuilds hourly, so
+     * they are listed as soon as they have something to show.
      */
+    const rankedKeysWithData = (board: ReturnType<typeof computeBoard>) =>
+      new Set(board.filter((entity) => entity.events > 0).map((entity) => entity.key));
+
+    const teamsWithRankingData = rankedKeysWithData(computeBoard(teamEntries, transfers));
+    const playersWithRankingData = rankedKeysWithData(computeBoard(playerEntries));
+
     const teamEntityIds = [
       ...new Set(teamEntries.map((entry) => entry.entityId).filter((id): id is string => !!id)),
     ];
@@ -225,6 +240,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const rankingRoutes: MetadataRoute.Sitemap = [
       ...rankedTeams
+        .filter((team) => teamsWithRankingData.has(team.id))
         .map((team) => team.slug || team.tag)
         .filter((key): key is string => !!key)
         .map((key) => ({
@@ -234,6 +250,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.8,
         })),
       ...rankedPlayers
+        .filter((player) => playersWithRankingData.has(player.id))
         .map((player) => player.slug)
         .filter((key): key is string => !!key)
         .map((key) => ({
