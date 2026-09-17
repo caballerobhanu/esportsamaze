@@ -321,6 +321,9 @@ export async function bulkUniversalMatchImportAction(
     const errors: string[] = [];
     const affectedTournaments = new Set<string>();
     const affectedMatches = new Set<string>();
+    /** Teams this paste invented, reported together once the loop is done. */
+    const createdTeams: string[] = [];
+
     let totalInsertedResults = 0;
 
     // Whole import runs as one transaction: a failure halfway through rolls
@@ -618,6 +621,17 @@ export async function bulkUniversalMatchImportAction(
           String(row.isVerified).toLowerCase() === 'amateur';
 
         if (!matchedTeam) {
+          // Only an open-qualifier sheet legitimately brings teams that do not exist yet.
+          // Everything else — a sponsor rename, a typo, a stray tag — used to mint a new
+          // team silently, which is how one org ended up stored twice and read as two
+          // teams across every aggregate. Report it and skip the row instead.
+          if (!isQualifier) {
+            errors.push(
+              `Row ${rowNum}: Team "${teamRaw}" not found in database, so the row was skipped. Use an existing team's exact name or tag — for a one-event sponsor name, set it as the event's display name on the squad instead. If this really is a new team, mark the row with isOpenQualifier: true.`
+            );
+            continue;
+          }
+
           const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
           matchedTeam = await tx.team.create({
             data: {
@@ -630,6 +644,7 @@ export async function bulkUniversalMatchImportAction(
             },
           });
           allTeams.push(matchedTeam);
+          createdTeams.push(teamRaw.trim());
         }
 
         // Compute Points & Stats
@@ -711,6 +726,15 @@ export async function bulkUniversalMatchImportAction(
       revalidateTournamentPages();
     } catch {
       // Ignored in script contexts
+    }
+
+    // Creating a team is the one thing this import does that cannot be undone by
+    // re-pasting, so it is never silent — even when the row said it was a qualifier.
+    if (createdTeams.length > 0) {
+      const shown = createdTeams.slice(0, 8).join(', ');
+      errors.push(
+        `Created ${createdTeams.length} new team(s): ${shown}${createdTeams.length > 8 ? `, +${createdTeams.length - 8} more` : ''}. Check these — a sponsor rename should have used the existing team with an event display name instead.`
+      );
     }
 
     return {
@@ -982,6 +1006,8 @@ export async function bulkUniversalPlayerMatchImportAction(
     const errors: string[] = [];
     const affectedTournaments = new Set<string>();
     const affectedMatches = new Set<string>();
+    /** Teams this paste invented, reported together once the loop is done. */
+    const createdTeams: string[] = [];
 
     // Light identity lists: tournament name/slug/config, team and player
     const rawTourneyNames = Array.from(
@@ -1417,6 +1443,15 @@ export async function bulkUniversalPlayerMatchImportAction(
           String(row.isVerified).toLowerCase() === 'amateur';
 
         if (!matchedTeam) {
+          // Same rule as the team-scorecard path: a team only gets created from a row that
+          // says it is an open qualifier, and anything it does create is reported.
+          if (!isQualifier) {
+            errors.push(
+              `Row ${rowNum}: Team "${teamRaw}" not found in database, so the row was skipped. Use an existing team's exact name or tag — for a one-event sponsor name, set it as the event's display name on the squad instead. If this really is a new team, mark the row with isOpenQualifier: true.`
+            );
+            continue;
+          }
+
           const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
           matchedTeam = await tx.team.create({
             data: {
@@ -1429,6 +1464,7 @@ export async function bulkUniversalPlayerMatchImportAction(
             },
           });
           allTeams.push(matchedTeam);
+          createdTeams.push(teamRaw.trim());
         }
 
         // 5. Match or Auto-Create Lightweight Player
@@ -1807,6 +1843,14 @@ export async function bulkUniversalPlayerMatchImportAction(
       revalidatePath('/');
     } catch {
       // Ignored when invoked in background/script contexts
+    }
+
+    // Same guarantee as the team-scorecard path: creating a team is never silent.
+    if (createdTeams.length > 0) {
+      const shown = createdTeams.slice(0, 8).join(', ');
+      errors.push(
+        `Created ${createdTeams.length} new team(s): ${shown}${createdTeams.length > 8 ? `, +${createdTeams.length - 8} more` : ''}. Check these — a sponsor rename should have used the existing team with an event display name instead.`
+      );
     }
 
     return {
