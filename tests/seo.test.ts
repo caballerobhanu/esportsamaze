@@ -147,34 +147,110 @@ test('sportsEventJsonLd treats online and hybrid formats distinctly', () => {
 test('sportsEventJsonLd omits location rather than inventing a venue', () => {
   const withoutVenue = sportsEventJsonLd({ name: 'A', slug: 'a', eventType: 'LAN' });
   assert.equal('location' in withoutVenue, false);
-
-  const withVenue = sportsEventJsonLd({ name: 'A', slug: 'a', venueLocation: 'NSCI Dome, Mumbai' });
-  assert.deepEqual(withVenue.location, { '@type': 'Place', name: 'NSCI Dome, Mumbai' });
 });
 
-test('sportsEventJsonLd emits ISO dates and one organizer per name', () => {
+test('sportsEventJsonLd gives location the address Google requires', () => {
+  // Google treats location.address as required and reads it to place the event.
+  const event = sportsEventJsonLd({
+    name: 'A',
+    slug: 'a',
+    venues: [{ name: 'NSCI Dome', city: 'Mumbai', country: 'India' }],
+  });
+  assert.deepEqual(event.location, {
+    '@type': 'Place',
+    name: 'NSCI Dome',
+    address: { '@type': 'PostalAddress', addressLocality: 'Mumbai', addressCountry: 'India' },
+  });
+});
+
+test('sportsEventJsonLd leaves out the address parts a venue does not record', () => {
+  const event = sportsEventJsonLd({ name: 'A', slug: 'a', venues: [{ name: 'TBD Arena' }] });
+  assert.deepEqual(event.location, { '@type': 'Place', name: 'TBD Arena' });
+});
+
+test('sportsEventJsonLd carries every venue of a multi-venue event', () => {
+  const event = sportsEventJsonLd({
+    name: 'A',
+    slug: 'a',
+    venues: [
+      { name: 'Biswa Bangla Mela Prangan', city: 'Kolkata', country: 'India' },
+      { name: 'Chennai Trade Centre', city: 'Chennai', country: 'India' },
+    ],
+  });
+  assert.ok(Array.isArray(event.location));
+  assert.equal(event.location.length, 2);
+  assert.equal(event.location[1].name, 'Chennai Trade Centre');
+  assert.ok(event.location[1].address);
+});
+
+test('sportsEventJsonLd dates the event by day rather than by midnight', () => {
+  // Google asks for "2026-01-02", not "2026-01-02T00:00:00.000Z", when the hour is unknown.
   const event = sportsEventJsonLd({
     name: 'A',
     slug: 'a',
     startDate: new Date('2026-01-02T00:00:00.000Z'),
     endDate: new Date('2026-01-12T00:00:00.000Z'),
-    organizerNames: ['Krafton India', 'Nodwin Gaming'],
-    competitors: ['GodLike Esports', 'Team SouL'],
   });
-  assert.equal(event.startDate, '2026-01-02T00:00:00.000Z');
-  assert.equal(event.endDate, '2026-01-12T00:00:00.000Z');
+  assert.equal(event.startDate, '2026-01-02');
+  assert.equal(event.endDate, '2026-01-12');
+});
+
+test('sportsEventJsonLd gives each organizer its own website when one is recorded', () => {
+  const event = sportsEventJsonLd({
+    name: 'A',
+    slug: 'a',
+    organizers: [
+      { name: 'Krafton India Esports', url: 'https://kraftonindiaesports.com' },
+      { name: 'Esports Foundation', url: null },
+    ],
+  });
   assert.ok(event.organizer);
-  assert.ok(event.competitor);
   assert.equal(event.organizer.length, 2);
-  assert.equal(event.organizer[0].name, 'Krafton India');
+  assert.deepEqual(event.organizer[0], {
+    '@type': 'Organization',
+    name: 'Krafton India Esports',
+    url: 'https://kraftonindiaesports.com',
+  });
+  // No website on file stays name-only rather than a guessed URL.
+  assert.deepEqual(event.organizer[1], { '@type': 'Organization', name: 'Esports Foundation' });
+});
+
+test('sportsEventJsonLd names the competing squads as performers', () => {
+  const event = sportsEventJsonLd({
+    name: 'A',
+    slug: 'a',
+    competitors: [
+      { name: 'GodLike Esports', url: 'https://esportsamaze.com/teams/godlike-esports' },
+      { name: 'Unlinked' },
+    ],
+  });
+  assert.ok(event.competitor);
   assert.equal(event.competitor.length, 2);
   assert.equal(event.competitor[0]['@type'], 'SportsTeam');
+  // `performer` is the property Google reads, so it mirrors the competitor list.
+  assert.ok(event.performer);
+  assert.equal(event.performer.length, 2);
+  assert.deepEqual(event.performer[0], {
+    '@type': 'SportsTeam',
+    name: 'GodLike Esports',
+    url: 'https://esportsamaze.com/teams/godlike-esports',
+  });
+  // A squad with no profile slug must not get a fabricated URL.
+  assert.deepEqual(event.performer[1], { '@type': 'SportsTeam', name: 'Unlinked' });
 });
 
 test('sportsEventJsonLd drops empty collections instead of emitting them', () => {
-  const event = sportsEventJsonLd({ name: 'A', slug: 'a', organizerNames: [], competitors: [] });
+  const event = sportsEventJsonLd({
+    name: 'A',
+    slug: 'a',
+    organizers: [],
+    competitors: [],
+    venues: [],
+  });
   assert.equal('organizer' in event, false);
   assert.equal('competitor' in event, false);
+  assert.equal('performer' in event, false);
+  assert.equal('location' in event, false);
 });
 
 /* ── SportsTeam ─────────────────────────────────────────────────────────── */

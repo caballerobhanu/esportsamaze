@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { EstaticOverviewPanel } from '@/components/tournaments/estatic/estatic-overview-panel';
 import { PageViews } from '@/components/ui/page-views';
 import { JsonLd } from '@/components/seo/json-ld';
-import { breadcrumbJsonLd, sportsEventJsonLd } from '@/lib/seo';
+import { absoluteUrl, breadcrumbJsonLd, sportsEventJsonLd } from '@/lib/seo';
 import {
   loadTournamentContext,
   firstVisibleTabPath,
@@ -54,11 +54,21 @@ export default async function TournamentOverviewPage({
     endDate: ctx.tournament.endDate,
     status: ctx.tournament.status,
     eventType: ctx.tournament.eventType,
-    venueLocation: ctx.venueLocation,
-    organizerNames: ctx.tournament.organizers.map((link) => link.organizer.name),
+    venues: ctx.tournament.venues.map((link) => ({
+      name: link.venue.name,
+      city: link.venue.city,
+      country: link.venue.country,
+    })),
+    organizers: ctx.tournament.organizers.map((link) => ({
+      name: link.organizer.name,
+      url: link.organizer.website,
+    })),
     imageUrl: ctx.tournament.imageUrl || ctx.tournament.bannerUrl,
     gameName: ctx.tournament.game?.name ?? null,
-    competitors: ctx.tournament.teams.map((entry) => entry.team.name),
+    competitors: ctx.tournament.teams.map((entry) => ({
+      name: entry.team.name,
+      url: entry.team.slug ? absoluteUrl(`/teams/${entry.team.slug}`) : null,
+    })),
   });
   const breadcrumbs = breadcrumbJsonLd([
     { name: 'Home', path: '/' },

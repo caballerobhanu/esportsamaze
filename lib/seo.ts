@@ -237,6 +237,17 @@ function attendanceMode(eventType: string | null | undefined): string | undefine
   return EVENT_ATTENDANCE.find(([pattern]) => pattern.test(eventType))?.[1];
 }
 
+export interface SportsEventVenue {
+  name: string;
+  city?: string | null;
+  country?: string | null;
+}
+
+export interface SportsEventEntity {
+  name: string;
+  url?: string | null;
+}
+
 export interface SportsEventInput {
   name: string;
   slug: string;
@@ -246,18 +257,80 @@ export interface SportsEventInput {
   status?: string | null;
   /** Free-text format label: "LAN", "Online", "Hybrid". */
   eventType?: string | null;
-  /** Venue + city, when one is recorded. */
-  venueLocation?: string | null;
-  organizerNames?: string[];
+  /** Every venue the event is played at, in the order recorded. */
+  venues?: SportsEventVenue[];
+  /** Organizers, with the host's own website when one is recorded. */
+  organizers?: SportsEventEntity[];
   imageUrl?: string | null;
   gameName?: string | null;
-  competitors?: string[];
+  /** Participating teams — emitted as both `competitor` and `performer`. */
+  competitors?: SportsEventEntity[];
 }
 
-export function sportsEventJsonLd(event: SportsEventInput) {
+/**
+ * Google asks for a day, not midnight, when the hour is not recorded:
+ * "2026-05-06" rather than "2026-05-06T00:00:00.000Z".
+ */
+function eventDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+export interface SportsEventPlaceJsonLd {
+  '@type': 'Place';
+  name: string;
+  address?: {
+    '@type': 'PostalAddress';
+    addressLocality?: string;
+    addressCountry?: string;
+  };
+}
+
+export interface SportsEventJsonLd {
+  '@context': string;
+  '@type': 'SportsEvent';
+  name: string;
+  url: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: SportsEventPlaceJsonLd | SportsEventPlaceJsonLd[];
+  organizer?: Array<{ '@type': 'Organization'; name: string; url?: string }>;
+  eventStatus?: string;
+  eventAttendanceMode?: string;
+  sport: string;
+  about?: { '@type': 'VideoGame'; name: string };
+  image?: string;
+  competitor?: Array<{ '@type': 'SportsTeam'; name: string }>;
+  performer?: Array<{ '@type': 'SportsTeam'; name: string; url?: string }>;
+}
+
+/**
+ * Google requires `location.address` and reads it to place the event, so the
+ * city and country on file are carried through. No street address is recorded
+ * in the schema, and a city-level address is what Google accepts for an event
+ * without a well-defined location — an invented street would be worse.
+ */
+function eventPlace(venue: SportsEventVenue): SportsEventPlaceJsonLd {
+  const address = {
+    ...(venue.city ? { addressLocality: venue.city } : {}),
+    ...(venue.country ? { addressCountry: venue.country } : {}),
+  };
+
+  return {
+    '@type': 'Place',
+    name: venue.name,
+    ...(Object.keys(address).length > 0
+      ? { address: { '@type': 'PostalAddress', ...address } }
+      : {}),
+  };
+}
+
+export function sportsEventJsonLd(event: SportsEventInput): SportsEventJsonLd {
   const url = absoluteUrl(`/tournaments/${event.slug}`);
   const status = event.status ? EVENT_STATUS[event.status] : undefined;
   const mode = attendanceMode(event.eventType);
+  const venues = (event.venues ?? []).filter((venue) => venue.name);
+  const competitors = event.competitors ?? [];
 
   return {
     '@context': 'https://schema.org',
@@ -265,16 +338,22 @@ export function sportsEventJsonLd(event: SportsEventInput) {
     name: event.name,
     url,
     ...(event.description ? { description: event.description } : {}),
-    ...(event.startDate ? { startDate: event.startDate.toISOString() } : {}),
-    ...(event.endDate ? { endDate: event.endDate.toISOString() } : {}),
-    // `location` is left out rather than guessed when no venue is recorded —
-    // an invented place is worse than a missing one.
-    ...(event.venueLocation ? { location: { '@type': 'Place', name: event.venueLocation } } : {}),
-    ...(event.organizerNames && event.organizerNames.length > 0
+    ...(event.startDate ? { startDate: eventDay(event.startDate) } : {}),
+    ...(event.endDate ? { endDate: eventDay(event.endDate) } : {}),
+    // `location` is left out rather than guessed when no venue is recorded — an
+    // invented place is worse than a missing one. An event played across
+    // several venues carries one Place each.
+    ...(venues.length === 1
+      ? { location: eventPlace(venues[0]) }
+      : venues.length > 1
+        ? { location: venues.map(eventPlace) }
+        : {}),
+    ...(event.organizers && event.organizers.length > 0
       ? {
-          organizer: event.organizerNames.map((name) => ({
+          organizer: event.organizers.map((organizer) => ({
             '@type': 'Organization',
-            name,
+            name: organizer.name,
+            ...(organizer.url ? { url: organizer.url } : {}),
           })),
         }
       : {}),
@@ -283,8 +362,18 @@ export function sportsEventJsonLd(event: SportsEventInput) {
     sport: 'Esports',
     ...(event.gameName ? { about: { '@type': 'VideoGame', name: event.gameName } } : {}),
     ...(event.imageUrl ? { image: mediaUrl(event.imageUrl) } : {}),
-    ...(event.competitors && event.competitors.length > 0
-      ? { competitor: event.competitors.map((name) => ({ '@type': 'SportsTeam', name })) }
+    // `competitor` is the SportsEvent property Google doesn't read; `performer`
+    // is the one it does, so the same squad list feeds both. A SportsTeam is an
+    // Organization on schema.org, which is what `performer` expects.
+    ...(competitors.length > 0
+      ? {
+          competitor: competitors.map((entry) => ({ '@type': 'SportsTeam', name: entry.name })),
+          performer: competitors.map((entry) => ({
+            '@type': 'SportsTeam',
+            name: entry.name,
+            ...(entry.url ? { url: entry.url } : {}),
+          })),
+        }
       : {}),
   };
 }
