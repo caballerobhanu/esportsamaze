@@ -16,6 +16,7 @@ import {
 import { fetchBoardEntries, fetchEntityEntries, fetchEntityStanding } from '@/lib/krafton-data';
 import { computeBoard, computeEntityRankMilestones, computeEntityRankTrend } from '@/lib/krafton-standings';
 import { resolveEventTotals } from '@/lib/tournament-totals';
+import { placementTotalsByTeam } from '@/lib/tournament-prizes';
 import {
   DETAIL_METRIC_SPECS,
   PLAYER_BASIC_KEYS,
@@ -223,11 +224,26 @@ export async function loadPlayerCareer(playerId: string) {
     })),
   );
 
+  // A seat row carries no roster, so it can never reach a player's career — but
+  // the column is nullable for the teams tab, and these pages read `team` as a
+  // fact. Narrowing once here keeps every one of them honest.
+  const appearances = squadParticipations.filter(
+    (row): row is typeof row & { team: NonNullable<typeof row.team>; teamId: string } =>
+      row.team !== null && row.teamId !== null
+  );
+
   return {
-    squadParticipations,
+    // Prize money is the event's ladder total for that squad, not the stored
+    // column — which only moves when the admin recalculates, so reading it would
+    // let a stage edit silently misreport a player's earnings. Same rule as the
+    // prizepool tab and the team pages.
+    squadParticipations: appearances.map((row) => {
+      const derived = placementTotalsByTeam(row.tournament.prizeDistribution).get(row.teamId);
+      return derived == null ? row : { ...row, prizeWon: derived };
+    }),
     reportedRows,
     eventTotals,
-    rosterEventIds: new Set(squadParticipations.map((tt) => tt.tournamentId)),
+    rosterEventIds: new Set(appearances.map((tt) => tt.tournamentId)),
   };
 }
 

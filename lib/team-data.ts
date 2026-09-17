@@ -22,6 +22,7 @@ import {
 } from '@/lib/seo-titles';
 import { deriveMoves, type Appearance } from '@/lib/player-moves';
 import { resolveEventTotals } from '@/lib/tournament-totals';
+import { placementTotalsByTeam } from '@/lib/tournament-prizes';
 import {
   DETAIL_METRIC_SPECS,
   TEAM_BASIC_KEYS,
@@ -306,8 +307,11 @@ export const loadTeamContext = unstable_cache(
 
     // Every team a linked player turned out for, so a player's whole event
     // timeline is visible from either end of a move.
+    // A seat carries no roster, so it can never contribute an appearance or a
+    // move — but the column is nullable, so it is skipped explicitly.
     const partyByTeamId = new Map<string, TransferParty>();
     for (const squad of historySquads) {
+      if (squad.teamId === null || squad.team === null) continue;
       const party = toTransferParty(squad.team);
       if (party) partyByTeamId.set(squad.teamId, party);
     }
@@ -315,6 +319,7 @@ export const loadTeamContext = unstable_cache(
     const appearances: Appearance[] = [];
     const staffRoleByPlayerTeam = new Map<string, string | null>();
     for (const squad of historySquads) {
+      if (squad.teamId === null) continue;
       for (const entry of parseRoster(squad.rosterJson)) {
         if (!entry.playerId || !linkedPlayerIds.has(entry.playerId)) continue;
         appearances.push({
@@ -418,6 +423,24 @@ export const loadTeamContext = unstable_cache(
 
     const enteredRosters = team.tournamentRosters.filter((tt) => Boolean(tt?.tournament));
 
+    // Prize money is summed from the event's own ladder, exactly as the prizepool
+    // tab does. The stored column is only the fallback for a team with no ladder
+    // rows, so editing a stage can no longer leave these pages stale or
+    // overstated. Memoised per event: the ladder is read once, not per row.
+    const placementTotalsByEvent = new Map<string, Map<string, number>>();
+    const prizeMoneyFor = (
+      tournamentId: string,
+      distribution: unknown,
+      stored: number | null,
+    ): number | null => {
+      let totals = placementTotalsByEvent.get(tournamentId);
+      if (!totals) {
+        totals = placementTotalsByTeam(distribution);
+        placementTotalsByEvent.set(tournamentId, totals);
+      }
+      return totals.get(team.id) ?? stored;
+    };
+
     const tournaments = enteredRosters.map((tt) => {
       const reported = reportedByEvent.get(tt.tournamentId);
       let rosterJson = tt.rosterJson;
@@ -443,7 +466,7 @@ export const loadTeamContext = unstable_cache(
         currency: tt.tournament.currency,
         startedAtMs: tt.tournament.startDate ? tt.tournament.startDate.getTime() : null,
         finalRank: tt.finalRank,
-        prizeWon: tt.prizeWon,
+        prizeWon: prizeMoneyFor(tt.tournamentId, tt.tournament.prizeDistribution, tt.prizeWon),
         rosterJson,
         prizeDistribution: tt.tournament.prizeDistribution,
         imageUrl: tt.tournament.imageUrl,
@@ -771,9 +794,22 @@ export const loadTeamTournamentStats = unstable_cache(
 
     const entries = await prisma.tournamentTeam.findMany({
       where: { teamId, tournamentId: { in: rows.map((row) => row.tournament_id) } },
-      select: { tournamentId: true, finalRank: true, prizeWon: true },
+      select: {
+        tournamentId: true,
+        finalRank: true,
+        prizeWon: true,
+        tournament: { select: { prizeDistribution: true } },
+      },
     });
     const entryById = new Map(entries.map((entry) => [entry.tournamentId, entry]));
+
+    // Same rule as the career table: the ladder decides, the column is only the
+    // fallback for a team with no ladder rows on that event.
+    const prizeByTournament = new Map<string, number>();
+    for (const entry of entries) {
+      const derived = placementTotalsByTeam(entry.tournament.prizeDistribution).get(teamId);
+      if (derived != null) prizeByTournament.set(entry.tournamentId, derived);
+    }
 
     return rows.map((row) => ({
       tournamentId: row.tournament_id,
@@ -790,7 +826,7 @@ export const loadTeamTournamentStats = unstable_cache(
       avgTotalPoints: row.matches > 0 ? row.points / row.matches : null,
       avgElimsPoints: row.matches > 0 ? row.elims_points / row.matches : null,
       finalRank: entryById.get(row.tournament_id)?.finalRank ?? null,
-      prizeWon: entryById.get(row.tournament_id)?.prizeWon ?? null,
+      prizeWon: prizeByTournament.get(row.tournament_id) ?? entryById.get(row.tournament_id)?.prizeWon ?? null,
     }));
   },
   ['team-tournament-stats'],

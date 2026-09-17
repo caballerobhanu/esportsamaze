@@ -25,6 +25,7 @@
  */
 
 import { flattenPrizeRanks } from '@/lib/standings-config';
+import { classifyPrizeRow } from '@/lib/prize-rows';
 import { parseRoster } from '@/lib/team-roster';
 
 export type AwardRecipientKind = 'TEAM' | 'PLAYER';
@@ -98,18 +99,6 @@ export interface CollectTeamAwardsInput {
 }
 
 /**
- * True for a prize-ladder label (`1st Place`, `21th Place`, `3`, `Rank 4`).
- * Those rows are placements, not awards, and are already on the titles /
- * runner-up lists and in the per-event prize column.
- */
-export function isPlacementLabel(label: string): boolean {
-  const trimmed = label.trim();
-  if (!trimmed) return true;
-  if (/^\s*\d{1,2}\s*(st|nd|rd|th)?\s*$/i.test(trimmed)) return true;
-  return /\b(place|position|rank)\b/i.test(trimmed);
-}
-
-/**
  * An award with no cash value shows what it actually was (`TVS Raider Bike`, or
  * the honour's own name for a TITLE) instead of a currency amount.
  */
@@ -169,7 +158,7 @@ export function collectTeamAwards({
     rows.forEach((row, rowIndex) => {
       const label = String(row.rank ?? '').trim();
       // The prize ladder is not an award.
-      if (isPlacementLabel(label)) return;
+      if (classifyPrizeRow(row) === 'PLACEMENT') return;
 
       const rowTeamId = typeof row.teamId === 'string' && row.teamId ? row.teamId : null;
       const playerId = typeof row.playerId === 'string' && row.playerId ? row.playerId : null;

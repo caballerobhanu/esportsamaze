@@ -241,6 +241,33 @@ model TournamentVenue {
   @@unique([tournamentId, venueId])
 }
 
+/// A regional grouping of countries ("EMEA"), so a slot can be entered at region
+/// level and the countries that region covers are known rather than implied —
+/// "all EMEA places take the countries listed under EMEA". Admin-managed, because
+/// the memberships change by season.
+model Region {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  slug      String          @unique
+  position  Int             @default(0) // display order
+  countries RegionCountry[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+/// A country inside a region. The name is what slots record as their `country`,
+/// so the two match by value rather than by id.
+model RegionCountry {
+  id       String @id @default(cuid())
+  regionId String
+  region   Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  name     String
+  position Int    @default(0)
+
+  @@unique([regionId, name])
+  @@index([regionId, position])
+}
+
 model Tournament {
   id                String                @id @default(cuid())
   gameId            String
@@ -257,6 +284,9 @@ model Tournament {
   showViewCount     Boolean?
   // Which window the tournament page's count covers; null follows the site-wide window.
   viewCountWindow   String?
+  // How many seats the teams tab presents, so an announced field shows its full
+  // size before the teams are known. Null presents only what is recorded.
+  teamsToShow       Int?
   status            TournamentStatus      @default(UPCOMING)
   eventType         String?               @default("LAN") // Online, LAN, Hybrid
   gameMode          String?               @default("Squads TPP") // TPP Squad, FPP Squad, Duo, Solo
@@ -353,23 +383,35 @@ model TournamentGroup {
   matches Match[]
 }
 
+/// A seat in an event, which may not be filled yet.
+///
+/// `teamId` is nullable so an announced field can be recorded before its teams
+/// are known. An unfilled seat keeps its entry label (`seedLabel`, shown as the
+/// row's name), its region (`country`) and the qualifier it comes through
+/// (`seedTournamentId`, whose logo and link stand in for a team's). Every reader
+/// must tolerate a row with no team: it is a seat, not a competitor, and it takes
+/// no part in standings, prize money or structured data.
 model TournamentTeam {
   id               String      @id @default(cuid())
   tournamentId     String
   tournament       Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  teamId           String
-  team             Team        @relation(fields: [teamId], references: [id])
+  teamId           String?
+  team             Team?       @relation(fields: [teamId], references: [id])
   seed             Int?
   seedLabel        String?     // Custom seed / entry reason (e.g. "Direct Invite", "BGIS 2026 Champion", "Survival Stage Slot")
   seedTournamentId String?     // Optional linked tournament ID if seeded from a prior event in DB
   seedTournament   Tournament? @relation("TournamentTeamSeedEvent", fields: [seedTournamentId], references: [id], onDelete: SetNull)
+  berths           Json?       // Events this finish qualified the team into: [{ name, tournamentId?, tournamentSlug? }, ...]
   finalRank        Int?
   prizeWon         Float?
   logoUrl          String?     // Event-specific team logo override (light)
   logoDarkUrl      String?     // Event-specific team logo override (dark)
   shortName        String?     // Event-specific short name / tag override
   displayName      String?     // Event-specific display name override (e.g. sponsor name)
+  /// Doubles as the grouping the teams tab uses. A slot may name a region
+  /// ("EMEA") instead of, or above, a country ("Turkey").
   country          String?     // Event-specific country override (name or ISO code)
+  region           String?     // Regional grouping a slot belongs to (EMEA, SEA, CSA…)
   rosterJson       Json        // Array of player IGNs, roles, captain flag
 
   @@unique([tournamentId, teamId])

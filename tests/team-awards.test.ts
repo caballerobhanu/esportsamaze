@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import {
   collectTeamAwards,
   describeAwardReward,
-  isPlacementLabel,
   type AwardTournamentInput,
 } from '../lib/team-awards';
 
@@ -20,23 +19,6 @@ const tournament = (
   startedAtMs: 0,
   prizeDistribution: null,
   ...overrides,
-});
-
-describe('isPlacementLabel', () => {
-  it('recognises the prize ladder, not the honours', () => {
-    for (const label of ['1st Place', '21th Place', '3', 'Rank 4', '2nd position', '']) {
-      assert.equal(isPlacementLabel(label), true, `${label} should read as a placement`);
-    }
-    for (const label of [
-      'Best IGL',
-      'MVP Event',
-      'The Eliminator',
-      'TVS Most Wicked Player',
-      "Fan's Favourite Team",
-    ]) {
-      assert.equal(isPlacementLabel(label), false, `${label} should read as an award`);
-    }
-  });
 });
 
 describe('collectTeamAwards', () => {
