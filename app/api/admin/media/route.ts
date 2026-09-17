@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
   const where: Prisma.MediaAssetWhereInput = q
     ? {
         OR: [
+          // originalName first: the name an editor uploaded is what they will search by,
+          // since the generated filename is only partly derived from it.
+          { originalName: { contains: q, mode: 'insensitive' } },
           { filename: { contains: q, mode: 'insensitive' } },
           { alt: { contains: q, mode: 'insensitive' } },
         ],

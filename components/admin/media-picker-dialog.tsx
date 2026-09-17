@@ -6,6 +6,7 @@ import { Check, ImagePlus, Loader2, Search, X } from 'lucide-react';
 export interface MediaAssetItem {
   id: string;
   filename: string;
+  originalName: string | null;
   url: string;
   alt: string | null;
   mimeType: string | null;
@@ -150,6 +151,7 @@ export function MediaPickerDialog({
             items.find((a) => a.url === json.url) ?? {
               id: '',
               filename: json.url.split('/').pop() ?? '',
+              originalName: file.name,
               url: json.url,
               alt: null,
               mimeType: file.type,
@@ -206,7 +208,7 @@ export function MediaPickerDialog({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by filename or alt text…"
+              placeholder="Search by uploaded name or alt text…"
               className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2.5 text-xs font-medium dark:border-white/10 dark:bg-white/5"
             />
           </div>
@@ -269,7 +271,7 @@ export function MediaPickerDialog({
                         </span>
                       )}
                       <div className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                        {a.alt || a.filename}
+                        {a.alt || a.originalName || a.filename}
                         <span className="block text-[9px] font-semibold text-slate-400">{formatBytes(a.size)}</span>
                       </div>
                     </button>

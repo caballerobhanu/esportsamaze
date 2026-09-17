@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import prisma from '@/lib/prisma';
 import { storeMedia } from '@/lib/media-storage';
 import { publicUrlForFilename } from '@/lib/media-url';
+import { mediaFilename } from '@/lib/media-filename';
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB raw upload ceiling
 
@@ -209,8 +210,7 @@ export async function saveUploadedFile(
         });
         if (existing) return { existingFilename: existing.filename };
 
-        const safePrefix = (prefix || 'upload').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30) || 'upload';
-        const filename = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${finalExt}`;
+        const filename = mediaFilename(prefix, value.name, finalExt, contentHash);
 
         // Claimed before storing, so a failure here cannot leave an object in the bucket
         // that no row points at.

@@ -119,7 +119,15 @@ export default async function AdminMediaPage({
   const synced = sync === '1' ? await syncMediaAssets(true) : null;
 
   const assets = await prisma.mediaAsset.findMany({
-    where: q ? { OR: [{ filename: { contains: q, mode: 'insensitive' } }, { alt: { contains: q, mode: 'insensitive' } }] } : {},
+    where: q
+      ? {
+          OR: [
+            { originalName: { contains: q, mode: 'insensitive' } },
+            { filename: { contains: q, mode: 'insensitive' } },
+            { alt: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {},
     orderBy: { createdAt: 'desc' },
     take: 200,
   });
@@ -194,7 +202,7 @@ export default async function AdminMediaPage({
             type="text"
             name="q"
             defaultValue={q || ''}
-            placeholder="Search by filename or alt text…"
+            placeholder="Search by uploaded name or alt text…"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-2.5 text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:border-(--ed-blue) focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
         </div>
@@ -231,8 +239,11 @@ export default async function AdminMediaPage({
                   )}
                 </div>
                 <div className="space-y-2 p-3">
-                  <div className="truncate text-[11px] font-black text-slate-800 dark:text-slate-200" title={asset.filename}>
-                    {asset.filename}
+                  <div
+                    className="truncate text-[11px] font-black text-slate-800 dark:text-slate-200"
+                    title={asset.filename}
+                  >
+                    {asset.originalName || asset.filename}
                   </div>
                   <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
                     <span>{formatBytes(asset.size)}</span>
