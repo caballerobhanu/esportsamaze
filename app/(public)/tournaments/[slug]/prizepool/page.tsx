@@ -33,7 +33,7 @@ export default async function TournamentPrizePoolPage({
   const ctx = await loadTournamentContext(slug);
   if (!ctx) notFound();
 
-  const data = buildPrizeData(ctx);
+  const data = await buildPrizeData(ctx);
 
   return (
     <TournamentTabShell ctx={ctx} activeTab="prizepool">
@@ -42,6 +42,7 @@ export default async function TournamentPrizePoolPage({
         prizeStages={data.prizeStages}
         currency={ctx.tournament.currency}
         qualificationRules={data.qualificationRules}
+        awardPlayers={data.awardPlayers}
         teams={ctx.tournament.teams}
         results={data.results}
       />

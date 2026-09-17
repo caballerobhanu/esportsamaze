@@ -35,6 +35,7 @@ import {
 } from '@/lib/seo-titles';
 import { resolveTotalsLadder, type ReportedTotalsRow } from '@/lib/tournament-totals';
 import { buildPrizeResults, placementTotalsByTeam } from '@/lib/tournament-prizes';
+import { classifyPrizeRow } from '@/lib/prize-rows';
 import { parseQualificationRules } from '@/lib/qualification-rules';
 import type { MetricAggregate } from '@/lib/player-stats';
 import type { StageGroup, TeamPerformanceRow, PlayerPerformanceRow } from '@/components/tournaments/estatic/panel-types';
@@ -1076,10 +1077,11 @@ type TournamentPrizeRank = {
   customReward?: string;
   recipientType?: string;
   teamName?: string;
+  playerId?: string;
   playerName?: string;
 };
 
-export function buildPrizeData(ctx: TournamentContext) {
+export async function buildPrizeData(ctx: TournamentContext) {
   const rawPrizeDist = ctx.tournament.prizeDistribution as
     | { stages?: Array<{ stageName: string; allocatedPrize?: number; ranks?: unknown[] }> }
     | Array<Record<string, unknown>>
@@ -1112,7 +1114,27 @@ export function buildPrizeData(ctx: TournamentContext) {
     placementTotalsByTeam(ctx.tournament.prizeDistribution)
   );
 
-  return { prizeStages, qualificationRules, results };
+  // An award card leads with the recipient, so a player honour needs their face.
+  // Only the players actually named on an award are looked up.
+  const awardPlayerIds = Array.from(
+    new Set(
+      prizeStages.flatMap((stage) =>
+        (stage.ranks || [])
+          .filter((row) => classifyPrizeRow(row) === 'AWARD')
+          .map((row) => row.playerId)
+          .filter((id): id is string => Boolean(id))
+      )
+    )
+  );
+  const awardPlayers =
+    awardPlayerIds.length > 0
+      ? await prisma.player.findMany({
+          where: { id: { in: awardPlayerIds } },
+          select: { id: true, ign: true, slug: true, avatarUrl: true },
+        })
+      : [];
+
+  return { prizeStages, qualificationRules, results, awardPlayers };
 }
 
 /* ── Statistics tab ── */

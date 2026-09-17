@@ -45,6 +45,8 @@ export interface EstaticPrizePanelProps {
   }>;
   currency?: string | null;
   qualificationRules?: QualificationRule[];
+  /** Players named on an award, so a player's honour can lead with their face. */
+  awardPlayers?: Array<{ id: string; ign: string; slug: string | null; avatarUrl: string | null }>;
   teams?: any[];
   /** Per-team finishes; takes over the table when an event has been ranked. */
   results?: PrizeResultRow[];
@@ -87,12 +89,17 @@ export function EstaticPrizePanel({
   prizeStages = [],
   currency = 'INR',
   qualificationRules = [],
+  awardPlayers = [],
   teams = [],
   results = [],
 }: EstaticPrizePanelProps) {
   // `-1` is the combined Total across stages, which is what a ranked event
   // opens on; an unranked one opens on its first stage's ladder.
   const [selectedStageIdx, setSelectedStageIdx] = React.useState(() => (results.length > 0 ? -1 : 0));
+  const awardPlayerById = React.useMemo(
+    () => new Map(awardPlayers.map((player) => [player.id, player])),
+    [awardPlayers]
+  );
   const [showAllResults, setShowAllResults] = React.useState(false);
 
   // Build team lookup for logos and tags
@@ -990,48 +997,118 @@ export function EstaticPrizePanel({
           never be hidden behind "show all teams". */}
       {shownAwards.length > 0 && (
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
-          <div className="mb-4">
-            <p className="text-[10px] font-black uppercase tracking-[.2em] text-amber-600 dark:text-amber-400">
-              Beyond the ladder
-            </p>
-            <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
-              Awards &amp; Honours
-            </h3>
-            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Standalone honours — not part of the rank-wise prize money above.
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[.2em] text-amber-600 dark:text-amber-400">
+                Not part of the ladder
+              </p>
+              <h3 className="mt-1 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                Awards &amp; Honours
+              </h3>
+            </div>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              {shownAwards.length} honour{shownAwards.length === 1 ? '' : 's'}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {shownAwards.map(({ row, stageName }, awardIdx) => {
               const isPlayerAward = row.recipientType === 'PLAYER' || Boolean(row.playerName);
               const meta = isPlayerAward ? null : getTeamMeta(row);
+              const player = row.playerId ? (awardPlayerById.get(row.playerId) ?? null) : null;
+
               const recipient = isPlayerAward
-                ? row.playerName || '—'
+                ? row.playerName || player?.ign || '—'
                 : meta?.displayName || meta?.name || row.teamName || '—';
+              const recipientHref = isPlayerAward
+                ? player?.slug
+                  ? `/players/${player.slug}`
+                  : null
+                : meta?.slug
+                  ? `/teams/${meta.slug}`
+                  : null;
+
+              // A team's crest is the attraction, so it is given air; a face should
+              // fill its frame instead. Both stand in with a monogram, which reads
+              // as a choice rather than a missing image.
+              const lightImage = isPlayerAward
+                ? player?.avatarUrl ?? null
+                : meta?.logoUrl ?? meta?.imageDarkUrl ?? null;
+              const darkImage = isPlayerAward ? null : meta?.imageDarkUrl ?? meta?.logoUrl ?? null;
+              const monogram = isPlayerAward
+                ? (recipient.match(/[A-Za-z0-9]/)?.[0] ?? '?').toUpperCase()
+                : (recipient.replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??').toUpperCase();
               const amount = Number(row.prize) || 0;
 
               return (
-                <div
+                <article
                   key={awardIdx}
-                  className="space-y-1.5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 dark:bg-amber-950/10"
+                  className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-colors hover:border-amber-400/70 dark:border-white/10 dark:bg-[#0b1220]"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                      <Award className="h-3.5 w-3.5 shrink-0" />
-                      {row.rank}
-                    </span>
-                    {prizeStages.length > 1 && (
-                      <span className="shrink-0 text-[10px] font-bold text-slate-400">{stageName}</span>
+                  {/* The honour's colour is a rule, not a surface: the card stays the
+                      same paper as the rest of the page. */}
+                  <span aria-hidden="true" className="block h-1 w-full bg-amber-400/80" />
+
+                  <div className="relative flex aspect-[5/4] items-center justify-center overflow-hidden bg-slate-50 dark:bg-white/[0.03]">
+                    {lightImage || darkImage ? (
+                      <ThemeLogo
+                        lightSrc={lightImage ?? undefined}
+                        darkSrc={darkImage ?? lightImage ?? undefined}
+                        alt={recipient}
+                        className={
+                          isPlayerAward
+                            ? 'h-full w-full object-cover object-top'
+                            : 'max-h-[62%] max-w-[62%] object-contain'
+                        }
+                      />
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className="select-none text-5xl font-black tracking-tight text-slate-300 dark:text-white/15"
+                      >
+                        {monogram}
+                      </span>
+                    )}
+
+                    {prizeStages.length > 1 && stageName && (
+                      <span className="absolute bottom-0 left-0 bg-white/85 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-[#0b1220]/85 dark:text-slate-400">
+                        {stageName}
+                      </span>
                     )}
                   </div>
-                  <p className="text-sm font-black text-slate-950 dark:text-white">{recipient}</p>
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {amount > 0
-                      ? formatPrizeAmount(amount, currency || 'INR')
-                      : row.customReward || (row.rewardType === 'TITLE' ? 'Honorary title' : '—')}
-                  </p>
-                </div>
+
+                  <div className="flex flex-1 flex-col gap-1 p-4">
+                    <h4 className="text-base font-black leading-tight tracking-tight text-slate-950 dark:text-white">
+                      {row.rank}
+                    </h4>
+                    {recipientHref ? (
+                      <Link
+                        href={recipientHref}
+                        className="w-fit text-xs font-bold text-slate-500 transition-colors hover:text-[#0A5FC4] dark:text-slate-400 dark:hover:text-blue-300"
+                      >
+                        {recipient}
+                      </Link>
+                    ) : (
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{recipient}</p>
+                    )}
+
+                    {/* Money and a physical prize are different things, so they do not
+                        get the same treatment. */}
+                    {amount > 0 ? (
+                      <p className="mt-auto pt-2 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
+                        {formatPrizeAmount(amount, currency || 'INR')}
+                      </p>
+                    ) : row.customReward ? (
+                      <p className="mt-auto pt-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+                        {row.customReward}
+                      </p>
+                    ) : (
+                      <p className="mt-auto pt-2 text-xs font-semibold text-slate-400">
+                        {row.rewardType === 'TITLE' ? 'Honorary title' : '—'}
+                      </p>
+                    )}
+                  </div>
+                </article>
               );
             })}
           </div>
