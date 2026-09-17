@@ -341,22 +341,16 @@ export function RankingsBoardClient({
                 aria-label="Select snapshot date"
               >
                 {/*
-                  * Latest first, unlike the pill bar. React does not render
-                  * `selected` for a controlled <select> — it applies the value
-                  * at hydration — so the browser shows the first option until
-                  * then. Latest in slot one keeps the default correct even
-                  * before the JS lands.
-                  */}
-                {snapshotDates.map((d, i) => (
+                 * The same capped list the pill bar shows, in the same order, so
+                 * mobile cannot offer history the desktop hides. The latest (or
+                 * the projection) sits in slot one, which is what the browser
+                 * renders before hydration applies the selected value.
+                 */}
+                {visibleDates.map((d) => (
                   <option key={d} value={d}>
-                    {i === 0 ? `Latest (${d})` : d}
+                    {d === snapshotDates[0] ? `Latest (${d})` : d === projectedDate ? `Projected (${d})` : d}
                   </option>
                 ))}
-                {projectedDate && (
-                  <option key={projectedDate} value={projectedDate}>
-                    Projected ({projectedDate})
-                  </option>
-                )}
               </select>
             </div>
 

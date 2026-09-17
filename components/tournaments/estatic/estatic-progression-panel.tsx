@@ -966,7 +966,7 @@ export function EstaticProgressionPanel({
                     className="progression-matrix grid border-b border-[var(--ed-hair)] bg-[var(--ed-sand)]/50"
                     style={{ gridTemplateColumns: gridTemplate }}
                   >
-                    <div className="ed-th sticky left-0 z-10 bg-[var(--ed-sand)] px-3 py-2">
+                    <div className="ed-th sticky left-0 z-20 bg-[var(--ed-sand)] px-3 py-2">
                       Squad
                     </div>
                     {precedingStages.map((s) => (
@@ -992,7 +992,7 @@ export function EstaticProgressionPanel({
                         {getStageAbbreviation(targetFinalsStage)}
                       </span>
                     </div>
-                    <div className="ed-th sticky right-0 z-10 hidden bg-[var(--ed-sand)] px-3 py-2 text-right sm:block">
+                    <div className="ed-th sticky right-0 z-20 hidden bg-[var(--ed-sand)] px-3 py-2 text-right sm:block">
                       Totals
                     </div>
                   </div>
@@ -1021,7 +1021,7 @@ export function EstaticProgressionPanel({
                           >
                             {/* --- Identity (sticky) --- */}
                             <div
-                              className={`sticky left-0 z-10 flex items-center gap-2 border-r border-[var(--ed-hair)] px-2.5 py-2.5 transition-colors ${stickyCellBg}`}
+                              className={`sticky left-0 z-20 flex items-center gap-2 border-r border-[var(--ed-hair)] px-2.5 py-2.5 transition-colors ${stickyCellBg}`}
                             >
                               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[var(--ed-sand)] text-[10px] font-bold tabular-nums text-[var(--ed-ink)]">
                                 {team.slotNumber}
@@ -1148,7 +1148,7 @@ export function EstaticProgressionPanel({
 
                             {/* --- Totals (sticky, desktop only — mobile shows them in the squad cell) --- */}
                             <div
-                              className={`sticky right-0 z-10 hidden items-center justify-between gap-1 border-l border-[var(--ed-hair)] px-3 py-2.5 transition-colors sm:flex ${stickyCellBg}`}
+                              className={`sticky right-0 z-20 hidden items-center justify-between gap-1 border-l border-[var(--ed-hair)] px-3 py-2.5 transition-colors sm:flex ${stickyCellBg}`}
                             >
                               <div className="text-right leading-tight">
                                 <span className="block text-[13px] font-bold tabular-nums text-[var(--ed-ink)]">

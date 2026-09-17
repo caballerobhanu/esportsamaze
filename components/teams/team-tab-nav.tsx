@@ -46,8 +46,7 @@ export function TeamTabNav({ slug }: { slug: string }) {
             options={tabOptions}
             value={activeTab}
             onChange={(nextTab) => router.push(teamTabHref(slug, nextTab))}
-            searchPlaceholder="Search tabs (e.g. Roster, Matches)..."
-            showSearch={true}
+            showSearch={false}
             size="md"
           />
         </div>

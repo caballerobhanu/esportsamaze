@@ -45,8 +45,7 @@ export function PlayerTabNav({ slug }: { slug: string }) {
             options={tabOptions}
             value={activeTab}
             onChange={(nextTab) => router.push(playerTabHref(slug, nextTab))}
-            searchPlaceholder="Search tabs (e.g. Stats, Honours)..."
-            showSearch={true}
+            showSearch={false}
             size="md"
           />
         </div>

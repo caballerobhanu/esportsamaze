@@ -70,8 +70,7 @@ export function EstaticTabNav({
             options={tabOptions}
             value={normalizedActiveTab}
             onChange={handleMobileSelect}
-            searchPlaceholder="Search tabs (e.g. Standings, Matches)..."
-            showSearch={true}
+            showSearch={false}
             size="md"
           />
         </div>
