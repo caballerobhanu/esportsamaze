@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
+import { MediaField } from '@/components/admin/media-field';
 
 export const dynamic = 'force-dynamic';
 
@@ -173,42 +174,32 @@ export default async function AdminGamesPage({
               <label className={labelCls}>Developer</label>
               <input name="developer" defaultValue={editing?.developer ?? ''} placeholder="Krafton" className={inputCls} />
             </div>
-            <div>
-              <label className={labelCls}>Logo URL</label>
-              <input name="logoUrl" defaultValue={editing?.logoUrl ?? ''} className={inputCls} />
-              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
-              <input
-                type="file"
-                name="logoFile"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Dark Logo URL (optional — shown in dark mode)</label>
-              <input name="logoDarkUrl" defaultValue={editing?.logoDarkUrl ?? ''} className={inputCls} />
-              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
-              <input
-                type="file"
-                name="logoDarkFile"
-                accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
-              />
-              <p className="mt-1 text-[10px] text-slate-400">
-                Light wordmarks disappear on dark backgrounds — upload a white/knockout variant.
-              </p>
-            </div>
-            <div>
-              <label className={labelCls}>Banner URL</label>
-              <input name="bannerUrl" defaultValue={editing?.bannerUrl ?? ''} className={inputCls} />
-              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
-              <input
-                type="file"
-                name="bannerFile"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
-              />
-            </div>
+            <MediaField
+              label="Logo URL"
+              name="logoUrl"
+              fileField="logoFile"
+              prefix="game-logo"
+              defaultValue={editing?.logoUrl ?? ''}
+              inputClassName={inputCls}
+            />
+            <MediaField
+              label="Dark Logo URL (optional — shown in dark mode)"
+              name="logoDarkUrl"
+              fileField="logoDarkFile"
+              prefix="game-logo-dark"
+              defaultValue={editing?.logoDarkUrl ?? ''}
+              inputClassName={inputCls}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              hint="Light wordmarks disappear on dark backgrounds — upload a white/knockout variant."
+            />
+            <MediaField
+              label="Banner URL"
+              name="bannerUrl"
+              fileField="bannerFile"
+              prefix="game-banner"
+              defaultValue={editing?.bannerUrl ?? ''}
+              inputClassName={inputCls}
+            />
           </div>
 
           <button

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Image as ImageIcon, Sparkles, Trash2, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 import type { BrandingSettings } from '@/lib/site-settings';
+import { MediaPickButton } from '@/components/admin/media-field';
 
 interface BrandingSettingsFormProps {
   initialSettings: BrandingSettings;
@@ -105,6 +106,26 @@ export function BrandingSettingsForm({
     });
   }
 
+  /** Reuse an image already in the media library rather than storing another copy. */
+  async function handlePickFromLibrary(target: 'favicon' | 'ogImage', url: string) {
+    setStatusMessage(null);
+    try {
+      await onSaveAction(target === 'favicon' ? { faviconUrl: url } : { ogImageUrl: url });
+      setSettings((prev) =>
+        target === 'favicon' ? { ...prev, faviconUrl: url } : { ...prev, ogImageUrl: url }
+      );
+      setStatusMessage({
+        type: 'success',
+        text:
+          target === 'favicon'
+            ? 'Favicon updated from the media library!'
+            : 'Fallback OpenGraph image updated from the media library!',
+      });
+    } catch {
+      setStatusMessage({ type: 'error', text: 'Failed to save the selected image.' });
+    }
+  }
+
   return (
     <div className="space-y-6">
       {statusMessage && (
@@ -178,6 +199,12 @@ export function BrandingSettingsForm({
                   <Upload className="w-3.5 h-3.5" />
                   {uploadingFavicon ? 'Uploading...' : 'Upload Favicon'}
                 </button>
+
+                <MediaPickButton
+                  prefix="favicon"
+                  label="From library"
+                  onPick={(url) => handlePickFromLibrary('favicon', url)}
+                />
 
                 {settings.faviconUrl && (
                   <button
@@ -262,6 +289,12 @@ export function BrandingSettingsForm({
                   <Upload className="w-3.5 h-3.5" />
                   {uploadingOgImage ? 'Uploading...' : 'Upload Share Card'}
                 </button>
+
+                <MediaPickButton
+                  prefix="social-share"
+                  label="From library"
+                  onPick={(url) => handlePickFromLibrary('ogImage', url)}
+                />
 
                 {settings.ogImageUrl && (
                   <button

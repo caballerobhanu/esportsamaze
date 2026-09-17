@@ -3,9 +3,11 @@ import { redirect } from 'next/navigation';
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import {
+  Copy,
   HardDrive,
   ImagePlus,
   Images,
+  RefreshCw,
   Search,
   Trash2,
   AlertTriangle,
@@ -14,6 +16,8 @@ import {
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { deleteMedia, updateMediaAlt } from './actions';
+import { isR2Configured, retrieveMedia } from '@/lib/media-storage';
+import { publicUrlForFilename } from '@/lib/media-url';
 import { CopyButton, ConfirmSubmitButton } from '@/components/admin/media-actions';
 
 export const dynamic = 'force-dynamic';
@@ -35,26 +39,34 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Sync the uploads directory with the MediaAsset table: register new files, drop rows for deleted files. */
-async function syncMediaAssets(): Promise<void> {
+/** Largest number of missing-file rows a single explicit sync may prune. */
+const MAX_PRUNE_PER_PASS = 25;
+
+/**
+ * Reconcile the MediaAsset table with storage. Registering is additive and always runs;
+ * pruning only happens on an explicit sync.
+ *
+ * Pruning is deliberately conservative — a row is dropped only once its object is missing
+ * from BOTH local disk and R2, and only a bounded number per pass. The previous version
+ * deleted any row whose filename was absent from the local uploads/ directory, which
+ * empties the entire library on a deployment that serves media straight from R2 and
+ * therefore never writes a local copy.
+ */
+async function syncMediaAssets(prune: boolean): Promise<{ registered: number; pruned: number }> {
+  const known = new Set(
+    (await prisma.mediaAsset.findMany({ select: { filename: true } })).map((a) => a.filename)
+  );
+
   let files: string[] = [];
   try {
     files = (await readdir(UPLOAD_DIR)).filter((f) => !f.startsWith('.'));
   } catch {
-    return;
-  }
-  const known = new Set((await prisma.mediaAsset.findMany({ select: { filename: true } })).map((a) => a.filename));
-
-  const missingOnDisk: string[] = [];
-  for (const file of known) {
-    if (!files.includes(file)) missingOnDisk.push(file);
-  }
-  if (missingOnDisk.length > 0) {
-    await prisma.mediaAsset.deleteMany({ where: { filename: { in: missingOnDisk } } });
+    // No local uploads directory — nothing to register.
   }
 
-  const toAdd = files.filter((f) => !known.has(f));
-  for (const file of toAdd) {
+  let registered = 0;
+  for (const file of files) {
+    if (known.has(file)) continue;
     try {
       const info = await stat(path.join(UPLOAD_DIR, file));
       const ext = file.split('.').pop()?.toLowerCase() ?? '';
@@ -66,21 +78,45 @@ async function syncMediaAssets(): Promise<void> {
           createdAt: info.birthtime ?? new Date(),
         },
       });
+      registered += 1;
     } catch {
       /* unreadable file — skip */
     }
   }
+
+  if (!prune) return { registered, pruned: 0 };
+
+  const missing = [...known]
+    .filter((filename) => !files.includes(filename))
+    .slice(0, MAX_PRUNE_PER_PASS);
+
+  const gone: string[] = [];
+  for (const filename of missing) {
+    if ((await retrieveMedia(filename)) === null) gone.push(filename);
+  }
+
+  if (gone.length > 0) {
+    await prisma.mediaAsset.deleteMany({ where: { filename: { in: gone } } });
+  }
+
+  return { registered, pruned: gone.length };
 }
 
 export default async function AdminMediaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; deleted?: string; inuse?: string; altUpdated?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    deleted?: string;
+    inuse?: string;
+    altUpdated?: string;
+    sync?: string;
+  }>;
 }) {
   if (!(await isAdmin())) redirect('/admin/login');
-  const { q, deleted, inuse, altUpdated } = await searchParams;
+  const { q, deleted, inuse, altUpdated, sync } = await searchParams;
 
-  await syncMediaAssets();
+  const synced = sync === '1' ? await syncMediaAssets(true) : null;
 
   const assets = await prisma.mediaAsset.findMany({
     where: q ? { OR: [{ filename: { contains: q, mode: 'insensitive' } }, { alt: { contains: q, mode: 'insensitive' } }] } : {},
@@ -89,6 +125,7 @@ export default async function AdminMediaPage({
   });
 
   const totalBytes = assets.reduce((acc, a) => acc + a.size, 0);
+  const r2Configured = isR2Configured();
 
   return (
     <div className="space-y-6">
@@ -103,13 +140,35 @@ export default async function AdminMediaPage({
             {assets.length} files · {formatBytes(totalBytes)} — reusable across articles and sections.
           </p>
         </div>
-        <Link
-          href="/admin/news/new"
-          className="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:opacity-95"
-        >
-          <ImagePlus className="h-4 w-4" /> New Article
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/media/duplicates"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          >
+            <Copy className="h-4 w-4" /> Duplicates
+          </Link>
+          <Link
+            href="/admin/media?sync=1"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+          >
+            <RefreshCw className="h-4 w-4" /> Sync library
+          </Link>
+          <Link
+            href="/admin/news/new"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:opacity-95"
+          >
+            <ImagePlus className="h-4 w-4" /> New Article
+          </Link>
+        </div>
       </div>
+
+      {synced && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4" /> Library synced — {synced.registered} new file
+          {synced.registered === 1 ? '' : 's'} registered, {synced.pruned} missing row
+          {synced.pruned === 1 ? '' : 's'} pruned.
+        </div>
+      )}
 
       {deleted === '1' && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
@@ -156,7 +215,7 @@ export default async function AdminMediaPage({
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {assets.map((asset) => {
-            const url = `/api/media/${asset.filename}`;
+            const url = publicUrlForFilename(asset.filename);
             const isRaster = asset.mimeType !== 'image/svg+xml';
             return (
               <div
@@ -180,7 +239,7 @@ export default async function AdminMediaPage({
                     <span>•</span>
                     <span>{new Date(asset.createdAt).toLocaleDateString()}</span>
                     <span className="ml-auto inline-flex items-center gap-1 text-(--ed-blue)">
-                      <HardDrive className="h-3 w-3" /> local
+                      <HardDrive className="h-3 w-3" /> {r2Configured ? 'R2' : 'local'}
                     </span>
                   </div>
                   <form action={updateMediaAlt} className="flex items-center gap-1.5">

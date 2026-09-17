@@ -291,7 +291,7 @@ export function NewsEditor({
   const [embedInstaCaptioned, setEmbedInstaCaptioned] = useState(false);
   const [draftBanner, setDraftBanner] = useState<{ title: string; html: string; at: string } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<'editor' | 'cover' | 'body-dialog'>('editor');
+  const [pickerTarget, setPickerTarget] = useState<'editor' | 'cover' | 'og-image' | 'body-dialog'>('editor');
   const [expandedRevision, setExpandedRevision] = useState<string | null>(null);
   const [restoringRevision, setRestoringRevision] = useState<string | null>(null);
 
@@ -409,6 +409,7 @@ export function NewsEditor({
   const uploadFile = useCallback(async (file: File): Promise<string | null> => {
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('prefix', 'news');
     const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
     if (!res.ok) return null;
     const json = (await res.json()) as { url?: string };
@@ -425,7 +426,7 @@ export function NewsEditor({
   };
 
   /* ── Media library picker ── */
-  const openPicker = (target: 'editor' | 'cover' | 'body-dialog') => {
+  const openPicker = (target: 'editor' | 'cover' | 'og-image' | 'body-dialog') => {
     setPickerTarget(target);
     setPickerOpen(true);
   };
@@ -435,6 +436,10 @@ export function NewsEditor({
     if (pickerTarget === 'cover') {
       setCoverImageUrl(url);
       if (altText && !coverImageAlt) setCoverImageAlt(altText);
+      return;
+    }
+    if (pickerTarget === 'og-image') {
+      setOgImage(url);
       return;
     }
     if (pickerTarget === 'body-dialog') {
@@ -1966,14 +1971,25 @@ export function NewsEditor({
 
               {/* Social Image Override */}
               <label className={`${labelCls} mt-3`}>Social Card Image Override (OpenGraph / X)</label>
-              <input
-                type="text"
-                name="ogImage"
-                value={ogImage}
-                onChange={(e) => setOgImage(e.target.value)}
-                placeholder="Falls back to cover image"
-                className={inputCls}
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  name="ogImage"
+                  value={ogImage}
+                  onChange={(e) => setOgImage(e.target.value)}
+                  placeholder="Falls back to cover image"
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => openPicker('og-image')}
+                  title="Pick an existing image from the media library"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] font-black uppercase tracking-wider text-slate-600 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  Library
+                </button>
+              </div>
             </div>
 
             {/* Revision History */}
@@ -2450,7 +2466,14 @@ export function NewsEditor({
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onPick={handleMediaPick}
-        title={pickerTarget === 'cover' ? 'Choose Cover Image' : 'Select Image'}
+        title={
+          pickerTarget === 'cover'
+            ? 'Choose Cover Image'
+            : pickerTarget === 'og-image'
+              ? 'Choose Social Card Image'
+              : 'Select Image'
+        }
+        prefix="news"
       />
 
       {/* Embeds & Shortcodes Dialog */}

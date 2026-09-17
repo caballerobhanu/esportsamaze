@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { SearchableSelect, SearchableSelectOption } from '../ui/searchable-select';
 import { TournamentSquadBulkImporter } from './tournament-squad-bulk-importer';
+import { MediaPickButton } from './media-field';
 
 export interface SquadRosterEntry {
   playerId?: string | null;
@@ -657,6 +658,41 @@ export function TournamentSquadsInput({
                         placeholder="— none —"
                         size="admin"
                       />
+                    </div>
+                  </div>
+
+                  {/* Event-specific logo overrides. Optional: an unfilled squad falls back
+                      to the team's own logo. */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className={labelCls}>Event Logo Override</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          className={inputCls}
+                          value={squad.eventLogoUrl ?? ''}
+                          onChange={(e) => update(i, { eventLogoUrl: e.target.value || null })}
+                          placeholder="URL, or pick from the library…"
+                        />
+                        <MediaPickButton
+                          prefix="squad-logo-light"
+                          onPick={(url) => update(i, { eventLogoUrl: url })}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Event Logo Override (dark)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          className={inputCls}
+                          value={squad.eventLogoDarkUrl ?? ''}
+                          onChange={(e) => update(i, { eventLogoDarkUrl: e.target.value || null })}
+                          placeholder="URL, or pick from the library…"
+                        />
+                        <MediaPickButton
+                          prefix="squad-logo-dark"
+                          onPick={(url) => update(i, { eventLogoDarkUrl: url })}
+                        />
+                      </div>
                     </div>
                   </div>
 

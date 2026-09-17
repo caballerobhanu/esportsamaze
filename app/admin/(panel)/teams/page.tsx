@@ -10,6 +10,7 @@ import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
+import { MediaField } from '@/components/admin/media-field';
 import { TeamPeopleManager } from '@/components/admin/team-people-manager';
 import { TeamsManagerTable } from '@/components/admin/teams-manager-table';
 
@@ -421,28 +422,22 @@ export default async function AdminTeamsPage({
               <label className={labelCls}>Sponsors</label>
               <input name="sponsors" defaultValue={editing?.sponsors ?? ''} className={inputCls} />
             </div>
-            <div>
-              <label className={labelCls}>Logo (light)</label>
-              <input name="logoUrl" defaultValue={editing?.logoUrl ?? ''} className={inputCls} />
-              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
-              <input
-                type="file"
-                name="logoFile"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Logo (dark)</label>
-              <input name="imageDarkUrl" defaultValue={editing?.imageDarkUrl ?? ''} className={inputCls} />
-              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
-              <input
-                type="file"
-                name="logoDarkFile"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
-              />
-            </div>
+            <MediaField
+              label="Logo (light)"
+              name="logoUrl"
+              fileField="logoFile"
+              prefix="team-logo"
+              defaultValue={editing?.logoUrl ?? ''}
+              inputClassName={inputCls}
+            />
+            <MediaField
+              label="Logo (dark)"
+              name="imageDarkUrl"
+              fileField="logoDarkFile"
+              prefix="team-logo-dark"
+              defaultValue={editing?.imageDarkUrl ?? ''}
+              inputClassName={inputCls}
+            />
           </div>
 
           <fieldset className="border-t border-slate-100 dark:border-slate-800 pt-3">

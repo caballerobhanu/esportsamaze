@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import prisma from '@/lib/prisma';
 import { storeMedia } from '@/lib/media-storage';
+import { publicUrlForFilename } from '@/lib/media-url';
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB raw upload ceiling
 
@@ -163,12 +164,14 @@ async function optimizeImage(
  * Saves an uploaded image:
  * 1. Validates magic bytes & security
  * 2. Compresses & converts to WebP with sharp (reducing size by up to 90%)
- * 3. Uploads to Cloudflare R2 (or local /uploads fallback)
- * 4. Registers in database mediaAsset library
+ * 3. Returns the existing asset when identical bytes are already in the library
+ * 4. Registers the file in the media library
+ * 5. Uploads to Cloudflare R2 (or local /uploads fallback)
  */
 export async function saveUploadedFile(
   value: FormDataEntryValue | null,
-  prefix: string
+  prefix: string,
+  alt?: string | null
 ): Promise<string | null> {
   if (!(value instanceof File) || value.size === 0) return null;
   const ext = EXT_BY_MIME[value.type];
@@ -181,26 +184,48 @@ export async function saveUploadedFile(
 
   try {
     const { buffer, finalExt, mimeType } = await optimizeImage(rawBuffer, ext, prefix);
+
+    // Hash the bytes we would actually store, so re-uploading an image that is already
+    // served from R2 resolves to the existing asset rather than creating a duplicate.
+    // The prefix picks the resize (logo/avatar/badge/icon -> 512², banner/news/cover/hero
+    // -> 1920x1080, else 1200²), so the same source under two prefixes is genuinely two
+    // different files and will not dedupe — that is intended.
+    const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
+
+    const existing = await prisma.mediaAsset.findFirst({
+      where: { contentHash },
+      select: { filename: true },
+    });
+    if (existing) return publicUrlForFilename(existing.filename);
+
     const safePrefix = (prefix || 'upload').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30) || 'upload';
     const filename = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${finalExt}`;
 
-    const url = await storeMedia(filename, buffer, mimeType);
-
-    // Register in media library
-    await prisma.mediaAsset
-      .upsert({
-        where: { filename },
-        create: {
+    // Register before storing, so a failed registration cannot leave an object in the
+    // bucket that no row points at.
+    try {
+      await prisma.mediaAsset.create({
+        data: {
           filename,
+          contentHash,
           originalName: value.name || null,
           mimeType,
           size: buffer.length,
+          alt: alt || null,
         },
-        update: {},
-      })
-      .catch(() => undefined);
+      });
+    } catch (err) {
+      console.error('Failed to register media asset:', err);
+      return null;
+    }
 
-    return url;
+    try {
+      return await storeMedia(filename, buffer, mimeType);
+    } catch (err) {
+      await prisma.mediaAsset.delete({ where: { filename } }).catch(() => undefined);
+      console.error('Failed to store media:', err);
+      return null;
+    }
   } catch (err) {
     console.error('Image optimization or save failed:', err);
     return null;

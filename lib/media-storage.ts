@@ -1,6 +1,7 @@
-import { writeFile, readFile, mkdir, access } from 'fs/promises';
+import { writeFile, readFile, mkdir, access, unlink } from 'fs/promises';
 import path from 'path';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { proxyUrlForFilename, publicUrlForFilename } from '@/lib/media-url';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
 
@@ -34,8 +35,8 @@ export function isR2Configured(): boolean {
 }
 
 /**
- * Stores media buffer either in Cloudflare R2 (if configured) or local disk /uploads.
- * Returns the public URL string.
+ * Stores a media buffer in Cloudflare R2 when configured, otherwise local disk
+ * /uploads. Returns the public URL string.
  */
 export async function storeMedia(
   filename: string,
@@ -43,6 +44,7 @@ export async function storeMedia(
   mimeType: string
 ): Promise<string> {
   const client = getS3Client();
+  let storedInR2 = false;
 
   if (client && R2_BUCKET_NAME) {
     try {
@@ -55,23 +57,46 @@ export async function storeMedia(
           CacheControl: 'public, max-age=31536000, immutable',
         })
       );
-
-      // If a public domain or R2 public dev URL is set, link directly to it
-      if (R2_PUBLIC_URL) {
-        const baseUrl = R2_PUBLIC_URL.replace(/\/+$/, '');
-        return `${baseUrl}/${filename}`;
-      }
+      storedInR2 = true;
     } catch (err) {
       console.error('Failed to upload to Cloudflare R2, falling back to local disk:', err);
     }
   }
 
-  // Local disk fallback
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  const localPath = path.join(UPLOAD_DIR, filename);
-  await writeFile(localPath, buffer);
+  // A configured public domain means R2 serves the object directly, so no local copy.
+  if (storedInR2 && R2_PUBLIC_URL) {
+    return publicUrlForFilename(filename);
+  }
 
-  return `/api/media/${filename}`;
+  // Otherwise keep a local copy. This is deliberate, not a fall-through: with no public
+  // R2 domain the serving path is /api/media/[filename], which checks local disk before
+  // R2 — so this both covers a failed put and avoids an R2 round trip per image request.
+  await mkdir(UPLOAD_DIR, { recursive: true });
+  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+
+  // The proxy URL specifically, not publicUrlForFilename: R2_PUBLIC_URL can be set while
+  // this particular object never made it into the bucket.
+  return proxyUrlForFilename(filename);
+}
+
+/** Removes a media object from local disk and Cloudflare R2. Never throws. */
+export async function deleteMediaObject(filename: string): Promise<void> {
+  const safeFilename = path.basename(filename);
+
+  try {
+    await unlink(path.join(UPLOAD_DIR, safeFilename));
+  } catch {
+    // Not on disk — nothing to remove.
+  }
+
+  const client = getS3Client();
+  if (client && R2_BUCKET_NAME) {
+    try {
+      await client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: safeFilename }));
+    } catch (err) {
+      console.error('Failed to delete from Cloudflare R2:', err);
+    }
+  }
 }
 
 /**

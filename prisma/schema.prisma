@@ -664,11 +664,18 @@ model Comment {
 model MediaAsset {
   id           String   @id @default(cuid())
   filename     String   @unique
+  contentHash  String?
   originalName String?
   mimeType     String?
   size         Int      @default(0)
   alt          String?
   createdAt    DateTime @default(now())
+
+  // Not unique on purpose. Uniqueness would stop the table from recording a duplicate at
+  // all, which is the state the duplicates report exists to find. Uploads are matched
+  // against existing assets by hash before anything is stored; this index backs that
+  // lookup and the report's grouping.
+  @@index([contentHash])
 }
 
 // Anonymous counters for the compare page's "most compared" default lists.

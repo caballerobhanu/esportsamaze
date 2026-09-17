@@ -18,6 +18,12 @@ interface MediaPickerDialogProps {
   onClose: () => void;
   onPick: (url: string, alt: string) => void;
   title?: string;
+  /**
+   * Upload prefix, which selects the sharp resize for anything uploaded from this dialog
+   * ('team-logo' -> 512², 'news' -> 1920x1080, 'library' -> 1200²). Pass the prefix that
+   * matches the field being filled, otherwise the image is optimised for the wrong slot.
+   */
+  prefix?: string;
 }
 
 function formatBytes(n: number): string {
@@ -30,37 +36,76 @@ function formatBytes(n: number): string {
  * Admin dialog for picking an image from the media library (with inline upload).
  * Resolves via onPick(url, alt) — the caller decides where the URL goes.
  */
-export function MediaPickerDialog({ open, onClose, onPick, title = 'Media library' }: MediaPickerDialogProps) {
+export function MediaPickerDialog({
+  open,
+  onClose,
+  onPick,
+  title = 'Media library',
+  prefix = 'library',
+}: MediaPickerDialogProps) {
   const [assets, setAssets] = useState<MediaAssetItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [selected, setSelected] = useState<MediaAssetItem | null>(null);
   const [alt, setAlt] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/media');
-      if (res.ok) {
-        const json = (await res.json()) as { assets: MediaAssetItem[] };
-        setAssets(json.assets ?? []);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchPage = useCallback(
+    async (q: string, pageToLoad: number): Promise<MediaAssetItem[]> => {
+      const params = new URLSearchParams({ page: String(pageToLoad) });
+      if (q) params.set('q', q);
+      const res = await fetch(`/api/admin/media?${params}`);
+      if (!res.ok) return [];
+      const json = (await res.json()) as { assets?: MediaAssetItem[]; hasMore?: boolean };
+      setHasMore(Boolean(json.hasMore));
+      return json.assets ?? [];
+    },
+    []
+  );
+
+  // Reset the picker each time it opens.
+  useEffect(() => {
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot, post-open reset
+    setSelected(null);
+    setAlt('');
+    setQuery('');
+    setSearch('');
+  }, [open]);
+
+  // Debounce typing onto the server-side search.
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => setSearch(query), 300);
+    return () => clearTimeout(timer);
+  }, [query, open]);
 
   useEffect(() => {
-    if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting the picker each time it opens is a one-shot, post-open reset
-      setSelected(null);
-      setAlt('');
-      setQuery('');
-      void load();
-    }
-  }, [open, load]);
+    if (!open) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setLoading(true);
+      try {
+        const items = await fetchPage(search, 1);
+        if (cancelled) return;
+        setAssets(items);
+        setPage(1);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, search, fetchPage]);
 
   useEffect(() => {
     if (!open) return;
@@ -71,26 +116,47 @@ export function MediaPickerDialog({ open, onClose, onPick, title = 'Media librar
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const items = await fetchPage(search, next);
+      setAssets((prev) => [...prev, ...items]);
+      setPage(next);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleUpload = async (file: File | undefined) => {
     if (!file) return;
     setUploading(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('prefix', prefix);
+      if (alt.trim()) fd.append('alt', alt.trim());
+
       const res = await fetch('/api/admin/upload', { method: 'POST', body: fd });
       if (res.ok) {
         const json = (await res.json()) as { url?: string };
-        await load();
+        const items = await fetchPage(search, 1);
+        setAssets(items);
+        setPage(1);
         if (json.url) {
-          setSelected({
-            id: '',
-            filename: json.url.split('/').pop() ?? '',
-            url: json.url,
-            alt: null,
-            mimeType: file.type,
-            size: file.size,
-            createdAt: new Date().toISOString(),
-          });
+          // The upload may have resolved to an asset that was already in the library, so
+          // prefer the matching row — it carries the real id and any stored alt text.
+          setSelected(
+            items.find((a) => a.url === json.url) ?? {
+              id: '',
+              filename: json.url.split('/').pop() ?? '',
+              url: json.url,
+              alt: null,
+              mimeType: file.type,
+              size: file.size,
+              createdAt: new Date().toISOString(),
+            }
+          );
         }
       }
     } finally {
@@ -99,9 +165,22 @@ export function MediaPickerDialog({ open, onClose, onPick, title = 'Media librar
     }
   };
 
-  const filtered = assets.filter((a) =>
-    query ? `${a.filename} ${a.alt ?? ''}`.toLowerCase().includes(query.toLowerCase()) : true
-  );
+  const handleUse = () => {
+    if (!selected) return;
+    const trimmed = alt.trim();
+
+    // Share the alt text with the library so the next editor inherits it. Fire-and-forget:
+    // a failure here must not block the pick.
+    if (selected.id && trimmed !== (selected.alt ?? '')) {
+      void fetch('/api/admin/media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, alt: trimmed }),
+      }).catch(() => undefined);
+    }
+
+    onPick(selected.url, trimmed);
+  };
 
   if (!open) return null;
 
@@ -154,43 +233,63 @@ export function MediaPickerDialog({ open, onClose, onPick, title = 'Media librar
             <div className="flex h-40 items-center justify-center text-slate-400">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : assets.length === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center gap-2 text-slate-400">
               <ImagePlus className="h-8 w-8" />
-              <p className="text-xs font-bold uppercase tracking-wider">No media yet — upload your first image</p>
+              <p className="text-xs font-bold uppercase tracking-wider">
+                {search ? 'No media matches that search' : 'No media yet — upload your first image'}
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
-              {filtered.map((a) => {
-                const isSel = selected?.url === a.url;
-                return (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
+                {assets.map((a) => {
+                  const isSel = selected?.url === a.url;
+                  return (
+                    <button
+                      key={a.id || a.url}
+                      type="button"
+                      onClick={() => {
+                        setSelected(a);
+                        setAlt(a.alt ?? '');
+                      }}
+                      className={`group relative overflow-hidden rounded-xl border-2 bg-slate-100 text-left transition-colors dark:bg-white/5 ${
+                        isSel
+                          ? 'border-(--ed-blue)'
+                          : 'border-transparent hover:border-slate-300 dark:hover:border-white/20'
+                      }`}
+                    >
+                      <div className="aspect-square w-full overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={a.url} alt={a.alt || a.filename} className="h-full w-full object-cover" loading="lazy" />
+                      </div>
+                      {isSel && (
+                        <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-(--ed-blue) text-white">
+                          <Check className="h-3 w-3" />
+                        </span>
+                      )}
+                      <div className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                        {a.alt || a.filename}
+                        <span className="block text-[9px] font-semibold text-slate-400">{formatBytes(a.size)}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {hasMore && (
+                <div className="mt-4 flex justify-center">
                   <button
-                    key={a.id || a.url}
                     type="button"
-                    onClick={() => setSelected(a)}
-                    className={`group relative overflow-hidden rounded-xl border-2 bg-slate-100 text-left transition-colors dark:bg-white/5 ${
-                      isSel
-                        ? 'border-(--ed-blue)'
-                        : 'border-transparent hover:border-slate-300 dark:hover:border-white/20'
-                    }`}
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                   >
-                    <div className="aspect-square w-full overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={a.url} alt={a.alt || a.filename} className="h-full w-full object-cover" loading="lazy" />
-                    </div>
-                    {isSel && (
-                      <span className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-(--ed-blue) text-white">
-                        <Check className="h-3 w-3" />
-                      </span>
-                    )}
-                    <div className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                      {a.alt || a.filename}
-                      <span className="block text-[9px] font-semibold text-slate-400">{formatBytes(a.size)}</span>
-                    </div>
+                    {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Load more
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -206,7 +305,7 @@ export function MediaPickerDialog({ open, onClose, onPick, title = 'Media librar
           <button
             type="button"
             disabled={!selected}
-            onClick={() => selected && onPick(selected.url, alt.trim())}
+            onClick={handleUse}
             className="rounded-lg bg-(--ed-blue) px-4 py-1.5 text-[11px] font-black uppercase tracking-wider text-white disabled:opacity-40"
           >
             Use image

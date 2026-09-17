@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
+import { MediaField } from '@/components/admin/media-field';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,16 +156,13 @@ export default async function AdminSponsorsPage({
               <input name="website" defaultValue={editing?.website ?? ''} placeholder="https://…" className={inputCls} />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelCls}>Logo URL</label>
-              <input name="logoUrl" defaultValue={editing?.logoUrl ?? ''} className={inputCls} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelCls}>…or Upload Logo</label>
-              <input
-                type="file"
-                name="logoFile"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
+              <MediaField
+                label="Logo URL"
+                name="logoUrl"
+                fileField="logoFile"
+                prefix="sponsor-logo"
+                defaultValue={editing?.logoUrl ?? ''}
+                inputClassName={inputCls}
               />
             </div>
           </div>

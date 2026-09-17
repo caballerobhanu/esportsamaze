@@ -8,7 +8,17 @@ export async function POST(req: NextRequest) {
   }
 
   const fd = await req.formData();
-  const url = await saveUploadedFile(fd.get('file'), 'news');
+  const rawPrefix = fd.get('prefix');
+  const rawAlt = fd.get('alt');
+
+  // The prefix selects the sharp resize, so the caller must supply the one matching the
+  // field being filled (e.g. 'team-logo' -> 512², 'news' -> 1920x1080).
+  const url = await saveUploadedFile(
+    fd.get('file'),
+    typeof rawPrefix === 'string' && rawPrefix ? rawPrefix : 'library',
+    typeof rawAlt === 'string' ? rawAlt : null
+  );
+
   if (!url) {
     return NextResponse.json(
       { error: 'Invalid or missing image (png/jpg/webp/gif/svg, max 5MB).' },

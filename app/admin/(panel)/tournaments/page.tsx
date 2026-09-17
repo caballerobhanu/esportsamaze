@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, Trophy, Award, Calendar, DollarSign, Globe, Save, Copy } from 'lucide-react';
 import { Combobox } from '@/components/admin/combobox';
+import { MediaField } from '@/components/admin/media-field';
 import prisma from '@/lib/prisma';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { applyRosterMembership } from '@/lib/player-transfers';
@@ -524,19 +525,6 @@ async function saveTournament(formData: FormData) {
 
   let tournamentId = id;
 
-  // Pre-process squad logos before transaction to prevent I/O delays inside DB transaction
-  const squadLogos = squadsSubmitted
-    ? await Promise.all(
-        squadsList.map(async (_, i) => {
-          const [logoLight, logoDark] = await Promise.all([
-            saveUploadedFile(formData.get(`squadLogoLight${i}`), 'squad-logo-light'),
-            saveUploadedFile(formData.get(`squadLogoDark${i}`), 'squad-logo-dark'),
-          ]);
-          return { logoLight, logoDark };
-        })
-      )
-    : [];
-
   // The save touches the tournament row plus organizers, sponsors, venues,
   // squads and final rankings. Run it as one transaction so a mid-way failure
   // can never leave a half-updated tournament (or wiped relations) behind.
@@ -637,10 +625,6 @@ async function saveTournament(formData: FormData) {
           // A row with nothing on it at all is not a place.
           if (!squadHasContent(squad)) continue;
 
-          const logo = squadLogos[i];
-          const logoLight = logo?.logoLight;
-          const logoDark = logo?.logoDark;
-
           fieldRows.push({
             tournamentId,
             teamId: squad.teamId || null,
@@ -668,8 +652,8 @@ async function saveTournament(formData: FormData) {
                   return true;
                 });
             })(),
-            logoUrl: logoLight ?? (squad.eventLogoUrl || null),
-            logoDarkUrl: logoDark ?? (squad.eventLogoDarkUrl || null),
+            logoUrl: squad.eventLogoUrl || null,
+            logoDarkUrl: squad.eventLogoDarkUrl || null,
             shortName: squad.shortName ?? null,
             displayName: squad.displayName ?? null,
             country: squad.country ?? null,
@@ -1690,43 +1674,30 @@ export default async function AdminTournamentsPage({
               🖼️ 8. Branding, Logos &amp; Header Banner
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div>
-                <label className={labelCls}>Light Theme Logo URL</label>
-                <input name="imageUrl" defaultValue={editing?.imageUrl ?? ''} className={inputCls} />
-                <label className={labelCls + ' mt-2'}>…or Upload Light Logo</label>
-                <input
-                  type="file"
-                  name="imageFile"
-                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                  className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Dark Theme Logo URL</label>
-                <input
-                  name="imageDarkUrl"
-                  defaultValue={editing?.imageDarkUrl ?? ''}
-                  className={inputCls}
-                />
-                <label className={labelCls + ' mt-2'}>…or Upload Dark Logo</label>
-                <input
-                  type="file"
-                  name="imageDarkFile"
-                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                  className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Banner Image URL</label>
-                <input name="bannerUrl" defaultValue={editing?.bannerUrl ?? ''} className={inputCls} />
-                <label className={labelCls + ' mt-2'}>…or Upload Banner</label>
-                <input
-                  type="file"
-                  name="bannerFile"
-                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                  className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer"
-                />
-              </div>
+              <MediaField
+                label="Light Theme Logo URL"
+                name="imageUrl"
+                fileField="imageFile"
+                prefix="tournament-logo-light"
+                defaultValue={editing?.imageUrl ?? ''}
+                inputClassName={inputCls}
+              />
+              <MediaField
+                label="Dark Theme Logo URL"
+                name="imageDarkUrl"
+                fileField="imageDarkFile"
+                prefix="tournament-logo-dark"
+                defaultValue={editing?.imageDarkUrl ?? ''}
+                inputClassName={inputCls}
+              />
+              <MediaField
+                label="Banner Image URL"
+                name="bannerUrl"
+                fileField="bannerFile"
+                prefix="tournament-banner"
+                defaultValue={editing?.bannerUrl ?? ''}
+                inputClassName={inputCls}
+              />
             </div>
           </div>
 

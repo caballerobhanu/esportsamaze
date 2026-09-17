@@ -10,6 +10,7 @@ import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { saveUploadedFile } from '@/lib/upload';
 import { COUNTRIES } from '@/lib/countries';
 import { Combobox } from '@/components/admin/combobox';
+import { MediaField } from '@/components/admin/media-field';
 import { PlayersManagerTable } from '@/components/admin/players-manager-table';
 
 export const dynamic = 'force-dynamic';
@@ -301,17 +302,14 @@ export default async function AdminPlayersPage({
                 ariaLabel="Nationality"
               />
             </div>
-            <div>
-              <label className={labelCls}>Avatar URL</label>
-              <input name="avatarUrl" defaultValue={editing?.avatarUrl ?? ''} className={inputCls} />
-              <label className={labelCls + ' mt-2'}>…or Upload Image</label>
-              <input
-                type="file"
-                name="avatarFile"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                className="w-full text-xs text-slate-500 file:mr-2 file:px-2.5 file:py-1.5 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-slate-800 file:text-xs file:font-bold file:cursor-pointer hover:file:bg-slate-200 dark:hover:file:bg-slate-700"
-              />
-            </div>
+            <MediaField
+              label="Avatar URL"
+              name="avatarUrl"
+              fileField="avatarFile"
+              prefix="player-avatar"
+              defaultValue={editing?.avatarUrl ?? ''}
+              inputClassName={inputCls}
+            />
             <div>
               <label className={labelCls}>Game</label>
               <Combobox
