@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { COUNTRIES, POPULAR_REGIONS } from '@/lib/countries';
 import {
   Link2,
   Sparkles,
@@ -84,20 +85,18 @@ export function TournamentSquadsInput({
   allTeams: { id: string; name: string; tag?: string | null }[];
   allPlayers: { id: string; ign: string; name?: string | null; currentTeam?: { id: string; name: string } | null }[];
   allTournaments?: { id: string; name: string; slug: string }[];
-  /** Admin-managed regions and the countries each covers. */
-  allRegions?: { name: string; countries: string[] }[];
+  /** Regions already in use, offered as suggestions in the per-row Region box. */
+  allRegions?: { name: string }[];
 }) {
   const [squads, setSquads] = React.useState<SquadRow[]>(initialSquads);
 
-  /**
-   * Countries offered for a country field. With a region chosen it offers that
-   * region's members — which is what makes "all EMEA places take the countries
-   * listed under EMEA" true rather than a matter of typing the name correctly.
-   */
-  const countriesForRegion = (region: string | null): string[] => {
-    if (region) return allRegions.find((entry) => entry.name === region)?.countries ?? [];
-    return allRegions.flatMap((entry) => entry.countries);
-  };
+  /** Region names to suggest: what the admin has already used, plus the usual ones. */
+  const regionNames = React.useMemo(() => {
+    const names = new Set<string>(POPULAR_REGIONS);
+    for (const region of allRegions) if (region.name.trim()) names.add(region.name.trim());
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [allRegions]);
+  const regionListId = React.useId();
 
   const [bulkPasteOpen, setBulkPasteOpen] = React.useState<number | null>(null);
   const [bulkPasteText, setBulkPasteText] = React.useState<string>('');
@@ -396,6 +395,14 @@ export function TournamentSquadsInput({
         </div>
       )}
 
+      {/* Suggestions for the per-row Region box. Typing a name that is not here
+          simply adds it — the save records it in the region list. */}
+      <datalist id={regionListId}>
+        {regionNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
+
       {/* ── Search Bar (For 24 - 100+ Squads) ── */}
       {squads.length > 5 && (
         <div className="relative">
@@ -623,21 +630,27 @@ export function TournamentSquadsInput({
                       />
                     </div>
                     <div>
+                      {/* Region is a grouping the publisher decides, so it is typed
+                          rather than chosen: matching what exists already, or adding
+                          a name the list does not have yet. Same treatment as the
+                          tournament's own region field. */}
                       <label className={labelCls}>Region</label>
-                      <SearchableSelect
-                        options={allRegions.map((region) => ({ value: region.name, label: region.name }))}
+                      <input
+                        type="text"
+                        list={regionListId}
                         value={squad.region ?? ''}
-                        onChange={(val) => update(i, { region: val || null })}
-                        placeholder="— none —"
-                        size="admin"
+                        onChange={(e) => update(i, { region: e.target.value || null })}
+                        placeholder="e.g. Asia, EMEA, India"
+                        className={inputCls}
                       />
                     </div>
                     <div>
+                      {/* Countries are a fixed list — nobody needs to maintain them. */}
                       <label className={labelCls}>Country</label>
                       <SearchableSelect
-                        options={countriesForRegion(squad.region ?? null).map((country) => ({
-                          value: country,
-                          label: country,
+                        options={COUNTRIES.map((country) => ({
+                          value: country.name,
+                          label: country.name,
                         }))}
                         value={squad.country ?? ''}
                         onChange={(val) => update(i, { country: val || null })}

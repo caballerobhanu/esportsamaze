@@ -680,6 +680,36 @@ async function saveTournament(formData: FormData) {
         await tx.tournamentTeam.deleteMany({ where: { tournamentId } });
         if (fieldRows.length > 0) await tx.tournamentTeam.createMany({ data: fieldRows });
 
+        // A region typed for the first time joins the list, so the suggestions grow
+        // out of what has actually been used rather than being maintained by hand.
+        const typedRegions = Array.from(
+          new Set(
+            fieldRows
+              .map((row) => row.region?.trim())
+              .filter((region): region is string => Boolean(region))
+          )
+        );
+        for (const name of typedRegions) {
+          const known = await tx.region.findFirst({
+            where: { name: { equals: name, mode: 'insensitive' } },
+            select: { id: true },
+          });
+          if (known) continue;
+
+          const base =
+            name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '') || 'region';
+          const slugTaken = await tx.region.findFirst({ where: { slug: base }, select: { id: true } });
+          await tx.region.create({
+            data: {
+              name,
+              slug: slugTaken ? `${base}-${Math.random().toString(36).slice(2, 6)}` : base,
+            },
+          });
+        }
+
         // Roster membership only. The Transfer ledger is admin-only history, so an
         // import records NO transfer — adding an older event (BGIS in January)
         // can therefore never invent a move or an origin. One player, one team per
@@ -1124,12 +1154,9 @@ export default async function AdminTournamentsPage({
   // from the real groupings rather than typed from memory.
   const regionRecords = await prisma.region.findMany({
     orderBy: [{ position: 'asc' }, { name: 'asc' }],
-    include: { countries: { orderBy: { position: 'asc' } } },
+    select: { name: true },
   });
-  const regionOptions = regionRecords.map((region) => ({
-    name: region.name,
-    countries: region.countries.map((country) => country.name),
-  }));
+  const regionOptions = regionRecords.map((region) => ({ name: region.name }));
 
   const teamComboboxOptions = teams.map((t) => ({
     value: t.id,
