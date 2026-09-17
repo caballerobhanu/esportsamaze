@@ -13,7 +13,7 @@ import { TheBrief } from '@/components/home/the-brief';
 import { EditorsPicks } from '@/components/home/editors-picks';
 import { StatsBand } from '@/components/home/stats-band';
 import { SectionHeading } from '@/components/home/section-heading';
-import { TournamentShortName } from '@/components/ui/tournament-name';
+import { TournamentName } from '@/components/ui/tournament-name';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
 import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
@@ -453,7 +453,7 @@ export default async function HomePage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <h3 className="text-base sm:text-lg font-black text-slate-900 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300 leading-snug">
-                            <TournamentShortName
+                            <TournamentName
                               name={tourney.name}
                               shortName={tourney.shortName}
                               series={tourney.series}

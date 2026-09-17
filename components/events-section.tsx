@@ -265,18 +265,13 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
                     />
                   </div>
 
-                  {/* Bottom 1/4 — the short name on a phone, the full name once the card
-                      is wide enough to carry it. Three lines clamped: a long event name
-                      has to fit the ribbon without pushing the logos around. */}
+                  {/* Bottom 1/4 — short name on a contrasting ribbon */}
                   <div
                     className={cn('flex min-h-0 flex-1 items-center justify-center px-1.5 relative overflow-hidden', bandTextClass)}
                     style={bandStyle}
                   >
-                    <span className="truncate text-[10px] font-black uppercase tracking-wide sm:hidden">
+                    <span className="truncate text-[10px] font-black uppercase tracking-wide">
                       {getTournamentShortName({ name: event.name, shortName: event.shortName })}
-                    </span>
-                    <span className="line-clamp-3 text-center text-[10px] font-black uppercase leading-tight tracking-wide max-sm:hidden">
-                      {event.name}
                     </span>
                   </div>
 
