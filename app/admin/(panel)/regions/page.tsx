@@ -4,31 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { Globe2, Plus, Trash2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
-import { fStr, fOpt, uniqueSlug } from '@/lib/admin-forms';
+import { fStr, uniqueSlug } from '@/lib/admin-forms';
 
 export const dynamic = 'force-dynamic';
 
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
-
-/**
- * Country names from one pasted block — commas or new lines, in the order given.
- * A region's list is usually pasted whole, and the order is the order it displays.
- */
-function parseCountries(value: string): string[] {
-  const seen = new Set<string>();
-  const names: string[] = [];
-
-  for (const part of value.split(/[\n,]/)) {
-    const name = part.trim();
-    const key = name.toLowerCase();
-    if (!name || seen.has(key)) continue;
-    seen.add(key);
-    names.push(name);
-  }
-  return names;
-}
 
 async function saveRegion(formData: FormData) {
   'use server';
@@ -39,7 +21,6 @@ async function saveRegion(formData: FormData) {
   if (!name) redirect('/admin/regions?error=name');
 
   const position = Math.max(0, Math.trunc(Number(fStr(formData, 'position')) || 0));
-  const countries = parseCountries(fStr(formData, 'countries'));
 
   const slug = await uniqueSlug(fStr(formData, 'slug') || name, async (candidate) => {
     const clash = await prisma.region.findFirst({
@@ -49,17 +30,10 @@ async function saveRegion(formData: FormData) {
     return Boolean(clash);
   });
 
-  const regionId = id
-    ? (await prisma.region.update({ where: { id }, data: { name, slug, position } })).id
-    : (await prisma.region.create({ data: { name, slug, position } })).id;
-
-  // The textarea is the whole list, so it replaces what is stored — otherwise a
-  // country removed from the box would linger in the database.
-  await prisma.regionCountry.deleteMany({ where: { regionId } });
-  if (countries.length > 0) {
-    await prisma.regionCountry.createMany({
-      data: countries.map((country, index) => ({ regionId, name: country, position: index })),
-    });
+  if (id) {
+    await prisma.region.update({ where: { id }, data: { name, slug, position } });
+  } else {
+    await prisma.region.create({ data: { name, slug, position } });
   }
 
   revalidatePath('/admin/regions');
@@ -89,7 +63,6 @@ export default async function AdminRegionsPage({
 
   const regions = await prisma.region.findMany({
     orderBy: [{ position: 'asc' }, { name: 'asc' }],
-    include: { countries: { orderBy: { position: 'asc' } } },
   });
   const editing = edit ? (regions.find((region) => region.id === edit) ?? null) : null;
 
@@ -102,9 +75,9 @@ export default async function AdminRegionsPage({
             Regions
           </h1>
           <p className="mt-1 text-xs font-semibold text-slate-400">
-            Regional groupings such as EMEA, SEA and CSA, with the countries each one covers. A
-            tournament place can then be entered at region level and the countries it stands for are
-            known.
+            The regional groupings a publisher uses — EMEA, SEA, CSA, or India on its own. A
+            tournament place can name one of these instead of a country, and typing a new name while
+            editing a tournament adds it here.
           </p>
         </div>
         {editing && (
@@ -163,21 +136,6 @@ export default async function AdminRegionsPage({
             </div>
           </div>
 
-          <div>
-            <label className={labelCls}>Countries</label>
-            <textarea
-              name="countries"
-              rows={5}
-              defaultValue={(editing?.countries ?? []).map((country) => country.name).join(', ')}
-              placeholder="Turkey, Poland, Czechia…"
-              className={inputCls}
-            />
-            <p className="mt-1 text-[11px] font-semibold text-slate-400">
-              Commas or new lines. The list replaces what is stored, so removing a name here removes
-              it everywhere.
-            </p>
-          </div>
-
           <button
             type="submit"
             className="rounded-lg bg-(--ed-blue) px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:brightness-110"
@@ -193,7 +151,7 @@ export default async function AdminRegionsPage({
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:border-slate-800/80 dark:bg-[#080d17]">
               <th className="px-3 py-2.5 text-left">Region</th>
-              <th className="px-3 py-2.5 text-left">Countries</th>
+              <th className="px-3 py-2.5 text-left">Slug</th>
               <th className="px-3 py-2.5 text-center">Order</th>
               <th className="px-3 py-2.5 text-right">Actions</th>
             </tr>
@@ -209,8 +167,8 @@ export default async function AdminRegionsPage({
             {regions.map((region) => (
               <tr key={region.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-[#121929]">
                 <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white">{region.name}</td>
-                <td className="px-3 py-2.5 text-xs text-slate-500 dark:text-slate-400">
-                  {region.countries.length > 0 ? region.countries.map((c) => c.name).join(', ') : '—'}
+                <td className="px-3 py-2.5 font-mono text-xs text-slate-500 dark:text-slate-400">
+                  {region.slug}
                 </td>
                 <td className="px-3 py-2.5 text-center font-mono text-xs text-slate-500">{region.position}</td>
                 <td className="px-3 py-2.5 text-right">

@@ -241,31 +241,17 @@ model TournamentVenue {
   @@unique([tournamentId, venueId])
 }
 
-/// A regional grouping of countries ("EMEA"), so a slot can be entered at region
-/// level and the countries that region covers are known rather than implied —
-/// "all EMEA places take the countries listed under EMEA". Admin-managed, because
-/// the memberships change by season.
+/// A regional grouping a publisher uses ("EMEA", "SEA", or "India" on its own),
+/// offered when a tournament place names a region. Admin-managed, because the
+/// groupings change by season. It deliberately does not list countries: nothing
+/// derives a region's members, so old events cannot be rewritten by an edit here.
 model Region {
-  id        String          @id @default(cuid())
-  name      String          @unique
-  slug      String          @unique
-  position  Int             @default(0) // display order
-  countries RegionCountry[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-}
-
-/// A country inside a region. The name is what slots record as their `country`,
-/// so the two match by value rather than by id.
-model RegionCountry {
-  id       String @id @default(cuid())
-  regionId String
-  region   Region @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  name     String
-  position Int    @default(0)
-
-  @@unique([regionId, name])
-  @@index([regionId, position])
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  position  Int      @default(0) // display order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Tournament {
