@@ -1011,7 +1011,7 @@ export function EstaticPrizePanel({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {shownAwards.map(({ row, stageName }, awardIdx) => {
               const isPlayerAward = row.recipientType === 'PLAYER' || Boolean(row.playerName);
               const meta = isPlayerAward ? null : getTeamMeta(row);
@@ -1047,24 +1047,26 @@ export function EstaticPrizePanel({
                   {/* The room above the square is proportional to the card, and the
                       figure's overhang is sized against it, so the card's own
                       rounded clipping can never crop the head. */}
-                  <div className="relative px-[10%] pt-[16%]">
+                  <div className="relative px-[9%] pt-[14%]">
                     {/* The square the recipient rises out of. */}
-                    <div className="relative mx-auto aspect-square w-full overflow-hidden rounded-3xl bg-slate-100 shadow-inner dark:bg-white/[0.05]">
-                      {/* Site-blue texture, woven a little differently per card so a
-                          row of honours is not the same tile repeated. Quiet on
-                          purpose: it sits behind a face, not in front of one. */}
+                    <div className="relative mx-auto aspect-square w-full overflow-hidden rounded-2xl bg-slate-100 shadow-inner dark:bg-white/[0.05]">
+                      {/* A soft field of the site's own blue rather than a pattern:
+                          two gradients, no stripes, quiet enough to sit behind a
+                          face. The touch of depth keeps the square from reading as
+                          a flat placeholder. */}
                       <span
                         aria-hidden="true"
                         className="absolute inset-0"
                         style={{
-                          backgroundImage: `radial-gradient(circle at 32% 20%, rgba(10,95,196,0.28), transparent 64%), repeating-linear-gradient(${125 + awardIdx * 25}deg, rgba(10,95,196,0.14) 0 9px, transparent 9px 20px)`,
+                          backgroundImage:
+                            'radial-gradient(120% 95% at 20% 8%, rgba(10,95,196,0.30), rgba(10,95,196,0.07) 55%, rgba(10,95,196,0) 78%), linear-gradient(160deg, rgba(10,95,196,0.10), rgba(10,95,196,0) 62%)',
                         }}
                       />
                       {!image && (
                         <span className="absolute inset-0 flex items-center justify-center">
                           <span
                             aria-hidden="true"
-                            className="select-none text-6xl font-black tracking-tight text-slate-500/80 dark:text-white/35"
+                            className="select-none text-4xl font-black tracking-tight text-slate-500/75 dark:text-white/35"
                           >
                             {monogram}
                           </span>
@@ -1073,40 +1075,42 @@ export function EstaticPrizePanel({
                     </div>
 
                     {/* The recipient, breaking past the top edge of the square.
-                        `cover` from the top is what makes it a head rising out rather
-                        than a photo shrunk to fit inside. */}
+                        `contain` bottom-aligned shows the whole figure — a wide photo
+                        must not be sliced — and still lets it rise above the square. */}
                     {image && (
                       <div
                         className={
                           isPlayerAward
-                            ? 'pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-[114%] w-[80%] drop-shadow-[0_18px_24px_rgba(2,10,30,0.5)]'
-                            : 'pointer-events-none absolute inset-0 flex items-center justify-center p-6 drop-shadow-[0_14px_20px_rgba(2,10,30,0.45)]'
+                            ? 'pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-[112%] w-[112%] drop-shadow-[0_14px_18px_rgba(2,10,30,0.45)]'
+                            : 'pointer-events-none absolute inset-0 flex items-center justify-center p-5 drop-shadow-[0_10px_16px_rgba(2,10,30,0.4)]'
                         }
                       >
                         <ThemeLogo
                           lightSrc={lightImage}
                           darkSrc={darkImage}
                           alt={recipient}
-                          className={isPlayerAward ? 'object-cover object-top' : 'object-contain'}
+                          className={isPlayerAward ? 'object-contain object-bottom' : 'object-contain'}
                         />
                       </div>
                     )}
                   </div>
 
-                  <div className="flex flex-1 flex-col p-5 pt-6">
-                    <h4 className="text-lg font-black leading-tight tracking-tight text-amber-600 dark:text-amber-400">
+                  <div className="flex flex-1 flex-col p-4 pt-5">
+                    <h4 className="text-sm font-black leading-tight tracking-tight text-amber-600 dark:text-amber-400">
                       {row.rank}
                     </h4>
 
                     {recipientHref ? (
                       <Link
                         href={recipientHref}
-                        className="mt-1 w-fit text-sm font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
+                        className="mt-1 w-fit truncate text-xs font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
                       >
                         {recipient}
                       </Link>
                     ) : (
-                      <p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{recipient}</p>
+                      <p className="mt-1 truncate text-xs font-bold text-slate-900 dark:text-white">
+                        {recipient}
+                      </p>
                     )}
 
                     {prizeStages.length > 1 && stageName && (
@@ -1116,15 +1120,15 @@ export function EstaticPrizePanel({
                     {/* Money and a physical prize are different things, so they do not
                         get the same treatment. */}
                     {amount > 0 ? (
-                      <p className="mt-auto pt-3 text-base font-black text-[#0A5FC4] dark:text-blue-300">
+                      <p className="mt-auto pt-2.5 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
                         {formatPrizeAmount(amount, currency || 'INR')}
                       </p>
                     ) : row.customReward ? (
-                      <p className="mt-auto pt-3 text-sm font-bold text-slate-700 dark:text-slate-200">
+                      <p className="mt-auto pt-2.5 text-xs font-bold text-slate-700 dark:text-slate-200">
                         {row.customReward}
                       </p>
                     ) : (
-                      <p className="mt-auto pt-3 text-xs font-semibold text-slate-400">
+                      <p className="mt-auto pt-2.5 text-[11px] font-semibold text-slate-400">
                         {row.rewardType === 'TITLE' ? 'Honorary title' : '—'}
                       </p>
                     )}
