@@ -50,6 +50,7 @@ export default async function TournamentFormatPage({
         matches={data.slimMatches}
         teams={data.enrichedTeams}
         standingsConfig={ctx.standingsConfig}
+        groupRankings={data.groupRankings}
         pointsMatrix={data.pointsMatrix}
         killPoints={data.killPoints}
         gameMode={ctx.tournament.gameMode}

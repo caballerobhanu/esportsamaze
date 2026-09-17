@@ -1157,9 +1157,13 @@ export default async function AdminTournamentsPage({
     };
   });
 
-  // Stages whose matches already carry group names — those groups win on the public page,
-  // so the draw editor warns instead of silently doing nothing.
-  const stagesWithMatchGroups = stagesInfo.filter((s) => s.groups.length > 0).map((s) => s.name);
+  // Stage name → the group names its matches carry. Those groups win on the public page, so
+  // the draw editor warns instead of silently doing nothing, and offers them as the sources
+  // a pending slot can come out of.
+  const stageMatchGroups: Record<string, string[]> = {};
+  for (const stage of stagesInfo) {
+    if (stage.groups.length > 0) stageMatchGroups[stage.name] = stage.groups;
+  }
 
   const existingRegions = Array.from(
     new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
@@ -1618,7 +1622,7 @@ export default async function AdminTournamentsPage({
                   initialFormatDetails={editing?.formatDetails}
                   initialStages={editing?.stages}
                   groupCandidates={groupCandidates}
-                  stagesWithMatchGroups={stagesWithMatchGroups}
+                  stageMatchGroups={stageMatchGroups}
                 />
               </div>
             </div>

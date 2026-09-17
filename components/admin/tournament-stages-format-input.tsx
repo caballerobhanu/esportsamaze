@@ -27,6 +27,7 @@ import {
   Swords,
 } from 'lucide-react';
 import type { StageGroupSquad } from '@/components/tournaments/tournament-stage-format-card';
+import { pendingSeatKey, pendingSeatLabel, type PendingSeatSource } from '@/lib/stage-groups';
 
 /**
  * A squad the draw can place: a seat in the tournament's field, carrying whatever the
@@ -47,7 +48,13 @@ export interface GroupCandidate {
 }
 
 /** A seat with no team is identified by its entry label — the label is its name. */
-function candidateKey(candidate: { teamId?: string | null; seedLabel?: string | null; teamName?: string }): string {
+function candidateKey(candidate: {
+  teamId?: string | null;
+  seedLabel?: string | null;
+  teamName?: string;
+  source?: PendingSeatSource | null;
+}): string {
+  if (candidate.source) return pendingSeatKey(candidate.source);
   return candidate.teamId || `seat:${candidate.seedLabel || candidate.teamName || ''}`;
 }
 
@@ -110,8 +117,8 @@ interface TournamentStagesFormatInputProps {
   }>;
   /** The tournament's field of seats, offered when building a stage's group draw. */
   groupCandidates?: GroupCandidate[];
-  /** Names of stages whose matches already carry group names, and so own their groups. */
-  stagesWithMatchGroups?: string[];
+  /** Stage name → the group names its matches carry. Non-empty means matches own them. */
+  stageMatchGroups?: Record<string, string[]>;
 }
 
 const DEFAULT_HEADER_CARDS: HeaderCardItem[] = [
@@ -260,7 +267,7 @@ export function TournamentStagesFormatInput({
   initialFormatDetails,
   initialStages,
   groupCandidates = [],
-  stagesWithMatchGroups = [],
+  stageMatchGroups = {},
 }: TournamentStagesFormatInputProps) {
   // 0. Calendar Widget On/Off toggle (optional)
   const [showCalendarWidget, setShowCalendarWidget] = useState<boolean>(() => {
@@ -602,6 +609,49 @@ export function TournamentStagesFormatInput({
   const removeSeat = (idx: number, groupName: string, seatIdx: number) => {
     const groups = { ...stageGroups(idx) };
     groups[groupName] = (groups[groupName] || []).filter((_, i) => i !== seatIdx);
+    setStageGroups(idx, groups);
+  };
+
+  /** The groups a stage is known to have: the ones declared for it, plus its match groups. */
+  const sourceGroupNames = (stageName: string): string[] => {
+    const declared = stages.find((s) => s.name === stageName)?.groups;
+    return Array.from(new Set([...(declared ? Object.keys(declared) : []), ...(stageMatchGroups[stageName] || [])]));
+  };
+
+  /**
+   * A place in this stage that another stage's result will fill. Defaults to coming out of
+   * the stage before this one, which is the usual shape; every part is editable afterwards.
+   */
+  const addPendingSlot = (idx: number, groupName: string) => {
+    const previous = stages[idx - 1]?.name ?? stages[0]?.name ?? '';
+    const source: PendingSeatSource = {
+      stage: previous,
+      group: sourceGroupNames(previous)[0] ?? null,
+      rank: 1,
+    };
+
+    const groups = { ...stageGroups(idx) };
+    groups[groupName] = [
+      ...(groups[groupName] || []),
+      { teamId: null, teamName: pendingSeatLabel(source), seedLabel: null, source },
+    ];
+    setStageGroups(idx, groups);
+  };
+
+  const updatePendingSource = (
+    idx: number,
+    groupName: string,
+    seatIdx: number,
+    patch: Partial<PendingSeatSource>
+  ) => {
+    const groups = { ...stageGroups(idx) };
+    const squads = [...(groups[groupName] || [])];
+    const squad = squads[seatIdx];
+    if (!squad?.source) return;
+
+    const source = { ...squad.source, ...patch };
+    squads[seatIdx] = { ...squad, source, teamName: pendingSeatLabel(source) };
+    groups[groupName] = squads;
     setStageGroups(idx, groups);
   };
 
@@ -1352,7 +1402,7 @@ export function TournamentStagesFormatInput({
                             </button>
                           </div>
 
-                          {stagesWithMatchGroups.includes(stage.name) ? (
+                          {(stageMatchGroups[stage.name] || []).length > 0 ? (
                             <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
                               <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
                               <span>
@@ -1398,46 +1448,115 @@ export function TournamentStagesFormatInput({
                                         No squads in this group yet.
                                       </p>
                                     ) : (
-                                      squads.map((squad, sqIdx) => (
-                                        <div
-                                          key={`${candidateKey(squad)}-${sqIdx}`}
-                                          className="flex items-center gap-2 p-2"
-                                        >
-                                          {squad.logoUrl || squad.logoDarkUrl ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                              src={squad.logoUrl || squad.logoDarkUrl || ''}
-                                              alt=""
-                                              className="h-5 w-5 shrink-0 rounded border border-slate-200 bg-white object-contain dark:border-slate-700"
-                                            />
-                                          ) : (
-                                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[8px] font-black text-slate-400 dark:bg-white/10">
-                                              {(squad.teamName || '?').slice(0, 2).toUpperCase()}
-                                            </span>
-                                          )}
-                                          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-                                            {squad.displayName || squad.teamName || squad.seedLabel}
-                                            {squad.tag ? ` (${squad.tag})` : ''}
-                                          </span>
-                                          {!squad.teamId && (
-                                            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-400 dark:bg-white/10">
-                                              Seat
-                                            </span>
-                                          )}
-                                          <button
-                                            type="button"
-                                            onClick={() => removeSeat(sIdx, groupName, sqIdx)}
-                                            title="Remove from this group"
-                                            className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-white/10"
+                                      squads.map((squad, sqIdx) =>
+                                        squad.source ? (
+                                          <div
+                                            key={`${candidateKey(squad)}-${sqIdx}`}
+                                            className="space-y-1.5 bg-amber-500/5 p-2"
                                           >
-                                            <Trash2 className="h-3 w-3" />
-                                          </button>
-                                        </div>
-                                      ))
+                                            <div className="flex items-center gap-2">
+                                              <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-slate-700 dark:text-slate-200">
+                                                {pendingSeatLabel(squad.source)}
+                                              </span>
+                                              <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-700 dark:text-amber-400">
+                                                Pending
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => removeSeat(sIdx, groupName, sqIdx)}
+                                                title="Remove from this group"
+                                                className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-white/10"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </button>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                              <select
+                                                value={squad.source.stage}
+                                                onChange={(e) =>
+                                                  updatePendingSource(sIdx, groupName, sqIdx, { stage: e.target.value })
+                                                }
+                                                title="Stage this place comes out of"
+                                                className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[10px] dark:border-slate-700 dark:bg-slate-800"
+                                              >
+                                                {stages.map((option) => (
+                                                  <option key={option.name} value={option.name}>
+                                                    {option.name}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                              <select
+                                                value={squad.source.group ?? ''}
+                                                onChange={(e) =>
+                                                  updatePendingSource(sIdx, groupName, sqIdx, {
+                                                    group: e.target.value || null,
+                                                  })
+                                                }
+                                                title="Group within that stage"
+                                                className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[10px] dark:border-slate-700 dark:bg-slate-800"
+                                              >
+                                                <option value="">— no group —</option>
+                                                {sourceGroupNames(squad.source.stage).map((name) => (
+                                                  <option key={name} value={name}>
+                                                    {name}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                              <input
+                                                type="number"
+                                                min={1}
+                                                value={squad.source.rank}
+                                                onChange={(e) =>
+                                                  updatePendingSource(sIdx, groupName, sqIdx, {
+                                                    rank: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                                  })
+                                                }
+                                                title="Finishing position in that group"
+                                                className="w-14 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[10px] dark:border-slate-700 dark:bg-slate-800"
+                                              />
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div
+                                            key={`${candidateKey(squad)}-${sqIdx}`}
+                                            className="flex items-center gap-2 p-2"
+                                          >
+                                            {squad.logoUrl || squad.logoDarkUrl ? (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img
+                                                src={squad.logoUrl || squad.logoDarkUrl || ''}
+                                                alt=""
+                                                className="h-5 w-5 shrink-0 rounded border border-slate-200 bg-white object-contain dark:border-slate-700"
+                                              />
+                                            ) : (
+                                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[8px] font-black text-slate-400 dark:bg-white/10">
+                                                {(squad.teamName || '?').slice(0, 2).toUpperCase()}
+                                              </span>
+                                            )}
+                                            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                                              {squad.displayName || squad.teamName || squad.seedLabel}
+                                              {squad.tag ? ` (${squad.tag})` : ''}
+                                            </span>
+                                            {!squad.teamId && (
+                                              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-400 dark:bg-white/10">
+                                                Seat
+                                              </span>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => removeSeat(sIdx, groupName, sqIdx)}
+                                              title="Remove from this group"
+                                              className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-white/10"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </button>
+                                          </div>
+                                        )
+                                      )
                                     )}
                                   </div>
 
-                                  <div className="p-2">
+                                  <div className="space-y-1.5 p-2">
                                     {availableForStage(sIdx).length === 0 ? (
                                       <p className="text-center text-[10px] font-medium text-slate-400">
                                         Every squad is already placed in this stage.
@@ -1457,6 +1576,15 @@ export function TournamentStagesFormatInput({
                                         ))}
                                       </select>
                                     )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => addPendingSlot(sIdx, groupName)}
+                                      title="A place here that another stage's result will fill"
+                                      className="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-bold text-slate-500 hover:border-blue-400 hover:text-blue-600 dark:border-slate-600 dark:text-slate-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
+                                    >
+                                      + Pending slot (decided by another stage)
+                                    </button>
                                   </div>
                                 </div>
                               ))}

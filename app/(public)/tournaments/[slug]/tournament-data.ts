@@ -39,6 +39,7 @@ import { classifyPrizeRow } from '@/lib/prize-rows';
 import { parseQualificationRules } from '@/lib/qualification-rules';
 import type { MetricAggregate } from '@/lib/player-stats';
 import type { StageGroup, TeamPerformanceRow, PlayerPerformanceRow } from '@/components/tournaments/estatic/panel-types';
+import { groupRankingKey } from '@/lib/stage-groups';
 
 /* ── The one big fetch (moved verbatim from the former single page) ── */
 
@@ -991,6 +992,50 @@ export function buildProgressionData(ctx: TournamentContext) {
 
 /* ── Format tab ── */
 
+/**
+ * Finishing order per stage and group, keyed by groupRankingKey. Built from the same input,
+ * through the same function, as the Standings tab, so a pending seat and the standings
+ * table can never disagree about who finished where.
+ */
+function buildGroupRankings(ctx: TournamentContext): Record<string, string[]> {
+  const byGroup = new Map<string, StandingsInputRow[]>();
+
+  for (const match of ctx.tournament.matches) {
+    const rows = match.games.flatMap((g) => g.teamResults).map(toStandingsRow);
+    if (rows.length === 0) continue;
+
+    const key = groupRankingKey(matchStageLabel(match), match.groupName);
+    const bucket = byGroup.get(key);
+    if (bucket) bucket.push(...rows);
+    else byGroup.set(key, rows);
+  }
+
+  const rankings: Record<string, string[]> = {};
+  for (const [key, rows] of byGroup) {
+    rankings[key] = calculateTournamentStandings(rows).map((standing) => standing.teamId);
+  }
+  return rankings;
+}
+
+/** True when at least one declared seat waits on a result, so the rankings are worth building. */
+function hasPendingSeats(formatDetails: unknown): boolean {
+  const stageFormats = (
+    formatDetails as { stageFormats?: Record<string, { groups?: Record<string, unknown> }> } | null
+  )?.stageFormats;
+  if (!stageFormats || typeof stageFormats !== 'object') return false;
+
+  for (const stageFormat of Object.values(stageFormats)) {
+    const groups = stageFormat?.groups;
+    if (!groups || typeof groups !== 'object') continue;
+
+    for (const squads of Object.values(groups)) {
+      if (!Array.isArray(squads)) continue;
+      if (squads.some((squad) => Boolean((squad as { source?: unknown })?.source))) return true;
+    }
+  }
+  return false;
+}
+
 export function buildFormatData(ctx: TournamentContext) {
   const formatRules = (ctx.tournament.formatDetails ?? {}) as {
     featuredStage?: string;
@@ -1034,6 +1079,7 @@ export function buildFormatData(ctx: TournamentContext) {
     enrichedTeams,
     pointsMatrix: formatRules.pointsMatrix,
     killPoints: readKillMultiplier(ctx.tournament.formatDetails),
+    groupRankings: hasPendingSeats(ctx.tournament.formatDetails) ? buildGroupRankings(ctx) : {},
   };
 }
 

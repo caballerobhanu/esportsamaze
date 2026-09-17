@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { ThemeLogo } from './estatic/theme-logo';
+import type { PendingSeatSource } from '@/lib/stage-groups';
 
 export interface StageAdvancementRule {
   rankRange: string; // e.g. "1st - 8th"
@@ -36,6 +37,8 @@ export interface StageGroupSquad {
   seedLabel?: string | null;
   seed?: number | null;
   country?: string | null;
+  /** Where this seat's team will come from, while it is not known yet. */
+  source?: PendingSeatSource | null;
   roster?: Array<{
     ign: string;
     role?: string | null;

@@ -27,6 +27,7 @@ import {
   type StageAdvancementRule,
   type StageGroupSquad,
 } from '../tournament-stage-format-card';
+import { pendingSeatLabel, resolvePendingTeamId } from '@/lib/stage-groups';
 
 /** The shape of a roster entry as an editor writes it, before normalisation. */
 interface RosterEntryLike {
@@ -62,11 +63,40 @@ interface TeamMetaLike {
  * Refreshes a declared seat from the current team record, so a team renamed or re-logoed
  * after the draw was published does not stay stale on the page. A seat with no team keeps
  * exactly what the draw recorded — it is a place in the field, not a competitor.
+ *
+ * A pending slot is the other case: it has no team of its own, only a source. Once that
+ * source stage has been played it resolves to whoever finished in that position, and the
+ * provenance becomes the row's second line ("Team X" over "Group A #1").
  */
 function resolveDeclaredSquad(
   squad: StageGroupSquad,
-  teamMap: Map<string, TeamMetaLike>
+  teamMap: Map<string, TeamMetaLike>,
+  groupRankings: Record<string, string[]>
 ): StageGroupSquad {
+  if (squad?.source && !squad.teamId) {
+    const label = pendingSeatLabel(squad.source);
+    const resolvedTeamId = resolvePendingTeamId(squad.source, groupRankings);
+    const meta = resolvedTeamId ? teamMap.get(resolvedTeamId) : undefined;
+
+    if (!resolvedTeamId || !meta) return { ...squad, teamName: label, seedLabel: null };
+
+    const team = meta.team || null;
+    const resolved: StageGroupSquad = {
+      ...squad,
+      teamName: team?.displayName || team?.name || meta.name || label,
+      displayName: team?.displayName || null,
+      tag: team?.tag || meta.tag || null,
+      slug: team?.slug || meta.slug || null,
+      logoUrl: team?.logoUrl || meta.logoUrl || null,
+      logoDarkUrl: team?.imageDarkUrl || meta.logoDarkUrl || null,
+      seedLabel: label,
+    };
+
+    // Without a slug there is no team page, and claiming a teamId would render a link to
+    // /teams/<label> that 404s. Keep the resolved name, drop the link.
+    return resolved.slug ? { ...resolved, teamId: resolvedTeamId } : resolved;
+  }
+
   if (!squad?.teamId) return squad;
 
   const meta = teamMap.get(squad.teamId);
@@ -124,6 +154,8 @@ interface EstaticFormatPanelProps {
   eventType?: string | null;
   device?: string | null;
   formatDetails?: any;
+  /** Finishing order per stage and group, for resolving pending seats. */
+  groupRankings?: Record<string, string[]>;
 }
 
 export function EstaticFormatPanel({
@@ -147,6 +179,7 @@ export function EstaticFormatPanel({
   eventType = 'LAN Stage',
   device = 'Official Tournament Device',
   formatDetails: propFormatDetails,
+  groupRankings = {},
 }: EstaticFormatPanelProps) {
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -237,6 +270,9 @@ export function EstaticFormatPanel({
       // 3. Groups & Participating Squads
       const groups: Record<string, StageGroupSquad[]> = {};
       const stageTeamIds = new Set<string>();
+      // A declared stage is measured in slots, not teams: a pending slot holds a place even
+      // though nobody has taken it yet.
+      let declaredSlots = 0;
 
       // Extract squads from matches
       for (const m of stageMatches) {
@@ -285,30 +321,37 @@ export function EstaticFormatPanel({
       // once they exist, so this only fills a stage whose matches define no groups.
       if (Object.keys(groups).length === 0 && customStage?.groups && typeof customStage.groups === 'object') {
         for (const [groupName, declared] of Object.entries(customStage.groups as Record<string, StageGroupSquad[]>)) {
-          const squads = (Array.isArray(declared) ? declared : []).map((squad) => resolveDeclaredSquad(squad, teamMap));
+          const squads = (Array.isArray(declared) ? declared : []).map((squad) =>
+            resolveDeclaredSquad(squad, teamMap, groupRankings)
+          );
           if (squads.length === 0) continue;
 
           groups[groupName] = squads;
-          for (const squad of squads) {
-            if (squad.teamId) stageTeamIds.add(squad.teamId);
-          }
+          // A declared entry is a slot in the stage whether or not its team is known yet,
+          // including a pending slot waiting on another stage's result.
+          declaredSlots += squads.length;
         }
       }
 
       // If stage has no groups from matches, check if tournament teams can be listed as Single Lobby
       const groupKeys = Object.keys(groups);
       const distinctGroupCount = groupKeys.length;
+      const stageSlotCount = declaredSlots > 0 ? declaredSlots : stageTeamIds.size;
       let groupsDivision: string | null = null;
       if (distinctGroupCount > 1) {
-        const avgSquads = Math.round(stageTeamIds.size / distinctGroupCount);
+        const avgSquads = Math.round(stageSlotCount / distinctGroupCount);
         groupsDivision = `${distinctGroupCount} Groups of ${avgSquads || 16} Teams`;
-      } else if (stageTeamIds.size > 0) {
-        groupsDivision = `Single Lobby (${stageTeamIds.size} Teams)`;
+      } else if (stageSlotCount > 0) {
+        groupsDivision = `Single Lobby (${stageSlotCount} Teams)`;
       }
 
-      // Sort squads inside each group alphabetically by name
-      for (const k of Object.keys(groups)) {
-        groups[k].sort((a, b) => a.teamName.localeCompare(b.teamName));
+      // Sort squads inside each group alphabetically by name. A declared draw is left in the
+      // order it was published — that order is the admin's intent, and sorting would scatter
+      // pending slots through the teams.
+      if (declaredSlots === 0) {
+        for (const k of Object.keys(groups)) {
+          groups[k].sort((a, b) => a.teamName.localeCompare(b.teamName));
+        }
       }
 
       // 4. Synthesize Rules from standingsConfig (tabGroups & customTabs)
@@ -440,7 +483,7 @@ export function EstaticFormatPanel({
         totalMatches: customStage?.totalMatches || customStage?.matchCount || (stageMatches.length > 0 ? stageMatches.length : undefined),
         matchesPerGroup: customStage?.matchesPerGroup ? Number(customStage.matchesPerGroup) : undefined,
         matchesPerTeam: customStage?.matchesPerTeam ? Number(customStage.matchesPerTeam) : undefined,
-        teamsCount: customStage?.teamsCount || (stageTeamIds.size > 0 ? stageTeamIds.size : undefined),
+        teamsCount: customStage?.teamsCount || (stageSlotCount > 0 ? stageSlotCount : undefined),
         groupsDivision: customStage?.groupsDivision || groupsDivision,
         description: customStage?.stageDescription || customStage?.description || null,
         rules: customStage?.rules?.length > 0
@@ -463,7 +506,7 @@ export function EstaticFormatPanel({
         groups,
       };
     });
-  }, [stages, matches, teamMap, standingsConfig, formatDetails]);
+  }, [stages, matches, teamMap, standingsConfig, formatDetails, groupRankings]);
 
   // Set default active tab
   React.useEffect(() => {
