@@ -18,8 +18,15 @@ import {
 } from 'lucide-react';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
+import { classifyPrizeRow, parseRankRange, prizeRowRange, rankLabel, type PrizeRowKind } from '@/lib/prize-rows';
+
 export interface PrizeRankItem {
-  rank: string; // e.g. "1st", "2nd", "Tournament MVP", "Fan Favourite"
+  /** PLACEMENT sits on the prize ladder; AWARD is a standalone honour. */
+  kind?: PrizeRowKind;
+  /** Finishing position as numbers; `to` is only set for a shared band. */
+  from?: number;
+  to?: number;
+  rank: string; // Label — "1st", "5th - 8th"; the honour's own name for an award
   prize: number; // Prize amount in tournament currency (0 if non-cash / title only)
   percentage?: number; // e.g. 40%
   rewardType?: 'MONEY' | 'ITEM' | 'TITLE'; // Type of reward: Cash, Physical Gift / Device, or Honorary Title
@@ -62,6 +69,57 @@ interface TournamentPrizeDistributionInputProps {
   allPlayers?: PlayerSummaryOption[];
 }
 
+/** A row as it comes back off the wire — every field is untrusted. */
+type StoredRankRow = Record<string, unknown>;
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * A stored row mapped onto the current shape. Rows written before `kind`
+ * existed carry only a free-text rank, so the kind and its numeric range are
+ * derived once here — every reader downstream then gets the same answer, and
+ * re-saving stamps the row with the answer it was read as.
+ */
+function normalizeRankRow(r: StoredRankRow): PrizeRankItem {
+  const range = prizeRowRange(r);
+  const recipientType =
+    r.recipientType === 'PLAYER' || r.recipientType === 'TEAM'
+      ? r.recipientType
+      : r.playerId
+        ? 'PLAYER'
+        : 'TEAM';
+  const rewardType =
+    r.rewardType === 'ITEM' || r.rewardType === 'TITLE' || r.rewardType === 'MONEY'
+      ? r.rewardType
+      : 'MONEY';
+
+  return {
+    kind: classifyPrizeRow(r),
+    from: range ? range.from : undefined,
+    to: range && range.to > range.from ? range.to : undefined,
+    rank: readString(r.rank) ?? '1st',
+    prize: readNumber(r.prize) ?? 0,
+    percentage: readNumber(r.percentage),
+    rewardType,
+    customReward: readString(r.customReward),
+    recipientType,
+    teamId: readString(r.teamId),
+    teamName: readString(r.teamName),
+    playerId: readString(r.playerId),
+    playerName: readString(r.playerName),
+    qualifications: Array.isArray(r.qualifications)
+      ? r.qualifications.filter((entry): entry is string => typeof entry === 'string')
+      : [],
+  };
+}
+
 const AWARD_PRESETS = [
   { label: '👑 Tournament MVP', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
   { label: '⭐ Fan Favourite Team', type: 'TEAM' as const, rewardType: 'MONEY' as const },
@@ -99,19 +157,7 @@ export function TournamentPrizeDistributionInput({
             stageName: 'Grand Finals',
             allocatedPrize: totalPrizePool,
             percentage: 100,
-            ranks: initialDistribution.map((r: any) => ({
-              rank: r.rank || '1st',
-              prize: Number(r.prize) || 0,
-              percentage: Number(r.percentage) || undefined,
-              rewardType: r.rewardType || 'MONEY',
-              customReward: r.customReward || undefined,
-              recipientType: r.recipientType || (r.playerId ? 'PLAYER' : 'TEAM'),
-              teamId: r.teamId || undefined,
-              teamName: r.teamName || undefined,
-              playerId: r.playerId || undefined,
-              playerName: r.playerName || undefined,
-              qualifications: Array.isArray(r.qualifications) ? r.qualifications : [],
-            })),
+            ranks: initialDistribution.map(normalizeRankRow),
           },
         ];
       }
@@ -120,21 +166,7 @@ export function TournamentPrizeDistributionInput({
           stageName: s.stageName || 'Stage',
           allocatedPrize: Number(s.allocatedPrize) || 0,
           percentage: Number(s.percentage) || 0,
-          ranks: Array.isArray(s.ranks)
-            ? s.ranks.map((r: any) => ({
-                rank: r.rank || '1st',
-                prize: Number(r.prize) || 0,
-                percentage: Number(r.percentage) || undefined,
-                rewardType: r.rewardType || 'MONEY',
-                customReward: r.customReward || undefined,
-                recipientType: r.recipientType || (r.playerId ? 'PLAYER' : 'TEAM'),
-                teamId: r.teamId || undefined,
-                teamName: r.teamName || undefined,
-                playerId: r.playerId || undefined,
-                playerName: r.playerName || undefined,
-                qualifications: Array.isArray(r.qualifications) ? r.qualifications : [],
-              }))
-            : [],
+          ranks: Array.isArray(s.ranks) ? s.ranks.map(normalizeRankRow) : [],
         }));
       }
     }
@@ -195,7 +227,7 @@ export function TournamentPrizeDistributionInput({
         allocatedPrize: 0,
         percentage: 0,
         ranks: [
-          { rank: '1st', prize: 0, percentage: 0, recipientType: 'TEAM', rewardType: 'MONEY' },
+          { kind: 'PLACEMENT', from: 1, rank: '1st', prize: 0, percentage: 0, recipientType: 'TEAM', rewardType: 'MONEY' },
         ],
       },
     ]);
@@ -236,10 +268,17 @@ export function TournamentPrizeDistributionInput({
       const copy = [...prev];
       const targetStage = { ...copy[stageIdx] };
       const nextRankNum = targetStage.ranks.length + 1;
+      const label = defaultRank || `${nextRankNum}${getOrdinal(nextRankNum)} Place`;
+      // A generated "Nth Place" is a ladder row; the quick-add presets ("Tournament
+      // MVP") are honours — which is what keeps their cash out of the prize total.
+      const range = parseRankRange(label);
       targetStage.ranks = [
         ...targetStage.ranks,
         {
-          rank: defaultRank || `${nextRankNum}${getOrdinal(nextRankNum)} Place`,
+          kind: range ? 'PLACEMENT' : 'AWARD',
+          from: range ? range.from : undefined,
+          to: range && range.to > range.from ? range.to : undefined,
+          rank: label,
           prize: 0,
           percentage: 0,
           recipientType,
@@ -247,6 +286,62 @@ export function TournamentPrizeDistributionInput({
           customReward,
         },
       ];
+      copy[stageIdx] = targetStage;
+      return copy;
+    });
+  };
+
+  /**
+   * Switching a row between the ladder and an honour. The numeric range is
+   * seeded from the label when moving onto the ladder, so a legacy "5th Place"
+   * keeps its position instead of resetting to 1.
+   */
+  const updateKind = (stageIdx: number, rankIdx: number, kind: PrizeRowKind) => {
+    setStages((prev) => {
+      const copy = [...prev];
+      const targetStage = { ...copy[stageIdx] };
+      const ranks = [...targetStage.ranks];
+      const row = { ...ranks[rankIdx] };
+
+      if (kind === 'PLACEMENT') {
+        const range = prizeRowRange({ ...row, kind: 'PLACEMENT' }) ?? { from: 1, to: 1 };
+        row.kind = 'PLACEMENT';
+        row.from = range.from;
+        row.to = range.to > range.from ? range.to : undefined;
+        row.rank = rankLabel(range.from, range.to);
+      } else {
+        // The label is left as typed: renaming an honour is the admin's call.
+        row.kind = 'AWARD';
+        row.from = undefined;
+        row.to = undefined;
+      }
+
+      ranks[rankIdx] = row;
+      targetStage.ranks = ranks;
+      copy[stageIdx] = targetStage;
+      return copy;
+    });
+  };
+
+  /** The numeric position a placement covers, kept in step with its label. */
+  const updatePlacementRange = (stageIdx: number, rankIdx: number, from: number, to?: number) => {
+    setStages((prev) => {
+      const copy = [...prev];
+      const targetStage = { ...copy[stageIdx] };
+      const ranks = [...targetStage.ranks];
+      const row = { ...ranks[rankIdx] };
+
+      const start = Number.isFinite(from) && from >= 1 ? Math.trunc(from) : 1;
+      const end = to != null && Number.isFinite(to) && to > start ? Math.trunc(to) : undefined;
+
+      row.kind = 'PLACEMENT';
+      row.from = start;
+      row.to = end;
+      // Every consumer prints `rank`, so it is derived here rather than left stale.
+      row.rank = rankLabel(start, end);
+
+      ranks[rankIdx] = row;
+      targetStage.ranks = ranks;
       copy[stageIdx] = targetStage;
       return copy;
     });
@@ -484,21 +579,75 @@ export function TournamentPrizeDistributionInput({
                 {stage.ranks.map((rankItem, rIdx) => {
                   const isPlayer = rankItem.recipientType === 'PLAYER';
                   const rewType = rankItem.rewardType || 'MONEY';
+                  const isPlacement = classifyPrizeRow(rankItem) === 'PLACEMENT';
 
                   return (
                     <div
                       key={rIdx}
                       className="grid grid-cols-12 gap-2 items-center p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs shadow-xs"
                     >
-                      {/* Rank / Label */}
-                      <div className="col-span-12 sm:col-span-3">
-                        <input
-                          type="text"
-                          value={rankItem.rank}
-                          onChange={(e) => updateRank(sIdx, rIdx, 'rank', e.target.value)}
-                          placeholder="1st Place / Tournament MVP"
-                          className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-[11px] focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
-                        />
+                      {/* Kind + Rank / Label */}
+                      <div className="col-span-12 sm:col-span-3 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => updateKind(sIdx, rIdx, isPlacement ? 'AWARD' : 'PLACEMENT')}
+                            className={`shrink-0 px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider border transition-colors ${
+                              isPlacement
+                                ? 'bg-blue-500/15 text-(--ed-blue) dark:text-blue-300 border-blue-500/30'
+                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                            }`}
+                            title="Click to switch between a prize-ladder placement and a standalone honour"
+                          >
+                            {isPlacement ? 'Placement' : 'Award'}
+                          </button>
+
+                          {isPlacement ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={1}
+                                value={rankItem.from ?? ''}
+                                onChange={(e) =>
+                                  updatePlacementRange(sIdx, rIdx, Number(e.target.value), rankItem.to)
+                                }
+                                placeholder="1"
+                                className="w-14 px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-center text-[11px] focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
+                              />
+                              <span className="text-[11px] text-slate-400">–</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={rankItem.to ?? ''}
+                                onChange={(e) =>
+                                  updatePlacementRange(
+                                    sIdx,
+                                    rIdx,
+                                    rankItem.from ?? 1,
+                                    e.target.value === '' ? undefined : Number(e.target.value)
+                                  )
+                                }
+                                placeholder="—"
+                                title="Leave blank for a single rank, or set it for a shared band (5th - 8th)"
+                                className="w-14 px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-center text-[11px] focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
+                              />
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              value={rankItem.rank}
+                              onChange={(e) => updateRank(sIdx, rIdx, 'rank', e.target.value)}
+                              placeholder="Tournament MVP"
+                              className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-[11px] focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
+                            />
+                          )}
+                        </div>
+
+                        <p className="text-[10px] font-semibold text-slate-400">
+                          {isPlacement
+                            ? `Ladder row — counts as prize money (${rankItem.rank || 'unranked'})`
+                            : 'Honour — never counted as prize money'}
+                        </p>
                       </div>
 
                       {/* Recipient Type Toggle (TEAM vs PLAYER) */}

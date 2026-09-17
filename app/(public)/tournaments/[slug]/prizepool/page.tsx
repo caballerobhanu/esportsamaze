@@ -41,8 +41,9 @@ export default async function TournamentPrizePoolPage({
         totalPrizePool={ctx.tournament.prizePool}
         prizeStages={data.prizeStages}
         currency={ctx.tournament.currency}
-        qualifications={data.qualificationsList}
+        qualificationRules={data.qualificationRules}
         teams={ctx.tournament.teams}
+        results={data.results}
       />
     </TournamentTabShell>
   );

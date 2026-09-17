@@ -1,8 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { Trophy, Award, Shield, Sparkles, Plus, Trash2, ArrowUpRight, Calculator, Layers, ArrowDown } from 'lucide-react';
+import { Trophy, Award, Shield, Sparkles, Plus, Trash2, ArrowUpRight, Calculator, Layers, ArrowDown, X } from 'lucide-react';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
+import type { PrizeBerth } from '@/lib/tournament-prizes';
+import { classifyPrizeRow } from '@/lib/prize-rows';
 
 export interface FinalTeamRankingItem {
   teamId: string;
@@ -11,7 +13,12 @@ export interface FinalTeamRankingItem {
   logoUrl?: string | null;
   rank: number;
   prizeWon?: number;
-  qualifications?: string[];
+  /** Events this finish qualified the team into. */
+  berths?: PrizeBerth[];
+}
+
+function toBerths(names: string[]): PrizeBerth[] {
+  return names.map((name) => ({ name }));
 }
 
 export interface StageStandingsItem {
@@ -29,6 +36,7 @@ interface TournamentFinalRankingsInputProps {
   prizeDistribution?: any;
   totalPrizePool?: number;
   currency?: string;
+  allTournaments?: Array<{ id: string; name: string; slug: string; tier?: string | null }>;
 }
 
 // Universal prize matching and cumulative multi-stage aggregator
@@ -62,7 +70,7 @@ export function calculatePrizeForTeam(
 
   const collectedQuals: string[] = [];
 
-  // Pass 1: Check if this team is explicitly assigned to any prize rows (Cumulative across all stages & awards!)
+  // Pass 1: rows this team is explicitly assigned to, summed across every stage.
   let cumulativeAssignedPrize = 0;
   let hasExplicitAssignment = false;
 
@@ -70,6 +78,11 @@ export function calculatePrizeForTeam(
     if (!Array.isArray(stage.ranks)) continue;
     for (const r of stage.ranks) {
       if (r.teamId && r.teamId === teamId) {
+        // An award row can be stamped with the team, but it is not prize money:
+        // it must not add to the total, and it must not stop the ladder lookup
+        // in Pass 2 either. Only the prize ladder moves `prizeWon`.
+        if (classifyPrizeRow(r) === 'AWARD') continue;
+
         hasExplicitAssignment = true;
         let rowPrize = Number(r.prize) || 0;
         if (rowPrize === 0 && r.percentage && totalPrizePool > 0) {
@@ -175,6 +188,7 @@ export function TournamentFinalRankingsInput({
   prizeDistribution,
   totalPrizePool = 40000000,
   currency = 'INR',
+  allTournaments = [],
 }: TournamentFinalRankingsInputProps) {
   const [rankings, setRankings] = React.useState<FinalTeamRankingItem[]>(() => {
     if (initialRankings.length > 0) return initialRankings;
@@ -185,6 +199,7 @@ export function TournamentFinalRankingsInput({
   const [selectedStage, setSelectedStage] = React.useState(availableStages[0] || '');
 
   const [selectedTeamId, setSelectedTeamId] = React.useState('');
+  const [berthDrafts, setBerthDrafts] = React.useState<Record<number, string>>({});
 
   const teamOptions: SearchableSelectOption[] = React.useMemo(() => {
     return allTeams.map((t) => ({
@@ -218,7 +233,7 @@ export function TournamentFinalRankingsInput({
         logoUrl: teamObj?.logoUrl,
         rank: rankNum,
         prizeWon: prizeMatch.prize,
-        qualifications: prizeMatch.qualifications,
+        berths: toBerths(prizeMatch.qualifications),
       };
     });
 
@@ -255,7 +270,7 @@ export function TournamentFinalRankingsInput({
           logoUrl: teamObj?.logoUrl,
           rank: currentMaxRank,
           prizeWon: prizeMatch.prize,
-          qualifications: prizeMatch.qualifications,
+          berths: toBerths(prizeMatch.qualifications),
         };
       });
 
@@ -276,8 +291,8 @@ export function TournamentFinalRankingsInput({
         return {
           ...r,
           prizeWon: prizeMatch.prize,
-          qualifications:
-            prizeMatch.qualifications.length > 0 ? prizeMatch.qualifications : r.qualifications,
+          berths:
+            prizeMatch.qualifications.length > 0 ? toBerths(prizeMatch.qualifications) : r.berths ?? [],
         };
       })
     );
@@ -307,7 +322,7 @@ export function TournamentFinalRankingsInput({
         logoUrl: teamObj.logoUrl,
         rank: nextRank,
         prizeWon: prizeMatch.prize,
-        qualifications: prizeMatch.qualifications,
+        berths: toBerths(prizeMatch.qualifications),
       },
     ]);
 
@@ -330,14 +345,38 @@ export function TournamentFinalRankingsInput({
     });
   };
 
-  const updateQualifications = (index: number, str: string) => {
-    const qualifications = str
-      .split(',')
-      .map((x) => x.trim())
-      .filter(Boolean);
+  const addBerth = (index: number, berth: PrizeBerth) => {
+    const name = berth.name.trim();
+    if (!name) return;
     setRankings((prev) => {
       const copy = [...prev];
-      copy[index] = { ...copy[index], qualifications };
+      const existing = copy[index].berths ?? [];
+      if (existing.some((b) => b.name.toLowerCase() === name.toLowerCase())) return prev;
+      copy[index] = { ...copy[index], berths: [...existing, { ...berth, name }] };
+      return copy;
+    });
+  };
+
+  const addLinkedBerth = (index: number, tournamentId: string) => {
+    const match = allTournaments.find((t) => t.id === tournamentId);
+    if (match) addBerth(index, { name: match.name, tournamentId: match.id, tournamentSlug: match.slug });
+  };
+
+  const addTypedBerth = (index: number) => {
+    const raw = (berthDrafts[index] ?? '').trim();
+    if (!raw) return;
+    // Free text stays allowed: the target event may not exist in the DB yet.
+    addBerth(index, { name: raw });
+    setBerthDrafts((prev) => ({ ...prev, [index]: '' }));
+  };
+
+  const removeBerth = (index: number, berthIndex: number) => {
+    setRankings((prev) => {
+      const copy = [...prev];
+      copy[index] = {
+        ...copy[index],
+        berths: (copy[index].berths ?? []).filter((_, i) => i !== berthIndex),
+      };
       return copy;
     });
   };
@@ -485,13 +524,52 @@ export function TournamentFinalRankingsInput({
                   />
                 </div>
 
-                <div className="flex items-center gap-1 min-w-[140px] flex-1">
+                <div className="flex min-w-[220px] flex-1 flex-wrap items-center gap-1.5">
+                  {(r.berths ?? []).map((berth, bIdx) => (
+                    <span
+                      key={bIdx}
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                        berth.tournamentSlug
+                          ? 'bg-blue-500/10 text-(--ed-blue) dark:text-blue-300'
+                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                      }`}
+                    >
+                      {berth.name}
+                      <button
+                        type="button"
+                        onClick={() => removeBerth(idx, bIdx)}
+                        className="transition-colors hover:text-rose-500"
+                        title="Remove qualifying event"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+
+                  <div className="w-full sm:w-56">
+                    <SearchableSelect
+                      options={allTournaments.map((t) => ({ value: t.id, label: t.name }))}
+                      value=""
+                      onChange={(val) => {
+                        if (val) addLinkedBerth(idx, val);
+                      }}
+                      placeholder="+ Link qualifying event…"
+                      size="admin"
+                    />
+                  </div>
+
                   <input
                     type="text"
-                    defaultValue={(r.qualifications || []).join(', ')}
-                    onChange={(e) => updateQualifications(idx, e.target.value)}
-                    placeholder="Seed (e.g. PMGC, EWC)"
-                    className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[10px]"
+                    value={berthDrafts[idx] ?? ''}
+                    onChange={(e) => setBerthDrafts((prev) => ({ ...prev, [idx]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTypedBerth(idx);
+                      }
+                    }}
+                    placeholder="…or type event"
+                    className="w-full sm:w-32 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[10px]"
                   />
                 </div>
 

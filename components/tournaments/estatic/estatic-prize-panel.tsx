@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React from 'react';
 import {
   Trophy,
@@ -13,6 +14,13 @@ import {
   Gift,
 } from 'lucide-react';
 import { ThemeLogo } from './theme-logo';
+import type { PrizeResultRow } from '@/lib/tournament-prizes';
+import { classifyPrizeRow, prizeRowRange } from '@/lib/prize-rows';
+import {
+  describeRulePosition,
+  qualificationTargetsForRank,
+  type QualificationRule,
+} from '@/lib/qualification-rules';
 
 export interface TournamentPrizeRank {
   rank: string;
@@ -36,12 +44,10 @@ export interface EstaticPrizePanelProps {
     ranks: TournamentPrizeRank[];
   }>;
   currency?: string | null;
-  qualifications?: Array<{
-    place: string;
-    events: Array<string | { name: string }>;
-    description?: string;
-  }>;
+  qualificationRules?: QualificationRule[];
   teams?: any[];
+  /** Per-team finishes; takes over the table when an event has been ranked. */
+  results?: PrizeResultRow[];
 }
 
 function getOrdinal(n: number): string {
@@ -80,10 +86,14 @@ export function EstaticPrizePanel({
   totalPrizePool,
   prizeStages = [],
   currency = 'INR',
-  qualifications = [],
+  qualificationRules = [],
   teams = [],
+  results = [],
 }: EstaticPrizePanelProps) {
-  const [selectedStageIdx, setSelectedStageIdx] = React.useState(0);
+  // `-1` is the combined Total across stages, which is what a ranked event
+  // opens on; an unranked one opens on its first stage's ladder.
+  const [selectedStageIdx, setSelectedStageIdx] = React.useState(() => (results.length > 0 ? -1 : 0));
+  const [showAllResults, setShowAllResults] = React.useState(false);
 
   // Build team lookup for logos and tags
   const teamLookup = React.useMemo(() => {
@@ -150,35 +160,207 @@ export function EstaticPrizePanel({
   const effectiveTotalPrize =
     totalPrizePool && totalPrizePool > 0 ? totalPrizePool : calculatedSum;
 
-  const activeStage = prizeStages[selectedStageIdx] || prizeStages[0] || {
-    stageName: 'Prize Pool',
-    ranks: [],
-  };
+  const activeStage =
+    (selectedStageIdx >= 0 ? prizeStages[selectedStageIdx] : prizeStages[0]) ||
+    prizeStages[0] || {
+      stageName: 'Prize Pool',
+      ranks: [],
+    };
   const ranks = activeStage.ranks || [];
+
+  // The ladder and the honours share one list but are two different things: only
+  // placements carry rank-wise prize money, only honours are awards. Same split
+  // the trophy cabinet uses, so the two surfaces cannot disagree.
+  const placements = ranks.filter((row) => classifyPrizeRow(row) === 'PLACEMENT');
+  const awards = React.useMemo(
+    () =>
+      prizeStages.flatMap((stage) =>
+        (stage.ranks || [])
+          .filter((row) => classifyPrizeRow(row) === 'AWARD')
+          .map((row) => ({ row, stageName: stage.stageName }))
+      ),
+    [prizeStages]
+  );
+
+  // A single stage's payout, per team, so the toggle can show how one stage was
+  // paid rather than only the combined total. Null means "show the Total".
+  const stageResults = React.useMemo(() => {
+    if (selectedStageIdx < 0) return null;
+    const stage = prizeStages[selectedStageIdx];
+    if (!stage) return null;
+
+    const byTeam = new Map<string, PrizeResultRow>();
+    for (const row of stage.ranks || []) {
+      if (classifyPrizeRow(row) === 'AWARD') continue;
+      const key = row.teamId || row.teamName;
+      if (!key) continue;
+
+      const amount = Number(row.prize) || 0;
+      const existing = byTeam.get(key);
+      if (existing) {
+        existing.prizeWon = (existing.prizeWon ?? 0) + amount;
+        continue;
+      }
+
+      const meta = getTeamMeta(row);
+      const range = prizeRowRange(row);
+      byTeam.set(key, {
+        teamId: row.teamId || key,
+        rank: range ? range.from : null,
+        name: meta?.displayName || meta?.name || row.teamName || key,
+        tag: meta?.tag || null,
+        slug: meta?.slug || null,
+        logoUrl: meta?.logoUrl || null,
+        logoDarkUrl: meta?.imageDarkUrl || null,
+        prizeWon: amount,
+        berths: [],
+      });
+    }
+
+    return [...byTeam.values()].sort(
+      (a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name)
+    );
+  }, [selectedStageIdx, prizeStages, getTeamMeta]);
+
+  const shownResults = stageResults ?? results;
+  const shownAwards =
+    selectedStageIdx >= 0
+      ? awards.filter((entry) => entry.stageName === prizeStages[selectedStageIdx]?.stageName)
+      : awards;
+
+  // Once an event is ranked, the podium has to come from the same per-team
+  // results the table shows — otherwise the two can contradict each other.
+  const podiumRanks: TournamentPrizeRank[] =
+    shownResults.length > 0
+      ? shownResults.slice(0, 3).map((row) => ({
+          rank: row.rank != null ? String(row.rank) : '',
+          prize: row.prizeWon ?? 0,
+          teamId: row.teamId,
+          teamName: row.name,
+        }))
+      : ranks;
 
   // Identify podium ranks
   const first =
-    ranks.find((r) => {
+    podiumRanks.find((r) => {
       const norm = normalizeRankLabel(r.rank);
       return /\b(1st|winner|champion)\b/i.test(norm) || norm.trim() === '1';
-    }) || ranks[0];
+    }) || podiumRanks[0];
 
   const second =
-    ranks.find((r) => {
+    podiumRanks.find((r) => {
       const norm = normalizeRankLabel(r.rank);
       return (
         (/\b(2nd|runner|runners-up|runner-up)\b/i.test(norm) || norm.trim() === '2') &&
         r !== first
       );
-    }) || (ranks[1] !== first ? ranks[1] : undefined);
+    }) || (podiumRanks[1] !== first ? podiumRanks[1] : undefined);
 
   const third =
-    ranks.find((r) => {
+    podiumRanks.find((r) => {
       const norm = normalizeRankLabel(r.rank);
       return (/\b3rd\b/i.test(norm) || norm.trim() === '3') && r !== first && r !== second;
-    }) || (ranks[2] !== first && ranks[2] !== second ? ranks[2] : undefined);
+    }) || (podiumRanks[2] !== first && podiumRanks[2] !== second ? podiumRanks[2] : undefined);
 
-  const hasDistribution = ranks.length > 0;
+  const hasDistribution = placements.length > 0;
+
+  // A minimum of 16 rows so a five-prize event does not read as a stub; the rest
+  // is however many teams actually took money.
+  const paidResults = shownResults.filter((row) => (row.prizeWon ?? 0) > 0).length;
+  const resultRowCount = Math.min(shownResults.length, Math.max(16, paidResults));
+  const visibleResults = showAllResults
+    ? shownResults.slice(0, resultRowCount)
+    : shownResults.slice(0, 10);
+
+  // A column that would be empty for every row is dead weight, so each is only
+  // rendered when at least one row has something to put in it.
+  const showRecipientColumn = placements.some(
+    (row) => row.teamId || row.teamName || row.playerId || row.playerName
+  );
+  // A column that would be empty for every row is dead weight, so it is only
+  // rendered when at least one row has something to put in it. Qualification is
+  // derived from the rules for that row's position — never from the retired
+  // per-row string field.
+  const showRewardColumn = placements.some(
+    (row) =>
+      row.customReward ||
+      qualificationTargetsForRank(qualificationRules, prizeRowRange(row)?.from ?? null).length > 0
+  );
+
+  /**
+   * The berth block leads when the ladder is still empty — for an announced
+   * event with slots but no prize breakdown, it is the only thing there is to
+   * say. Once a distribution exists it follows the ladder and the awards. It
+   * stands down entirely once berths are carried per team, because then it is
+   * the same information in a weaker form.
+   */
+  const berthBlock =
+    qualificationRules.length > 0 && !results.some((row) => row.berths.length > 0) ? (
+      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+        <div className="mb-4">
+          <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
+            Advancement Path
+          </p>
+          <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+            Official Qualification Berths
+          </h3>
+        </div>
+
+        {/* One card per rule. The content is type, not chips: the finishing
+            position is what a reader scans for, so it leads, and the event it
+            feeds sits under it as plain text — a link when one is recorded. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {qualificationRules.map((rule, ruleIdx) => (
+            <div
+              key={ruleIdx}
+              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-[#0b1220]"
+            >
+              <p className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
+                {describeRulePosition(rule)}
+              </p>
+
+              <div className="mt-1.5 space-y-0.5">
+                {rule.targets.length > 0 ? (
+                  rule.targets.map((target, targetIdx) =>
+                    target.tournamentSlug ? (
+                      <Link
+                        key={targetIdx}
+                        href={`/tournaments/${target.tournamentSlug}`}
+                        className="block text-sm font-bold text-[#0A5FC4] hover:underline dark:text-blue-300"
+                      >
+                        {target.name}
+                      </Link>
+                    ) : (
+                      <p
+                        key={targetIdx}
+                        className="text-sm font-bold text-slate-700 dark:text-slate-300"
+                      >
+                        {target.name}
+                      </p>
+                    )
+                  )
+                ) : (
+                  // The position is entered but its destination is not recorded yet.
+                  // Showing the rule is the honest option; hiding it is how an
+                  // admin's entry used to vanish without explanation.
+                  <p className="text-sm font-semibold text-slate-400">
+                    Destination to be confirmed
+                  </p>
+                )}
+              </div>
+
+              {rule.note && (
+                <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {rule.note}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+    ) : null;
+
+  const berthBlockFirst = results.length === 0 && !hasDistribution;
 
   return (
     <div className="space-y-8">
@@ -208,9 +390,26 @@ export function EstaticPrizePanel({
         </div>
       </div>
 
-      {/* Stage Selector (if multi-stage prize pool) */}
+      {berthBlockFirst && berthBlock}
+
+      {/* Stage Selector — shown whenever the distribution spans more than one
+          stage. "Total" combines them; each stage shows how that stage paid. */}
       {prizeStages.length > 1 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          {shownResults.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedStageIdx(-1)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                selectedStageIdx < 0
+                  ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/20'
+                  : 'bg-white dark:bg-[#0b1220] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-50'
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Total</span>
+            </button>
+          )}
           {prizeStages.map((stage, idx) => (
             <button
               key={stage.stageName}
@@ -465,33 +664,160 @@ export function EstaticPrizePanel({
               Rank by Rank
             </p>
             <h3 className="mt-1 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
-              Complete Prize Breakdown {activeStage.stageName ? `· ${activeStage.stageName}` : ''}
+              Complete Prize Breakdown
+              {results.length === 0 && activeStage.stageName ? ` · ${activeStage.stageName}` : ''}
             </h3>
           </div>
 
           <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
             <Coins className="h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
             <span>
-              {ranks.length} Allocation{ranks.length === 1 ? '' : 's'} Recorded
+              {shownResults.length > 0
+                ? `${resultRowCount} Team${resultRowCount === 1 ? '' : 's'} Placed`
+                : `${placements.length} Allocation${placements.length === 1 ? '' : 's'} Recorded`}
             </span>
           </div>
         </div>
 
-        {hasDistribution ? (
+        {shownResults.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
-                  <th className="pb-3 pl-4">Rank / Title</th>
-                  <th className="pb-3">Recipient Team / Player</th>
+                  <th className="pb-3 pl-4">Rank</th>
+                  <th className="pb-3">Team</th>
+                  <th className="pb-3 pr-4 text-right">Amount Won</th>
+                  <th className="pb-3 pl-4">Qualified Event</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/10">
+                {visibleResults.map((row) => {
+                  const fallbackInitial = (row.name || 'T').slice(0, 2).toUpperCase();
+                  const hasLogo = Boolean(row.logoUrl || row.logoDarkUrl);
+                  // Placement reads as a bare number here; the ordinal wording
+                  // ("1st Place", "Top 4") belongs to the distribution table.
+                  const rankCls =
+                    row.rank === 1
+                      ? 'bg-amber-400 text-slate-950'
+                      : row.rank === 2
+                        ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100'
+                        : row.rank === 3
+                          ? 'bg-amber-700/20 text-amber-700 dark:text-amber-400'
+                          : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300';
+
+                  return (
+                    <tr
+                      key={row.teamId}
+                      className="text-sm hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <td className="py-4 pl-4">
+                        <span
+                          className={`inline-flex min-w-8 justify-center rounded-xl px-2.5 py-1 text-xs font-black ${rankCls}`}
+                        >
+                          {row.rank ?? '—'}
+                        </span>
+                      </td>
+
+                      <td className="py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-xs dark:border-white/10 dark:bg-black/30">
+                            {hasLogo ? (
+                              <ThemeLogo
+                                lightSrc={row.logoUrl ?? undefined}
+                                darkSrc={row.logoDarkUrl ?? undefined}
+                                alt={row.name}
+                                className="object-contain p-0.5"
+                              />
+                            ) : (
+                              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                {fallbackInitial}
+                              </span>
+                            )}
+                          </div>
+                          <Link
+                            href={`/teams/${row.slug || encodeURIComponent(row.name)}`}
+                            className="min-w-0 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
+                          >
+                            <span className="hidden sm:inline">{row.name}</span>
+                            <span className="sm:hidden uppercase tracking-wide">{row.tag || row.name}</span>
+                          </Link>
+                        </div>
+                      </td>
+
+                      <td className="py-4 pr-4 text-right font-black text-base text-[#0A5FC4] dark:text-blue-300">
+                        {row.prizeWon && row.prizeWon > 0
+                          ? formatPrizeAmount(row.prizeWon, currency || 'INR')
+                          : '—'}
+                      </td>
+
+                      <td className="py-4 pl-4 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        {row.berths.length === 0 ? (
+                          '—'
+                        ) : (
+                          <span className="flex flex-wrap gap-1.5">
+                            {row.berths.map((berth, berthIdx) =>
+                              berth.tournamentSlug ? (
+                                <Link
+                                  key={berthIdx}
+                                  href={`/tournaments/${berth.tournamentSlug}`}
+                                  className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-[#0A5FC4] hover:underline dark:text-blue-300"
+                                >
+                                  <ShieldCheck className="h-3 w-3 shrink-0" />
+                                  {berth.name}
+                                </Link>
+                              ) : (
+                                <span
+                                  key={berthIdx}
+                                  className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:bg-white/10 dark:text-slate-300"
+                                >
+                                  {berth.name}
+                                </span>
+                              )
+                            )}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {resultRowCount > 10 && (
+          <div className="pt-1 text-center">
+            <button
+              type="button"
+              onClick={() => setShowAllResults((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] transition-colors hover:bg-[#0A5FC4]/5 dark:border-white/10 dark:text-blue-300"
+            >
+              {showAllResults ? 'Show top 10' : `Show all ${resultRowCount} teams`}
+            </button>
+          </div>
+        )}
+
+        {shownResults.length === 0 && (hasDistribution ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
+                  <th className="pb-3 pl-4">Rank</th>
+                  {showRecipientColumn && <th className="pb-3">Recipient Team / Player</th>}
                   <th className="pb-3 text-center">Share</th>
-                  <th className="pb-3">Reward / Qualifications</th>
+                  {showRewardColumn && <th className="pb-3">Reward / Qualification</th>}
                   <th className="pb-3 pr-4 text-right">Prize Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/10">
-                {ranks.map((row, idx) => {
+                {placements.map((row, idx) => {
                   const normalizedRank = normalizeRankLabel(row.rank);
+                  // Where this position sends a team, from the rules — the row's
+                  // own retired `qualifications` strings are no longer read.
+                  const rowTargets = qualificationTargetsForRank(
+                    qualificationRules,
+                    prizeRowRange(row)?.from ?? null
+                  );
                   const isGold =
                     /\b(1st|winner|champion)\b/i.test(normalizedRank) ||
                     normalizedRank.trim() === '1';
@@ -540,6 +866,7 @@ export function EstaticPrizePanel({
                       </td>
 
                       {/* Recipient: Team Logo + Player Name (if player) or Team Name (if team) */}
+                      {showRecipientColumn && (
                       <td className="py-4">
                         <div className="flex items-center gap-3">
                           {/* Logo */}
@@ -584,6 +911,7 @@ export function EstaticPrizePanel({
                           </div>
                         </div>
                       </td>
+                      )}
 
                       {/* Share */}
                       <td className="py-4 text-center font-bold text-slate-500 dark:text-slate-400">
@@ -595,16 +923,35 @@ export function EstaticPrizePanel({
                       </td>
 
                       {/* Reward / Qualifications */}
+                      {showRewardColumn && (
                       <td className="py-4 text-xs font-semibold text-slate-600 dark:text-slate-400">
                         {row.customReward ? (
                           <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                             <Gift className="h-3.5 w-3.5" />
                             {row.customReward}
                           </span>
-                        ) : row.qualifications && row.qualifications.length > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-[#0A5FC4] dark:text-blue-300">
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            {row.qualifications.join(', ')}
+                        ) : rowTargets.length > 0 ? (
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            {rowTargets.map((target, targetIdx) =>
+                              target.tournamentSlug ? (
+                                <Link
+                                  key={targetIdx}
+                                  href={`/tournaments/${target.tournamentSlug}`}
+                                  className="inline-flex items-center gap-1 text-[#0A5FC4] hover:underline dark:text-blue-300"
+                                >
+                                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                  {target.name}
+                                </Link>
+                              ) : (
+                                <span
+                                  key={targetIdx}
+                                  className="inline-flex items-center gap-1 text-[#0A5FC4] dark:text-blue-300"
+                                >
+                                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                                  {target.name}
+                                </span>
+                              )
+                            )}
                           </span>
                         ) : row.rewardType === 'TITLE' ? (
                           <span className="italic text-slate-400">Honorary Title</span>
@@ -612,6 +959,7 @@ export function EstaticPrizePanel({
                           '—'
                         )}
                       </td>
+                      )}
 
                       {/* Prize Amount */}
                       <td className="py-4 pr-4 text-right font-black text-base text-[#0A5FC4] dark:text-blue-300">
@@ -634,47 +982,63 @@ export function EstaticPrizePanel({
               Prize distribution has not been configured for this tournament yet.
             </p>
           </div>
-        )}
+        ))}
       </section>
 
-      {/* ============ QUALIFICATION SLOTS ============ */}
-      {qualifications.length > 0 && (
+      {/* ============ AWARDS & HONOURS ============ */}
+      {/* Deliberately after the ladder and outside the row collapse: an honour must
+          never be hidden behind "show all teams". */}
+      {shownAwards.length > 0 && (
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
           <div className="mb-4">
-            <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-              Advancement Path
+            <p className="text-[10px] font-black uppercase tracking-[.2em] text-amber-600 dark:text-amber-400">
+              Beyond the ladder
             </p>
             <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
-              Official Qualification Berths
+              Awards &amp; Honours
             </h3>
+            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Standalone honours — not part of the rank-wise prize money above.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {qualifications.map((q, qIdx) => (
-              <div
-                key={qIdx}
-                className="p-4 rounded-2xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-950/20 space-y-1"
-              >
-                <span className="text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
-                  {normalizeRankLabel(q.place)}
-                </span>
-                <p className="text-sm font-black text-slate-950 dark:text-white">
-                  {Array.isArray(q.events)
-                    ? q.events
-                        .map((e) => (typeof e === 'string' ? e : e?.name))
-                        .join(', ')
-                    : 'Target Event'}
-                </p>
-                {q.description && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {q.description}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {shownAwards.map(({ row, stageName }, awardIdx) => {
+              const isPlayerAward = row.recipientType === 'PLAYER' || Boolean(row.playerName);
+              const meta = isPlayerAward ? null : getTeamMeta(row);
+              const recipient = isPlayerAward
+                ? row.playerName || '—'
+                : meta?.displayName || meta?.name || row.teamName || '—';
+              const amount = Number(row.prize) || 0;
+
+              return (
+                <div
+                  key={awardIdx}
+                  className="space-y-1.5 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 dark:bg-amber-950/10"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                      <Award className="h-3.5 w-3.5 shrink-0" />
+                      {row.rank}
+                    </span>
+                    {prizeStages.length > 1 && (
+                      <span className="shrink-0 text-[10px] font-bold text-slate-400">{stageName}</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-black text-slate-950 dark:text-white">{recipient}</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {amount > 0
+                      ? formatPrizeAmount(amount, currency || 'INR')
+                      : row.customReward || (row.rewardType === 'TITLE' ? 'Honorary title' : '—')}
                   </p>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
+
+      {!berthBlockFirst && berthBlock}
     </div>
   );
 }

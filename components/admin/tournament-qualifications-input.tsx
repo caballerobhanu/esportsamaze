@@ -1,330 +1,327 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Trash2, Trophy, Link as LinkIcon, ArrowUpRight, Check } from 'lucide-react';
+import { Plus, Trash2, Trophy, Link as LinkIcon, X } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import {
+  describeRulePosition,
+  parseQualificationRules,
+  type QualificationRule,
+} from '@/lib/qualification-rules';
 
+/** An event a rule qualifies into. Mirrors the stored target shape. */
 export interface SeedEventItem {
   name: string;
-  tournamentId?: string;
-  tournamentSlug?: string;
-}
-
-export interface QualificationSlot {
-  place: string; // e.g. "1st Place (Champion)", "1st - 2nd", "Top 4"
-  events: SeedEventItem[];
-  description?: string; // e.g. "Direct invite to Grand Finals"
+  tournamentId?: string | null;
+  tournamentSlug?: string | null;
 }
 
 export interface TournamentSummaryOption {
   id: string;
   name: string;
   slug: string;
-  tier?: string;
+  tier?: string | null;
 }
 
 interface TournamentQualificationsInputProps {
-  initialQualifications?: any[];
+  /** The stored column, in either its numeric or its legacy `place` shape. */
+  initialQualifications?: unknown;
   allTournaments?: TournamentSummaryOption[];
 }
 
+const labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-slate-400';
+const inputCls =
+  'w-full px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-(--ed-blue)';
+
+/**
+ * Qualification rules: a finishing-position range and the events it feeds.
+ *
+ * Ranges may overlap on purpose — "the champion goes to PMGC" and "the top six
+ * go to BMIC" are both true at rank 1. Nothing is reconciled between them.
+ *
+ * Legacy rules that carry only a `place` string are normalised on load, so the
+ * old wording gains a real range the first time the event is opened and saved.
+ */
 export function TournamentQualificationsInput({
   initialQualifications = [],
   allTournaments = [],
 }: TournamentQualificationsInputProps) {
-  // Normalize initial data (convert string arrays to SeedEventItem objects if legacy)
-  const [slots, setSlots] = React.useState<QualificationSlot[]>(() => {
-    if (initialQualifications && Array.isArray(initialQualifications) && initialQualifications.length > 0) {
-      return initialQualifications.map((slot: any) => ({
-        place: slot.place || '1st Place',
-        description: slot.description || '',
-        events: Array.isArray(slot.events)
-          ? slot.events.map((ev: any) => {
-              if (typeof ev === 'string') {
-                const match = allTournaments.find((t) => t.name.toLowerCase() === ev.toLowerCase());
-                return {
-                  name: ev,
-                  tournamentId: match?.id,
-                  tournamentSlug: match?.slug,
-                };
-              }
-              return {
-                name: ev.name || '',
-                tournamentId: ev.tournamentId,
-                tournamentSlug: ev.tournamentSlug,
-              };
-            })
-          : [],
-      }));
-    }
-    return [];
-  });
+  const [rules, setRules] = React.useState<QualificationRule[]>(() =>
+    parseQualificationRules(initialQualifications).map((rule) => ({
+      ...rule,
+      // A rule typed against a plain name is matched back to a real event when
+      // one exists by that name, so the link is restored rather than lost.
+      targets: rule.targets.map((target) => {
+        if (target.tournamentSlug || !target.name) return target;
+        const match = allTournaments.find(
+          (t) => t.name.toLowerCase() === target.name.toLowerCase()
+        );
+        return match
+          ? { name: match.name, tournamentId: match.id, tournamentSlug: match.slug }
+          : target;
+      }),
+    }))
+  );
+  const [customDrafts, setCustomDrafts] = React.useState<Record<number, string>>({});
 
-  const addSlot = () => {
-    setSlots((prev) => [
-      ...prev,
-      {
-        place: prev.length === 0 ? '1st Place (Champion)' : prev.length === 1 ? '2nd - 4th Place' : `Top ${prev.length * 4}`,
-        events: [],
-        description: '',
-      },
-    ]);
+  /**
+   * A new rule starts empty. Seeding it with a position would make an abandoned
+   * row look like a real rule and publish a placing nobody ever entered.
+   */
+  const addRule = () => {
+    setRules((prev) => [...prev, { from: null, to: null, label: null, targets: [], note: null }]);
   };
 
-  const removeSlot = (index: number) => {
-    setSlots((prev) => prev.filter((_, i) => i !== index));
+  const removeRule = (index: number) => setRules((prev) => prev.filter((_, i) => i !== index));
+
+  const setRange = (index: number, from: number | null, to: number | null) => {
+    setRules((prev) =>
+      prev.map((rule, i) => {
+        if (i !== index) return rule;
+        const start = from != null && from >= 1 ? Math.trunc(from) : null;
+        const end = to != null && start != null && to > start ? Math.trunc(to) : start;
+        // A range replaces the old wording; the wording survives only while there
+        // is no range to replace it with.
+        return { ...rule, from: start, to: end, label: start == null ? rule.label : null };
+      })
+    );
   };
 
-  const updatePlace = (index: number, place: string) => {
-    setSlots((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], place };
-      return copy;
-    });
+  const setLabel = (index: number, label: string) => {
+    setRules((prev) =>
+      prev.map((rule, i) =>
+        i === index ? { ...rule, label: label || null, from: null, to: null } : rule
+      )
+    );
   };
 
-  const updateDescription = (index: number, description: string) => {
-    setSlots((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], description };
-      return copy;
-    });
+  const setNote = (index: number, note: string) => {
+    setRules((prev) => prev.map((rule, i) => (i === index ? { ...rule, note: note || null } : rule)));
   };
 
-  const addEventToSlot = (slotIndex: number, eventItem: SeedEventItem) => {
-    if (!eventItem.name.trim()) return;
-    setSlots((prev) => {
-      const copy = [...prev];
-      const targetSlot = { ...copy[slotIndex] };
-      // Check duplicate
-      if (!targetSlot.events.some((e) => e.name.toLowerCase() === eventItem.name.toLowerCase())) {
-        targetSlot.events = [...targetSlot.events, eventItem];
-      }
-      copy[slotIndex] = targetSlot;
-      return copy;
-    });
+  const addTarget = (index: number, target: SeedEventItem) => {
+    const name = target.name.trim();
+    if (!name) return;
+    setRules((prev) =>
+      prev.map((rule, i) => {
+        if (i !== index) return rule;
+        if (rule.targets.some((t) => t.name.toLowerCase() === name.toLowerCase())) return rule;
+        return { ...rule, targets: [...rule.targets, { ...target, name }] };
+      })
+    );
   };
 
-  const removeEventFromSlot = (slotIndex: number, eventIndex: number) => {
-    setSlots((prev) => {
-      const copy = [...prev];
-      const targetSlot = { ...copy[slotIndex] };
-      targetSlot.events = targetSlot.events.filter((_, i) => i !== eventIndex);
-      copy[slotIndex] = targetSlot;
-      return copy;
-    });
+  const removeTarget = (index: number, targetIndex: number) => {
+    setRules((prev) =>
+      prev.map((rule, i) =>
+        i === index ? { ...rule, targets: rule.targets.filter((_, t) => t !== targetIndex) } : rule
+      )
+    );
   };
+
+  const takeDraft = (index: number) => {
+    const name = (customDrafts[index] ?? '').trim();
+    if (!name) return;
+    const match = allTournaments.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    addTarget(index, match ? { name: match.name, tournamentId: match.id, tournamentSlug: match.slug } : { name });
+    setCustomDrafts((prev) => ({ ...prev, [index]: '' }));
+  };
+
+  // Only the fields the reader understands are stored; `label` is an input
+  // convenience, not something a new rule should carry.
+  const payload = rules.map((rule) => ({
+    from: rule.from,
+    to: rule.to,
+    events: rule.targets,
+    note: rule.note,
+    ...(rule.from == null && rule.label ? { place: rule.label } : {}),
+  }));
 
   return (
     <div className="space-y-3">
-      <input type="hidden" name="qualificationsJson" value={JSON.stringify(slots)} />
+      <input type="hidden" name="qualificationsJson" value={JSON.stringify(payload)} />
 
-      {slots.length === 0 && (
-        <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 text-center">
-          <p className="text-xs text-slate-500 mb-2">
-            No qualification seeds or next-event qualification slots added for this tournament.
+      {rules.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-4 text-center dark:border-slate-800 dark:bg-slate-900/30">
+          <p className="mb-2 text-xs text-slate-500">
+            No qualification rules yet. Add one like &ldquo;1st goes to PMGC&rdquo;, or
+            &ldquo;1&ndash;6 go to BMIC&rdquo;.
           </p>
           <button
             type="button"
-            onClick={addSlot}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold transition-colors shadow-xs"
+            onClick={addRule}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-110"
           >
-            <Plus className="w-3.5 h-3.5" /> + Add Qualification / Seed Slot
+            <Plus className="h-3.5 w-3.5" /> Add Qualification Rule
           </button>
         </div>
       )}
 
-      {slots.map((slot, idx) => (
-        <SlotEditor
+      {rules.map((rule, idx) => (
+        <div
           key={idx}
-          index={idx}
-          slot={slot}
-          allTournaments={allTournaments}
-          onUpdatePlace={(p) => updatePlace(idx, p)}
-          onUpdateDescription={(d) => updateDescription(idx, d)}
-          onAddEvent={(ev) => addEventToSlot(idx, ev)}
-          onRemoveEvent={(evIdx) => removeEventFromSlot(idx, evIdx)}
-          onRemoveSlot={() => removeSlot(idx)}
-        />
-      ))}
-
-      {slots.length > 0 && (
-        <button
-          type="button"
-          onClick={addSlot}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs font-bold text-(--ed-blue) dark:text-blue-400 hover:bg-(--ed-blue)/5 transition-colors"
+          className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
         >
-          <Plus className="w-3.5 h-3.5" /> Add Another Qualification / Seed Tier
-        </button>
-      )}
-    </div>
-  );
-}
-
-function SlotEditor({
-  index,
-  slot,
-  allTournaments,
-  onUpdatePlace,
-  onUpdateDescription,
-  onAddEvent,
-  onRemoveEvent,
-  onRemoveSlot,
-}: {
-  index: number;
-  slot: QualificationSlot;
-  allTournaments: TournamentSummaryOption[];
-  onUpdatePlace: (p: string) => void;
-  onUpdateDescription: (d: string) => void;
-  onAddEvent: (ev: SeedEventItem) => void;
-  onRemoveEvent: (evIdx: number) => void;
-  onRemoveSlot: () => void;
-}) {
-  const [customEventInput, setCustomEventInput] = React.useState('');
-
-  const handleSelectTournament = (tourneyId: string) => {
-    if (!tourneyId) return;
-    const match = allTournaments.find((t) => t.id === tourneyId);
-    if (match) {
-      onAddEvent({
-        name: match.name,
-        tournamentId: match.id,
-        tournamentSlug: match.slug,
-      });
-    }
-  };
-
-  const handleAddCustom = () => {
-    if (!customEventInput.trim()) return;
-    const parts = customEventInput.split(',').map((p) => p.trim()).filter(Boolean);
-    for (const part of parts) {
-      const match = allTournaments.find((t) => t.name.toLowerCase() === part.toLowerCase());
-      onAddEvent({
-        name: match ? match.name : part,
-        tournamentId: match?.id,
-        tournamentSlug: match?.slug,
-      });
-    }
-    setCustomEventInput('');
-  };
-
-  return (
-    <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-black text-[10px] flex items-center justify-center">
-            #{index + 1}
-          </span>
-          <input
-            type="text"
-            value={slot.place}
-            onChange={(e) => onUpdatePlace(e.target.value)}
-            placeholder="e.g. 1st Place / Top 2 / 1st - 4th"
-            className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-black text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-(--ed-blue) w-48 sm:w-60"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={onRemoveSlot}
-          className="text-slate-400 hover:text-rose-500 p-1 rounded transition-colors"
-          title="Remove tier"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Seeded / Qualified Events List with Badges */}
-      <div className="space-y-1.5">
-        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Seeded Events (Select existing tournament to link directly, or type custom):
-        </label>
-
-        {slot.events.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {slot.events.map((ev, evIdx) => (
-              <div
-                key={evIdx}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
-                  ev.tournamentSlug
-                    ? 'bg-blue-500/10 border-blue-500/30 text-(--ed-blue) dark:text-blue-300'
-                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'
-                }`}
-              >
-                {ev.tournamentSlug ? (
-                  <LinkIcon className="w-3 h-3 text-(--ed-blue) shrink-0" />
-                ) : (
-                  <Trophy className="w-3 h-3 text-slate-400 shrink-0" />
-                )}
-                <span>{ev.name}</span>
-                {ev.tournamentSlug && (
-                  <span className="text-[9px] font-mono opacity-60">(/tournaments/{ev.tournamentSlug})</span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onRemoveEvent(evIdx)}
-                  className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition-colors ml-0.5"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add event tools: Dropdown of existing DB tournaments + text input for custom/external events */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-          <div>
-            <select
-              value=""
-              onChange={(e) => handleSelectTournament(e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
-            >
-              <option value="">+ Link to an existing DB tournament…</option>
-              {allTournaments.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} {t.tier ? `(${t.tier})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              value={customEventInput}
-              onChange={(e) => setCustomEventInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddCustom();
+          <div className="flex items-end gap-3">
+            <div className="w-20">
+              <label className={labelCls}>From rank</label>
+              <input
+                type="number"
+                min={1}
+                className={inputCls}
+                value={rule.from ?? ''}
+                onChange={(e) =>
+                  setRange(idx, e.target.value === '' ? null : Number(e.target.value), rule.to)
                 }
-              }}
-              placeholder="…or type custom event (e.g. PMGC 2026)"
-              className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
-            />
+                placeholder="1"
+              />
+            </div>
+            <div className="w-20">
+              <label className={labelCls}>To rank</label>
+              <input
+                type="number"
+                min={1}
+                className={inputCls}
+                value={rule.to ?? ''}
+                onChange={(e) =>
+                  setRange(idx, rule.from, e.target.value === '' ? null : Number(e.target.value))
+                }
+                placeholder="—"
+                title="Leave blank for a single position; set it for a range (1-6)"
+              />
+            </div>
+
+            <p className="flex-1 pb-1 text-xs font-bold text-(--ed-blue) dark:text-blue-300">
+              {rule.from == null && rule.label
+                ? `${rule.label} — not a numbered range`
+                : describeRulePosition(rule)}
+            </p>
+
             <button
               type="button"
-              onClick={handleAddCustom}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0"
+              onClick={() => removeRule(idx)}
+              className="mb-0.5 rounded p-1 text-slate-400 transition-colors hover:text-rose-500"
+              title="Remove rule"
             >
-              Add
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
-        </div>
-      </div>
 
-      <div>
-        <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-          Slot / Seeding Note (Optional)
-        </label>
-        <input
-          type="text"
-          value={slot.description || ''}
-          onChange={(e) => onUpdateDescription(e.target.value)}
-          placeholder="e.g. Direct Grand Finals Seed, Survival Stage Slot"
-          className="w-full px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-(--ed-blue)"
-        />
-      </div>
+          {rule.from == null && (
+            <div>
+              <label className={labelCls}>Wording (for a rule with no rank)</label>
+              <input
+                className={inputCls}
+                value={rule.label ?? ''}
+                onChange={(e) => setLabel(idx, e.target.value)}
+                placeholder="e.g. Best non-qualified squad"
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className={labelCls}>Qualifies for</label>
+
+            {rule.targets.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {rule.targets.map((target, targetIdx) => (
+                  <span
+                    key={targetIdx}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold ${
+                      target.tournamentSlug
+                        ? 'border-blue-500/30 bg-blue-500/10 text-(--ed-blue) dark:text-blue-300'
+                        : 'border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                    }`}
+                  >
+                    {target.tournamentSlug ? (
+                      <LinkIcon className="h-3 w-3 shrink-0 text-(--ed-blue)" />
+                    ) : (
+                      <Trophy className="h-3 w-3 shrink-0 text-slate-400" />
+                    )}
+                    <span>{target.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeTarget(idx, targetIdx)}
+                      className="ml-0.5 rounded p-0.5 text-slate-400 transition-colors hover:text-rose-500"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
+              <SearchableSelect
+                options={allTournaments.map((t) => ({ value: t.id, label: t.name }))}
+                value=""
+                onChange={(val) => {
+                  const match = allTournaments.find((t) => t.id === val);
+                  if (match) {
+                    addTarget(idx, {
+                      name: match.name,
+                      tournamentId: match.id,
+                      tournamentSlug: match.slug,
+                    });
+                  }
+                }}
+                placeholder="+ Link an event in the DB…"
+                size="admin"
+              />
+
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={customDrafts[idx] ?? ''}
+                  onChange={(e) => setCustomDrafts((prev) => ({ ...prev, [idx]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      takeDraft(idx);
+                    }
+                  }}
+                  placeholder="…or type an event not in the DB"
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => takeDraft(idx)}
+                  className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {rule.targets.length === 0 && rule.from != null && (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+              No destination yet — this publishes as “{describeRulePosition(rule)}” with no event
+              named. Add one below, or remove the rule.
+            </p>
+          )}
+
+          <div>
+            <label className={labelCls}>Note (optional)</label>
+            <input
+              className={inputCls}
+              value={rule.note ?? ''}
+              onChange={(e) => setNote(idx, e.target.value)}
+              placeholder="e.g. already qualified via BMSD"
+            />
+          </div>
+        </div>
+      ))}
+
+      {rules.length > 0 && (
+        <button
+          type="button"
+          onClick={addRule}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-1.5 text-xs font-bold text-(--ed-blue) transition-colors hover:bg-(--ed-blue)/5 dark:border-slate-700 dark:text-blue-400"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Another Rule
+        </button>
+      )}
     </div>
   );
 }
