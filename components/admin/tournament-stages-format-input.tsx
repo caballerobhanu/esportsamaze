@@ -26,6 +26,30 @@ import {
   Tag,
   Swords,
 } from 'lucide-react';
+import type { StageGroupSquad } from '@/components/tournaments/tournament-stage-format-card';
+
+/**
+ * A squad the draw can place: a seat in the tournament's field, carrying whatever the
+ * public card needs to render it without another lookup.
+ */
+export interface GroupCandidate {
+  teamId: string | null;
+  teamName: string;
+  displayName?: string | null;
+  tag?: string | null;
+  slug?: string | null;
+  logoUrl?: string | null;
+  logoDarkUrl?: string | null;
+  seed?: number | null;
+  seedLabel?: string | null;
+  country?: string | null;
+  roster?: StageGroupSquad['roster'];
+}
+
+/** A seat with no team is identified by its entry label — the label is its name. */
+function candidateKey(candidate: { teamId?: string | null; seedLabel?: string | null; teamName?: string }): string {
+  return candidate.teamId || `seat:${candidate.seedLabel || candidate.teamName || ''}`;
+}
 
 export interface HeaderCardItem {
   id: string;
@@ -65,6 +89,8 @@ export interface StageFormatItem {
   groupsDivision?: string;
   stageDescription?: string;
   rules: StageAdvancementRuleItem[];
+  /** Declared draw, used on the public Format tab until the stage's matches define groups. */
+  groups: Record<string, StageGroupSquad[]>;
 }
 
 export interface TiebreakerTierItem {
@@ -82,6 +108,10 @@ interface TournamentStagesFormatInputProps {
     formatType?: string;
     stageType?: string | null;
   }>;
+  /** The tournament's field of seats, offered when building a stage's group draw. */
+  groupCandidates?: GroupCandidate[];
+  /** Names of stages whose matches already carry group names, and so own their groups. */
+  stagesWithMatchGroups?: string[];
 }
 
 const DEFAULT_HEADER_CARDS: HeaderCardItem[] = [
@@ -229,6 +259,8 @@ function calculateMatchdays(
 export function TournamentStagesFormatInput({
   initialFormatDetails,
   initialStages,
+  groupCandidates = [],
+  stagesWithMatchGroups = [],
 }: TournamentStagesFormatInputProps) {
   // 0. Calendar Widget On/Off toggle (optional)
   const [showCalendarWidget, setShowCalendarWidget] = useState<boolean>(() => {
@@ -311,6 +343,7 @@ export function TournamentStagesFormatInput({
             : Array.isArray(st.rules)
             ? st.rules
             : [],
+          groups: fmt.groups && typeof fmt.groups === 'object' ? fmt.groups : {},
         };
       });
     }
@@ -340,6 +373,7 @@ export function TournamentStagesFormatInput({
           groupsDivision: fmt.groupsDivision || '',
           stageDescription: fmt.stageDescription || '',
           rules: Array.isArray(fmt.rules) ? fmt.rules : [],
+          groups: fmt.groups && typeof fmt.groups === 'object' ? fmt.groups : {},
         };
       });
     }
@@ -387,6 +421,7 @@ export function TournamentStagesFormatInput({
         groupsDivision: st.groupsDivision || '',
         stageDescription: st.stageDescription || '',
         rules: st.rules || [],
+        groups: st.groups || {},
       };
 
       if (st.startDate && st.endDate) {
@@ -431,6 +466,7 @@ export function TournamentStagesFormatInput({
         groupsDivision: st.groupsDivision,
         stageDescription: st.stageDescription,
         rules: st.rules,
+        groups: st.groups || {},
       })),
       calendarPhases,
       tiebreakerTiers,
@@ -462,6 +498,7 @@ export function TournamentStagesFormatInput({
       groupsDivision: '',
       stageDescription: '',
       rules: [],
+      groups: {},
     };
     setStages([...stages, newStage]);
     setExpandedStageIndex(stages.length);
@@ -487,6 +524,85 @@ export function TournamentStagesFormatInput({
       copy[idx] = target;
       return copy;
     });
+  };
+
+  // Group draw handlers — the declared draw shown on the public Format tab before a
+  // stage's matches exist. Seats may repeat across different stages (a team can be in
+  // Group A of one stage and also in the finals) but not twice within one stage.
+  const stageGroups = (idx: number): Record<string, StageGroupSquad[]> => stages[idx]?.groups || {};
+
+  const setStageGroups = (idx: number, groups: Record<string, StageGroupSquad[]>) => {
+    updateStage(idx, { groups });
+  };
+
+  /** Identities already placed anywhere in this stage. */
+  const usedInStage = (idx: number): Set<string> =>
+    new Set(Object.values(stageGroups(idx)).flat().map((squad) => candidateKey(squad)));
+
+  const availableForStage = (idx: number): GroupCandidate[] => {
+    const used = usedInStage(idx);
+    return groupCandidates.filter((candidate) => !used.has(candidateKey(candidate)));
+  };
+
+  const addGroup = (idx: number) => {
+    const groups = { ...stageGroups(idx) };
+    let n = Object.keys(groups).length + 1;
+    while (groups[`Group ${String.fromCharCode(64 + n)}`]) n += 1;
+    groups[`Group ${String.fromCharCode(64 + n)}`] = [];
+    setStageGroups(idx, groups);
+  };
+
+  const removeGroup = (idx: number, name: string) => {
+    const groups = { ...stageGroups(idx) };
+    delete groups[name];
+    setStageGroups(idx, groups);
+  };
+
+  const renameGroup = (idx: number, from: string, to: string) => {
+    const next = to.trim();
+    if (!next || next === from) return;
+
+    const groups = { ...stageGroups(idx) };
+    const squads = groups[from] || [];
+    delete groups[from];
+    groups[next] = squads;
+    setStageGroups(idx, groups);
+  };
+
+  const addSeat = (idx: number, groupName: string, key: string) => {
+    const candidate = groupCandidates.find((c) => candidateKey(c) === key);
+    if (!candidate) return;
+
+    const groups = { ...stageGroups(idx) };
+    groups[groupName] = [
+      ...(groups[groupName] || []),
+      {
+        teamId: candidate.teamId,
+        teamName: candidate.displayName || candidate.teamName || candidate.seedLabel || 'Seat',
+        displayName: candidate.displayName ?? null,
+        tag: candidate.tag ?? null,
+        slug: candidate.slug ?? null,
+        logoUrl: candidate.logoUrl ?? null,
+        logoDarkUrl: candidate.logoDarkUrl ?? null,
+        seedLabel: candidate.seedLabel ?? null,
+        seed: candidate.seed ?? null,
+        country: candidate.country ?? null,
+        roster: (candidate.roster || []).map((p) => ({
+          ign: p.ign,
+          role: p.role ?? null,
+          captain: Boolean(p.captain),
+          slug: p.slug ?? null,
+          playerId: p.playerId ?? null,
+        })),
+      },
+    ];
+    setStageGroups(idx, groups);
+  };
+
+  const removeSeat = (idx: number, groupName: string, seatIdx: number) => {
+    const groups = { ...stageGroups(idx) };
+    groups[groupName] = (groups[groupName] || []).filter((_, i) => i !== seatIdx);
+    setStageGroups(idx, groups);
   };
 
   // Rule Handlers with per-group qualification support
@@ -1213,6 +1329,139 @@ export function TournamentStagesFormatInput({
                             placeholder="e.g. 3 Groups (A, B, C) — 24 Teams or Single Lobby"
                             className={inputCls}
                           />
+                        </div>
+
+                        {/* GROUP DRAW — declares the groups a stage is drawn into, so the
+                            public Format tab can show them before any match is played. */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <div>
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
+                                Group Draw
+                              </span>
+                              <p className="text-[10px] text-slate-400">
+                                Shown on the public Format tab until this stage&apos;s matches define the groups.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => addGroup(sIdx)}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Add Group
+                            </button>
+                          </div>
+
+                          {stagesWithMatchGroups.includes(stage.name) ? (
+                            <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                              <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" />
+                              <span>
+                                This stage&apos;s matches already carry group names, and those take over on the
+                                page. A draw entered here is only used until then.
+                              </span>
+                            </p>
+                          ) : groupCandidates.length === 0 ? (
+                            <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+                              Add squads in section 6 (Participating Squads) first — the draw is built from them.
+                            </p>
+                          ) : Object.keys(stageGroups(sIdx)).length === 0 ? (
+                            <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+                              No groups yet. Add one to publish a draw for this stage.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {Object.entries(stageGroups(sIdx)).map(([groupName, squads]) => (
+                                <div
+                                  key={groupName}
+                                  className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                                >
+                                  <div className="flex items-center gap-1.5 border-b border-slate-100 p-2 dark:border-slate-800">
+                                    <input
+                                      type="text"
+                                      defaultValue={groupName}
+                                      onBlur={(e) => renameGroup(sIdx, groupName, e.target.value)}
+                                      className="min-w-0 flex-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-bold dark:border-slate-700 dark:bg-slate-800"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeGroup(sIdx, groupName)}
+                                      title="Remove this group"
+                                      className="shrink-0 rounded-md p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+
+                                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    {squads.length === 0 ? (
+                                      <p className="p-3 text-center text-[10px] font-medium text-slate-400">
+                                        No squads in this group yet.
+                                      </p>
+                                    ) : (
+                                      squads.map((squad, sqIdx) => (
+                                        <div
+                                          key={`${candidateKey(squad)}-${sqIdx}`}
+                                          className="flex items-center gap-2 p-2"
+                                        >
+                                          {squad.logoUrl || squad.logoDarkUrl ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                              src={squad.logoUrl || squad.logoDarkUrl || ''}
+                                              alt=""
+                                              className="h-5 w-5 shrink-0 rounded border border-slate-200 bg-white object-contain dark:border-slate-700"
+                                            />
+                                          ) : (
+                                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-100 text-[8px] font-black text-slate-400 dark:bg-white/10">
+                                              {(squad.teamName || '?').slice(0, 2).toUpperCase()}
+                                            </span>
+                                          )}
+                                          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                                            {squad.displayName || squad.teamName || squad.seedLabel}
+                                            {squad.tag ? ` (${squad.tag})` : ''}
+                                          </span>
+                                          {!squad.teamId && (
+                                            <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-400 dark:bg-white/10">
+                                              Seat
+                                            </span>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => removeSeat(sIdx, groupName, sqIdx)}
+                                            title="Remove from this group"
+                                            className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-white/10"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </button>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+
+                                  <div className="p-2">
+                                    {availableForStage(sIdx).length === 0 ? (
+                                      <p className="text-center text-[10px] font-medium text-slate-400">
+                                        Every squad is already placed in this stage.
+                                      </p>
+                                    ) : (
+                                      <select
+                                        value=""
+                                        onChange={(e) => e.target.value && addSeat(sIdx, groupName, e.target.value)}
+                                        className="w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800"
+                                      >
+                                        <option value="">+ Add squad…</option>
+                                        {availableForStage(sIdx).map((candidate) => (
+                                          <option key={candidateKey(candidate)} value={candidateKey(candidate)}>
+                                            {candidate.displayName || candidate.teamName || candidate.seedLabel}
+                                            {candidate.tag ? ` (${candidate.tag})` : ''}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         <div>

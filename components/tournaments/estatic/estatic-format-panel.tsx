@@ -28,6 +28,72 @@ import {
   type StageGroupSquad,
 } from '../tournament-stage-format-card';
 
+/** The shape of a roster entry as an editor writes it, before normalisation. */
+interface RosterEntryLike {
+  ign?: string | null;
+  role?: string | null;
+  captain?: boolean;
+  isCaptain?: boolean;
+  slug?: string | null;
+  playerId?: string | null;
+}
+
+/** The team metadata the panel resolves a seat against — team row first, slot second. */
+interface TeamMetaLike {
+  team?: {
+    name?: string | null;
+    displayName?: string | null;
+    tag?: string | null;
+    slug?: string | null;
+    logoUrl?: string | null;
+    imageDarkUrl?: string | null;
+    region?: string | null;
+  } | null;
+  name?: string | null;
+  tag?: string | null;
+  slug?: string | null;
+  logoUrl?: string | null;
+  logoDarkUrl?: string | null;
+  country?: string | null;
+  rosterJson?: unknown;
+}
+
+/**
+ * Refreshes a declared seat from the current team record, so a team renamed or re-logoed
+ * after the draw was published does not stay stale on the page. A seat with no team keeps
+ * exactly what the draw recorded — it is a place in the field, not a competitor.
+ */
+function resolveDeclaredSquad(
+  squad: StageGroupSquad,
+  teamMap: Map<string, TeamMetaLike>
+): StageGroupSquad {
+  if (!squad?.teamId) return squad;
+
+  const meta = teamMap.get(squad.teamId);
+  if (!meta) return squad;
+
+  const team = meta.team || null;
+  const roster = (Array.isArray(meta.rosterJson) ? meta.rosterJson : squad.roster ?? []) as RosterEntryLike[];
+
+  return {
+    ...squad,
+    teamName: team?.displayName || team?.name || meta.name || squad.teamName,
+    displayName: team?.displayName || squad.displayName || null,
+    tag: team?.tag || meta.tag || squad.tag || null,
+    slug: team?.slug || meta.slug || squad.slug || null,
+    logoUrl: team?.logoUrl || meta.logoUrl || squad.logoUrl || null,
+    logoDarkUrl: team?.imageDarkUrl || meta.logoDarkUrl || squad.logoDarkUrl || null,
+    country: team?.region || meta.country || squad.country || null,
+    roster: roster.map((p) => ({
+      ign: p.ign || 'Player',
+      role: p.role || null,
+      captain: Boolean(p.captain || p.isCaptain),
+      slug: p.slug || null,
+      playerId: p.playerId || null,
+    })),
+  };
+}
+
 interface EstaticFormatPanelProps {
   tournament?: {
     id?: string;
@@ -212,6 +278,23 @@ export function EstaticFormatPanel({
         }
       }
 
+      // Check formatDetails custom stage override if any
+      const customStage = formatDetails?.stageFormats?.[stage.id] || formatDetails?.stageFormats?.[stage.name];
+
+      // The admin's declared draw, for a stage that has not been played yet. Matches win
+      // once they exist, so this only fills a stage whose matches define no groups.
+      if (Object.keys(groups).length === 0 && customStage?.groups && typeof customStage.groups === 'object') {
+        for (const [groupName, declared] of Object.entries(customStage.groups as Record<string, StageGroupSquad[]>)) {
+          const squads = (Array.isArray(declared) ? declared : []).map((squad) => resolveDeclaredSquad(squad, teamMap));
+          if (squads.length === 0) continue;
+
+          groups[groupName] = squads;
+          for (const squad of squads) {
+            if (squad.teamId) stageTeamIds.add(squad.teamId);
+          }
+        }
+      }
+
       // If stage has no groups from matches, check if tournament teams can be listed as Single Lobby
       const groupKeys = Object.keys(groups);
       const distinctGroupCount = groupKeys.length;
@@ -338,15 +421,6 @@ export function EstaticFormatPanel({
         }
       }
 
-      // Check formatDetails custom stage override if any
-      const customStage = formatDetails?.stageFormats?.[stage.id] || formatDetails?.stageFormats?.[stage.name];
-
-      // Groups resolution: matches if available, else customStage groups
-      let resolvedGroups: Record<string, StageGroupSquad[]> = groups;
-      if (Object.keys(resolvedGroups).length === 0 && customStage?.groups && typeof customStage.groups === 'object') {
-        resolvedGroups = customStage.groups;
-      }
-
       return {
         stageId: stage.id,
         sequence: stage.sequence || sIdx + 1,
@@ -386,7 +460,7 @@ export function EstaticFormatPanel({
               groupName: r.groupName || undefined,
             }))
           : rules,
-        groups: resolvedGroups,
+        groups,
       };
     });
   }, [stages, matches, teamMap, standingsConfig, formatDetails]);

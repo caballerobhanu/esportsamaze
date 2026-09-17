@@ -25,7 +25,8 @@ export interface StageAdvancementRule {
 }
 
 export interface StageGroupSquad {
-  teamId: string;
+  /** Absent for an unfilled seat — a declared place in the field with no team yet. */
+  teamId?: string | null;
   teamName: string;
   displayName?: string | null;
   tag?: string | null;
@@ -42,6 +43,44 @@ export interface StageGroupSquad {
     slug?: string | null;
     playerId?: string | null;
   }>;
+}
+
+/** What the row is called. For an unfilled seat the entry label doubles as its name. */
+function squadLabel(squad: StageGroupSquad): string {
+  return squad.displayName || squad.teamName || squad.seedLabel || 'Squad';
+}
+
+/**
+ * The row's second line. Suppressed when it repeats the name — an unfilled seat stores its
+ * label in both fields, and printing it twice reads as a mistake.
+ */
+function squadSubLabel(squad: StageGroupSquad): string | null {
+  return squad.seedLabel && squad.seedLabel !== squadLabel(squad) ? squad.seedLabel : null;
+}
+
+/**
+ * Wraps a squad in its team link, or in a plain div when there is no team to link to.
+ * A declared seat can be part of a published draw before its team is known, and
+ * /teams/<label> would be a 404.
+ */
+function SquadWrapper({
+  squad,
+  className,
+  children,
+}: {
+  squad: StageGroupSquad;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (!squad.teamId && !squad.slug) {
+    return <div className={className}>{children}</div>;
+  }
+
+  return (
+    <Link href={`/teams/${squad.slug || encodeURIComponent(squad.teamName)}`} className={className}>
+      {children}
+    </Link>
+  );
 }
 
 export interface StageFormatData {
@@ -407,12 +446,10 @@ export function TournamentStageFormatCard({
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3 sm:p-4">
                       {visibleGroups[0].squads.map((squad, sIdx) => {
-                        const teamUrl = `/teams/${squad.slug || encodeURIComponent(squad.teamName)}`;
-
                         return (
-                          <Link
+                          <SquadWrapper
                             key={squad.teamId || sIdx}
-                            href={teamUrl}
+                            squad={squad}
                             className="group/team flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-2xs transition-all hover:border-[#0A5FC4] hover:shadow-xs hover:bg-slate-50/50 dark:border-white/10 dark:bg-white/5 dark:hover:border-blue-400/80 dark:hover:bg-white/10"
                           >
                             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200/80 bg-slate-50 dark:border-white/10 dark:bg-black/40 group-hover/team:scale-105 transition-transform">
@@ -434,9 +471,9 @@ export function TournamentStageFormatCard({
                               <div className="flex items-center justify-between gap-1">
                                 <span
                                   className="truncate text-xs font-bold text-slate-900 group-hover/team:text-[#0A5FC4] dark:text-white dark:group-hover/team:text-blue-400 transition-colors"
-                                  title={squad.displayName || squad.teamName}
+                                  title={squadLabel(squad)}
                                 >
-                                  {squad.displayName || squad.teamName}
+                                  {squadLabel(squad)}
                                 </span>
                                 {squad.tag && (
                                   <span className="shrink-0 text-[10px] font-black uppercase text-slate-400">
@@ -444,13 +481,13 @@ export function TournamentStageFormatCard({
                                   </span>
                                 )}
                               </div>
-                              {squad.seedLabel && (
+                              {squadSubLabel(squad) && (
                                 <span className="text-[10px] font-medium text-slate-400 block truncate">
-                                  {squad.seedLabel}
+                                  {squadSubLabel(squad)}
                                 </span>
                               )}
                             </div>
-                          </Link>
+                          </SquadWrapper>
                         );
                       })}
                     </div>
@@ -487,12 +524,10 @@ export function TournamentStageFormatCard({
                           </p>
                         ) : (
                           squads.map((squad, sIdx) => {
-                            const teamUrl = `/teams/${squad.slug || encodeURIComponent(squad.teamName)}`;
-
                             return (
-                              <Link
+                              <SquadWrapper
                                 key={squad.teamId || sIdx}
-                                href={teamUrl}
+                                squad={squad}
                                 className="group/item flex items-center justify-between gap-2 p-2 rounded-xl transition-colors hover:bg-white dark:hover:bg-white/10"
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
@@ -514,13 +549,13 @@ export function TournamentStageFormatCard({
                                   <div className="min-w-0">
                                     <span
                                       className="truncate text-xs font-bold text-slate-900 group-hover/item:text-[#0A5FC4] dark:text-white dark:group-hover/item:text-blue-400 transition-colors block"
-                                      title={squad.displayName || squad.teamName}
+                                      title={squadLabel(squad)}
                                     >
-                                      {squad.displayName || squad.teamName}
+                                      {squadLabel(squad)}
                                     </span>
-                                    {squad.seedLabel && (
+                                    {squadSubLabel(squad) && (
                                       <span className="text-[9px] font-semibold text-slate-400 block truncate">
-                                        {squad.seedLabel}
+                                        {squadSubLabel(squad)}
                                       </span>
                                     )}
                                   </div>
@@ -531,7 +566,7 @@ export function TournamentStageFormatCard({
                                     {squad.tag}
                                   </span>
                                 )}
-                              </Link>
+                              </SquadWrapper>
                             );
                           })
                         )}

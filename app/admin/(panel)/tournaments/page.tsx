@@ -34,7 +34,7 @@ import { parseBerths } from '@/lib/tournament-prizes';
 import { TournamentPrizeDistributionInput } from '@/components/admin/tournament-prize-distribution-input';
 import { TournamentFinalRankingsInput } from '@/components/admin/tournament-final-rankings-input';
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
-import { TournamentStagesFormatInput } from '@/components/admin/tournament-stages-format-input';
+import { TournamentStagesFormatInput, type GroupCandidate } from '@/components/admin/tournament-stages-format-input';
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
@@ -1103,6 +1103,33 @@ export default async function AdminTournamentsPage({
         region: tt.region,
       })) || [];
 
+  // The same seats, enriched with the team fields the public group card renders. A seat
+  // with no team keeps only what the draw records, so it stays publishable before the
+  // field is confirmed.
+  const teamBySlot = new Map((editing?.teams || []).map((tt) => [tt.teamId ?? '', tt.team]));
+  const groupCandidates: GroupCandidate[] = initialSquads.map((squad) => {
+    const team = squad.teamId ? teamBySlot.get(squad.teamId) : null;
+    return {
+      teamId: squad.teamId,
+      teamName: squad.teamName,
+      displayName: squad.displayName ?? null,
+      tag: squad.tag ?? null,
+      slug: team?.slug ?? null,
+      logoUrl: squad.eventLogoUrl ?? team?.logoUrl ?? null,
+      logoDarkUrl: squad.eventLogoDarkUrl ?? team?.imageDarkUrl ?? null,
+      seed: squad.seed ?? null,
+      seedLabel: squad.seedLabel ?? null,
+      country: squad.country ?? null,
+      roster: squad.roster.map((entry) => ({
+        ign: entry.ign,
+        role: entry.role ?? null,
+        captain: Boolean(entry.captain),
+        slug: null,
+        playerId: entry.playerId ?? null,
+      })),
+    };
+  });
+
   const stagesFromDb = editing?.stages?.map((s) => s.name.trim()) || [];
   const stagesFromMatches = editing?.matches?.map((m) => matchStageLabel(m)) || [];
   const stageNames = Array.from(new Set([...stagesFromDb, ...stagesFromMatches].filter(Boolean)));
@@ -1129,6 +1156,10 @@ export default async function AdminTournamentsPage({
       })),
     };
   });
+
+  // Stages whose matches already carry group names — those groups win on the public page,
+  // so the draw editor warns instead of silently doing nothing.
+  const stagesWithMatchGroups = stagesInfo.filter((s) => s.groups.length > 0).map((s) => s.name);
 
   const existingRegions = Array.from(
     new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
@@ -1586,6 +1617,8 @@ export default async function AdminTournamentsPage({
                 <TournamentStagesFormatInput
                   initialFormatDetails={editing?.formatDetails}
                   initialStages={editing?.stages}
+                  groupCandidates={groupCandidates}
+                  stagesWithMatchGroups={stagesWithMatchGroups}
                 />
               </div>
             </div>
