@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   Settings,
+  Globe2,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { href: '/admin/games', label: 'Games', icon: Gamepad2 },
   { href: '/admin/analytics', label: 'Page Views', icon: Eye },
   { href: '/admin/tournaments', label: 'Tournaments', icon: Trophy },
+  { href: '/admin/regions', label: 'Regions', icon: Globe2 },
   { href: '/admin/matches', label: 'Matches', icon: Swords },
   { href: '/admin/matches/matrix', label: 'Score Matrix', icon: FileSpreadsheet },
   { href: '/admin/totals', label: 'Reported Totals', icon: ClipboardList },
@@ -43,6 +45,7 @@ const NAV_ITEMS = [
   { href: '/admin/organizers', label: 'Organizers', icon: LayoutDashboard },
   { href: '/admin/sponsors', label: 'Sponsors', icon: LayoutDashboard },
   { href: '/admin/venues', label: 'Venues', icon: LayoutDashboard },
+  { href: '/admin/regions', label: 'Regions', icon: Globe2 },
   { href: '/admin/transfers', label: 'Transfers', icon: ArrowLeftRight },
   { href: '/admin/krafton', label: 'KRAFTON Rankings', icon: BarChart3 },
 ];

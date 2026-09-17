@@ -65,10 +65,16 @@ export default async function TournamentOverviewPage({
     })),
     imageUrl: ctx.tournament.imageUrl || ctx.tournament.bannerUrl,
     gameName: ctx.tournament.game?.name ?? null,
-    competitors: ctx.tournament.teams.map((entry) => ({
-      name: entry.team.name,
-      url: entry.team.slug ? absoluteUrl(`/teams/${entry.team.slug}`) : null,
-    })),
+    competitors: ctx.tournament.teams.flatMap((entry) =>
+      entry.team
+        ? [
+            {
+              name: entry.team.name,
+              url: entry.team.slug ? absoluteUrl(`/teams/${entry.team.slug}`) : null,
+            },
+          ]
+        : []
+    ),
   });
   const breadcrumbs = breadcrumbJsonLd([
     { name: 'Home', path: '/' },
@@ -95,7 +101,8 @@ export default async function TournamentOverviewPage({
           featuredStandings={data.featuredStandings}
           overallFraggers={data.overallFraggers}
           matches={data.overviewMatches}
-          teamsCount={ctx.totalTeamsCount}
+          teamsCount={ctx.namedTeamsCount}
+          teamsToShow={ctx.tournament.teamsToShow}
           resolvedWinner={ctx.resolvedWinner}
           resolvedRunnerUp={ctx.resolvedRunnerUp}
           teamsMeta={data.teamsMeta}

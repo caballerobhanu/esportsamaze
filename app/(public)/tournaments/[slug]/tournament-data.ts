@@ -34,6 +34,8 @@ import {
   tournamentTabTitle,
 } from '@/lib/seo-titles';
 import { resolveTotalsLadder, type ReportedTotalsRow } from '@/lib/tournament-totals';
+import { buildPrizeResults, placementTotalsByTeam } from '@/lib/tournament-prizes';
+import { parseQualificationRules } from '@/lib/qualification-rules';
 import type { MetricAggregate } from '@/lib/player-stats';
 import type { StageGroup, TeamPerformanceRow, PlayerPerformanceRow } from '@/components/tournaments/estatic/panel-types';
 
@@ -89,6 +91,8 @@ async function fetchTournament(rawSlug: string) {
                 id: true,
                 name: true,
                 slug: true,
+                imageUrl: true,
+                imageDarkUrl: true,
               },
             },
             team: {
@@ -225,7 +229,8 @@ export interface TournamentContext {
   prizePoolLabel: string;
   backdropWatermark: string | null;
   totalMatchesCount: number;
-  totalTeamsCount: number;
+  /** Places that name a squad. Unfilled seats are not counted here. */
+  namedTeamsCount: number;
 }
 
 /* Request-scoped memo: the [slug] layout renders the masthead and the page
@@ -273,7 +278,11 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
       : [];
   const resolved = resolvePrizeRecipients(
     tournament.prizeDistribution,
-    new Map(tournament.teams.map((tt) => [tt.teamId, tt.team])),
+    new Map(
+      tournament.teams.flatMap((tt) =>
+        tt.team && tt.teamId ? [[tt.teamId, tt.team] as const] : []
+      )
+    ),
     new Map(prizePlayers.map((p) => [p.id, p]))
   );
   const resolvedWinner = (tournament.winner ?? resolved.winner ?? null) as string | null;
@@ -342,7 +351,7 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
     prizePoolLabel,
     backdropWatermark,
     totalMatchesCount: tournament.matches.length,
-    totalTeamsCount: tournament.teams.length,
+    namedTeamsCount: tournament.teams.filter((entry) => entry.team !== null).length,
   };
 }
 
@@ -438,6 +447,10 @@ export async function tournamentMetadata(
 export function buildTeamsMeta(ctx: TournamentContext): Record<string, StandingsTeamMeta> {
   const teamsMeta: Record<string, StandingsTeamMeta> = {};
   for (const tt of ctx.tournament.teams) {
+    // An unfilled seat is not a competitor: it has no results to look up, so it
+    // contributes nothing here.
+    if (!tt.teamId || !tt.team) continue;
+
     teamsMeta[tt.teamId] = {
       name: tt.team.name,
       slug: tt.team.slug,
@@ -1027,7 +1040,30 @@ export function buildFormatData(ctx: TournamentContext) {
 
 export function buildTeamsData(ctx: TournamentContext) {
   const { enrichedTeams } = buildTeamsAndPerformance(ctx, groupMatchesByStage(ctx), []);
-  return { enrichedTeams };
+
+  /**
+   * Places nobody has taken yet — the announced shape of the field. A seat has no
+   * squad, no results and no roster, so it is its own list rather than a
+   * competitor: it appears here and nowhere else on the site.
+   *
+   * The row's name is its entry label, and the event it comes through supplies the
+   * logo until a team is attached.
+   */
+  const seats = ctx.tournament.teams
+    .filter((tt) => !tt.team)
+    .map((tt) => ({
+      id: tt.id,
+      seed: tt.seed,
+      label: tt.seedLabel?.trim() || tt.displayName?.trim() || 'Open place',
+      region: tt.region?.trim() || null,
+      country: tt.country?.trim() || null,
+      qualifierName: tt.seedTournament?.name ?? null,
+      qualifierSlug: tt.seedTournament?.slug ?? null,
+      logoUrl: tt.logoUrl ?? tt.seedTournament?.imageUrl ?? null,
+      logoDarkUrl: tt.logoDarkUrl ?? tt.seedTournament?.imageDarkUrl ?? null,
+    }));
+
+  return { enrichedTeams, seats };
 }
 
 /* ── Prize pool tab ── */
@@ -1062,11 +1098,21 @@ export function buildPrizeData(ctx: TournamentContext) {
         ranks: (s.ranks ?? []) as TournamentPrizeRank[],
       }));
 
-  const qualificationsList = Array.isArray(ctx.tournament.qualifications)
-    ? (ctx.tournament.qualifications as Array<{ place: string; events: Array<string | { name: string }>; description?: string }>)
-    : [];
+  // Qualification rules: a position range plus the events it feeds. Rules written
+  // before the numeric shape existed carry only a `place` string, which is read
+  // through the same range parser so nothing needs re-entering.
+  const qualificationRules = parseQualificationRules(ctx.tournament.qualifications);
 
-  return { prizeStages, qualificationsList };
+  // Who finished where, what they won and what they qualified into. This is the
+  // page's primary table: the ranked distribution above says how the money is
+  // split, this says who actually got it. Money is summed from the ladder across
+  // every stage, so the total cannot drift from the distribution it came from.
+  const results = buildPrizeResults(
+    ctx.tournament.teams,
+    placementTotalsByTeam(ctx.tournament.prizeDistribution)
+  );
+
+  return { prizeStages, qualificationRules, results };
 }
 
 /* ── Statistics tab ── */
@@ -1277,7 +1323,13 @@ function buildTeamsAndPerformance(
   }
 
   const order = stagesOrder.length > 0 ? stagesOrder : Array.from(matchesByStage.keys());
-  const enrichedTeams = ctx.tournament.teams.map((tt) => {
+  // Seats are places in the field, not competitors: they take no part in stages,
+  // rosters or performance tables. The teams tab renders them separately.
+  const filledTeams = ctx.tournament.teams.filter(
+    (tt): tt is typeof tt & { team: NonNullable<typeof tt.team>; teamId: string } =>
+      tt.team !== null && tt.teamId !== null
+  );
+  const enrichedTeams = filledTeams.map((tt) => {
     const stagesSet = teamStageParticipation.get(tt.teamId) || new Set();
     const stagesList = order.filter((st) => stagesSet.has(st));
     const groupsMap = teamGroupParticipation.get(tt.teamId);
@@ -1308,7 +1360,7 @@ function buildTeamsAndPerformance(
   /* ── per-team performance rows ── */
   const teamPerformanceMap = new Map<string, TeamPerformanceRow>();
 
-  for (const tt of ctx.tournament.teams) {
+  for (const tt of filledTeams) {
     teamPerformanceMap.set(tt.teamId, {
       teamId: tt.teamId,
       teamSlug: tt.team?.slug || null,

@@ -279,7 +279,14 @@ export async function importKraftonEntriesFromTournament(
       return { ok: false, teams: 0, players: 0, error: 'That tournament has no participating teams.' };
     }
 
-    const teamEntries = tournamentTeams.map((tt, i) => ({
+    const filledTeams = tournamentTeams.filter(
+      (tt): tt is typeof tt & { teamId: string; team: NonNullable<typeof tt.team> } =>
+        tt.teamId !== null && tt.team !== null
+    );
+
+    // A seat has no team to rank, so it cannot become an entry — and the ordinal
+    // fallback must not leave gaps where seats were skipped.
+    const teamEntries = filledTeams.map((tt, i) => ({
       eventId,
       board: 'TEAM' as const,
       entityId: tt.teamId,

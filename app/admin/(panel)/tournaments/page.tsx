@@ -29,6 +29,7 @@ import {
 import { TournamentOrganizersInput } from '@/components/admin/tournament-organizers-input';
 import { TournamentSponsorsInput } from '@/components/admin/tournament-sponsors-input';
 import { TournamentQualificationsInput } from '@/components/admin/tournament-qualifications-input';
+import { parseBerths } from '@/lib/tournament-prizes';
 import { TournamentPrizeDistributionInput } from '@/components/admin/tournament-prize-distribution-input';
 import { TournamentFinalRankingsInput } from '@/components/admin/tournament-final-rankings-input';
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
@@ -100,6 +101,29 @@ function parseJsonField<T>(raw: string | null | undefined, field: string): T | n
   }
 }
 
+/**
+ * A squad row is worth keeping — and worth loading back into the form — when it
+ * says anything at all. The form and the save must agree on this, or a row can
+ * be displayed and then silently dropped on save.
+ */
+function squadHasContent(squad: {
+  teamId?: string | null;
+  seedLabel?: string | null;
+  seed?: number | null;
+  seedTournamentId?: string | null;
+  region?: string | null;
+  country?: string | null;
+}): boolean {
+  return Boolean(
+    squad.teamId ||
+      squad.seedLabel?.trim() ||
+      squad.seedTournamentId ||
+      squad.region?.trim() ||
+      squad.country?.trim() ||
+      squad.seed != null
+  );
+}
+
 async function saveTournament(formData: FormData) {
   'use server';
   if (!(await isAdmin())) redirect('/admin/login');
@@ -133,6 +157,12 @@ async function saveTournament(formData: FormData) {
 
   // Multi-countries parsing
   const countriesInput = fStr(formData, 'countries');
+
+  // How many seats the teams tab presents. Blank means "only what is recorded".
+  const teamsToShowRaw = fStr(formData, 'teamsToShow').trim();
+  const teamsToShow = teamsToShowRaw
+    ? Math.max(0, Math.trunc(Number(teamsToShowRaw) || 0))
+    : null;
   const countries = countriesInput
     ? countriesInput.split(',').map((c) => c.trim()).filter(Boolean)
     : [];
@@ -149,7 +179,7 @@ async function saveTournament(formData: FormData) {
       teamId: string;
       rank: number;
       prizeWon?: number;
-      qualifications?: string[];
+      berths?: unknown;
     }>
   >(fStr(formData, 'teamRankingsJson'), 'final rankings') ?? [];
 
@@ -215,6 +245,7 @@ async function saveTournament(formData: FormData) {
       shortName?: string | null;
       displayName?: string | null;
       country?: string | null;
+      region?: string | null;
     }>
   >(squadsRaw, 'squads') ?? [];
 
@@ -464,6 +495,7 @@ async function saveTournament(formData: FormData) {
     series: fOpt(formData, 'series'),
     season: fOpt(formData, 'season'),
     seriesValue: fNum(formData, 'seriesValue'),
+    teamsToShow,
     tier: fStr(formData, 'tier') || 'A-Tier',
     // KRAFTON inclusion/exclusion moved to the standalone rankings system —
     // every tournament is treated as included for the legacy engine.
@@ -592,16 +624,26 @@ async function saveTournament(formData: FormData) {
         tournamentId = created.id;
       }
 
-      // Participating squads: seeds, rosters and event logo overrides (runs before rankings
-      // so the rankings block can still attach finalRank/prizeWon to the same rows)
+      // Participating squads — filled teams and unfilled seats alike. The submitted
+      // list is the whole field, so it replaces what is stored: an upsert keyed on
+      // (tournament, team) cannot address a seat, which has no team by definition.
       if (squadsSubmitted && tournamentId) {
+        const fieldRows: Prisma.TournamentTeamCreateManyInput[] = [];
+
         for (let i = 0; i < squadsList.length; i++) {
           const squad = squadsList[i];
-          if (!squad?.teamId) continue;
+          if (!squad) continue;
+
+          // A row with nothing on it at all is not a place.
+          if (!squadHasContent(squad)) continue;
+
           const logo = squadLogos[i];
           const logoLight = logo?.logoLight;
           const logoDark = logo?.logoDark;
-          const data = {
+
+          fieldRows.push({
+            tournamentId,
+            teamId: squad.teamId || null,
             seed: squad.seed ?? null,
             seedLabel: squad.seedLabel ?? null,
             seedTournamentId: squad.seedTournamentId ?? null,
@@ -631,22 +673,12 @@ async function saveTournament(formData: FormData) {
             shortName: squad.shortName ?? null,
             displayName: squad.displayName ?? null,
             country: squad.country ?? null,
-          };
-          // One squad row per (tournament, team) — DB-enforced, race-safe upsert.
-          await tx.tournamentTeam.upsert({
-            where: {
-              tournamentId_teamId: { tournamentId, teamId: squad.teamId },
-            },
-            update: data,
-            create: {
-              tournamentId,
-              teamId: squad.teamId,
-              finalRank: null,
-              prizeWon: null,
-              ...data,
-            },
+            region: squad.region ?? null,
           });
         }
+
+        await tx.tournamentTeam.deleteMany({ where: { tournamentId } });
+        if (fieldRows.length > 0) await tx.tournamentTeam.createMany({ data: fieldRows });
 
         // Roster membership only. The Transfer ledger is admin-only history, so an
         // import records NO transfer — adding an older event (BGIS in January)
@@ -685,14 +717,6 @@ async function saveTournament(formData: FormData) {
             await applyRosterMembership(tx, playerId, squad.teamId, eventDate);
           }
         }
-
-        const protectedIds = [
-          ...squadsList.map((s) => s.teamId).filter(Boolean),
-          ...teamRankingsList.map((r) => r.teamId).filter(Boolean),
-        ];
-        await tx.tournamentTeam.deleteMany({
-          where: { tournamentId, teamId: { notIn: protectedIds } },
-        });
       }
 
       // Update or insert TournamentTeam records for final event rankings
@@ -703,12 +727,13 @@ async function saveTournament(formData: FormData) {
             where: {
               tournamentId_teamId: { tournamentId, teamId: r.teamId },
             },
-            update: { finalRank: r.rank, prizeWon: r.prizeWon || 0 },
+            update: { finalRank: r.rank, prizeWon: r.prizeWon || 0, berths: parseBerths(r.berths) },
             create: {
               tournamentId,
               teamId: r.teamId,
               finalRank: r.rank,
               prizeWon: r.prizeWon || 0,
+              berths: parseBerths(r.berths),
               rosterJson: [],
             },
           });
@@ -1007,44 +1032,62 @@ export default async function AdminTournamentsPage({
 
   const initialRankings =
     editing?.teams
-      .filter((tt) => tt.finalRank != null)
+      .filter((tt): tt is typeof tt & { teamId: string; team: NonNullable<typeof tt.team> } =>
+        tt.finalRank != null && tt.teamId !== null && tt.team !== null
+      )
       .map((tt) => ({
-        teamId: tt.team.id,
+        teamId: tt.teamId,
         teamName: tt.team.name,
         tag: tt.team.tag || undefined,
         logoUrl: tt.team.logoUrl,
         rank: tt.finalRank || 1,
         prizeWon: tt.prizeWon || 0,
-        qualifications: [],
+        berths: parseBerths(tt.berths),
       })) || [];
 
+  // Seats load back too. Filtering them out here would not merely hide them: the
+  // save replaces the field wholesale, so a seat missing from the form would be
+  // deleted by the next save.
   const initialSquads: SquadRow[] =
-    editing?.teams.map((tt) => ({
-      teamId: tt.teamId,
-      teamName: tt.team.name,
-      tag: tt.team.tag,
-      seed: tt.seed,
-      seedLabel: tt.seedLabel,
-      seedTournamentId: tt.seedTournamentId,
-      roster: (Array.isArray(tt.rosterJson) ? (tt.rosterJson as unknown[]) : []).map((entry) =>
-        typeof entry === 'string'
-          ? { ign: entry }
-          : {
-              playerId: (entry as { playerId?: string | null }).playerId ?? null,
-              ign: String((entry as { ign?: string }).ign ?? ''),
-              role: (entry as { role?: string | null }).role ?? null,
-              captain: !!((entry as { captain?: boolean }).captain ?? false),
-              isStaff: !!((entry as { isStaff?: boolean }).isStaff ?? false),
-              staffRole: (entry as { staffRole?: string | null }).staffRole ?? null,
-              statusTag: (entry as { statusTag?: any }).statusTag ?? null,
-            }
-      ),
-      eventLogoUrl: tt.logoUrl,
-      eventLogoDarkUrl: tt.logoDarkUrl,
-      shortName: tt.shortName,
-      displayName: tt.displayName,
-      country: tt.country,
-    })) || [];
+    editing?.teams
+      // Same rule the save uses, so what loads and what is stored cannot disagree.
+      .filter((tt) =>
+        squadHasContent({
+          teamId: tt.teamId,
+          seedLabel: tt.seedLabel,
+          seed: tt.seed,
+          seedTournamentId: tt.seedTournamentId,
+          region: tt.region,
+          country: tt.country,
+        })
+      )
+      .map((tt) => ({
+        teamId: tt.teamId,
+        teamName: tt.team?.name ?? '',
+        tag: tt.team?.tag ?? null,
+        seed: tt.seed,
+        seedLabel: tt.seedLabel,
+        seedTournamentId: tt.seedTournamentId,
+        roster: (Array.isArray(tt.rosterJson) ? (tt.rosterJson as unknown[]) : []).map((entry) =>
+          typeof entry === 'string'
+            ? { ign: entry }
+            : {
+                playerId: (entry as { playerId?: string | null }).playerId ?? null,
+                ign: String((entry as { ign?: string }).ign ?? ''),
+                role: (entry as { role?: string | null }).role ?? null,
+                captain: !!((entry as { captain?: boolean }).captain ?? false),
+                isStaff: !!((entry as { isStaff?: boolean }).isStaff ?? false),
+                staffRole: (entry as { staffRole?: string | null }).staffRole ?? null,
+                statusTag: (entry as { statusTag?: any }).statusTag ?? null,
+              }
+        ),
+        eventLogoUrl: tt.logoUrl,
+        eventLogoDarkUrl: tt.logoDarkUrl,
+        shortName: tt.shortName,
+        displayName: tt.displayName,
+        country: tt.country,
+        region: tt.region,
+      })) || [];
 
   const stagesFromDb = editing?.stages?.map((s) => s.name.trim()) || [];
   const stagesFromMatches = editing?.matches?.map((m) => matchStageLabel(m)) || [];
@@ -1076,6 +1119,17 @@ export default async function AdminTournamentsPage({
   const existingRegions = Array.from(
     new Set(tournaments.map((t) => t.region).filter((r): r is string => Boolean(r)))
   );
+
+  // Regions defined in /admin/regions, so a place's region and country are picked
+  // from the real groupings rather than typed from memory.
+  const regionRecords = await prisma.region.findMany({
+    orderBy: [{ position: 'asc' }, { name: 'asc' }],
+    include: { countries: { orderBy: { position: 'asc' } } },
+  });
+  const regionOptions = regionRecords.map((region) => ({
+    name: region.name,
+    countries: region.countries.map((country) => country.name),
+  }));
 
   const teamComboboxOptions = teams.map((t) => ({
     value: t.id,
@@ -1542,12 +1596,31 @@ export default async function AdminTournamentsPage({
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
               👥 5. Participating Squads &amp; Rosters (Seeds, Event Logos, Players)
             </h2>
+            <div className="mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="w-32">
+                <label className={labelCls}>Teams to show</label>
+                <input
+                  type="number"
+                  min={0}
+                  name="teamsToShow"
+                  defaultValue={editing?.teamsToShow ?? ''}
+                  placeholder="e.g. 16"
+                  className={inputCls}
+                />
+              </div>
+              <p className="flex-1 pb-2 text-[11px] font-semibold text-slate-400">
+                How many places the teams tab presents. Fill a place with a team, or leave it open
+                and give it an entry label (&ldquo;Korean League&rdquo;) plus a region.
+              </p>
+            </div>
+
             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
               <TournamentSquadsInput
                 initialSquads={initialSquads}
                 allTeams={teams}
                 allPlayers={players}
                 allTournaments={tournaments.map((t) => ({ id: t.id, name: t.name, slug: t.slug }))}
+                allRegions={regionOptions}
               />
             </div>
           </div>
@@ -1565,6 +1638,7 @@ export default async function AdminTournamentsPage({
                 prizeDistribution={editing?.prizeDistribution}
                 totalPrizePool={editing?.prizePool ?? 40000000}
                 currency={editing?.currency ?? 'INR'}
+                allTournaments={tournaments.map((t) => ({ id: t.id, name: t.name, slug: t.slug, tier: t.tier }))}
               />
             </div>
           </div>

@@ -153,7 +153,9 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
             },
             {
               label: 'Competing Teams',
-              value: `${ctx.totalTeamsCount} Teams`,
+              // The announced field size wins. Without one, report squads actually
+              // named — never the row count, which includes unfilled seats.
+              value: `${tournament.teamsToShow ?? ctx.namedTeamsCount} Teams`,
               icon: Users,
             },
             {

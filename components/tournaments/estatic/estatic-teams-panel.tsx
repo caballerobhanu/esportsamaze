@@ -43,26 +43,44 @@ interface EnrichedTournamentTeam {
   };
 }
 
+/** A place in the field that no team has taken yet. */
+export interface FieldSeat {
+  id: string;
+  seed: number | null;
+  /** The entry label, which stands in for a team name. */
+  label: string;
+  /** The regional group it belongs to (EMEA, SEA, CSA…). */
+  region: string | null;
+  /** The country within that region, when the slot is country-level. */
+  country: string | null;
+  qualifierName: string | null;
+  qualifierSlug: string | null;
+  logoUrl: string | null;
+  logoDarkUrl: string | null;
+}
+
 interface EstaticTeamsPanelProps {
   teams: EnrichedTournamentTeam[];
   logoMode?: string;
   showCountryFlag?: boolean;
+  seats?: FieldSeat[];
 }
 
-export type TeamSortOption = 'default' | 'name_asc' | 'name_desc' | 'seed_asc' | 'seed_desc';
+export type TeamSortOption = 'default' | 'name_asc' | 'name_desc';
 
-export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
+export function EstaticTeamsPanel({ teams, seats = [] }: EstaticTeamsPanelProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<TeamSortOption>('default');
   const [expandedTeamIds, setExpandedTeamIds] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(false);
 
+  /**
+   * Seed order is a number, and only a number. A label like "BGIS 2026 Champion"
+   * used to be mined for its first digits and sorted as seed 2026 — a placing
+   * nobody ever published. A team with no seed sorts last instead of inventing one.
+   */
   const getTeamSeedNum = (t: EnrichedTournamentTeam): number => {
-    if (typeof t.seed === 'number' && !isNaN(t.seed)) return t.seed;
-    if (t.seedLabel) {
-      const match = t.seedLabel.match(/#?(\d+)/);
-      if (match) return parseInt(match[1], 10);
-    }
+    if (typeof t.seed === 'number' && Number.isFinite(t.seed)) return t.seed;
     return 999999;
   };
 
@@ -90,20 +108,11 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
         const nameB = b.team.displayName || b.team.name;
         return nameB.localeCompare(nameA, undefined, { sensitivity: 'base' });
       });
-    } else if (sortBy === 'seed_asc') {
-      result.sort((a, b) => {
-        const seedA = getTeamSeedNum(a);
-        const seedB = getTeamSeedNum(b);
-        if (seedA !== seedB) return seedA - seedB;
-        return a.team.name.localeCompare(b.team.name);
-      });
-    } else if (sortBy === 'seed_desc') {
-      result.sort((a, b) => {
-        const seedA = getTeamSeedNum(a);
-        const seedB = getTeamSeedNum(b);
-        if (seedA !== seedB) return seedB - seedA;
-        return a.team.name.localeCompare(b.team.name);
-      });
+    } else {
+      // Default order is the seed — the field order, which is what this tab is
+      // for. The sort is stable, so rows with no seed keep the order they arrived
+      // in (final placing, then name) rather than being shuffled alphabetically.
+      result.sort((a, b) => getTeamSeedNum(a) - getTeamSeedNum(b));
     }
 
     return result;
@@ -131,8 +140,137 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
     });
   };
 
+  /**
+   * Region, then country inside it — but only when a seat is actually regional.
+   * An event that never uses regions groups by country alone, rather than every
+   * row sitting under a pointless "Region not set" wrapper.
+   *
+   * Within a region, region-level places (no country) come before country ones.
+   * Every group is headed, or the last group's rows read as a continuation of it.
+   */
+  const seatGroups = useMemo(() => {
+    const sortKeys = (a: string | null, b: string | null) =>
+      a === null ? 1 : b === null ? -1 : a.localeCompare(b);
+
+    if (!seats.some((seat) => seat.region)) {
+      const byCountry = new Map<string | null, FieldSeat[]>();
+      for (const seat of seats) {
+        byCountry.set(seat.country, [...(byCountry.get(seat.country) ?? []), seat]);
+      }
+      return [...byCountry.entries()].sort(([a], [b]) => sortKeys(a, b)).map(([country, rows]) => ({
+        heading: country ?? 'Country not set',
+        subgroups: [{ heading: null as string | null, rows }],
+      }));
+    }
+
+    const byRegion = new Map<string | null, Map<string | null, FieldSeat[]>>();
+    for (const seat of seats) {
+      const countries = byRegion.get(seat.region) ?? new Map<string | null, FieldSeat[]>();
+      countries.set(seat.country, [...(countries.get(seat.country) ?? []), seat]);
+      byRegion.set(seat.region, countries);
+    }
+
+    return [...byRegion.entries()].sort(([a], [b]) => sortKeys(a, b)).map(([region, countries]) => ({
+      heading: region ?? 'Region not set',
+      subgroups: [...countries.entries()]
+        .sort(([a], [b]) => (a === null ? -1 : b === null ? 1 : a.localeCompare(b)))
+        .map(([country, rows]) => ({
+          // A place with a region and no country is region-level by design, so it
+          // sits straight under its region. Only a genuinely unset country — one
+          // with no region to explain it — gets called out.
+          heading: country ?? (region === null ? 'Country not set' : null),
+          rows,
+        })),
+    }));
+  }, [seats]);
+
   return (
     <div className="space-y-8">
+      {/* Open places — the announced shape of the field. Rendered only when the
+          event records seats, so every other event is untouched. Grouped by
+          region, because that is how a reader asks the question: what is coming
+          out of Korea? */}
+      {seats.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-white/10 dark:bg-[#0b1220]">
+          <div className="flex items-baseline justify-between gap-4 border-b border-slate-100 px-4 py-3.5 dark:border-white/10 sm:px-5">
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-tight text-slate-950 dark:text-white">
+                Open places
+              </h3>
+              <p className="text-[11px] font-semibold text-slate-400">
+                Announced places no team has taken yet
+              </p>
+            </div>
+            <span className="shrink-0 text-xl font-black tabular-nums text-slate-950 dark:text-white">
+              {seats.length}
+            </span>
+          </div>
+
+          {seatGroups.map(({ heading, subgroups }) => (
+            <div key={heading}>
+              {/* Every group is headed, including an ungrouped one. Without its own
+                  heading those rows read as a continuation of the previous region. */}
+              <p className="border-b border-slate-100 bg-slate-50/60 px-4 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/5 dark:bg-white/[0.02] sm:px-5">
+                {heading}
+              </p>
+
+              {subgroups.map((sub) => (
+                <div key={sub.heading ?? 'all'}>
+                  {/* A country heading exists only when a slot is country-level;
+                      regional places sit directly under their region. */}
+                  {sub.heading && (
+                    <p className="border-b border-slate-100 bg-slate-50/30 px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:border-white/5 dark:bg-white/[0.01] sm:px-7">
+                      {sub.heading}
+                    </p>
+                  )}
+
+                  <div className="divide-y divide-slate-100 dark:divide-white/5">
+                    {sub.rows.map((seat) => (
+                  <div key={seat.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 dark:border-white/10 dark:bg-black/30">
+                      {seat.logoUrl || seat.logoDarkUrl ? (
+                        <ThemeLogo
+                          lightSrc={seat.logoUrl ?? undefined}
+                          darkSrc={seat.logoDarkUrl ?? undefined}
+                          alt={seat.label}
+                          className="object-contain p-1"
+                        />
+                      ) : (
+                        <span className="text-[10px] font-black text-slate-400">—</span>
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        {seat.label}
+                      </p>
+                      {seat.qualifierName &&
+                        (seat.qualifierSlug ? (
+                          <Link
+                            href={`/tournaments/${seat.qualifierSlug}`}
+                            className="text-[11px] font-semibold text-[#0A5FC4] hover:underline dark:text-blue-300"
+                          >
+                            via {seat.qualifierName}
+                          </Link>
+                        ) : (
+                          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            via {seat.qualifierName}
+                          </p>
+                        ))}
+                      {/* Deliberately nothing derived from the shared region list
+                          here: a place records what it was given, so re-drawing
+                          the region's members later cannot rewrite this page. */}
+                    </div>
+                  </div>
+                ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+      )}
+
       {/* Search & Controls Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
         <div>
@@ -169,8 +307,6 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
               <option value="default" className="dark:bg-[#0b1220]">Default Order</option>
               <option value="name_asc" className="dark:bg-[#0b1220]">Name (A → Z)</option>
               <option value="name_desc" className="dark:bg-[#0b1220]">Name (Z → A)</option>
-              <option value="seed_asc" className="dark:bg-[#0b1220]">Seed (1 → N)</option>
-              <option value="seed_desc" className="dark:bg-[#0b1220]">Seed (N → 1)</option>
             </select>
           </div>
 
@@ -204,10 +340,12 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
             return 0;
           });
           const isExpanded = expandedTeamIds.has(tt.id);
+          // The seed number is internal: it orders the field, it is not shown.
+          // With no label and no linked event there is simply nothing to say, so
+          // the line is not rendered at all — no "Qualified Squad" filler.
           const seedLabel =
             tt.seedLabel ||
-            (tt.seedTournament?.name ? `Seeded via ${tt.seedTournament.name}` : null) ||
-            (tt.seed != null ? `Seed #${tt.seed}` : 'Qualified Squad');
+            (tt.seedTournament?.name ? `Seeded via ${tt.seedTournament.name}` : null);
 
           return (
             <div
@@ -239,10 +377,22 @@ export function EstaticTeamsPanel({ teams }: EstaticTeamsPanelProps) {
                     >
                       {tt.team.name}
                     </Link>
-                    {/* Seed Label below team name instead of region */}
-                    <div className="text-xs font-semibold text-[#0A5FC4] dark:text-blue-300 truncate">
-                      {seedLabel}
-                    </div>
+                    {/* Seed line. An admin-written label wins; the linked qualifier
+                        event is a real link. Neither present means no line at all. */}
+                    {seedLabel && (
+                      <div className="text-xs font-semibold text-[#0A5FC4] dark:text-blue-300 truncate">
+                        {tt.seedLabel ? (
+                          seedLabel
+                        ) : (
+                          <Link
+                            href={`/tournaments/${tt.seedTournament?.slug}`}
+                            className="hover:underline"
+                          >
+                            {seedLabel}
+                          </Link>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

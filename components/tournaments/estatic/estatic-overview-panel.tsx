@@ -28,6 +28,7 @@ export function EstaticOverviewPanel({
   overallFraggers,
   matches,
   teamsCount,
+  teamsToShow,
   teamsMeta,
   playerSlugById,
 }: {
@@ -59,6 +60,8 @@ export function EstaticOverviewPanel({
   }[];
   matches: OverviewMatchLite[];
   teamsCount: number;
+  /** Announced field size, when the event states one. */
+  teamsToShow?: number | null;
   resolvedWinner?: string | null;
   resolvedRunnerUp?: string | null;
   teamsMeta?: Record<string, { slug?: string | null; name?: string | null }>;
@@ -113,8 +116,18 @@ export function EstaticOverviewPanel({
     {
       icon: Users,
       label: 'Format & Line-up',
-      value: `${teamsCount} Qualified Squads`,
-      sub: tournament.gameMode || 'Battle Royale',
+      // `teamsCount` is squads actually named, so pairing it with the announced
+      // field size shows the gap at a glance: 2 of 16 in, 14 slots still open.
+      value:
+        teamsToShow != null
+          ? `${teamsCount} / ${teamsToShow} Qualified`
+          : `${teamsCount} Qualified Squads`,
+      sub:
+        teamsToShow != null
+          ? `${Math.max(0, teamsToShow - teamsCount)} slot${
+              teamsToShow - teamsCount === 1 ? '' : 's'
+            } pending`
+          : tournament.gameMode || 'Battle Royale',
     },
   ];
 

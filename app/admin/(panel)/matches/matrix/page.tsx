@@ -124,7 +124,10 @@ export default async function AdminMatchMatrixPage({
       game: t.game,
       formatDetails: t.formatDetails,
       stages: t.stages,
-      teams: t.teams,
+      // Seats have no team to score, so they are left out of the matrix entirely.
+      teams: t.teams.flatMap((tt) =>
+        tt.team && tt.teamId ? [{ teamId: tt.teamId, team: tt.team }] : []
+      ),
       matches: t.matches.map((m) => ({
         ...m,
         scheduledAt: m.scheduledAt.toISOString(),

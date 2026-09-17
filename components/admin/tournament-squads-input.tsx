@@ -16,6 +16,8 @@ import {
   UploadCloud,
   Shield,
   Users,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { SearchableSelect, SearchableSelectOption } from '../ui/searchable-select';
 import { TournamentSquadBulkImporter } from './tournament-squad-bulk-importer';
@@ -31,10 +33,12 @@ export interface SquadRosterEntry {
 }
 
 export interface SquadRow {
-  teamId: string;
+  /** Null for an unfilled seat: a place in the field with no team yet. */
+  teamId: string | null;
   teamName: string;
   tag?: string | null;
   seed?: number | null;
+  /** For an unfilled seat this is the row's name — "Korean League". */
   seedLabel?: string | null;
   seedTournamentId?: string | null;
   roster: SquadRosterEntry[];
@@ -42,7 +46,9 @@ export interface SquadRow {
   eventLogoDarkUrl?: string | null;
   shortName?: string | null;
   displayName?: string | null;
+  /** Doubles as the region the teams tab groups by; `region` groups countries. */
   country?: string | null;
+  region?: string | null;
 }
 
 const ROLES = ['Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
@@ -72,13 +78,27 @@ export function TournamentSquadsInput({
   allTeams,
   allPlayers,
   allTournaments = [],
+  allRegions = [],
 }: {
   initialSquads: SquadRow[];
   allTeams: { id: string; name: string; tag?: string | null }[];
   allPlayers: { id: string; ign: string; name?: string | null; currentTeam?: { id: string; name: string } | null }[];
   allTournaments?: { id: string; name: string; slug: string }[];
+  /** Admin-managed regions and the countries each covers. */
+  allRegions?: { name: string; countries: string[] }[];
 }) {
   const [squads, setSquads] = React.useState<SquadRow[]>(initialSquads);
+
+  /**
+   * Countries offered for a country field. With a region chosen it offers that
+   * region's members — which is what makes "all EMEA places take the countries
+   * listed under EMEA" true rather than a matter of typing the name correctly.
+   */
+  const countriesForRegion = (region: string | null): string[] => {
+    if (region) return allRegions.find((entry) => entry.name === region)?.countries ?? [];
+    return allRegions.flatMap((entry) => entry.countries);
+  };
+
   const [bulkPasteOpen, setBulkPasteOpen] = React.useState<number | null>(null);
   const [bulkPasteText, setBulkPasteText] = React.useState<string>('');
   const [bulkImporterOpen, setBulkImporterOpen] = React.useState(false);
@@ -155,16 +175,40 @@ export function TournamentSquadsInput({
     update(index, { roster });
   };
 
+  /**
+   * Moves a row. Seeds are deliberately *not* rewritten — a move is an edit to
+   * the list, not a claim about the seeding — so an event whose seeding was
+   * never published keeps its blanks.
+   */
+  const moveSquad = (index: number, direction: -1 | 1) => {
+    setSquads((prev) => {
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[index], copy[target]] = [copy[target], copy[index]];
+      return copy;
+    });
+  };
+
+  /** The explicit act of numbering the field 1..N in the order shown. */
+  const renumberSeeds = () => {
+    setSquads((prev) => prev.map((squad, idx) => ({ ...squad, seed: idx + 1 })));
+  };
+
+  /** True once the seeds, in list order, are already 1..N. */
+  const seedsAreSequential = squads.every((squad, idx) => squad.seed === idx + 1);
+
   const addSquad = () => {
-    const first = allTeams[0];
     const newIdx = squads.length;
     setSquads((prev) => [
       ...prev,
       {
-        teamId: first?.id ?? '',
-        teamName: first?.name ?? '',
-        seed: null,
-        seedLabel: 'Direct Invite',
+        // A place starts open: fill it with a team, or leave it as a seat with an
+        // entry label and a region.
+        teamId: null,
+        teamName: '',
+        seed: prev.length + 1,
+        seedLabel: null,
         seedTournamentId: null,
         roster: [],
         eventLogoUrl: null,
@@ -331,6 +375,27 @@ export function TournamentSquadsInput({
         </div>
       </div>
 
+      {/* Numbering the field in the order shown is a deliberate act, not an
+          automatic side effect of moving a row: reordering must never invent
+          seeding for an event that never published any. */}
+      {squads.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            {seedsAreSequential
+              ? `Seeds run 1–${squads.length} in this order.`
+              : 'Seeds are not sequential in this order yet.'}
+          </p>
+          <button
+            type="button"
+            onClick={renumberSeeds}
+            disabled={seedsAreSequential}
+            className="shrink-0 cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+          >
+            Renumber seeds 1→{squads.length}
+          </button>
+        </div>
+      )}
+
       {/* ── Search Bar (For 24 - 100+ Squads) ── */}
       {squads.length > 5 && (
         <div className="relative">
@@ -393,14 +458,21 @@ export function TournamentSquadsInput({
 
                   <div className="min-w-0 flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                      {squad.teamName || '— Unnamed Team —'}
+                      {squad.teamId
+                        ? squad.teamName || '— Unnamed Team —'
+                        : squad.seedLabel || '— Open seat —'}
                     </span>
                     {squad.tag && (
                       <span className="px-1.5 py-0.2 rounded bg-slate-200/80 dark:bg-slate-800 font-mono text-[10px] text-slate-600 dark:text-slate-400">
                         [{squad.tag}]
                       </span>
                     )}
-                    {squad.seedLabel && (
+                    {squad.seed != null && (
+                      <span className="px-1.5 py-0.2 rounded bg-amber-500/15 font-mono text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                        #{squad.seed}
+                      </span>
+                    )}
+                    {squad.teamId && squad.seedLabel && (
                       <span className="text-[11px] text-slate-400 hidden sm:inline">
                         · {squad.seedLabel}
                       </span>
@@ -421,6 +493,26 @@ export function TournamentSquadsInput({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => moveSquad(i, -1)}
+                    disabled={i === 0}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    title="Move up"
+                  >
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => moveSquad(i, 1)}
+                    disabled={i === squads.length - 1}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                    title="Move down"
+                  >
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => toggleExpand(i)}
@@ -446,21 +538,47 @@ export function TournamentSquadsInput({
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
                     <div className="sm:col-span-4">
-                      <label className={labelCls}>Team</label>
-                      <SearchableSelect
-                        options={teamOptions}
-                        value={squad.teamId}
-                        size="admin"
-                        placeholder="— select team —"
-                        searchPlaceholder="Type team name or tag…"
-                        onChange={(val) => {
-                          const team = allTeams.find((t) => t.id === val);
-                          update(i, { teamId: val, teamName: team?.name ?? '', tag: team?.tag ?? squad.tag });
-                        }}
+                      <label className={labelCls}>Team (leave empty for an open seat)</label>
+                      <div className="flex items-center gap-1.5">
+                        <SearchableSelect
+                          options={teamOptions}
+                          value={squad.teamId ?? ''}
+                          size="admin"
+                          placeholder="— open seat, no team yet —"
+                          searchPlaceholder="Type team name or tag…"
+                          onChange={(val) => {
+                            const team = allTeams.find((t) => t.id === val);
+                            update(i, { teamId: val || null, teamName: team?.name ?? '', tag: team?.tag ?? squad.tag });
+                          }}
+                        />
+                        {squad.teamId && (
+                          <button
+                            type="button"
+                            onClick={() => update(i, { teamId: null, teamName: '' })}
+                            className="shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-bold text-slate-500 transition-colors hover:border-rose-300 hover:text-rose-600 dark:border-slate-700 dark:text-slate-400"
+                            title="Clear the team, leaving this place open"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className={labelCls}>Seed</label>
+                      <input
+                        type="number"
+                        min={1}
+                        className={inputCls}
+                        value={squad.seed ?? ''}
+                        onChange={(e) =>
+                          update(i, { seed: e.target.value === '' ? null : Number(e.target.value) })
+                        }
+                        placeholder="1"
                       />
                     </div>
 
-                    <div className="sm:col-span-4">
+                    <div className="sm:col-span-3">
                       <label className={labelCls}>Seed / Entry Label</label>
                       <input
                         className={inputCls}
@@ -470,7 +588,7 @@ export function TournamentSquadsInput({
                       />
                     </div>
 
-                    <div className="sm:col-span-4">
+                    <div className="sm:col-span-3">
                       <label className={labelCls}>Linked Qualifier Event</label>
                       <SearchableSelect
                         options={tournamentOptions}
@@ -485,7 +603,7 @@ export function TournamentSquadsInput({
                   </div>
 
                   {/* Overrides */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <div>
                       <label className={labelCls}>Display Name Override</label>
                       <input
@@ -505,12 +623,26 @@ export function TournamentSquadsInput({
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Country Override</label>
-                      <input
-                        className={inputCls}
+                      <label className={labelCls}>Region</label>
+                      <SearchableSelect
+                        options={allRegions.map((region) => ({ value: region.name, label: region.name }))}
+                        value={squad.region ?? ''}
+                        onChange={(val) => update(i, { region: val || null })}
+                        placeholder="— none —"
+                        size="admin"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Country</label>
+                      <SearchableSelect
+                        options={countriesForRegion(squad.region ?? null).map((country) => ({
+                          value: country,
+                          label: country,
+                        }))}
                         value={squad.country ?? ''}
-                        onChange={(e) => update(i, { country: e.target.value || null })}
-                        placeholder="e.g. India, IN"
+                        onChange={(val) => update(i, { country: val || null })}
+                        placeholder="— none —"
+                        size="admin"
                       />
                     </div>
                   </div>

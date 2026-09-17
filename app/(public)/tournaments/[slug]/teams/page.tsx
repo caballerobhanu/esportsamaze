@@ -39,6 +39,7 @@ export default async function TournamentTeamsPage({
     <TournamentTabShell ctx={ctx} activeTab="teams">
       <EstaticTeamsPanel
         teams={data.enrichedTeams}
+        seats={data.seats}
         logoMode={ctx.standingsConfig.logoMode}
         showCountryFlag={
           ctx.standingsConfig.teamsConfig?.showCountryFlag ??
