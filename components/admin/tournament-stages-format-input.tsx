@@ -1412,7 +1412,7 @@ export function TournamentStagesFormatInput({
                             </p>
                           ) : groupCandidates.length === 0 ? (
                             <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
-                              Add squads in section 6 (Participating Squads) first — the draw is built from them.
+                              Add squads on the Squads tab first — the draw is built from them.
                             </p>
                           ) : Object.keys(stageGroups(sIdx)).length === 0 ? (
                             <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">

@@ -35,6 +35,7 @@ import { TournamentPrizeDistributionInput } from '@/components/admin/tournament-
 import { TournamentFinalRankingsInput } from '@/components/admin/tournament-final-rankings-input';
 import { TournamentPointsSystemInput } from '@/components/admin/tournament-points-system-input';
 import { TournamentStagesFormatInput, type GroupCandidate } from '@/components/admin/tournament-stages-format-input';
+import { FormTabs, FormPanel } from '@/components/admin/form-tabs';
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
@@ -46,6 +47,33 @@ export const dynamic = 'force-dynamic';
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
+
+/**
+ * The editor's sections, grouped into tabs. The panel grouping lives with the markup — a
+ * tab holds whichever sections belong together, in the order they already appear.
+ */
+const TOURNAMENT_FORM_TABS = [
+  { id: 'basics', label: 'Basics' },
+  { id: 'format', label: 'Format' },
+  { id: 'squads', label: 'Squads' },
+  { id: 'prizes', label: 'Prizes & Results' },
+  { id: 'standings', label: 'Standings' },
+  { id: 'branding', label: 'Branding' },
+];
+
+/**
+ * Which tab owns a structured field that failed to parse — `?error=json&field=…`. Without
+ * this the banner would name a field sitting in a hidden tab, where no control is visible.
+ */
+const TAB_BY_JSON_FIELD: Record<string, string> = {
+  'stages format': 'format',
+  'points system': 'format',
+  squads: 'squads',
+  'prize distribution': 'prizes',
+  qualifications: 'prizes',
+  'final rankings': 'prizes',
+  'standings config': 'standings',
+};
 
 type StandingsInputRow = Parameters<typeof calculateTournamentStandings>[0][number];
 
@@ -940,6 +968,12 @@ export default async function AdminTournamentsPage({
 }) {
   const { edit, error, field } = await searchParams;
 
+  // Open the tab that owns a field that failed to parse, so the banner never names a
+  // control the admin cannot see. `required` covers name and game (Basics) plus the dates
+  // (Prizes & Results); the banner names all four, so Basics is the better first guess.
+  const initialTab =
+    error === 'json' ? TAB_BY_JSON_FIELD[field ?? ''] ?? 'basics' : 'basics';
+
   const [games, organizers, sponsors, venues, teams, tournaments, players] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
     prisma.organizer.findMany({ orderBy: { name: 'asc' } }),
@@ -988,6 +1022,13 @@ export default async function AdminTournamentsPage({
         lastName: true,
         avatarUrl: true,
         currentTeam: { select: { id: true, name: true, tag: true } },
+        // Read by the squads input to import a team's active roster: which members compete,
+        // which are staff, and at what role. Without these the client can only see that a
+        // player belongs to a team, and would have to invent roles.
+        isPlayer: true,
+        role: true,
+        staffRole: true,
+        status: true,
       },
     }),
   ]);
@@ -1284,6 +1325,8 @@ export default async function AdminTournamentsPage({
         >
           {editing && <input type="hidden" name="id" value={editing.id} />}
 
+          <FormTabs tabs={TOURNAMENT_FORM_TABS} initialTab={initialTab}>
+          <FormPanel tab="basics">
           {/* Section 1: Basic Tournament Identity */}
           <div>
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1502,6 +1545,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="prizes">
           {/* Section 3: Prize Pool, Currency & Dates */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1611,6 +1657,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="format">
           {/* Section 4: Format Architecture, Stages & Scoring Matrix */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5 space-y-5">
             <div>
@@ -1639,6 +1688,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="squads">
           {/* Section 5: Participating Squads & Rosters */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1673,6 +1725,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="prizes">
           {/* Section 6: Final Team Rankings */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1691,6 +1746,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="standings">
           {/* Section 7: Standings Display & Filters */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1705,6 +1763,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="branding">
           {/* Section 8: Dual Logos & Banners */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1738,6 +1799,9 @@ export default async function AdminTournamentsPage({
             </div>
           </div>
 
+          </FormPanel>
+
+          <FormPanel tab="basics">
           {/* Section 9: All Social Media Channels */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-1 flex items-center gap-1.5">
@@ -1775,6 +1839,9 @@ export default async function AdminTournamentsPage({
               ))}
             </div>
           </div>
+
+          </FormPanel>
+          </FormTabs>
 
           {/* Floating Sticky Action Dock */}
           <div className="sticky bottom-4 z-40 p-3 rounded-2xl bg-white/95 dark:bg-[#0b101c]/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800/90 shadow-2xl flex items-center justify-between gap-4">

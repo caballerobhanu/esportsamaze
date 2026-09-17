@@ -19,6 +19,7 @@ import {
   Users,
   ArrowUp,
   ArrowDown,
+  Download,
 } from 'lucide-react';
 import { SearchableSelect, SearchableSelectOption } from '../ui/searchable-select';
 import { TournamentSquadBulkImporter } from './tournament-squad-bulk-importer';
@@ -84,7 +85,16 @@ export function TournamentSquadsInput({
 }: {
   initialSquads: SquadRow[];
   allTeams: { id: string; name: string; tag?: string | null }[];
-  allPlayers: { id: string; ign: string; name?: string | null; currentTeam?: { id: string; name: string } | null }[];
+  allPlayers: {
+    id: string;
+    ign: string;
+    name?: string | null;
+    currentTeam?: { id: string; name: string } | null;
+    isPlayer?: boolean;
+    role?: string | null;
+    staffRole?: string | null;
+    status?: string | null;
+  }[];
   allTournaments?: { id: string; name: string; slug: string }[];
   /** Regions already in use, offered as suggestions in the per-row Region box. */
   allRegions?: { name: string }[];
@@ -101,6 +111,8 @@ export function TournamentSquadsInput({
 
   const [bulkPasteOpen, setBulkPasteOpen] = React.useState<number | null>(null);
   const [bulkPasteText, setBulkPasteText] = React.useState<string>('');
+  /** What the last roster import did, per squad row — a button that silently no-ops is worse than none. */
+  const [rosterImportNote, setRosterImportNote] = React.useState<Record<number, string>>({});
   const [bulkImporterOpen, setBulkImporterOpen] = React.useState(false);
   const [squadSearch, setSquadSearch] = React.useState('');
 
@@ -269,6 +281,71 @@ export function TournamentSquadsInput({
     updateRoster(squadIdx, [...existingRoster, ...newEntries]);
     setBulkPasteText('');
     setBulkPasteOpen(null);
+  };
+
+  /**
+   * Fills a squad's roster from the team's own members — the roster the org page already
+   * shows — so a squad does not have to be retyped from the team record.
+   *
+   * ACTIVE and BENCHED both belong to the team and map onto this roster's own status tags;
+   * INACTIVE and RETIRED are left out. Anyone already present is skipped, by player where
+   * linked and by IGN otherwise, so pressing it twice changes nothing and hand-typed
+   * entries are never thrown away.
+   */
+  const importTeamRoster = (squadIdx: number) => {
+    const squad = squads[squadIdx];
+    if (!squad?.teamId) return;
+
+    const members = allPlayers.filter(
+      (p) => p.currentTeam?.id === squad.teamId && (p.status === 'ACTIVE' || p.status === 'BENCHED')
+    );
+
+    const existingPlayerIds = new Set(squad.roster.map((entry) => entry.playerId).filter(Boolean));
+    const existingIgns = new Set(squad.roster.map((entry) => entry.ign.trim().toLowerCase()).filter(Boolean));
+
+    let addedPlayers = 0;
+    let addedStaff = 0;
+    const additions: SquadRosterEntry[] = [];
+
+    for (const member of members) {
+      if (existingPlayerIds.has(member.id)) continue;
+      if (existingIgns.has(member.ign.trim().toLowerCase())) continue;
+
+      if (member.isPlayer === false) {
+        additions.push({
+          playerId: member.id,
+          ign: member.ign,
+          role: member.staffRole ?? null,
+          captain: false,
+          isStaff: true,
+          staffRole: member.staffRole ?? 'Coach',
+          statusTag: null,
+        });
+        addedStaff += 1;
+      } else {
+        additions.push({
+          playerId: member.id,
+          ign: member.ign,
+          role: member.role ?? null,
+          captain: false,
+          isStaff: false,
+          statusTag: member.status === 'BENCHED' ? 'BENCHED' : 'MAIN',
+        });
+        addedPlayers += 1;
+      }
+    }
+
+    if (additions.length > 0) updateRoster(squadIdx, [...squad.roster, ...additions]);
+
+    setRosterImportNote((prev) => ({
+      ...prev,
+      [squadIdx]:
+        additions.length === 0
+          ? members.length === 0
+            ? 'This team has no active members.'
+            : 'Already up to date — nothing to add.'
+          : `Added ${addedPlayers} player${addedPlayers === 1 ? '' : 's'}${addedStaff > 0 ? ` and ${addedStaff} staff` : ''}.`,
+    }));
   };
 
   // Handle Bulk Squads Import (TSV or JSON)
@@ -698,18 +775,37 @@ export function TournamentSquadsInput({
 
                   {/* Roster Section */}
                   <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <label className={labelCls}>
                         Competing Roster ({players.length} players)
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setBulkPasteOpen(bulkPasteOpen === i ? null : i)}
-                        className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Quick Paste Player IGNs
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {/* Only meaningful once the row has a team to import from. */}
+                        {squad.teamId && (
+                          <button
+                            type="button"
+                            onClick={() => importTeamRoster(i)}
+                            title="Add this team's current players and staff to this squad"
+                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Import team roster
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setBulkPasteOpen(bulkPasteOpen === i ? null : i)}
+                          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Quick Paste Player IGNs
+                        </button>
+                      </div>
                     </div>
+
+                    {rosterImportNote[i] && (
+                      <p className="mb-2 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        {rosterImportNote[i]}
+                      </p>
+                    )}
 
                     {/* Quick Paste Modal / Inline Input */}
                     {bulkPasteOpen === i && (
