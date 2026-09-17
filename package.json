@@ -12,7 +12,8 @@
     "db:backup": "tsx scripts/backup-db.ts",
     "db:repair-prizes": "tsx scripts/repair-prize-totals.ts",
     "media:sync-r2": "tsx scripts/sync-media-to-r2.ts",
-    "media:backfill-hashes": "tsx scripts/backfill-media-hashes.ts"
+    "media:backfill-hashes": "tsx scripts/backfill-media-hashes.ts",
+    "teams:merge": "tsx scripts/merge-teams.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

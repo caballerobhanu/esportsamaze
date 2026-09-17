@@ -25,6 +25,8 @@ interface TeamRosterMember {
 
 interface EnrichedTournamentTeam {
   id: string;
+  /** The event's own name for this team — a sponsor rename, for one event only. */
+  displayName?: string | null;
   seed?: number | null;
   seedLabel?: string | null;
   seedTournament?: { id: string; name: string; slug: string } | null;
@@ -41,6 +43,15 @@ interface EnrichedTournamentTeam {
     imageDarkUrl?: string | null;
     region?: string | null;
   };
+}
+
+/**
+ * The event's name for a team. A per-event override on the seat wins over the team's own
+ * name, which is what the Format, Standings and Progression tabs already do — a team that
+ * competed under a sponsor's name for one event should read that way on every tab.
+ */
+function teamDisplayName(tt: EnrichedTournamentTeam): string {
+  return tt.displayName || tt.team.displayName || tt.team.name;
 }
 
 /** A place in the field that no team has taken yet. */
@@ -89,25 +100,23 @@ export function EstaticTeamsPanel({ teams, seats = [] }: EstaticTeamsPanelProps)
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((t) => {
-        const name = t.team.name.toLowerCase();
+        const name = teamDisplayName(t).toLowerCase();
+        const realName = t.team.name.toLowerCase();
         const tag = t.team.tag?.toLowerCase() || '';
         const seed = (t.seedLabel || '').toLowerCase();
-        return name.includes(q) || tag.includes(q) || seed.includes(q);
+        // Either name finds the team: the event's, and the org's own.
+        return name.includes(q) || realName.includes(q) || tag.includes(q) || seed.includes(q);
       });
     }
 
     if (sortBy === 'name_asc') {
-      result.sort((a, b) => {
-        const nameA = a.team.displayName || a.team.name;
-        const nameB = b.team.displayName || b.team.name;
-        return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
-      });
+      result.sort((a, b) =>
+        teamDisplayName(a).localeCompare(teamDisplayName(b), undefined, { sensitivity: 'base' })
+      );
     } else if (sortBy === 'name_desc') {
-      result.sort((a, b) => {
-        const nameA = a.team.displayName || a.team.name;
-        const nameB = b.team.displayName || b.team.name;
-        return nameB.localeCompare(nameA, undefined, { sensitivity: 'base' });
-      });
+      result.sort((a, b) =>
+        teamDisplayName(b).localeCompare(teamDisplayName(a), undefined, { sensitivity: 'base' })
+      );
     } else {
       // Default order is the seed — the field order, which is what this tab is
       // for. The sort is stable, so rows with no seed keep the order they arrived
@@ -363,11 +372,11 @@ export function EstaticTeamsPanel({ teams, seats = [] }: EstaticTeamsPanelProps)
                       <ThemeLogo
                         lightSrc={tt.logoUrl ?? tt.team.logoUrl}
                         darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
-                        alt={tt.team.name}
+                        alt={teamDisplayName(tt)}
                         className="object-contain p-1.5"
                       />
                     ) : (
-                      <span className="font-black text-slate-400 text-sm">{tt.team.name.slice(0, 2).toUpperCase()}</span>
+                      <span className="font-black text-slate-400 text-sm">{teamDisplayName(tt).slice(0, 2).toUpperCase()}</span>
                     )}
                   </Link>
                   <div className="min-w-0">
@@ -375,7 +384,7 @@ export function EstaticTeamsPanel({ teams, seats = [] }: EstaticTeamsPanelProps)
                       href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}
                       className="text-base font-black text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block truncate"
                     >
-                      {tt.team.name}
+                      {teamDisplayName(tt)}
                     </Link>
                     {/* Seed line. An admin-written label wins; the linked qualifier
                         event is a real link. Neither present means no line at all. */}
