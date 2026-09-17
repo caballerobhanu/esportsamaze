@@ -1044,12 +1044,10 @@ export function EstaticPrizePanel({
                   key={awardIdx}
                   className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 transition-shadow hover:shadow-xl hover:shadow-slate-900/10 dark:border-white/10 dark:bg-[#0b1220] dark:shadow-black/40"
                 >
-                  {/* The reserved room is a share of the card, and the overhang is
-                      measured against the square it rises from, so no width can push
-                      a head past the card's own clipping. The overlay mirrors the
-                      square's box exactly, which is what makes those percentages
-                      mean the square rather than the padding. */}
-                  <div className="relative px-[9%] pt-[22%]">
+                  {/* Even padding all round, so the square sits square in the card.
+                      The overhang is sized under that same share, which is why it can
+                      rise without the card's clipping ever reaching its head. */}
+                  <div className="relative px-[9%] pt-[9%]">
                     {/* The square the recipient rises out of. */}
                     <div className="relative mx-auto aspect-square w-full overflow-hidden rounded-2xl bg-slate-100 shadow-inner dark:bg-white/[0.05]">
                       {/* A soft field of the site's own blue rather than a pattern:
@@ -1081,9 +1079,9 @@ export function EstaticPrizePanel({
                         set, those two over-constrain and shove the figure sideways.
                         `contain` bottom-aligned keeps a wide photo whole. */}
                     {image && (
-                      <div className="pointer-events-none absolute inset-x-[9%] bottom-0 top-[22%]">
+                      <div className="pointer-events-none absolute inset-x-[9%] bottom-0 top-[9%]">
                         {isPlayerAward ? (
-                          <div className="absolute bottom-0 left-1/2 h-[118%] w-[104%] -translate-x-1/2 drop-shadow-[0_14px_18px_rgba(2,10,30,0.45)]">
+                          <div className="absolute bottom-0 left-1/2 h-[107%] w-[104%] -translate-x-1/2 drop-shadow-[0_14px_18px_rgba(2,10,30,0.45)]">
                             <ThemeLogo
                               lightSrc={lightImage}
                               darkSrc={darkImage}
