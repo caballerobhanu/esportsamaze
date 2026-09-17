@@ -1011,7 +1011,7 @@ export function EstaticPrizePanel({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {shownAwards.map(({ row, stageName }, awardIdx) => {
               const isPlayerAward = row.recipientType === 'PLAYER' || Boolean(row.playerName);
               const meta = isPlayerAward ? null : getTeamMeta(row);
@@ -1028,13 +1028,11 @@ export function EstaticPrizePanel({
                   ? `/teams/${meta.slug}`
                   : null;
 
-              // A team's crest is the attraction, so it is given air; a face should
-              // fill its frame instead. Both stand in with a monogram, which reads
-              // as a choice rather than a missing image.
+              // One variant only, so a player's single photo shows in both themes.
               const lightImage = isPlayerAward
                 ? player?.avatarUrl ?? null
                 : meta?.logoUrl ?? meta?.imageDarkUrl ?? null;
-              const darkImage = isPlayerAward ? null : meta?.imageDarkUrl ?? meta?.logoUrl ?? null;
+              const darkImage = isPlayerAward ? null : meta?.imageDarkUrl ?? null;
               const monogram = isPlayerAward
                 ? (recipient.match(/[A-Za-z0-9]/)?.[0] ?? '?').toUpperCase()
                 : (recipient.replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || '??').toUpperCase();
@@ -1043,67 +1041,64 @@ export function EstaticPrizePanel({
               return (
                 <article
                   key={awardIdx}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-colors hover:border-amber-400/70 dark:border-white/10 dark:bg-[#0b1220]"
+                  className="flex gap-3.5 rounded-2xl border border-l-2 border-slate-200 border-l-amber-400/70 bg-white p-3.5 shadow-xs transition-colors hover:border-amber-400/70 hover:border-l-amber-400 dark:border-white/10 dark:border-l-amber-400/60 dark:bg-[#0b1220]"
                 >
-                  {/* The honour's colour is a rule, not a surface: the card stays the
-                      same paper as the rest of the page. */}
-                  <span aria-hidden="true" className="block h-1 w-full bg-amber-400/80" />
-
-                  <div className="relative flex aspect-[5/4] items-center justify-center overflow-hidden bg-slate-50 dark:bg-white/[0.03]">
+                  {/* The recipient at reading size: a crest reads as a crest and a
+                      face reads as a face, and a monogram is the same weight as
+                      either — so the card never depends on a photo existing. */}
+                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 dark:border-white/10 dark:bg-white/[0.04]">
                     {lightImage || darkImage ? (
                       <ThemeLogo
-                        lightSrc={lightImage ?? undefined}
-                        darkSrc={darkImage ?? lightImage ?? undefined}
+                        lightSrc={lightImage}
+                        darkSrc={darkImage}
                         alt={recipient}
-                        className={
-                          isPlayerAward
-                            ? 'h-full w-full object-cover object-top'
-                            : 'max-h-[62%] max-w-[62%] object-contain'
-                        }
+                        className={isPlayerAward ? 'object-cover object-top' : 'object-contain p-1.5'}
                       />
                     ) : (
                       <span
                         aria-hidden="true"
-                        className="select-none text-5xl font-black tracking-tight text-slate-300 dark:text-white/15"
+                        className="select-none text-lg font-black tracking-tight text-slate-400 dark:text-white/30"
                       >
                         {monogram}
                       </span>
                     )}
-
-                    {prizeStages.length > 1 && stageName && (
-                      <span className="absolute bottom-0 left-0 bg-white/85 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-[#0b1220]/85 dark:text-slate-400">
-                        {stageName}
-                      </span>
-                    )}
                   </div>
 
-                  <div className="flex flex-1 flex-col gap-1 p-4">
-                    <h4 className="text-base font-black leading-tight tracking-tight text-slate-950 dark:text-white">
-                      {row.rank}
-                    </h4>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-sm font-black leading-snug tracking-tight text-slate-950 dark:text-white">
+                        {row.rank}
+                      </h4>
+                      {prizeStages.length > 1 && stageName && (
+                        <span className="shrink-0 text-[10px] font-bold text-slate-400">{stageName}</span>
+                      )}
+                    </div>
+
                     {recipientHref ? (
                       <Link
                         href={recipientHref}
-                        className="w-fit text-xs font-bold text-slate-500 transition-colors hover:text-[#0A5FC4] dark:text-slate-400 dark:hover:text-blue-300"
+                        className="mt-0.5 block truncate text-xs font-bold text-slate-500 transition-colors hover:text-[#0A5FC4] dark:text-slate-400 dark:hover:text-blue-300"
                       >
                         {recipient}
                       </Link>
                     ) : (
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{recipient}</p>
+                      <p className="mt-0.5 truncate text-xs font-bold text-slate-500 dark:text-slate-400">
+                        {recipient}
+                      </p>
                     )}
 
                     {/* Money and a physical prize are different things, so they do not
                         get the same treatment. */}
                     {amount > 0 ? (
-                      <p className="mt-auto pt-2 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
+                      <p className="mt-1.5 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
                         {formatPrizeAmount(amount, currency || 'INR')}
                       </p>
                     ) : row.customReward ? (
-                      <p className="mt-auto pt-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+                      <p className="mt-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
                         {row.customReward}
                       </p>
                     ) : (
-                      <p className="mt-auto pt-2 text-xs font-semibold text-slate-400">
+                      <p className="mt-1.5 text-xs font-semibold text-slate-400">
                         {row.rewardType === 'TITLE' ? 'Honorary title' : '—'}
                       </p>
                     )}
