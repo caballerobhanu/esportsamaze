@@ -192,37 +192,53 @@ export async function saveUploadedFile(
     // different files and will not dedupe — that is intended.
     const contentHash = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    const existing = await prisma.mediaAsset.findFirst({
-      where: { contentHash },
-      select: { filename: true },
-    });
-    if (existing) return publicUrlForFilename(existing.filename);
-
-    const safePrefix = (prefix || 'upload').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30) || 'upload';
-    const filename = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${finalExt}`;
-
-    // Register before storing, so a failed registration cannot leave an object in the
-    // bucket that no row points at.
+    // Claim the hash atomically. The entity forms upload their light and dark logos with
+    // Promise.all, so two identical images land here concurrently — without the lock both
+    // checks below miss and both write a row and an object, which is precisely the
+    // duplicate this is meant to prevent.
+    let claim: { existingFilename: string } | { newFilename: string };
     try {
-      await prisma.mediaAsset.create({
-        data: {
-          filename,
-          contentHash,
-          originalName: value.name || null,
-          mimeType,
-          size: buffer.length,
-          alt: alt || null,
-        },
+      claim = await prisma.$transaction(async (tx) => {
+        // $executeRaw, not $queryRaw: the lock function returns void, which Prisma cannot
+        // deserialize into a column value.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${contentHash}))`;
+
+        const existing = await tx.mediaAsset.findFirst({
+          where: { contentHash },
+          select: { filename: true },
+        });
+        if (existing) return { existingFilename: existing.filename };
+
+        const safePrefix = (prefix || 'upload').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 30) || 'upload';
+        const filename = `${safePrefix}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${finalExt}`;
+
+        // Claimed before storing, so a failure here cannot leave an object in the bucket
+        // that no row points at.
+        await tx.mediaAsset.create({
+          data: {
+            filename,
+            contentHash,
+            originalName: value.name || null,
+            mimeType,
+            size: buffer.length,
+            alt: alt || null,
+          },
+        });
+
+        return { newFilename: filename };
       });
     } catch (err) {
       console.error('Failed to register media asset:', err);
       return null;
     }
 
+    // Another upload of the same bytes won the race — reuse its asset and store nothing.
+    if ('existingFilename' in claim) return publicUrlForFilename(claim.existingFilename);
+
     try {
-      return await storeMedia(filename, buffer, mimeType);
+      return await storeMedia(claim.newFilename, buffer, mimeType);
     } catch (err) {
-      await prisma.mediaAsset.delete({ where: { filename } }).catch(() => undefined);
+      await prisma.mediaAsset.delete({ where: { filename: claim.newFilename } }).catch(() => undefined);
       console.error('Failed to store media:', err);
       return null;
     }
