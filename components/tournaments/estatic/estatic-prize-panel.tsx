@@ -1044,7 +1044,10 @@ export function EstaticPrizePanel({
                   key={awardIdx}
                   className="flex flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg shadow-slate-900/5 transition-shadow hover:shadow-xl hover:shadow-slate-900/10 dark:border-white/10 dark:bg-[#0b1220] dark:shadow-black/40"
                 >
-                  <div className="relative mt-8 px-8">
+                  {/* The room above the square is proportional to the card, and the
+                      figure's overhang is sized against it, so the card's own
+                      rounded clipping can never crop the head. */}
+                  <div className="relative px-[10%] pt-[16%]">
                     {/* The square the recipient rises out of. */}
                     <div className="relative mx-auto aspect-square w-full overflow-hidden rounded-3xl bg-slate-100 shadow-inner dark:bg-white/[0.05]">
                       {/* Site-blue texture, woven a little differently per card so a
@@ -1076,7 +1079,7 @@ export function EstaticPrizePanel({
                       <div
                         className={
                           isPlayerAward
-                            ? 'pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-[118%] w-[78%] drop-shadow-[0_18px_24px_rgba(2,10,30,0.5)]'
+                            ? 'pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-[114%] w-[80%] drop-shadow-[0_18px_24px_rgba(2,10,30,0.5)]'
                             : 'pointer-events-none absolute inset-0 flex items-center justify-center p-6 drop-shadow-[0_14px_20px_rgba(2,10,30,0.45)]'
                         }
                       >
