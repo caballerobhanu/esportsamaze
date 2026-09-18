@@ -24,6 +24,7 @@ import {
   type StandingsNavigationItem,
   type ZoneRule,
   type ZoneColor,
+  ZONE_COLOR_OPTIONS,
   TOURNAMENT_AVAILABLE_TABS,
   ALL_TOURNAMENT_TAB_IDS,
   type TournamentTabId,
@@ -82,20 +83,6 @@ export interface AdminStageDetail {
 const inputCls =
   'w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-(--ed-blue)';
 const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1';
-
-const ZONE_COLORS: { key: ZoneColor; label: string; bg: string }[] = [
-  { key: 'blue', label: 'Blue', bg: 'bg-(--ed-blue)' },
-  { key: 'green', label: 'Green', bg: 'bg-emerald-500' },
-  { key: 'yellow', label: 'Yellow', bg: 'bg-yellow-400' },
-  { key: 'orange', label: 'Orange', bg: 'bg-amber-500' },
-  { key: 'red', label: 'Red', bg: 'bg-rose-500' },
-  { key: 'purple', label: 'Purple', bg: 'bg-purple-500' },
-  { key: 'pink', label: 'Pink', bg: 'bg-pink-500' },
-  { key: 'cyan', label: 'Cyan', bg: 'bg-cyan-500' },
-  { key: 'teal', label: 'Teal', bg: 'bg-teal-500' },
-  { key: 'gold', label: 'Gold', bg: 'bg-amber-400' },
-  { key: 'slate', label: 'Gray / Slate', bg: 'bg-slate-500' },
-];
 
 function ZonesEditor({
   zones,
@@ -218,7 +205,7 @@ function ZonesEditor({
               )
             }
           >
-            {ZONE_COLORS.map((c) => (
+            {ZONE_COLOR_OPTIONS.map((c) => (
               <option key={c.key} value={c.key}>
                 {c.label}
               </option>

@@ -172,10 +172,17 @@ export function TournamentStageFormatCard({
         };
       case 'amber':
       case 'yellow':
+      case 'gold':
         return {
           pill: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
           dot: 'bg-amber-500',
           card: 'border-amber-500/30 bg-amber-500/5',
+        };
+      case 'orange':
+        return {
+          pill: 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30',
+          dot: 'bg-orange-500',
+          card: 'border-orange-500/30 bg-orange-500/5',
         };
       case 'red':
       case 'rose':
@@ -183,6 +190,18 @@ export function TournamentStageFormatCard({
           pill: 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30',
           dot: 'bg-rose-500',
           card: 'border-rose-500/30 bg-rose-500/5',
+        };
+      case 'purple':
+        return {
+          pill: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30',
+          dot: 'bg-purple-500',
+          card: 'border-purple-500/30 bg-purple-500/5',
+        };
+      case 'pink':
+        return {
+          pill: 'bg-pink-500/15 text-pink-700 dark:text-pink-400 border-pink-500/30',
+          dot: 'bg-pink-500',
+          card: 'border-pink-500/30 bg-pink-500/5',
         };
       default:
         return {

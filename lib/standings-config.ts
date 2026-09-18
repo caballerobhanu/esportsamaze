@@ -48,6 +48,27 @@ export type ZoneColor =
   | 'amber'
   | 'rose';
 
+/**
+ * The colour choices offered wherever a qualification/advancement zone is configured.
+ *
+ * One list, read by both the Standings editor and the Format editor: the two used to
+ * offer different sets, so a colour picked in one place could not be picked in the other.
+ * Labels are the display names; `key` is what is stored.
+ */
+export const ZONE_COLOR_OPTIONS: { key: ZoneColor; label: string }[] = [
+  { key: 'blue', label: 'Blue' },
+  { key: 'green', label: 'Green' },
+  { key: 'yellow', label: 'Yellow' },
+  { key: 'orange', label: 'Orange' },
+  { key: 'red', label: 'Red' },
+  { key: 'purple', label: 'Purple' },
+  { key: 'pink', label: 'Pink' },
+  { key: 'cyan', label: 'Cyan' },
+  { key: 'teal', label: 'Teal' },
+  { key: 'gold', label: 'Gold' },
+  { key: 'slate', label: 'Gray / Slate' },
+];
+
 export interface ZoneRule {
   from: number;
   to: number;

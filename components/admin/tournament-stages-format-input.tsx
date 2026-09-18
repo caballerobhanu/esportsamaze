@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import type { StageGroupSquad } from '@/components/tournaments/tournament-stage-format-card';
 import { pendingSeatKey, pendingSeatLabel, type PendingSeatSource } from '@/lib/stage-groups';
+import { ZONE_COLOR_OPTIONS } from '@/lib/standings-config';
 
 /**
  * A squad the draw can place: a seat in the tournament's field, carrying whatever the
@@ -69,10 +70,21 @@ export interface HeaderCardItem {
 export interface StageAdvancementRuleItem {
   thresholdRank: string;
   badgeText: string;
-  badgeVariant: 'success' | 'warning' | 'danger' | 'info';
+  /** The zone colour. Shared with the Standings editor so both offer the same set. */
+  badgeColor?: string;
+  /** Legacy tokens written by the old four-value picker; still read, never written. */
+  badgeVariant?: 'success' | 'warning' | 'danger' | 'info';
   destination: string;
   groupName?: string; // e.g. "All Groups", "Group A", "Group B", "Group C"
 }
+
+/** Maps the retired badge tokens onto the shared colour list. */
+const LEGACY_BADGE_COLOR: Record<string, string> = {
+  success: 'green',
+  info: 'blue',
+  warning: 'amber',
+  danger: 'red',
+};
 
 export interface StageFormatItem {
   id: string;
@@ -661,7 +673,7 @@ export function TournamentStagesFormatInput({
     const newRule: StageAdvancementRuleItem = {
       thresholdRank: 'Top 8',
       badgeText: 'Advancement',
-      badgeVariant: 'success',
+      badgeColor: 'green',
       destination: 'Advance to Next Stage',
       groupName: defaultGroup,
     };
@@ -1699,16 +1711,17 @@ export function TournamentStagesFormatInput({
                                       Badge Color
                                     </label>
                                     <select
-                                      value={rule.badgeVariant}
+                                      value={LEGACY_BADGE_COLOR[rule.badgeVariant || ''] || rule.badgeColor || 'green'}
                                       onChange={(e) =>
-                                        updateRule(sIdx, rIdx, { badgeVariant: e.target.value as any })
+                                        updateRule(sIdx, rIdx, { badgeColor: e.target.value, badgeVariant: undefined })
                                       }
                                       className={inputCls + ' py-1'}
                                     >
-                                      <option value="success">Green (Qualified)</option>
-                                      <option value="info">Blue (Advancement)</option>
-                                      <option value="warning">Amber (Warning)</option>
-                                      <option value="danger">Rose (Eliminated)</option>
+                                      {ZONE_COLOR_OPTIONS.map((c) => (
+                                        <option key={c.key} value={c.key}>
+                                          {c.label}
+                                        </option>
+                                      ))}
                                     </select>
                                   </div>
 
