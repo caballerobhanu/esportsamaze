@@ -165,108 +165,9 @@ export function EstaticOverviewPanel({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         {/* Left Column (8 cols) */}
         <div className="space-y-8 lg:col-span-8">
-          {/* Latest Match Result */}
-          {latest && (
-            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-                    Recent Battle
-                  </p>
-                  <h3 className="mt-1 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white flex items-center gap-3">
-                    <Swords className="h-5 w-5 text-[#0A5FC4] dark:text-blue-300" />
-                    Latest Match Result
-                  </h3>
-                </div>
-                <Link
-                  href={`/tournaments/${tournament.slug}/matches`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
-                >
-                  All Matches <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-
-              {/* Match Header Pill */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/5 mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-[#0A5FC4] px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white">
-                    Match #{latest.overallMatchNumber ?? latest.matchNumber}
-                  </span>
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    {latest.format || latest.mapName || 'Erangel'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                  <span>{latest.mapName}</span>
-                  <span>•</span>
-                  <span>{latest.matchTime || formatDate(latest.scheduledAt)}</span>
-                </div>
-              </div>
-
-              {/* Lobby Standings Top 3 */}
-              <div className="space-y-2.5">
-                {latest.teamResults.slice(0, 5).map((tr, idx) => (
-                  <div
-                    key={tr.id}
-                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3.5 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-[#070b14]"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <span
-                        className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-black ${
-                          idx === 0
-                            ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
-                            : idx === 1
-                            ? 'bg-slate-300 text-slate-900'
-                            : idx === 2
-                            ? 'bg-amber-600/20 text-amber-600'
-                            : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400'
-                        }`}
-                      >
-                        {tr.rank}
-                      </span>
-                      <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-black/30">
-                        {tr.team?.logoUrl || tr.team?.imageDarkUrl ? (
-                          <ThemeLogo
-                            lightSrc={tr.team?.logoUrl}
-                            darkSrc={tr.team?.imageDarkUrl}
-                            alt={tr.team?.name || 'Team'}
-                            className="object-contain p-1"
-                          />
-                        ) : (
-                          <span className="text-xs font-black text-slate-400">
-                            {tr.team?.name?.slice(0, 2).toUpperCase() || 'TM'}
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm font-black text-slate-900 dark:text-white">
-                          {tr.team?.name || 'Unknown Squad'}
-                        </div>
-                        <div className="text-[11px] font-semibold text-slate-400">
-                          {tr.placePoints || 0} Place + {tr.elimsPoints || 0} Elims
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-base font-black text-[#0A5FC4] dark:text-blue-300">
-                        {tr.totalPoints || 0} pts
-                      </div>
-                      {tr.wwcd && (
-                        <div className="text-[10px] font-black uppercase text-amber-500">
-                          Winner 🍗
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
           {/* Featured Stage Standings */}
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
                   {featuredStageName}
@@ -278,7 +179,7 @@ export function EstaticOverviewPanel({
               </div>
               <Link
                 href={`/tournaments/${tournament.slug}/standings`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
+                className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
               >
                 Full Standings <ChevronRight className="h-3.5 w-3.5" />
               </Link>
@@ -353,6 +254,106 @@ export function EstaticOverviewPanel({
               </table>
             </div>
           </section>
+
+          {/* Latest Match Result */}
+          {latest && (
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
+              <div className="mb-6 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
+                    Recent Battle
+                  </p>
+                  <h3 className="mt-1 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white flex items-center gap-3">
+                    <Swords className="h-5 w-5 text-[#0A5FC4] dark:text-blue-300" />
+                    Latest Match Result
+                  </h3>
+                </div>
+                <Link
+                  href={`/tournaments/${tournament.slug}/matches`}
+                  className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
+                >
+                  All Matches <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              {/* Match Header Pill */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 dark:border-white/10 dark:bg-white/5 mb-4">
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-[#0A5FC4] px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white">
+                    Match #{latest.overallMatchNumber ?? latest.matchNumber}
+                  </span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    {latest.format || latest.mapName || 'Erangel'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                  <span>{latest.mapName}</span>
+                  <span>•</span>
+                  <span>{latest.matchTime || formatDate(latest.scheduledAt)}</span>
+                </div>
+              </div>
+
+              {/* Lobby Standings Top 3 */}
+              <div className="space-y-2.5">
+                {latest.teamResults.slice(0, 5).map((tr, idx) => (
+                  <div
+                    key={tr.id}
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3.5 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-[#070b14]"
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <span
+                        className={`flex h-8 w-8 items-center justify-center rounded-xl text-xs font-black ${
+                          idx === 0
+                            ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
+                            : idx === 1
+                            ? 'bg-slate-300 text-slate-900'
+                            : idx === 2
+                            ? 'bg-amber-600/20 text-amber-600'
+                            : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400'
+                        }`}
+                      >
+                        {tr.rank}
+                      </span>
+                      <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-black/30">
+                        {tr.team?.logoUrl || tr.team?.imageDarkUrl ? (
+                          <ThemeLogo
+                            lightSrc={tr.team?.logoUrl}
+                            darkSrc={tr.team?.imageDarkUrl}
+                            alt={tr.team?.name || 'Team'}
+                            className="object-contain p-1"
+                          />
+                        ) : (
+                          <span className="text-xs font-black text-slate-400">
+                            {tr.team?.name?.slice(0, 2).toUpperCase() || 'TM'}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-slate-900 dark:text-white">
+                          {tr.team?.name || 'Unknown Squad'}
+                        </div>
+                        <div className="text-[11px] font-semibold text-slate-400">
+                          {tr.placePoints || 0} Place + {tr.elimsPoints || 0} Elims
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-base font-black text-[#0A5FC4] dark:text-blue-300">
+                        {tr.totalPoints || 0} pts
+                      </div>
+                      {tr.wwcd && (
+                        <div className="text-[10px] font-black uppercase text-amber-500">
+                          Winner 🍗
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
         </div>
 
         {/* Right Column (Sidebar, 4 cols) */}
