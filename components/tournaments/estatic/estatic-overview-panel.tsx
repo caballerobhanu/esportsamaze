@@ -122,15 +122,16 @@ export function EstaticOverviewPanel({
       label: 'Format & Line-up',
       // `teamsCount` is squads actually named, so pairing it with the announced
       // field size shows the gap at a glance: 2 of 16 in, 14 slots still open.
+      // Once every announced slot is filled there is no gap left to report, so
+      // the card returns to its plain form instead of reading "16 / 16 · 0 slots
+      // pending".
       value:
-        teamsToShow != null
+        teamsToShow != null && teamsCount < teamsToShow
           ? `${teamsCount} / ${teamsToShow} Qualified`
           : `${teamsCount} Qualified Squads`,
       sub:
-        teamsToShow != null
-          ? `${Math.max(0, teamsToShow - teamsCount)} slot${
-              teamsToShow - teamsCount === 1 ? '' : 's'
-            } pending`
+        teamsToShow != null && teamsCount < teamsToShow
+          ? `${teamsToShow - teamsCount} slot${teamsToShow - teamsCount === 1 ? '' : 's'} pending`
           : tournament.gameMode || 'Battle Royale',
     },
   ];
