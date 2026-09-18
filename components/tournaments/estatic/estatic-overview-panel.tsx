@@ -16,6 +16,7 @@ import type { AggregatedTeamStanding } from '@/lib/tournament-math';
 import type { StandingsLogoMode } from '@/lib/standings-config';
 import type { MatchLite } from './panel-types';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
+import { KickoffTime } from '@/components/ui/kickoff';
 
 interface OverviewMatchLite extends MatchLite {
   stageType?: string | null;
@@ -290,7 +291,12 @@ export function EstaticOverviewPanel({
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                   <span>{latest.mapName}</span>
                   <span>•</span>
-                  <span>{latest.matchTime || formatDate(latest.scheduledAt)}</span>
+                  <span>
+                    <KickoffTime
+                      scheduledAt={latest.scheduledAt}
+                      fallback={latest.matchTime || formatDate(latest.scheduledAt)}
+                    />
+                  </span>
                 </div>
               </div>
 

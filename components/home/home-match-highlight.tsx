@@ -2,6 +2,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Clock, Trophy } from 'lucide-react';
 import { getTournamentShortName } from '@/lib/utils';
+import { KickoffDate, KickoffTime } from '@/components/ui/kickoff';
 
 export interface HighlightMatchData {
   id: string;
@@ -74,7 +75,14 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500 dark:bg-white/5 dark:text-slate-400">
-              <Clock className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-400" /> Scheduled {match.matchTime ? `at ${match.matchTime}` : ''}
+              <Clock className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-400" /> Scheduled{' '}
+              {match.matchTime ? (
+                <>
+                  at <KickoffTime scheduledAt={match.scheduledAt} fallback={match.matchTime} />
+                </>
+              ) : (
+                ''
+              )}
             </span>
           )}
         </div>
@@ -190,8 +198,25 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
             {matchLabel} ({match.mapName || 'Erangel'})
           </h4>
           <p className="mx-auto max-w-md text-xs leading-relaxed text-[var(--ed-stone)]">
-            Scheduled for {new Date(match.scheduledAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
-            {match.matchTime ? ` at ${match.matchTime}` : ''}. Results will appear here once the match is played.
+            Scheduled for{' '}
+            <KickoffDate
+              scheduledAt={match.scheduledAt}
+              withYear
+              fallback={new Date(match.scheduledAt).toLocaleDateString('en-IN', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            />
+            {match.matchTime ? (
+              <>
+                {' '}
+                at <KickoffTime scheduledAt={match.scheduledAt} fallback={match.matchTime} />
+              </>
+            ) : (
+              ''
+            )}
+            . Results will appear here once the match is played.
           </p>
         </div>
       )}

@@ -12,6 +12,8 @@ import {
   MapPin,
 } from 'lucide-react';
 import { formatDate, formatShortDate } from '@/lib/utils';
+import { defaultMatchFor, initialStageIndex, stageIndexForMatchId } from '@/lib/match-selection';
+import { KickoffDate, KickoffTime } from '@/components/ui/kickoff';
 import type { StageGroup } from './panel-types';
 import type { StandingsLogoMode } from '@/lib/standings-config';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
@@ -41,6 +43,12 @@ export function EstaticMatchesPanel({
   // Find index of the requested active stage, defaulting to the most recent stage.
   const initialStageIdx = useMemo(() => {
     if (!stageGroups.length) return 0;
+
+    // A matchId deep link (the format calendar's scorecard link) names the match,
+    // not the stage it lives in — so resolve the stage that actually holds it.
+    const matchStageIdx = stageIndexForMatchId(stageGroups, searchParams.get('matchId'));
+    if (matchStageIdx >= 0) return matchStageIdx;
+
     const stageParam = searchParams.get('stage');
     if (stageParam) {
       const idx = stageGroups.findIndex(
@@ -48,17 +56,10 @@ export function EstaticMatchesPanel({
       );
       if (idx >= 0) return idx;
     }
-    // Default: stage with the most recently scheduled match
-    let bestIdx = 0;
-    let bestTime = -1;
-    stageGroups.forEach((g, idx) => {
-      const maxT = Math.max(0, ...g.matches.map((m) => new Date(m.scheduledAt).getTime() || 0));
-      if (maxT > bestTime) {
-        bestTime = maxT;
-        bestIdx = idx;
-      }
-    });
-    return bestIdx;
+    // Default: the latest stage that has results — the stage being played on an
+    // ongoing event, or the final stage of a finished one. With nothing played
+    // yet, the first stage, so an upcoming event opens on its opening fixture.
+    return initialStageIndex(stageGroups);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageGroups]);
 
@@ -88,7 +89,9 @@ export function EstaticMatchesPanel({
       const found = currentStage.matches.find((m) => m.id === selectedMatchId);
       if (found) return found;
     }
-    return currentStage.matches[currentStage.matches.length - 1] || currentStage.matches[0];
+    // Default to the latest match that actually carries a scorecard — see
+    // `defaultMatchFor` for why the last scheduled slot is the wrong choice.
+    return defaultMatchFor(currentStage.matches);
   }, [currentStage, selectedMatchId]);
 
   const currentMatchIndex = useMemo(() => {
@@ -256,10 +259,20 @@ export function EstaticMatchesPanel({
                 <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-[#0A5FC4]" /> {activeMatch.mapName || 'Erangel'}</span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-[#0A5FC4]" /> {formatShortDate(activeMatch.scheduledAt)}
+                  <Calendar className="h-3.5 w-3.5 text-[#0A5FC4]" />{' '}
+                  <KickoffDate
+                    scheduledAt={activeMatch.scheduledAt}
+                    fallback={formatShortDate(activeMatch.scheduledAt)}
+                  />
                 </span>
                 <span>•</span>
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-[#0A5FC4]" /> {activeMatch.matchTime || formatDate(activeMatch.scheduledAt)}</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5 text-[#0A5FC4]" />{' '}
+                  <KickoffTime
+                    scheduledAt={activeMatch.scheduledAt}
+                    fallback={activeMatch.matchTime || formatDate(activeMatch.scheduledAt)}
+                  />
+                </span>
               </p>
             </div>
 

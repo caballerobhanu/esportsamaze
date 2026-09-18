@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import { KickoffTime } from '@/components/ui/kickoff';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -799,7 +800,7 @@ export function TournamentScheduleCalendar({
                             {m.matchTime && !isProjected && (
                               <span className="flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                                 <Clock className="h-3 w-3 text-[#0A5FC4]" />
-                                {m.matchTime}
+                                <KickoffTime scheduledAt={m.scheduledAt} fallback={m.matchTime} />
                               </span>
                             )}
 
