@@ -11,6 +11,7 @@
     "db:seed": "prisma db seed",
     "db:backup": "tsx scripts/backup-db.ts",
     "db:repair-prizes": "tsx scripts/repair-prize-totals.ts",
+    "db:repair-match-times": "tsx scripts/repair-match-times.ts",
     "media:sync-r2": "tsx scripts/sync-media-to-r2.ts",
     "media:backfill-hashes": "tsx scripts/backfill-media-hashes.ts",
     "teams:merge": "tsx scripts/merge-teams.ts",
