@@ -180,8 +180,26 @@ pm2 save
 
 chmod +x deploy/backup-cron.sh
 chmod +x deploy/update.sh
-(crontab -l 2>/dev/null | grep -v "backup-cron.sh" ; echo "0 3 * * * /bin/bash $APP_DIR/deploy/backup-cron.sh > /dev/null 2>&1") | crontab -
-(crontab -l 2>/dev/null | grep -v "cloudflare-ips.sh" ; echo "0 4 1 * * /bin/bash $APP_DIR/deploy/cloudflare-ips.sh > /dev/null 2>&1") | crontab -
+
+# Scheduled jobs live in /etc/cron.d, not the root crontab.
+#
+# DO NOT reintroduce the previous form:
+#   (crontab -l 2>/dev/null | grep -v backup-cron.sh ; echo "0 3 * * * ...") | crontab -
+# Under `set -euo pipefail` (set at the top of this script) that silently installs
+# NOTHING when the root crontab is empty: `crontab -l | grep` exits non-zero, pipefail
+# makes the pipeline fail, and `set -e` aborts the subshell before the `echo` ever runs.
+# The empty pipeline then feeds `crontab -`, which succeeds — so the script reports no
+# error and the job is never created. Verified on the live server 2026-09-18: cron was
+# active and the script worked when run by hand, but the crontab was empty and no
+# db_*.sql.gz had ever been written. Files in /etc/cron.d take a user field and are
+# trivially inspectable with `cat`.
+cat > /etc/cron.d/esportsamaze <<CRON
+# Nightly database + uploads backup, 14-day local retention.
+0 3 * * * root /bin/bash $APP_DIR/deploy/backup-cron.sh >> /var/log/ea-backup.log 2>&1
+# Refresh the Cloudflare real-IP ranges monthly.
+0 4 1 * * root /bin/bash $APP_DIR/deploy/cloudflare-ips.sh >> /var/log/ea-cloudflare-ips.log 2>&1
+CRON
+chmod 644 /etc/cron.d/esportsamaze
 
 echo "=============================================================================="
 echo "🎉 SERVER PROVISIONING COMPLETE!"
