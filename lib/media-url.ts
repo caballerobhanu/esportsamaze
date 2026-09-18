@@ -1,3 +1,6 @@
+// UNSET in production, on purpose — so publicUrlForFilename() falls through to the
+// root-relative /api/media/<filename>. That keeps every stored media URL same-origin,
+// which is also why `next/image` needs no remotePatterns entry for our own media.
 const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
 
 /** URL served by this app's own media route, which reads local disk first, then R2. */

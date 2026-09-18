@@ -10,7 +10,11 @@ const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || process.env.R2_ACC
 const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET_NAME = process.env.CLOUDFLARE_R2_BUCKET_NAME || process.env.R2_BUCKET_NAME;
-const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL; // e.g. https://media.kraftonindiaesports.io
+// Optional custom domain that would serve R2 objects directly. Deliberately LEFT UNSET
+// in production: with no public URL, publicUrlForFilename() returns the root-relative
+// /api/media/<filename> and this app serves the bytes itself (local disk first, then R2).
+// Consequently our media URLs are same-origin — do not reason about a media CDN host.
+const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL;
 
 let s3Client: S3Client | null = null;
 
