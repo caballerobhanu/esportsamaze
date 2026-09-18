@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
+  Calendar,
   Clock,
   Crown,
   ChevronLeft,
@@ -10,7 +11,7 @@ import {
   Layers,
   MapPin,
 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatShortDate } from '@/lib/utils';
 import type { StageGroup } from './panel-types';
 import { ThemeLogo } from './theme-logo';
 
@@ -192,7 +193,7 @@ export function EstaticMatchesPanel({
                         : 'border border-slate-200/80 bg-slate-50/80 text-slate-600 hover:border-[#0A5FC4] hover:text-[#0A5FC4] hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
                     }`}
                   >
-                    <span>M{m.overallMatchNumber ?? m.matchNumber}</span>
+                    <span>M{m.matchNumber}</span>
                     {m.mapName && (
                       <span className={`text-[10px] ${active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>
                         ({m.mapName})
@@ -213,7 +214,7 @@ export function EstaticMatchesPanel({
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="rounded-full bg-[#0A5FC4] px-3 py-0.5 text-xs font-black uppercase tracking-wider text-white">
-                  Match #{activeMatch.overallMatchNumber ?? activeMatch.matchNumber}
+                  Match #{activeMatch.matchNumber}
                 </span>
                 <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                   {activeMatch.status}
@@ -226,7 +227,7 @@ export function EstaticMatchesPanel({
                       disabled={!prevMatch}
                       onClick={() => prevMatch && selectMatch(prevMatch.id)}
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 disabled:opacity-30 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 cursor-pointer transition-all"
-                      title={prevMatch ? `M${prevMatch.overallMatchNumber ?? prevMatch.matchNumber}` : 'No previous match'}
+                      title={prevMatch ? `M${prevMatch.matchNumber}` : 'No previous match'}
                     >
                       <ChevronLeft className="h-3 w-3" />
                       <span>Prev</span>
@@ -236,7 +237,7 @@ export function EstaticMatchesPanel({
                       disabled={!nextMatch}
                       onClick={() => nextMatch && selectMatch(nextMatch.id)}
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-bold text-slate-700 disabled:opacity-30 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-200 cursor-pointer transition-all"
-                      title={nextMatch ? `M${nextMatch.overallMatchNumber ?? nextMatch.matchNumber}` : 'No next match'}
+                      title={nextMatch ? `M${nextMatch.matchNumber}` : 'No next match'}
                     >
                       <span>Next</span>
                       <ChevronRight className="h-3 w-3" />
@@ -247,8 +248,12 @@ export function EstaticMatchesPanel({
               <h3 className="mt-2 text-2xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
                 {activeMatch.format || `Match ${activeMatch.matchNumber} — ${activeMatch.mapName || 'Erangel'}`}
               </h3>
-              <p className="mt-1 text-xs font-semibold text-slate-400 flex items-center gap-3">
+              <p className="mt-1 text-xs font-semibold text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-[#0A5FC4]" /> {activeMatch.mapName || 'Erangel'}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-[#0A5FC4]" /> {formatShortDate(activeMatch.scheduledAt)}
+                </span>
                 <span>•</span>
                 <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-[#0A5FC4]" /> {activeMatch.matchTime || formatDate(activeMatch.scheduledAt)}</span>
               </p>

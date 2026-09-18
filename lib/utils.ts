@@ -88,6 +88,20 @@ export function formatDate(date: string | Date): string {
 }
 
 /**
+ * Month and day only, for a compact meta line beside a map and a time.
+ *
+ * Pinned to UTC for the same reason `formatDate` is: unpinned, a UTC-midnight value renders
+ * as the previous day anywhere west of Greenwich, and the server and browser can disagree.
+ */
+export function formatShortDate(date: string | Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(date));
+}
+
+/**
  * Resolves a concise short name for tournament badges, cards, and compact mobile views.
  * Prioritizes the explicit custom shortName, falling back to series + season or known acronyms.
  */
