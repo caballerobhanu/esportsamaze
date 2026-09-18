@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { ClipboardList, Info } from 'lucide-react';
 import type { ReportedPlayerTotal, ReportedTeamTotal } from '@/app/(public)/tournaments/[slug]/tournament-data';
+import type { StandingsLogoMode } from '@/lib/standings-config';
+import { TeamMark } from '@/components/ui/team-mark';
 
 /**
  * Reported totals — row-level facts entered by hand for events that have no
@@ -33,7 +35,14 @@ function PartialNote({ count }: { count: number }) {
   );
 }
 
-export function EstaticReportedStandings({ teams }: { teams: ReportedTeamTotal[] }) {
+export function EstaticReportedStandings({
+  teams,
+  logoMode = 'TEAM',
+}: {
+  teams: ReportedTeamTotal[];
+  /** How the standings tab draws each team: crest, flag, both, or neither. */
+  logoMode?: StandingsLogoMode;
+}) {
   const derived = teams.some((team) => team.derived);
   const partialCount = teams.reduce((count, team) => count + team.partial.length, 0);
 
@@ -73,16 +82,16 @@ export function EstaticReportedStandings({ teams }: { teams: ReportedTeamTotal[]
                 </td>
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-2.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white dark:border-white/10">
-                      {team.logoUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={team.logoUrl} alt="" className="h-full w-full object-contain p-0.5" />
-                      ) : (
-                        <span className="text-[9px] font-black text-slate-400">
-                          {(team.tag ?? team.name).slice(0, 3).toUpperCase()}
-                        </span>
-                      )}
-                    </span>
+                    <TeamMark
+                      mode={logoMode}
+                      name={team.displayName || team.name}
+                      lightSrc={team.logoUrl}
+                      darkSrc={team.logoDarkUrl}
+                      countryCode={team.countryCode}
+                      tileClassName="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white dark:border-white/10"
+                      logoClassName="object-contain p-0.5"
+                      fallbackClassName="text-[9px] font-black text-slate-400"
+                    />
                     {team.slug ? (
                       <Link href={`/teams/${team.slug}`} className="font-extrabold hover:text-[#0A5FC4]">
                         {team.displayName || team.name}

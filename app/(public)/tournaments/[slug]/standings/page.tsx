@@ -53,7 +53,10 @@ export default async function TournamentStandingsPage({
           config={ctx.standingsConfig}
         />
       ) : (
-        <EstaticReportedStandings teams={reported.teams} />
+        <EstaticReportedStandings
+          teams={reported.teams}
+          logoMode={ctx.standingsConfig.logoModeBySurface.standings}
+        />
       )}
     </TournamentTabShell>
   );

@@ -38,8 +38,9 @@ import { TournamentStagesFormatInput, type GroupCandidate } from '@/components/a
 import { FormTabs, FormPanel } from '@/components/admin/form-tabs';
 import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournament-squads-input';
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
+import { TournamentDisplayConfigInput } from '@/components/admin/tournament-display-config-input';
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
-import { matchStageLabel } from '@/lib/standings-config';
+import { matchStageLabel, normalizeLogoModeBySurface } from '@/lib/standings-config';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
 
 export const dynamic = 'force-dynamic';
@@ -248,8 +249,19 @@ async function saveTournament(formData: FormData) {
     };
   }
 
-  // Standings display configuration (logo mode, overall tab, filters, columns, zones, per-stage)
-  const standingsConfig = parseJsonField<any>(fStr(formData, 'standingsConfigJson'), 'standings config');
+  // Standings display configuration (overall tab, filters, columns, zones, per-stage). The
+  // per-surface team-mark choice is edited on the Basics tab, so it arrives in its own field
+  // and is merged in here — absent, it leaves the stored choice alone.
+  const standingsConfig = {
+    ...parseJsonField<any>(fStr(formData, 'standingsConfigJson'), 'standings config'),
+    ...(fStr(formData, 'logoModeBySurfaceJson')
+      ? {
+          logoModeBySurface: normalizeLogoModeBySurface(
+            parseJsonField<unknown>(fStr(formData, 'logoModeBySurfaceJson'), 'team mark config')
+          ),
+        }
+      : {}),
+  };
 
   // Participating squads (seeds, rosters, event logo overrides)
   const squadsRaw = fStr(formData, 'squadsJson');
@@ -1542,6 +1554,20 @@ export default async function AdminTournamentsPage({
                   existingSponsors={sponsors}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Section: what every public tab draws beside a team */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+            <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
+              🪪 Team Mark — Logo or Country Flag, per Tab
+            </h2>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/70 dark:bg-slate-900/50">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+                Every tab starts on the team logo, so nothing changes until you pick something else.
+                A tab with no country on file keeps showing the logo.
+              </p>
+              <TournamentDisplayConfigInput initialConfig={editing?.standingsConfig} />
             </div>
           </div>
 

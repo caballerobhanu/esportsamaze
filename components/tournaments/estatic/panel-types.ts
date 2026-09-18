@@ -9,6 +9,8 @@ export interface TournamentTeamInfo {
   slug?: string | null;
   logoUrl?: string | null;
   imageDarkUrl?: string | null;
+  /** Resolved from the event's country override, then the team's region. Null when neither names a country. */
+  countryCode?: string | null;
   matchCount?: number;
 }
 
@@ -91,6 +93,8 @@ export interface TeamPerformanceRow {
   teamTag?: string | null;
   teamLogo?: string | null;
   teamLogoDark?: string | null;
+  /** Resolved from the event's country override, then the team's region — what a flag mode draws. */
+  countryCode?: string | null;
   matchesPlayed: number;
   wwcdCount: number;
   winRate: number;
@@ -142,6 +146,8 @@ export interface PlayerPerformanceRow {
   teamTag?: string | null;
   teamLogo?: string | null;
   teamLogoDark?: string | null;
+  /** The player's squad's country — a player row draws its team's mark, so it needs the flag too. */
+  teamCountryCode?: string | null;
   role?: string | null;
   matchesPlayed: number;
   totalElims: number;

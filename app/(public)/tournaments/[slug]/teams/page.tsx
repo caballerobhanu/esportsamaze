@@ -40,11 +40,7 @@ export default async function TournamentTeamsPage({
       <EstaticTeamsPanel
         teams={data.enrichedTeams}
         seats={data.seats}
-        logoMode={ctx.standingsConfig.logoMode}
-        showCountryFlag={
-          ctx.standingsConfig.teamsConfig?.showCountryFlag ??
-          (ctx.standingsConfig.logoMode === 'BOTH' || ctx.standingsConfig.logoMode === 'COUNTRY')
-        }
+        logoMode={ctx.standingsConfig.logoModeBySurface.teams}
       />
     </TournamentTabShell>
   );

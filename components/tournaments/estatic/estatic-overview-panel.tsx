@@ -13,8 +13,9 @@ import {
 } from 'lucide-react';
 import { formatDate, CURRENCY_SYMBOLS } from '@/lib/utils';
 import type { AggregatedTeamStanding } from '@/lib/tournament-math';
+import type { StandingsLogoMode } from '@/lib/standings-config';
 import type { MatchLite } from './panel-types';
-import { ThemeLogo } from './theme-logo';
+import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 
 interface OverviewMatchLite extends MatchLite {
   stageType?: string | null;
@@ -31,6 +32,7 @@ export function EstaticOverviewPanel({
   teamsToShow,
   teamsMeta,
   playerSlugById,
+  logoMode = 'TEAM',
 }: {
   tournament: {
     slug: string;
@@ -64,8 +66,10 @@ export function EstaticOverviewPanel({
   teamsToShow?: number | null;
   resolvedWinner?: string | null;
   resolvedRunnerUp?: string | null;
-  teamsMeta?: Record<string, { slug?: string | null; name?: string | null }>;
+  teamsMeta?: Record<string, { slug?: string | null; name?: string | null; countryCode?: string | null }>;
   playerSlugById?: Record<string, string | null>;
+  /** How this tab draws each team: crest, flag, both, or neither. */
+  logoMode?: StandingsLogoMode;
 }) {
   const completed = matches
     .filter((m) => m.status === 'COMPLETED' && m.teamResults.length > 0)
@@ -223,20 +227,16 @@ export function EstaticOverviewPanel({
                           href={teamHref(row.teamId, row.teamName)}
                           className="flex items-center gap-3 font-extrabold hover:text-[#0A5FC4] transition-colors"
                         >
-                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-black/40">
-                            {row.logoUrl || row.logoDarkUrl ? (
-                              <ThemeLogo
-                                lightSrc={row.logoUrl}
-                                darkSrc={row.logoDarkUrl}
-                                alt={row.teamName}
-                                className="object-contain p-1"
-                              />
-                            ) : (
-                              <span className="text-xs font-black text-slate-400">
-                                {row.teamName.slice(0, 2).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                          <TeamMark
+                            mode={logoMode}
+                            name={row.teamName}
+                            lightSrc={row.logoUrl}
+                            darkSrc={row.logoDarkUrl}
+                            countryCode={teamsMeta?.[row.teamId]?.countryCode}
+                            tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden`}
+                            logoClassName="object-contain p-0.5 sm:p-1"
+                            fallbackClassName="text-[9px] sm:text-xs font-black text-slate-400"
+                          />
                           <span className="truncate">{row.teamName}</span>
                         </Link>
                       </td>
@@ -314,20 +314,16 @@ export function EstaticOverviewPanel({
                       >
                         {tr.rank}
                       </span>
-                      <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-black/30">
-                        {tr.team?.logoUrl || tr.team?.imageDarkUrl ? (
-                          <ThemeLogo
-                            lightSrc={tr.team?.logoUrl}
-                            darkSrc={tr.team?.imageDarkUrl}
-                            alt={tr.team?.name || 'Team'}
-                            className="object-contain p-1"
-                          />
-                        ) : (
-                          <span className="text-xs font-black text-slate-400">
-                            {tr.team?.name?.slice(0, 2).toUpperCase() || 'TM'}
-                          </span>
-                        )}
-                      </div>
+                      <TeamMark
+                        mode={logoMode}
+                        name={tr.team?.name || 'Unknown Squad'}
+                        lightSrc={tr.team?.logoUrl}
+                        darkSrc={tr.team?.imageDarkUrl}
+                        countryCode={teamsMeta?.[tr.team?.id]?.countryCode}
+                        tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden`}
+                        logoClassName="object-contain p-0.5 sm:p-1"
+                        fallbackClassName="text-[9px] sm:text-xs font-black text-slate-400"
+                      />
                       <div>
                         <div className="text-sm font-black text-slate-900 dark:text-white">
                           {tr.team?.name || 'Unknown Squad'}

@@ -780,6 +780,8 @@ export interface ReportedTeamTotal {
   slug: string | null;
   logoUrl: string | null;
   logoDarkUrl: string | null;
+  /** Resolved from the squad's event override, then its team region — what a flag mode draws. */
+  countryCode: string | null;
   placement: number | null;
   matches: number | null;
   wwcd: number | null;
@@ -865,6 +867,7 @@ export function buildReportedTotals(ctx: TournamentContext) {
       slug: record?.slug ?? null,
       logoUrl: squad?.logoUrl ?? record?.logoUrl ?? null,
       logoDarkUrl: squad?.logoDarkUrl ?? record?.imageDarkUrl ?? null,
+      countryCode: countryCodeFor(squad?.country ?? squad?.team?.region ?? null),
       placement: event.metrics.placement?.value ?? null,
       matches: event.metrics.matches?.value ?? null,
       wwcd: event.metrics.wwcd?.value ?? null,
@@ -924,6 +927,9 @@ export function buildReportedTotals(ctx: TournamentContext) {
 
 export function buildMatchesData(ctx: TournamentContext): StageGroup[] {
   const { matchesByStage } = buildStageSummaries(ctx);
+  // Match results carry only the team's branding, not its region, so the country a flag
+  // needs is read from the event's own squad rows.
+  const teamsMeta = buildTeamsMeta(ctx);
 
   return Array.from(matchesByStage.entries()).map(([stageName, stageMatches]) => ({
     stageName,
@@ -948,7 +954,7 @@ export function buildMatchesData(ctx: TournamentContext): StageGroup[] {
           elimsPoints: r.elimsPoints,
           bonusPoints: r.bonusPoints,
           totalPoints: r.totalPoints,
-          team: r.team,
+          team: { ...r.team, countryCode: teamsMeta[r.teamId]?.countryCode ?? null },
         }))
       ),
       playerStats: [],
@@ -1251,6 +1257,8 @@ export function buildStatisticsData(ctx: TournamentContext) {
             teamTag: tTeam?.shortName || ps.shortCode || ps.team?.tag || null,
             teamLogo: tTeam?.logoUrl || ps.team?.logoUrl || null,
             teamLogoDark: tTeam?.logoDarkUrl || ps.team?.imageDarkUrl || null,
+            // A player row draws its squad's mark, so the flag comes from the same place the logo does.
+            teamCountryCode: countryCodeFor(tTeam?.country ?? tTeam?.team?.region ?? null),
             role: ps.role || null,
             matchesPlayed: 0,
             totalElims: 0,
@@ -1418,6 +1426,7 @@ function buildTeamsAndPerformance(
 
     return {
       ...tt,
+      countryCode: countryCodeFor(tt.country ?? tt.team?.region ?? null),
       stagesParticipated: stagesList,
       groupsByStage,
       deepestStageSequence: deepestStageIdx,
@@ -1436,6 +1445,7 @@ function buildTeamsAndPerformance(
       teamTag: tt.shortName || tt.team?.tag || null,
       teamLogo: tt.logoUrl || tt.team?.logoUrl || null,
       teamLogoDark: tt.logoDarkUrl || tt.team?.imageDarkUrl || null,
+      countryCode: countryCodeFor(tt.country ?? tt.team?.region ?? null),
       matchesPlayed: 0,
       wwcdCount: 0,
       winRate: 0,
@@ -1473,6 +1483,8 @@ function buildTeamsAndPerformance(
             teamTag: tr.team?.tag || null,
             teamLogo: tr.team?.logoUrl || null,
             teamLogoDark: tr.team?.imageDarkUrl || null,
+            // Only the team's branding came with the result; there is no region to resolve a flag from.
+            countryCode: null,
             matchesPlayed: 0,
             wwcdCount: 0,
             winRate: 0,

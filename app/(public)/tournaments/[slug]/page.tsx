@@ -96,6 +96,7 @@ export default async function TournamentOverviewPage({
 
       <main className="flex-1 pt-6 sm:pt-8 pb-24 md:pb-16">
         <EstaticOverviewPanel
+          logoMode={ctx.standingsConfig.logoModeBySurface.overview}
           tournament={ctx.tournament}
           featuredStageName={data.featuredStageName}
           featuredStandings={data.featuredStandings}

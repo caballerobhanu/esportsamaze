@@ -38,6 +38,7 @@ export default async function TournamentPrizePoolPage({
   return (
     <TournamentTabShell ctx={ctx} activeTab="prizepool">
       <EstaticPrizePanel
+        logoMode={ctx.standingsConfig.logoModeBySurface.prizepool}
         totalPrizePool={ctx.tournament.prizePool}
         prizeStages={data.prizeStages}
         currency={ctx.tournament.currency}

@@ -10,6 +10,8 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { ThemeLogo } from './theme-logo';
+import type { StandingsLogoMode } from '@/lib/standings-config';
+import { TeamMark } from '@/components/ui/team-mark';
 
 interface TeamRosterMember {
   playerId?: string | null;
@@ -33,6 +35,8 @@ interface EnrichedTournamentTeam {
   rosterJson?: unknown;
   logoUrl?: string | null;
   logoDarkUrl?: string | null;
+  /** Resolved from the event's country override, then the team's region — what a flag mode draws. */
+  countryCode?: string | null;
   team: {
     id: string;
     name: string;
@@ -72,14 +76,14 @@ export interface FieldSeat {
 
 interface EstaticTeamsPanelProps {
   teams: EnrichedTournamentTeam[];
-  logoMode?: string;
-  showCountryFlag?: boolean;
+  /** How this tab draws each team: crest, flag, both, or neither. */
+  logoMode?: StandingsLogoMode;
   seats?: FieldSeat[];
 }
 
 export type TeamSortOption = 'default' | 'name_asc' | 'name_desc';
 
-export function EstaticTeamsPanel({ teams, seats = [] }: EstaticTeamsPanelProps) {
+export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: EstaticTeamsPanelProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<TeamSortOption>('default');
   const [expandedTeamIds, setExpandedTeamIds] = useState<Set<string>>(new Set());
@@ -364,21 +368,17 @@ export function EstaticTeamsPanel({ teams, seats = [] }: EstaticTeamsPanelProps)
               {/* Team Masthead inside Card */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5 min-w-0">
-                  <Link
+                  <TeamMark
+                    mode={logoMode}
+                    name={teamDisplayName(tt)}
+                    lightSrc={tt.logoUrl ?? tt.team.logoUrl}
+                    darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
+                    countryCode={tt.countryCode}
                     href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}
-                    className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
-                  >
-                    {tt.team.logoUrl || tt.team.imageDarkUrl || tt.logoDarkUrl || tt.logoUrl ? (
-                      <ThemeLogo
-                        lightSrc={tt.logoUrl ?? tt.team.logoUrl}
-                        darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
-                        alt={teamDisplayName(tt)}
-                        className="object-contain p-1.5"
-                      />
-                    ) : (
-                      <span className="font-black text-slate-400 text-sm">{teamDisplayName(tt).slice(0, 2).toUpperCase()}</span>
-                    )}
-                  </Link>
+                    tileClassName="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
+                    logoClassName="object-contain p-1.5"
+                    fallbackClassName="font-black text-slate-400 text-sm"
+                  />
                   <div className="min-w-0">
                     <Link
                       href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}

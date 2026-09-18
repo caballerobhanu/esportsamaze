@@ -4,6 +4,7 @@
 
 import { flattenPrizeRanks } from '@/lib/standings-config';
 import { classifyPrizeRow } from '@/lib/prize-rows';
+import { countryCodeFor } from '@/lib/countries';
 
 /**
  * An event a team qualified into. Mirrors `SeedEventItem` in the admin
@@ -29,6 +30,8 @@ export interface PrizeResultRow {
   slug: string | null;
   logoUrl: string | null;
   logoDarkUrl: string | null;
+  /** Resolved from the event's country override, then the team's region — what a flag mode draws. */
+  countryCode: string | null;
   prizeWon: number | null;
   berths: PrizeBerth[];
 }
@@ -43,6 +46,8 @@ export interface PrizeResultSource {
   shortName?: string | null;
   logoUrl?: string | null;
   logoDarkUrl?: string | null;
+  /** The event's country override for this seat, when one was entered. */
+  country?: string | null;
   /** Null for an unfilled seat, which is not a result and is skipped. */
   team: {
     id?: string;
@@ -52,6 +57,8 @@ export interface PrizeResultSource {
     slug?: string | null;
     logoUrl?: string | null;
     imageDarkUrl?: string | null;
+    /** The team's region, used for a flag when the event entered no country. */
+    region?: string | null;
   } | null;
 }
 
@@ -139,6 +146,7 @@ export function buildPrizeResults(
           slug: team.slug || null,
           logoUrl: entry.logoUrl || team.logoUrl || null,
           logoDarkUrl: entry.logoDarkUrl || team.imageDarkUrl || null,
+          countryCode: countryCodeFor(entry.country ?? team.region ?? null),
           prizeWon: placementTotals?.get(entry.teamId ?? '') ?? entry.prizeWon,
           berths: parseBerths(entry.berths),
         },

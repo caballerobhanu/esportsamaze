@@ -47,7 +47,10 @@ export default async function TournamentMatchesPage({
           </div>
         }
       >
-        <EstaticMatchesPanel stageGroups={stageGroups} />
+        <EstaticMatchesPanel
+          stageGroups={stageGroups}
+          logoMode={ctx.standingsConfig.logoModeBySurface.matches}
+        />
       </Suspense>
     </TournamentTabShell>
   );

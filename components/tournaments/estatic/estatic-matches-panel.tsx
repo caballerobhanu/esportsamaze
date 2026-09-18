@@ -13,10 +13,13 @@ import {
 } from 'lucide-react';
 import { formatDate, formatShortDate } from '@/lib/utils';
 import type { StageGroup } from './panel-types';
-import { ThemeLogo } from './theme-logo';
+import type { StandingsLogoMode } from '@/lib/standings-config';
+import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 
 interface EstaticMatchesPanelProps {
   stageGroups: StageGroup[];
+  /** How this tab draws each team: crest, flag, both, or neither. */
+  logoMode?: StandingsLogoMode;
 }
 
 /** Syncs a query param without triggering a server roundtrip. */
@@ -30,6 +33,7 @@ function replaceQueryParam(key: string, value: string | null) {
 
 export function EstaticMatchesPanel({
   stageGroups,
+  logoMode = 'TEAM',
 }: EstaticMatchesPanelProps) {
   // Deep links (?stage=, ?matchId=) are read client-side so the route stays ISR-cacheable.
   const searchParams = useSearchParams();
@@ -323,20 +327,16 @@ export function EstaticMatchesPanel({
                       </td>
                       <td className="py-3.5 pl-2">
                         <div className="flex items-center gap-3 font-extrabold">
-                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-black/30">
-                            {tr.team?.logoUrl || tr.team?.imageDarkUrl ? (
-                              <ThemeLogo
-                                lightSrc={tr.team?.logoUrl}
-                                darkSrc={tr.team?.imageDarkUrl}
-                                alt={tr.team?.name || 'Team'}
-                                className="object-contain p-1"
-                              />
-                            ) : (
-                              <span className="text-xs font-black text-slate-400">
-                                {tr.team?.name?.slice(0, 2).toUpperCase() || 'TM'}
-                              </span>
-                            )}
-                          </div>
+                          <TeamMark
+                            mode={logoMode}
+                            name={tr.team?.name || 'Unknown Squad'}
+                            lightSrc={tr.team?.logoUrl}
+                            darkSrc={tr.team?.imageDarkUrl}
+                            countryCode={tr.team?.countryCode}
+                            tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden`}
+                            logoClassName="object-contain p-0.5 sm:p-1"
+                            fallbackClassName="text-[9px] sm:text-xs font-black text-slate-400"
+                          />
                           <span className="text-slate-900 dark:text-white truncate">{tr.team?.name || 'Unknown Squad'}</span>
                         </div>
                       </td>

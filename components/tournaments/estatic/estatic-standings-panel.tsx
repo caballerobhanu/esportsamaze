@@ -34,7 +34,7 @@ import {
   type ZoneRule,
   type ZoneColor,
 } from '@/lib/standings-config';
-import { ThemeLogo } from './theme-logo';
+import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
 type SortKey =
@@ -1108,23 +1108,17 @@ export function EstaticStandingsPanel({
                     {/* Squad & Qualification Badge */}
                     <td className="py-2.5 sm:py-3 pl-2 sm:pl-4 pr-2">
                       <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                        <Link
+                        <TeamMark
+                          mode={config.logoModeBySurface.standings}
+                          name={cleanName}
+                          lightSrc={meta?.logoUrl}
+                          darkSrc={meta?.logoDarkUrl}
+                          countryCode={meta?.countryCode}
                           href={teamHref}
-                          className="relative flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center overflow-hidden rounded-md sm:rounded-xl border border-slate-200 bg-slate-50 shadow-2xs dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
-                        >
-                          {meta?.logoUrl || meta?.logoDarkUrl ? (
-                            <ThemeLogo
-                              lightSrc={meta?.logoUrl}
-                              darkSrc={meta?.logoDarkUrl}
-                              alt={cleanName}
-                              className="object-contain p-0.5 sm:p-1"
-                            />
-                          ) : (
-                            <span className="text-[9px] sm:text-xs font-black text-slate-400">
-                              {cleanName.slice(0, 2).toUpperCase()}
-                            </span>
-                          )}
-                        </Link>
+                          tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden hover:scale-105 transition-transform`}
+                          logoClassName="object-contain p-0.5 sm:p-1"
+                          fallbackClassName="text-[9px] sm:text-xs font-black text-slate-400"
+                        />
                         <div className="flex items-center gap-2 flex-wrap min-w-0">
                           {/* Mobile: Short tag */}
                           <Link

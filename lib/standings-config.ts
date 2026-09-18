@@ -305,9 +305,17 @@ export interface StatisticsConfig {
   defaultTeamPointsMode?: 'sum' | 'avg' | 'max';
 }
 
-export interface TeamsTabConfig {
-  showCountryFlag?: boolean;
-}
+/** Public surfaces that each choose how a team is drawn: crest, flag, both, or neither. */
+export type DisplaySurface = 'overview' | 'standings' | 'matches' | 'teams' | 'prizepool' | 'statistics';
+
+export const DISPLAY_SURFACES: { key: DisplaySurface; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'standings', label: 'Standings' },
+  { key: 'matches', label: 'Matches' },
+  { key: 'teams', label: 'Teams' },
+  { key: 'prizepool', label: 'Prize Pool' },
+  { key: 'statistics', label: 'Statistics' },
+];
 
 export type TournamentTabId =
   | 'overview'
@@ -337,7 +345,9 @@ export const TOURNAMENT_AVAILABLE_TABS: {
 export const ALL_TOURNAMENT_TAB_IDS: TournamentTabId[] = TOURNAMENT_AVAILABLE_TABS.map((t) => t.id);
 
 export interface StandingsConfig {
-  logoMode: StandingsLogoMode;
+  /** How each public surface draws a team. Surfaces default to the crest alone, so a stored
+      config that predates this setting renders exactly as it did before. */
+  logoModeBySurface: Record<DisplaySurface, StandingsLogoMode>;
   showOverall: boolean;
   filters: StandingsFilterKey[];
   columns: StandingsColumnKey[];
@@ -347,12 +357,21 @@ export interface StandingsConfig {
   customTabs?: StandingsCustomTab[];
   tabGroups?: StandingsTabGroup[];
   statisticsConfig?: StatisticsConfig;
-  teamsConfig?: TeamsTabConfig;
   visibleTabs?: TournamentTabId[];
 }
 
+/** Every surface starts on the crest alone: no tournament shows a flag until it is asked to. */
+export const DEFAULT_SURFACE_LOGO_MODE: StandingsLogoMode = 'TEAM';
+
 export const DEFAULT_STANDINGS_CONFIG: StandingsConfig = {
-  logoMode: 'BOTH',
+  logoModeBySurface: {
+    overview: DEFAULT_SURFACE_LOGO_MODE,
+    standings: DEFAULT_SURFACE_LOGO_MODE,
+    matches: DEFAULT_SURFACE_LOGO_MODE,
+    teams: DEFAULT_SURFACE_LOGO_MODE,
+    prizepool: DEFAULT_SURFACE_LOGO_MODE,
+    statistics: DEFAULT_SURFACE_LOGO_MODE,
+  },
   showOverall: true,
   filters: ['day', 'map', 'group'],
   columns: ['mp', 'wwcd', 'place', 'elims', 'total', 'form'],
@@ -364,9 +383,6 @@ export const DEFAULT_STANDINGS_CONFIG: StandingsConfig = {
   statisticsConfig: {
     defaultView: 'players',
     playerColumns: ['elims', 'powerplay', 'avgElims'],
-  },
-  teamsConfig: {
-    showCountryFlag: true,
   },
   visibleTabs: [...ALL_TOURNAMENT_TAB_IDS],
 };
@@ -675,12 +691,28 @@ export function normalizeStatisticsConfig(v: unknown): StatisticsConfig {
   };
 }
 
-export function normalizeTeamsConfig(v: unknown, logoMode?: unknown): TeamsTabConfig {
-  const s = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
-  const defaultShowFlag = logoMode === 'BOTH' || logoMode === 'COUNTRY';
-  return {
-    showCountryFlag: typeof s.showCountryFlag === 'boolean' ? s.showCountryFlag : defaultShowFlag,
-  };
+export function normalizeLogoModeBySurface(v: unknown): Record<DisplaySurface, StandingsLogoMode> {
+  const src = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+  const out = {} as Record<DisplaySurface, StandingsLogoMode>;
+  for (const { key } of DISPLAY_SURFACES) {
+    out[key] = LOGO_MODES.includes(src[key] as StandingsLogoMode)
+      ? (src[key] as StandingsLogoMode)
+      : DEFAULT_SURFACE_LOGO_MODE;
+  }
+  return out;
+}
+
+/**
+ * Reads the per-surface team-mark choice out of a whole stored standings config.
+ *
+ * The choice lives under `logoModeBySurface`. Handing `normalizeLogoModeBySurface` the whole
+ * config instead of that nested object finds no surface keys, so every tab reads back the
+ * default — indistinguishable on screen from "the choice I saved was not kept", and the next
+ * save then writes those defaults over the stored value. Always read through here.
+ */
+export function logoModesFromConfig(config: unknown): Record<DisplaySurface, StandingsLogoMode> {
+  const src = (config && typeof config === 'object' ? config : {}) as Record<string, unknown>;
+  return normalizeLogoModeBySurface(src.logoModeBySurface);
 }
 
 function normalizeVisibleTabs(raw: unknown): TournamentTabId[] {
@@ -692,9 +724,7 @@ function normalizeVisibleTabs(raw: unknown): TournamentTabId[] {
 export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
   const src = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const cfg: StandingsConfig = {
-    logoMode: LOGO_MODES.includes(src.logoMode as StandingsLogoMode)
-      ? (src.logoMode as StandingsLogoMode)
-      : DEFAULT_STANDINGS_CONFIG.logoMode,
+    logoModeBySurface: normalizeLogoModeBySurface(src.logoModeBySurface),
     showOverall: typeof src.showOverall === 'boolean' ? src.showOverall : true,
     filters: normalizeFilters(src.filters, DEFAULT_STANDINGS_CONFIG.filters),
     columns: normalizeColumns(src.columns),
@@ -704,7 +734,6 @@ export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
     customTabs: normalizeCustomTabs(src.customTabs),
     tabGroups: normalizeTabGroups(src.tabGroups),
     statisticsConfig: normalizeStatisticsConfig(src.statisticsConfig),
-    teamsConfig: normalizeTeamsConfig(src.teamsConfig, src.logoMode),
     visibleTabs: normalizeVisibleTabs(src.visibleTabs),
   };
 

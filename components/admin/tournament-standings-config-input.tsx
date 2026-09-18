@@ -19,7 +19,6 @@ import {
   type StandingsConfig,
   type StandingsFilterKey,
   type StandingsColumnKey,
-  type StandingsLogoMode,
   type StandingsCustomTab,
   type StandingsTabGroup,
   type StandingsNavigationItem,
@@ -1277,20 +1276,8 @@ export function TournamentStandingsConfigInput({
       </div>
 
       {/* ── Global Standings Controls ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label className={labelCls}>Logo Display</label>
-          <select
-            className={inputCls}
-            value={config.logoMode}
-            onChange={(e) => patch({ logoMode: e.target.value as StandingsLogoMode })}
-          >
-            <option value="BOTH">Country flag + team logo</option>
-            <option value="TEAM">Team logo only</option>
-            <option value="COUNTRY">Country flag only</option>
-            <option value="NONE">No logos</option>
-          </select>
-        </div>
+      {/* The logo/flag choice is per surface and lives on the Basics tab. */}
+      <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-end pb-2">
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
             <input
@@ -1299,27 +1286,6 @@ export function TournamentStandingsConfigInput({
               onChange={(e) => patch({ showOverall: e.target.checked })}
             />
             Show Global Overall Standings Tab
-          </label>
-        </div>
-        <div className="flex items-end pb-2">
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={
-                config.teamsConfig?.showCountryFlag ??
-                (config.logoMode === 'BOTH' || config.logoMode === 'COUNTRY')
-              }
-              onChange={(e) =>
-                patch({
-                  teamsConfig: {
-                    ...config.teamsConfig,
-                    showCountryFlag: e.target.checked,
-                  },
-                })
-              }
-              className="rounded text-purple-600 focus:ring-purple-500"
-            />
-            Show Country Flag in Teams Tab
           </label>
         </div>
       </div>

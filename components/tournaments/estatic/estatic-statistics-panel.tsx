@@ -22,7 +22,7 @@ import type {
   TeamPointsMode,
 } from './panel-types';
 import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from '@/lib/standings-config';
-import { ThemeLogo } from './theme-logo';
+import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 
 export interface EstaticStatisticsPanelProps {
   playerRows: PlayerPerformanceRow[];
@@ -328,6 +328,7 @@ export function EstaticStatisticsPanel({
   defaultTeamPointsMode = 'sum',
   adminPlayerColumns,
   customPlayerColumns,
+  logoMode = 'TEAM',
 }: EstaticStatisticsPanelProps) {
   // Navigation & view states
   const [activeTab, setActiveTab] = React.useState<'players' | 'teams'>(defaultView);
@@ -1254,20 +1255,16 @@ export function EstaticStatisticsPanel({
                       {/* Player & Squad */}
                       <td className="py-3 pl-3">
                         <div className="flex items-center gap-3">
-                          {player.teamLogo || player.teamLogoDark ? (
-                            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/5">
-                              <ThemeLogo
-                                lightSrc={player.teamLogo}
-                                darkSrc={player.teamLogoDark}
-                                alt={player.teamName}
-                                className="object-contain"
-                              />
-                            </div>
-                          ) : (
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-xs font-black text-[#0A5FC4] dark:text-blue-300">
-                              {player.ign.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
+                          <TeamMark
+                            mode={logoMode}
+                            name={player.teamName}
+                            lightSrc={player.teamLogo}
+                            darkSrc={player.teamLogoDark}
+                            countryCode={player.teamCountryCode}
+                            tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden`}
+                            logoClassName="object-contain p-0.5 sm:p-1"
+                            fallbackClassName="text-[10px] sm:text-xs font-black text-[#0A5FC4] dark:text-blue-300"
+                          />
                           <div>
                             <Link
                               href={`/players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`}
@@ -1438,20 +1435,16 @@ export function EstaticStatisticsPanel({
                         {/* Squad */}
                         <td className="py-3 pl-3">
                           <div className="flex items-center gap-3">
-                            {team.teamLogo || team.teamLogoDark ? (
-                              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/5">
-                                <ThemeLogo
-                                  lightSrc={team.teamLogo}
-                                  darkSrc={team.teamLogoDark}
-                                  alt={team.teamName}
-                                  className="object-contain"
-                                />
-                              </div>
-                            ) : (
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0A5FC4]/10 text-xs font-black text-[#0A5FC4] dark:text-blue-300">
-                                {team.teamName.slice(0, 2).toUpperCase()}
-                              </div>
-                            )}
+                            <TeamMark
+                              mode={logoMode}
+                              name={team.teamName}
+                              lightSrc={team.teamLogo}
+                              darkSrc={team.teamLogoDark}
+                              countryCode={team.countryCode}
+                              tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden`}
+                              logoClassName="object-contain p-0.5 sm:p-1"
+                              fallbackClassName="text-[10px] sm:text-xs font-black text-[#0A5FC4] dark:text-blue-300"
+                            />
                             <div>
                               <Link
                                 href={`/teams/${team.teamSlug || encodeURIComponent(team.teamName)}`}

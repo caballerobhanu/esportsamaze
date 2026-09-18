@@ -234,6 +234,27 @@ export function countryCodeFor(region?: string | null): string | null {
   return byCode?.code ?? null;
 }
 
+/** The one entry in COUNTRIES that names a grouping rather than a country, so it has no flag. */
+export const NON_COUNTRY_CODE = 'GLOBAL';
+
+/**
+ * Flags are self-hosted square SVGs from the Flag Icons 1x1 set (MIT), vendored into
+ * `public/flags/1x1` by `npm run flags:fetch`. Being square, a flag fills the same square chip
+ * a team crest uses, which is what makes the two read as a pair.
+ */
 export function flagUrlFor(code: string): string {
-  return `https://flagcdn.com/20x15/${code.toLowerCase()}.png`;
+  return `/flags/1x1/${code.toLowerCase()}.svg`;
+}
+
+/**
+ * Whether a vendored flag exists for this code; typed as a guard so callers can narrow with it.
+ *
+ * Only the codes COUNTRIES lists are vendored — `GLOBAL` included in that list but being a
+ * grouping rather than a country, it has no flag. Without this check those codes would resolve
+ * to a missing file and paint a broken-image icon where a team's crest should be.
+ */
+export function hasFlagFor(code?: string | null): code is string {
+  const value = code?.trim().toUpperCase();
+  if (!value || value === NON_COUNTRY_CODE) return false;
+  return COUNTRIES.some((country) => country.code === value);
 }

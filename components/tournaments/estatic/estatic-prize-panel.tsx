@@ -14,6 +14,9 @@ import {
   Gift,
 } from 'lucide-react';
 import { ThemeLogo } from './theme-logo';
+import type { StandingsLogoMode } from '@/lib/standings-config';
+import { countryCodeFor } from '@/lib/countries';
+import { TeamMark } from '@/components/ui/team-mark';
 import type { PrizeResultRow } from '@/lib/tournament-prizes';
 import { classifyPrizeRow, prizeRowRange } from '@/lib/prize-rows';
 import {
@@ -50,6 +53,8 @@ export interface EstaticPrizePanelProps {
   teams?: any[];
   /** Per-team finishes; takes over the table when an event has been ranked. */
   results?: PrizeResultRow[];
+  /** How this tab draws each team: crest, flag, both, or neither. */
+  logoMode?: StandingsLogoMode;
 }
 
 function getOrdinal(n: number): string {
@@ -92,6 +97,7 @@ export function EstaticPrizePanel({
   awardPlayers = [],
   teams = [],
   results = [],
+  logoMode = 'TEAM',
 }: EstaticPrizePanelProps) {
   // `-1` is the combined Total across stages, which is what a ranked event
   // opens on; an unranked one opens on its first stage's ladder.
@@ -114,6 +120,7 @@ export function EstaticPrizePanel({
         slug?: string | null;
         logoUrl?: string | null;
         imageDarkUrl?: string | null;
+        countryCode?: string | null;
       }
     >();
 
@@ -131,6 +138,9 @@ export function EstaticPrizePanel({
           slug: t.slug,
           logoUrl,
           imageDarkUrl,
+          // The event's country override wins over the team's own region, the same
+          // order the standings and Teams tabs resolve it in.
+          countryCode: countryCodeFor(item.country ?? t.region ?? null),
         };
         if (t.id) map.set(t.id, data);
         if (item.teamId) map.set(item.teamId, data);
@@ -219,6 +229,7 @@ export function EstaticPrizePanel({
         slug: meta?.slug || null,
         logoUrl: meta?.logoUrl || null,
         logoDarkUrl: meta?.imageDarkUrl || null,
+        countryCode: meta?.countryCode ?? null,
         prizeWon: amount,
         berths: [],
       });
@@ -451,7 +462,6 @@ export function EstaticPrizePanel({
             const firstLightLogo = firstTeamMeta?.logoUrl;
             const firstDarkLogo = firstTeamMeta?.imageDarkUrl;
             const firstTeamName = firstTeamMeta?.displayName || firstTeamMeta?.name || first.teamName;
-            const firstInitial = (firstTeamName || first.playerName || '1').slice(0, 2).toUpperCase();
 
             return (
               <div className="relative overflow-hidden rounded-3xl border-2 border-amber-400 bg-white p-6 shadow-md shadow-amber-400/10 dark:bg-[#0b1220] sm:order-2">
@@ -471,20 +481,16 @@ export function EstaticPrizePanel({
 
                   {/* Team Logo & Recipient Identity */}
                   <div className="mt-3 flex items-center gap-2.5">
-                    <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-amber-50/50 p-1 dark:bg-white/5">
-                      {firstLightLogo || firstDarkLogo ? (
-                        <ThemeLogo
-                          lightSrc={firstLightLogo}
-                          darkSrc={firstDarkLogo}
-                          alt={firstTeamName || first.playerName || ''}
-                          className="object-contain p-0.5"
-                        />
-                      ) : (
-                        <span className="text-[10px] font-black text-amber-800 dark:text-amber-300">
-                          {firstInitial}
-                        </span>
-                      )}
-                    </div>
+                    <TeamMark
+                      mode={logoMode}
+                      name={firstTeamName || first.playerName || ''}
+                      lightSrc={firstLightLogo}
+                      darkSrc={firstDarkLogo}
+                      countryCode={firstTeamMeta?.countryCode}
+                      tileClassName="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-400/30 bg-amber-50/50 p-1 dark:bg-white/5"
+                      logoClassName="object-contain p-0.5"
+                      fallbackClassName="text-[10px] font-black text-amber-800 dark:text-amber-300"
+                    />
 
                     <div className="min-w-0">
                       <p className="truncate text-sm font-extrabold text-slate-950 dark:text-white">
@@ -524,7 +530,6 @@ export function EstaticPrizePanel({
               const secondLightLogo = secondTeamMeta?.logoUrl;
               const secondDarkLogo = secondTeamMeta?.imageDarkUrl;
               const secondTeamName = secondTeamMeta?.displayName || secondTeamMeta?.name || second.teamName;
-              const secondInitial = (secondTeamName || second.playerName || '2').slice(0, 2).toUpperCase();
 
               return (
                 <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:order-1">
@@ -544,20 +549,16 @@ export function EstaticPrizePanel({
 
                     {/* Team Logo & Recipient Identity */}
                     <div className="mt-3 flex items-center gap-2.5">
-                      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/5">
-                        {secondLightLogo || secondDarkLogo ? (
-                          <ThemeLogo
-                            lightSrc={secondLightLogo}
-                            darkSrc={secondDarkLogo}
-                            alt={secondTeamName || second.playerName || ''}
-                            className="object-contain p-0.5"
-                          />
-                        ) : (
-                          <span className="text-[10px] font-black text-slate-600 dark:text-slate-300">
-                            {secondInitial}
-                          </span>
-                        )}
-                      </div>
+                      <TeamMark
+                        mode={logoMode}
+                        name={secondTeamName || second.playerName || ''}
+                        lightSrc={secondLightLogo}
+                        darkSrc={secondDarkLogo}
+                        countryCode={secondTeamMeta?.countryCode}
+                        tileClassName="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/5"
+                        logoClassName="object-contain p-0.5"
+                        fallbackClassName="text-[10px] font-black text-slate-600 dark:text-slate-300"
+                      />
 
                       <div className="min-w-0">
                         <p className="truncate text-sm font-extrabold text-slate-950 dark:text-white">
@@ -597,7 +598,6 @@ export function EstaticPrizePanel({
               const thirdLightLogo = thirdTeamMeta?.logoUrl;
               const thirdDarkLogo = thirdTeamMeta?.imageDarkUrl;
               const thirdTeamName = thirdTeamMeta?.displayName || thirdTeamMeta?.name || third.teamName;
-              const thirdInitial = (thirdTeamName || third.playerName || '3').slice(0, 2).toUpperCase();
 
               return (
                 <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:order-3">
@@ -617,20 +617,16 @@ export function EstaticPrizePanel({
 
                     {/* Team Logo & Recipient Identity */}
                     <div className="mt-3 flex items-center gap-2.5">
-                      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-700/20 bg-amber-50/30 p-1 dark:border-white/10 dark:bg-white/5">
-                        {thirdLightLogo || thirdDarkLogo ? (
-                          <ThemeLogo
-                            lightSrc={thirdLightLogo}
-                            darkSrc={thirdDarkLogo}
-                            alt={thirdTeamName || third.playerName || ''}
-                            className="object-contain p-0.5"
-                          />
-                        ) : (
-                          <span className="text-[10px] font-black text-amber-700 dark:text-amber-400">
-                            {thirdInitial}
-                          </span>
-                        )}
-                      </div>
+                      <TeamMark
+                        mode={logoMode}
+                        name={thirdTeamName || third.playerName || ''}
+                        lightSrc={thirdLightLogo}
+                        darkSrc={thirdDarkLogo}
+                        countryCode={thirdTeamMeta?.countryCode}
+                        tileClassName="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-amber-700/20 bg-amber-50/30 p-1 dark:border-white/10 dark:bg-white/5"
+                        logoClassName="object-contain p-0.5"
+                        fallbackClassName="text-[10px] font-black text-amber-700 dark:text-amber-400"
+                      />
 
                       <div className="min-w-0">
                         <p className="truncate text-sm font-extrabold text-slate-950 dark:text-white">
@@ -699,8 +695,6 @@ export function EstaticPrizePanel({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/10">
                 {visibleResults.map((row) => {
-                  const fallbackInitial = (row.name || 'T').slice(0, 2).toUpperCase();
-                  const hasLogo = Boolean(row.logoUrl || row.logoDarkUrl);
                   // Placement reads as a bare number here; the ordinal wording
                   // ("1st Place", "Top 4") belongs to the distribution table.
                   const rankCls =
@@ -727,20 +721,16 @@ export function EstaticPrizePanel({
 
                       <td className="py-4">
                         <div className="flex items-center gap-3">
-                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-xs dark:border-white/10 dark:bg-black/30">
-                            {hasLogo ? (
-                              <ThemeLogo
-                                lightSrc={row.logoUrl ?? undefined}
-                                darkSrc={row.logoDarkUrl ?? undefined}
-                                alt={row.name}
-                                className="object-contain p-0.5"
-                              />
-                            ) : (
-                              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400">
-                                {fallbackInitial}
-                              </span>
-                            )}
-                          </div>
+                          <TeamMark
+                            mode={logoMode}
+                            name={row.name}
+                            lightSrc={row.logoUrl}
+                            darkSrc={row.logoDarkUrl}
+                            countryCode={row.countryCode}
+                            tileClassName="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-xs dark:border-white/10 dark:bg-black/30"
+                            logoClassName="object-contain p-0.5"
+                            fallbackClassName="text-[10px] font-black text-slate-500 dark:text-slate-400"
+                          />
                           <Link
                             href={`/teams/${row.slug || encodeURIComponent(row.name)}`}
                             className="min-w-0 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
@@ -853,8 +843,6 @@ export function EstaticPrizePanel({
                   const lightLogo = teamMeta?.logoUrl;
                   const darkLogo = teamMeta?.imageDarkUrl;
                   const teamDisplayName = teamMeta?.displayName || teamMeta?.name || row.teamName;
-                  const hasLogo = Boolean(lightLogo || darkLogo);
-                  const fallbackInitial = (teamDisplayName || row.playerName || 'T').slice(0, 2).toUpperCase();
 
                   return (
                     <tr
@@ -877,20 +865,16 @@ export function EstaticPrizePanel({
                       <td className="py-4">
                         <div className="flex items-center gap-3">
                           {/* Logo */}
-                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-xs dark:border-white/10 dark:bg-black/30">
-                            {hasLogo ? (
-                              <ThemeLogo
-                                lightSrc={lightLogo}
-                                darkSrc={darkLogo}
-                                alt={teamDisplayName || row.playerName || 'Team'}
-                                className="object-contain p-0.5"
-                              />
-                            ) : (
-                              <span className="text-[10px] font-black text-slate-500 dark:text-slate-400">
-                                {fallbackInitial}
-                              </span>
-                            )}
-                          </div>
+                          <TeamMark
+                            mode={logoMode}
+                            name={teamDisplayName || row.playerName || 'Team'}
+                            lightSrc={lightLogo}
+                            darkSrc={darkLogo}
+                            countryCode={teamMeta?.countryCode}
+                            tileClassName="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50 p-1 shadow-xs dark:border-white/10 dark:bg-black/30"
+                            logoClassName="object-contain p-0.5"
+                            fallbackClassName="text-[10px] font-black text-slate-500 dark:text-slate-400"
+                          />
 
                           {/* Recipient Name details */}
                           <div className="min-w-0">
