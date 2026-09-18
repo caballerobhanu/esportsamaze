@@ -20,6 +20,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { BGMI_PUBGM_MAPS } from '@/lib/tournament-math';
+import { parseTimeTo24h } from '@/lib/match-time';
 
 export interface MatchVodItem {
   id: string;
@@ -338,44 +339,6 @@ export function MatchInfoInputs({
   const [matchType, setMatchType] = React.useState(
     initialMatchType === 'Online' ? 'Online' : 'LAN'
   );
-
-function parseTimeTo24h(timeStr?: string | null): string | null {
-  if (!timeStr) return null;
-  const s = timeStr.trim();
-
-  // 1. Check 12-hour format with AM/PM e.g. "04:20 PM" or "4:20pm" or "4 PM"
-  const ampmMatch = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
-  if (ampmMatch) {
-    let hours = parseInt(ampmMatch[1], 10);
-    const minutes = ampmMatch[2] ? parseInt(ampmMatch[2], 10) : 0;
-    const isPm = ampmMatch[3].toLowerCase() === 'pm';
-    if (isPm && hours < 12) hours += 12;
-    if (!isPm && hours === 12) hours = 0;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  }
-
-  // 2. Check 24-hour format with colon e.g. "16:20" or "16:20 IST"
-  const colonMatch = s.match(/(\d{1,2}):(\d{2})/);
-  if (colonMatch) {
-    const hours = parseInt(colonMatch[1], 10);
-    const minutes = parseInt(colonMatch[2], 10);
-    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    }
-  }
-
-  // 3. Check 4-digit military format e.g. "1620" or "1620 IST" or "0930"
-  const fourDigitMatch = s.match(/\b(\d{2})(\d{2})\b/);
-  if (fourDigitMatch) {
-    const hours = parseInt(fourDigitMatch[1], 10);
-    const minutes = parseInt(fourDigitMatch[2], 10);
-    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    }
-  }
-
-  return null;
-}
 
 function parseTimezoneFromStr(timeStr?: string | null): string | null {
   if (!timeStr) return null;

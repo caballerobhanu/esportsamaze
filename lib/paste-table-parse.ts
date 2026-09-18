@@ -25,7 +25,11 @@
 import { parseWwcd } from './tournament-math';
 
 export type PasteMode = 'excel' | 'json';
-export type PasteTarget = 'teams' | 'players';
+/**
+ * What a paste is for. `schedule` books fixtures and carries no team, player or
+ * result column at all — see `SCHEDULE_PASTE_COLUMNS`.
+ */
+export type PasteTarget = 'teams' | 'players' | 'schedule';
 
 /** How the pasted columns were resolved. */
 export type PasteReadMode = 'header' | 'positional' | 'json';
@@ -145,8 +149,32 @@ export const PLAYER_PASTE_COLUMNS: readonly PasteColumn[] = [
   { key: 'isMvp', label: 'MVP', detail: true },
 ];
 
+/**
+ * Columns a schedule-only paste carries: the fixture's identity, and nothing
+ * scored.
+ *
+ * Booking a match and scoring it are separate acts — a fixture exists, and is
+ * ordered and displayed, before any squad is attached to it. So a sheet that
+ * names only the when/where must import on its own rather than being refused
+ * for want of a team column it was never meant to have.
+ */
+export const SCHEDULE_PASTE_COLUMNS: readonly PasteColumn[] = [
+  { key: 'Tournament', label: 'Tournament' },
+  { key: 'Stage', label: 'Stage' },
+  { key: 'Date', label: 'Date' },
+  { key: 'TimeFormat', label: 'Time format' },
+  { key: 'Time', label: 'Time' },
+  { key: 'OverallMatch', label: 'Overall match' },
+  { key: 'StageMatch', label: 'Stage match' },
+  { key: 'Map', label: 'Map' },
+  { key: 'Group', label: 'Group' },
+  { key: 'Type', label: 'Type' },
+];
+
 export function pasteColumnsFor(target: PasteTarget): readonly PasteColumn[] {
-  return target === 'players' ? PLAYER_PASTE_COLUMNS : TEAM_PASTE_COLUMNS;
+  if (target === 'players') return PLAYER_PASTE_COLUMNS;
+  if (target === 'schedule') return SCHEDULE_PASTE_COLUMNS;
+  return TEAM_PASTE_COLUMNS;
 }
 
 /** Lowercase, strip quotes and punctuation — the form the column aliases use. */
@@ -545,9 +573,9 @@ export function parsePaste(rawText: string, mode: PasteMode, target: PasteTarget
         return undefined;
       };
 
-      return target === 'players'
-        ? buildPlayerRow(getVal)
-        : buildTeamRow(getVal);
+      if (target === 'players') return buildPlayerRow(getVal);
+      if (target === 'schedule') return buildScheduleRow(getVal);
+      return buildTeamRow(getVal);
     })
     .filter(Boolean) as Record<string, any>[];
 
@@ -664,6 +692,28 @@ function buildTeamRow(getVal: GetVal): Record<string, any> {
     rescues: numeric(getVal('rescues', 31)),
     distDrove: numeric(getVal('distdrove', 32)),
     distWalk: numeric(getVal('distwalk', 33)),
+  };
+}
+
+/**
+ * A schedule-only row: the fixture's slot and when/where, and nothing scored.
+ *
+ * There is deliberately no `team` field. A booked match exists before any squad
+ * is attached to it, and the write path must not read an absent team as a
+ * missing-column error the way the scorecard importers do.
+ */
+function buildScheduleRow(getVal: GetVal): Record<string, unknown> {
+  return {
+    Tournament: getVal('tournament', 0) || '',
+    Stage: getVal('stage', 1) || 'Grand Finals',
+    Date: getVal('date', 2) || undefined,
+    TimeFormat: getVal('timeformat', 3) || 'IST',
+    Time: getVal('time', 4) || undefined,
+    OverallMatch: numeric(getVal('overallmatch', 5)),
+    StageMatch: numeric(getVal('stagematch', 6)),
+    Map: getVal('map', 7) || 'Erangel',
+    Group: getVal('group', 8) || undefined,
+    Type: getVal('type') || getVal('matchtype'),
   };
 }
 
@@ -801,7 +851,11 @@ const PLAYER_SCORING_FALLBACKS: readonly ScoringFallback[] = [
 
 /** The scoring columns a target writes with a fallback, in paste-column order. */
 export function scoringFallbacksFor(target: PasteTarget): readonly ScoringFallback[] {
-  return target === 'players' ? PLAYER_SCORING_FALLBACKS : TEAM_SCORING_FALLBACKS;
+  if (target === 'players') return PLAYER_SCORING_FALLBACKS;
+  // A schedule carries no scoring column at all, so there is nothing that can
+  // silently read back as a derived value or a zero.
+  if (target === 'schedule') return [];
+  return TEAM_SCORING_FALLBACKS;
 }
 
 /**

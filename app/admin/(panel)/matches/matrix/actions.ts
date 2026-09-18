@@ -22,6 +22,7 @@ import {
 import { decideTeamResultWrite, readTeamResultRow, type TeamResultScoring } from '@/lib/team-result-write';
 import { applyRosterMembership } from '@/lib/player-transfers';
 import { findLookAlike } from '@/lib/team-name-match';
+import { parseTimeTo24h, timezoneOffsetMinutes } from '@/lib/match-time';
 
 export interface MatrixCellSavePayload {
   teamId: string;
@@ -134,43 +135,16 @@ function parseUniversalDateAndTime(
   timeStr?: any,
   timeFormatStr?: any
 ): { scheduledAt: Date; matchTime: string } {
-  let cleanTime = String(timeStr || '').trim();
   const cleanTz = String(timeFormatStr || '').trim().toUpperCase() || 'IST';
 
-  if (!cleanTime) {
-    cleanTime = `17:30 ${cleanTz}`;
-  } else if (!cleanTime.toUpperCase().includes(cleanTz) && !cleanTime.toUpperCase().includes('UTC')) {
-    cleanTime = `${cleanTime} ${cleanTz}`;
-  }
+  // Through the same parser the match form uses, so a pasted "1400" and a typed
+  // "14:00" book the same kick-off. A bare 4-digit value is 14:00 — it must never
+  // fall through to the default slot just because it lacks a colon.
+  const hhmm = parseTimeTo24h(String(timeStr ?? '').trim());
 
-  // Timezone offsets in minutes
-  const tzOffsets: Record<string, number> = {
-    IST: 330, // UTC+5:30
-    AST: 180, // UTC+3:00
-    GST: 240, // UTC+4:00
-    BST: 360, // UTC+6:00
-    PKT: 300, // UTC+5:00
-    NPT: 345, // UTC+5:45
-    SGT: 480, // UTC+8:00
-    MYT: 480, // UTC+8:00
-    PHT: 480, // UTC+8:00
-    ICT: 420, // UTC+7:00
-    WIB: 420, // UTC+7:00
-    KST: 540, // UTC+9:00
-    JST: 540, // UTC+9:00
-    CST: 480, // UTC+8:00
-    HKT: 480, // UTC+8:00
-    GMT: 0,
-    UTC: 0,
-    CET: 60,
-    CEST: 120,
-    EST: -300,
-    EDT: -240,
-    PST: -480,
-    PDT: -420,
-  };
-
-  const offsetMinutes = tzOffsets[cleanTz] ?? 330;
+  // Timezone offsets live in lib/match-time.ts, shared with the time parser and
+  // the repair script, so the three can never apply different offsets.
+  const offsetMinutes = timezoneOffsetMinutes(cleanTz);
 
   const now = new Date();
   // Wall-clock "today" in the target zone — using UTC's Y/M/D here then
@@ -207,27 +181,17 @@ function parseUniversalDateAndTime(
     }
   }
 
-  // Parse Hours & Minutes
-  let hours = 17;
-  let minutes = 30;
-
-  if (timeStr != null && String(timeStr).trim() !== '') {
-    const timeMatch = String(timeStr).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i);
-    if (timeMatch) {
-      hours = parseInt(timeMatch[1], 10);
-      minutes = parseInt(timeMatch[2], 10);
-      const ampm = timeMatch[4]?.toLowerCase();
-      if (ampm === 'pm' && hours < 12) hours += 12;
-      if (ampm === 'am' && hours === 12) hours = 0;
-    }
-  }
+  // Hours & minutes, defaulting to the 17:30 IST slot when the paste carries no
+  // readable time at all.
+  const hours = hhmm ? Number(hhmm.slice(0, 2)) : 17;
+  const minutes = hhmm ? Number(hhmm.slice(3, 5)) : 30;
 
   const utcTimestamp = Date.UTC(year, month - 1, day, hours, minutes) - offsetMinutes * 60 * 1000;
   const scheduledDate = new Date(utcTimestamp);
 
   return {
     scheduledAt: scheduledDate,
-    matchTime: cleanTime,
+    matchTime: `${hhmm ?? '17:30'} ${cleanTz}`,
   };
 }
 
@@ -1870,6 +1834,373 @@ export async function bulkUniversalPlayerMatchImportAction(
       createdPlayersCount: 0,
       insertedPlayerStatsCount: 0,
       errors: [error?.message || 'Internal error'],
+    };
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Schedule-Only Importer (Fixtures)
+
+   Books matches from a paste that carries no team, player or result
+   column at all. Booking and scoring are separate acts, so this path
+   deliberately never writes a scorecard: an existing match keeps its
+   status and every result row, and only its schedule fields refresh.
+   ══════════════════════════════════════════════════════════════════ */
+
+export interface BulkScheduleRowInput {
+  Tournament?: string;
+  tournament?: string;
+  TournamentName?: string;
+  tournamentName?: string;
+  Event?: string;
+  event?: string;
+  Stage?: string;
+  stage?: string;
+  Date?: string;
+  date?: string;
+  TimeFormat?: string;
+  timeFormat?: string;
+  Time?: string;
+  time?: string;
+  OverallMatch?: number | string;
+  overallMatch?: number | string;
+  StageMatch?: number | string;
+  stageMatch?: number | string;
+  matchNumber?: number | string;
+  Map?: string;
+  map?: string;
+  mapName?: string;
+  Group?: string;
+  group?: string;
+  Type?: string;
+  type?: string;
+  MatchType?: string;
+  matchType?: string;
+}
+
+export interface BulkScheduleImportResult {
+  success: boolean;
+  message: string;
+  processedCount: number;
+  createdMatchesCount: number;
+  updatedMatchesCount: number;
+  errors: string[];
+}
+
+/** The display title the match list renders for a booked fixture. */
+function scheduleMatchTitle(
+  matchNumber: number,
+  mapName: string,
+  stageName: string,
+  overallMatchNumber: number | null,
+  groupName: string | null
+): string {
+  return `Match ${matchNumber} (${mapName})${stageName ? ` · ${stageName}` : ''}${
+    overallMatchNumber ? ` · Overall #${overallMatchNumber}` : ''
+  }${groupName ? ` (${groupName})` : ''}`;
+}
+
+export async function bulkScheduleImportAction(
+  rows: BulkScheduleRowInput[]
+): Promise<BulkScheduleImportResult> {
+  if (!(await isAdmin())) {
+    redirect('/admin/login');
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return {
+      success: false,
+      message: 'No schedule rows provided.',
+      processedCount: 0,
+      createdMatchesCount: 0,
+      updatedMatchesCount: 0,
+      errors: ['Empty schedule payload.'],
+    };
+  }
+
+  const errors: string[] = [];
+  let createdMatchesCount = 0;
+  let updatedMatchesCount = 0;
+
+  try {
+    const cleanStr = (s: unknown) =>
+      String(s || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^\[|\]$/g, '')
+        .replace(/[\-_]/g, ' ');
+
+    const rawTourneyNames = Array.from(
+      new Set(
+        rows
+          .map((r) =>
+            String(r.Tournament || r.tournament || r.TournamentName || r.tournamentName || r.Event || r.event || '').trim()
+          )
+          .filter(Boolean)
+      )
+    );
+
+    // Exact name/slug wins; a fuzzy substring match is accepted only when exactly
+    // one candidate fits, so a paste can never book into the wrong event.
+    const allTournaments =
+      rawTourneyNames.length > 0
+        ? await prisma.tournament.findMany({
+            where: {
+              OR: [
+                { name: { in: rawTourneyNames, mode: 'insensitive' } },
+                { slug: { in: rawTourneyNames.map((n) => n.toLowerCase().replace(/\s+/g, '-')), mode: 'insensitive' } },
+                ...rawTourneyNames.slice(0, 50).map((n) => ({ name: { contains: n, mode: 'insensitive' as const } })),
+              ],
+            },
+            select: { id: true, name: true, slug: true, gameId: true },
+          })
+        : [];
+
+    const defaultGame = await prisma.game
+      .findFirst({ where: { slug: 'bgmi' }, select: { id: true } })
+      .then((g) => g || prisma.game.findFirst({ select: { id: true } }));
+
+    if (!defaultGame) {
+      return {
+        success: false,
+        message: 'No game record exists to attach matches to.',
+        processedCount: 0,
+        createdMatchesCount: 0,
+        updatedMatchesCount: 0,
+        errors: ['No Game row found.'],
+      };
+    }
+
+    type ScheduleStage = { id: string; name: string };
+    type ScheduleMatch = {
+      id: string;
+      matchNumber: number | null;
+      overallMatchNumber: number | null;
+      stageId: string | null;
+      mapName: string | null;
+      games: { id: string; sequence: number }[];
+    };
+
+    // A tournament's stages and match slots, loaded once and mutated as the paste
+    // books fixtures — so two rows can never create the same match twice.
+    const loaded = new Map<string, { stages: ScheduleStage[]; matches: ScheduleMatch[] }>();
+    const loadTournament = async (tournamentId: string) => {
+      const cached = loaded.get(tournamentId);
+      if (cached) return cached;
+      const full = await prisma.tournament.findUnique({
+        where: { id: tournamentId },
+        select: {
+          id: true,
+          stages: { select: { id: true, name: true } },
+          matches: {
+            select: {
+              id: true,
+              matchNumber: true,
+              overallMatchNumber: true,
+              stageId: true,
+              mapName: true,
+              games: { select: { id: true, sequence: true } },
+            },
+          },
+        },
+      });
+      const entry = { stages: full?.stages ?? [], matches: full?.matches ?? [] };
+      loaded.set(tournamentId, entry);
+      return entry;
+    };
+
+    // "C" and "Group C" are the same group.
+    const formatGroup = (g?: string | null): string | null => {
+      const raw = String(g ?? '').trim();
+      if (!raw) return null;
+      const clean = raw.replace(/^group\s*/i, '');
+      return clean ? `Group ${clean}` : null;
+    };
+
+    await prisma.$transaction(
+      async (tx) => {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const rowNum = i + 1;
+
+          const tourneyRaw = String(row.Tournament || row.tournament || '').trim();
+          if (!tourneyRaw) {
+            errors.push(`Row ${rowNum}: Missing tournament name.`);
+            continue;
+          }
+
+          const cleanTourneyName = cleanStr(tourneyRaw);
+          const exactTourneys = allTournaments.filter(
+            (t) => cleanStr(t.name) === cleanTourneyName || cleanStr(t.slug) === cleanTourneyName
+          );
+          const fuzzyTourneys =
+            exactTourneys.length > 0
+              ? []
+              : allTournaments.filter((t) => {
+                  const n = cleanStr(t.name);
+                  return n.includes(cleanTourneyName) || cleanTourneyName.includes(n);
+                });
+
+          if (exactTourneys.length > 1 || (exactTourneys.length === 0 && fuzzyTourneys.length > 1)) {
+            const names = [...exactTourneys, ...fuzzyTourneys].map((t) => t.name).join('", "');
+            errors.push(
+              `Row ${rowNum}: Tournament "${tourneyRaw}" is ambiguous — it matches multiple tournaments ("${names}"). Use the exact name of the intended event.`
+            );
+            continue;
+          }
+
+          const matchedTourney = exactTourneys[0] ?? fuzzyTourneys[0];
+          if (!matchedTourney) {
+            errors.push(`Row ${rowNum}: Tournament "${tourneyRaw}" not found in database.`);
+            continue;
+          }
+
+          const tourneyData = await loadTournament(matchedTourney.id);
+
+          // Stage: reuse the existing one (case/punctuation-insensitive) or add it.
+          const stageRaw = String(row.Stage || row.stage || 'Grand Finals').trim();
+          let matchedStage = tourneyData.stages.find(
+            (s) => cleanStr(s.name) === cleanStr(stageRaw) || cleanStr(s.name).includes(cleanStr(stageRaw))
+          );
+          if (!matchedStage) {
+            matchedStage = await tx.tournamentStage.create({
+              data: {
+                tournamentId: matchedTourney.id,
+                name: stageRaw,
+                sequence: tourneyData.stages.length + 1,
+                formatType: 'Battle Royale Points Table',
+                stageType: 'GROUPS_WISE',
+              },
+            });
+            tourneyData.stages.push(matchedStage);
+          }
+
+          const matchNum =
+            Number(String(row.StageMatch ?? row.stageMatch ?? row.matchNumber ?? 1).replace(/[^\d]/g, '')) || 1;
+          const overallRaw = row.OverallMatch ?? row.overallMatch;
+          const overallMatchNum =
+            overallRaw != null && String(overallRaw).trim() !== ''
+              ? Number(String(overallRaw).replace(/[^\d]/g, '')) || null
+              : null;
+          const mapName = String(row.Map || row.map || row.mapName || 'Erangel').trim();
+          const groupName = formatGroup(row.Group || row.group);
+          const matchType = parseMatchType(row.Type || row.type || row.MatchType || row.matchType, 'Online');
+
+          const { scheduledAt, matchTime } = parseUniversalDateAndTime(
+            row.Date || row.date,
+            row.Time || row.time,
+            row.TimeFormat || row.timeFormat
+          );
+
+          // The same slot is the same match: the overall number wins when present,
+          // otherwise stage + stage-match (+ map, so a two-map matchday is not folded).
+          const existing = tourneyData.matches.find((m) => {
+            if (overallMatchNum != null && m.overallMatchNumber != null) {
+              return m.overallMatchNumber === overallMatchNum && (m.stageId === matchedStage.id || !m.stageId);
+            }
+            if (m.matchNumber === matchNum && (m.stageId === matchedStage.id || !m.stageId)) {
+              if (m.mapName && mapName && m.mapName.toLowerCase() !== mapName.toLowerCase()) return false;
+              return true;
+            }
+            return false;
+          });
+
+          if (existing) {
+            // Schedule refresh only: no status and no scorecard is touched, so a
+            // re-paste of a fixture never resets a match that has been played.
+            await tx.match.update({
+              where: { id: existing.id },
+              data: {
+                stageId: matchedStage.id,
+                scheduledAt,
+                matchTime,
+                mapName,
+                groupName,
+                matchType,
+                format: scheduleMatchTitle(
+                  existing.matchNumber ?? matchNum,
+                  mapName,
+                  stageRaw,
+                  existing.overallMatchNumber ?? overallMatchNum,
+                  groupName
+                ),
+              },
+            });
+
+            // A match that somehow has no game sequence cannot be scored later.
+            if (!existing.games || existing.games.length === 0) {
+              const game = await tx.matchGame.create({
+                data: { matchId: existing.id, sequence: 1, mapName, duration: 1680 },
+              });
+              existing.games = [{ id: game.id, sequence: 1 }];
+            }
+
+            updatedMatchesCount += 1;
+            continue;
+          }
+
+          const created = await tx.match.create({
+            data: {
+              tournamentId: matchedTourney.id,
+              gameId: matchedTourney.gameId || defaultGame.id,
+              stageId: matchedStage.id,
+              matchNumber: matchNum,
+              overallMatchNumber: overallMatchNum,
+              stageType: 'GROUPS_WISE',
+              groupName,
+              mapName,
+              matchType,
+              format: scheduleMatchTitle(matchNum, mapName, stageRaw, overallMatchNum, groupName),
+              status: 'SCHEDULED',
+              scheduledAt,
+              matchTime,
+            },
+          });
+
+          const game = await tx.matchGame.create({
+            data: { matchId: created.id, sequence: 1, mapName, duration: 1680 },
+          });
+
+          tourneyData.matches.push({
+            id: created.id,
+            matchNumber: matchNum,
+            overallMatchNumber: overallMatchNum,
+            stageId: matchedStage.id,
+            mapName,
+            games: [{ id: game.id, sequence: 1 }],
+          });
+          createdMatchesCount += 1;
+        }
+      },
+      { maxWait: 15000, timeout: 60000 }
+    );
+
+    try {
+      revalidatePath('/admin/matches');
+      revalidatePath('/admin/matches/matrix');
+      revalidateTournamentPages();
+    } catch {
+      // Ignored in script contexts
+    }
+
+    return {
+      success: true,
+      message: `Schedule saved: ${createdMatchesCount} new match(es) booked, ${updatedMatchesCount} existing match(es) re-scheduled.`,
+      processedCount: rows.length,
+      createdMatchesCount,
+      updatedMatchesCount,
+      errors,
+    };
+  } catch (error) {
+    console.error('[bulkScheduleImportAction] Error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to import the schedule.';
+    return {
+      success: false,
+      message,
+      processedCount: 0,
+      createdMatchesCount,
+      updatedMatchesCount,
+      errors: [message],
     };
   }
 }

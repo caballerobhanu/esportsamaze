@@ -25,15 +25,17 @@ import {
   Eye,
 } from 'lucide-react';
 import {
+  bulkScheduleImportAction,
   bulkUniversalMatchImportAction,
   bulkUniversalPlayerMatchImportAction,
+  type BulkScheduleRowInput,
   type BulkUniversalRowInput,
   type BulkUniversalPlayerRowInput,
   type BulkUniversalImportResult,
   type BulkUniversalPlayerImportResult,
 } from '@/app/admin/(panel)/matches/matrix/actions';
 import { parseWwcd } from '@/lib/tournament-math';
-import { parsePaste, pasteColumnsFor, summarisePasteColumns, describeScoringFallbacks } from '@/lib/paste-table-parse';
+import { parsePaste, pasteColumnsFor, summarisePasteColumns, describeScoringFallbacks, type PasteTarget } from '@/lib/paste-table-parse';
 
 const USER_EXACT_TEAM_HEADERS =
   'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tType\tteam\trank\twwcd\tplacePoints\telims\tbonusPoints\ttotalPoints\tsurvivalTime\tdamage\thealing\tdamageReceived\theadshots\tassists\tknockouts\tlongestElim\tvehicleElims\tgrenadeElims\tsmokesUsed\tgrenadesUsed\tmolotovsUsed\tflashUsed\tairdrops\trescues\tdistDrove\tdistWalk';
@@ -52,6 +54,29 @@ BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnl
 BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tNakul\tTeam Soul\tAssaulter\t3\t1\ttrue\t10\t9\t19\t510\t1680\t80\t180\t1\t2\t2\t120\t0\t1\t1\t1\t0\t0\t2\t0\t1\t120\t320\t440\t1\tfalse
 BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tJonathan\tGodLike Esports\tAssaulter\t4\t2\tfalse\t6\t6\t12\t720\t1520\t90\t350\t2\t1\t3\t140\t0\t1\t2\t1\t0\t0\t3\t0\t0\t180\t420\t600\t1\tfalse
 BMPS 2024\tGrand Finals\t14-08-2026\tIST\t15:40 IST\t1\t1\tErangel\tGroup A\tOnline\tShadow\tGodLike Esports\tIGL\t2\t2\tfalse\t6\t6\t12\t380\t1520\t90\t400\t0\t1\t1\t90\t0\t0\t1\t0\t0\t0\t1\t0\t1\t140\t330\t470\t0\tfalse`;
+
+const SCHEDULE_HEADERS =
+  'Tournament\tStage\tDate\tTimeFormat\tTime\tOverallMatch\tStageMatch\tMap\tGroup\tType';
+
+const SAMPLE_SCHEDULE_EXCEL_DATA = `${SCHEDULE_HEADERS}
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t22-09-2026\tIST\t1400\t1\t1\tRondo\tA\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t22-09-2026\tIST\t1440\t2\t2\tErangel\tA\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t22-09-2026\tIST\t1520\t3\t3\tErangel\tA\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t22-09-2026\tIST\t1600\t4\t4\tMiramar\tB\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t22-09-2026\tIST\t1640\t5\t5\tMiramar\tB\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t22-09-2026\tIST\t1720\t6\t6\tRondo\tB\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t23-09-2026\tIST\t1400\t7\t7\tRondo\tC\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t23-09-2026\tIST\t1440\t8\t8\tErangel\tC\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t23-09-2026\tIST\t1520\t9\t9\tErangel\tC\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t23-09-2026\tIST\t1600\t10\t10\tErangel\tA\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t23-09-2026\tIST\t1640\t11\t11\tMiramar\tA\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t23-09-2026\tIST\t1720\t12\t12\tMiramar\tA\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t24-09-2026\tIST\t1400\t13\t13\tRondo\tB\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t24-09-2026\tIST\t1440\t14\t14\tErangel\tB\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t24-09-2026\tIST\t1520\t15\t15\tErangel\tB\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t24-09-2026\tIST\t1600\t16\t16\tErangel\tC\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t24-09-2026\tIST\t1640\t17\t17\tMiramar\tC\tOffline
+Battlegrounds Mobile India ShowDown 2026\tWeek 1\t24-09-2026\tIST\t1720\t18\t18\tMiramar\tC\tOffline`;
 
 export interface InfluxProgressState {
   active: boolean;
@@ -197,7 +222,7 @@ export function BulkJsonMatchImporter({
 }) {
   const router = useRouter();
 
-  const [importTarget, setImportTarget] = React.useState<'teams' | 'players'>('players');
+  const [importTarget, setImportTarget] = React.useState<PasteTarget>('players');
   const [inputMode, setInputMode] = React.useState<'excel' | 'json'>('excel');
   const [rawText, setRawText] = React.useState(SAMPLE_PLAYER_EXCEL_DATA);
   const [copiedTemplate, setCopiedTemplate] = React.useState(false);
@@ -223,14 +248,16 @@ export function BulkJsonMatchImporter({
   const cancelRef = React.useRef(false);
 
   // Switch between Team and Player sample data
-  const handleTargetSwitch = (target: 'teams' | 'players') => {
+  const handleTargetSwitch = (target: PasteTarget) => {
     setImportTarget(target);
     setImportResult(null);
-    if (target === 'players') {
-      setRawText(SAMPLE_PLAYER_EXCEL_DATA);
-    } else {
-      setRawText(SAMPLE_TEAM_EXCEL_DATA);
-    }
+    setRawText(
+      target === 'players'
+        ? SAMPLE_PLAYER_EXCEL_DATA
+        : target === 'schedule'
+        ? SAMPLE_SCHEDULE_EXCEL_DATA
+        : SAMPLE_TEAM_EXCEL_DATA
+    );
   };
 
   // Parse raw text into structured rows. The parser itself is pure and lives in
@@ -242,6 +269,9 @@ export function BulkJsonMatchImporter({
   );
 
   const parsedRows: Record<string, any>[] = parseResult.rows;
+
+  // Schedule mode books fixtures only: no team/player column, no scorecard written.
+  const isSchedule = importTarget === 'schedule';
 
   // ISO/TSV pastes resolve columns by header name, so an absent column maps to
   // NULL. JSON rows carry explicit keys, so "found" is the key union and there is
@@ -278,14 +308,24 @@ export function BulkJsonMatchImporter({
   );
 
   const handleCopyHeaders = () => {
-    const headers = importTarget === 'players' ? USER_EXACT_PLAYER_HEADERS : USER_EXACT_TEAM_HEADERS;
+    const headers =
+      importTarget === 'players'
+        ? USER_EXACT_PLAYER_HEADERS
+        : importTarget === 'schedule'
+        ? SCHEDULE_HEADERS
+        : USER_EXACT_TEAM_HEADERS;
     navigator.clipboard.writeText(headers);
     setCopiedHeaders(true);
     setTimeout(() => setCopiedHeaders(false), 2000);
   };
 
   const handleCopyTemplate = () => {
-    const template = importTarget === 'players' ? SAMPLE_PLAYER_EXCEL_DATA : SAMPLE_TEAM_EXCEL_DATA;
+    const template =
+      importTarget === 'players'
+        ? SAMPLE_PLAYER_EXCEL_DATA
+        : importTarget === 'schedule'
+        ? SAMPLE_SCHEDULE_EXCEL_DATA
+        : SAMPLE_TEAM_EXCEL_DATA;
     navigator.clipboard.writeText(template);
     setCopiedTemplate(true);
     setTimeout(() => setCopiedTemplate(false), 2000);
@@ -298,6 +338,7 @@ export function BulkJsonMatchImporter({
     cancelRef.current = false;
 
     try {
+      const targetLabel = importTarget === 'players' ? 'Player' : importTarget === 'schedule' ? 'Schedule' : 'Team';
       const submissionRows = parsedRows.map((r) => ({
         ...r,
         ...(isQualifierMode ? { isOpenQualifier: true } : {}),
@@ -341,7 +382,20 @@ export function BulkJsonMatchImporter({
           currentLabel: batch.label,
         }));
 
-        if (importTarget === 'players') {
+        if (importTarget === 'schedule') {
+          // Booking only: this path never writes a scorecard, so a row needs no
+          // team and the counters for results/players stay at zero.
+          const res = await bulkScheduleImportAction(batch.rows as BulkScheduleRowInput[]);
+          totalProcessed += res.processedCount || batch.rows.length;
+          totalCreatedMatches += res.createdMatchesCount || 0;
+          totalUpdatedMatches += res.updatedMatchesCount || 0;
+          if (res.errors && res.errors.length > 0) {
+            allErrors.push(...res.errors);
+          }
+          if (!res.success && (!res.errors || res.errors.length === 0)) {
+            allErrors.push(res.message || `Batch ${i + 1} failed.`);
+          }
+        } else if (importTarget === 'players') {
           const res = await bulkUniversalPlayerMatchImportAction(batch.rows as BulkUniversalPlayerRowInput[]);
           totalProcessed += res.processedCount || batch.rows.length;
           totalCreatedMatches += res.createdMatchesCount || 0;
@@ -384,7 +438,7 @@ export function BulkJsonMatchImporter({
           ? `Influx stopped early. Processed ${totalProcessed} of ${submissionRows.length} rows (${batches.length} total batches).`
           : allErrors.length > 0
           ? `Processed ${totalProcessed} of ${submissionRows.length} rows with ${allErrors.length} notices/warnings.`
-          : `Universal ${importTarget === 'players' ? 'Player' : 'Team'} Influx Complete! Successfully processed ${totalProcessed} rows across ${batches.length} match batch(es).`,
+          : `Universal ${targetLabel} Influx Complete! Successfully processed ${totalProcessed} rows across ${batches.length} match batch(es).`,
         processedCount: totalProcessed,
         createdMatchesCount: totalCreatedMatches,
         updatedMatchesCount: totalUpdatedMatches,
@@ -431,31 +485,34 @@ export function BulkJsonMatchImporter({
 
         {/* Ingestion Target Switcher */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Main Event vs Open Qualifier Mode */}
-          <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 border border-slate-200 dark:border-slate-700 text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setIsQualifierMode(false)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                !isQualifierMode
-                  ? 'bg-white dark:bg-slate-900 text-(--ed-blue) dark:text-blue-400 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>🏆 Main Event</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsQualifierMode(true)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                isQualifierMode
-                  ? 'bg-amber-500 text-white shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <span>🛡️ Open Qualifier</span>
-            </button>
-          </div>
+          {/* Main Event vs Open Qualifier Mode — meaningless for a schedule, which
+              records no squad and so has no verification state to set. */}
+          {!isSchedule && (
+            <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 border border-slate-200 dark:border-slate-700 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setIsQualifierMode(false)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  !isQualifierMode
+                    ? 'bg-white dark:bg-slate-900 text-(--ed-blue) dark:text-blue-400 shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <span>🏆 Main Event</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsQualifierMode(true)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  isQualifierMode
+                    ? 'bg-amber-500 text-white shadow-2xs'
+                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                }`}
+              >
+                <span>🛡️ Open Qualifier</span>
+              </button>
+            </div>
+          )}
 
           <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 border border-slate-200 dark:border-slate-700">
             <button
@@ -482,11 +539,23 @@ export function BulkJsonMatchImporter({
               <Shield className="w-3.5 h-3.5" />
               🛡️ Team Scorecards
             </button>
+            <button
+              type="button"
+              onClick={() => handleTargetSwitch('schedule')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                isSchedule
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              📅 Schedule Only
+            </button>
           </div>
         </div>
       </div>
 
-      {isQualifierMode && (
+      {isQualifierMode && !isSchedule && (
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
           <div>
@@ -559,7 +628,13 @@ export function BulkJsonMatchImporter({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
           <span>
-            Paste {importTarget === 'players' ? 'Player Stats' : 'Team Match Scorecards'} (Tab-separated values or JSON array):
+            Paste{' '}
+            {isSchedule
+              ? 'Schedule Fixtures'
+              : importTarget === 'players'
+              ? 'Player Stats'
+              : 'Team Match Scorecards'}{' '}
+            (Tab-separated values or JSON array):
           </span>
           <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
             {parsedRows.length} rows parsed
@@ -569,7 +644,9 @@ export function BulkJsonMatchImporter({
           rows={7}
           value={rawText}
           onChange={(e) => setRawText(e.target.value)}
-          placeholder={`Paste ${importTarget === 'players' ? 'player' : 'team'} match data rows here...`}
+          placeholder={`Paste ${
+            isSchedule ? 'schedule' : importTarget === 'players' ? 'player' : 'team'
+          } rows here...`}
           className="w-full font-mono text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400 leading-relaxed"
         />
         {parseError && (
@@ -693,7 +770,9 @@ export function BulkJsonMatchImporter({
               Live Ingestion Preview ({parsedRows.length} rows)
             </h3>
             <span className="text-[11px] text-slate-500">
-              Matches and lightweight players will be automatically matched or created in database.
+              {isSchedule
+                ? 'Fixtures are matched to an existing match by slot, or booked as a new empty scorecard.'
+                : 'Matches and lightweight players will be automatically matched or created in database.'}
             </span>
           </div>
 
@@ -713,7 +792,9 @@ export function BulkJsonMatchImporter({
                     {parsedRows.some((r) => r.Group) && (
                       <th className="py-2 px-3">Group</th>
                     )}
-                    {importTarget === 'players' ? (
+                    {isSchedule ? (
+                      <th className="py-2 px-3">Type</th>
+                    ) : importTarget === 'players' ? (
                       <>
                         <th className="py-2 px-3">Player IGN</th>
                         <th className="py-2 px-3">Team</th>
@@ -796,7 +877,11 @@ export function BulkJsonMatchImporter({
                             {row.Group || row.group || '—'}
                           </td>
                         )}
-                        {importTarget === 'players' ? (
+                        {isSchedule ? (
+                          <td className="py-2 px-3 font-sans text-slate-600 dark:text-slate-400">
+                            {row.Type || row.type || '—'}
+                          </td>
+                        ) : importTarget === 'players' ? (
                           <>
                             <td className="py-2 px-3 font-bold text-blue-600 dark:text-blue-400">
                               {row.player || row.Player || row.ign || '—'}
@@ -958,10 +1043,10 @@ export function BulkJsonMatchImporter({
             </div>
             <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
               <div className="text-[10px] text-slate-500 font-bold uppercase">
-                {importTarget === 'players' ? 'Player Stats' : 'Team Results'}
+                {isSchedule ? 'Rows Booked' : importTarget === 'players' ? 'Player Stats' : 'Team Results'}
               </div>
               <div className="text-xs font-black text-indigo-600 dark:text-indigo-400 font-mono">
-                {progressState.insertedPlayerStatsCount}
+                {isSchedule ? progressState.processedRows : progressState.insertedPlayerStatsCount}
               </div>
             </div>
           </div>
@@ -1016,7 +1101,8 @@ export function BulkJsonMatchImporter({
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              Ingest {parsedRows.length} {importTarget === 'players' ? 'Player Records' : 'Match Scorecards'}
+              {isSchedule ? 'Book' : 'Ingest'} {parsedRows.length}{' '}
+              {isSchedule ? 'Fixtures' : importTarget === 'players' ? 'Player Records' : 'Match Scorecards'}
             </>
           )}
         </button>
