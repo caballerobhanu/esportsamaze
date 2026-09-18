@@ -93,13 +93,6 @@ export function SearchableSelect({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const optionsListRef = useRef<HTMLDivElement>(null);
 
-  // Sync internal state when controlled value changes
-  useEffect(() => {
-    if (isControlled) {
-      setInternalValue(controlledValue);
-    }
-  }, [isControlled, controlledValue]);
-
   // Selected option lookup (may come from remote search results)
   const allKnownOptions = React.useMemo(
     () => (remoteOptions.length > 0 ? [...options, ...remoteOptions] : options),
@@ -141,6 +134,7 @@ export function SearchableSelect({
     if (term.length < 2) {
       // Keep remoteOptions — the selected value may be one of them; the
       // displayed list already falls back to the local options here.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsSearching(false);
       setSearchFailed(false);
       return;
@@ -189,6 +183,7 @@ export function SearchableSelect({
 
   // Keep highlightedIndex in bounds when filtered options change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHighlightedIndex(0);
   }, [filteredOptions]);
 
