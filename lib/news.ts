@@ -71,6 +71,68 @@ export function formatCategoryDisplay(cat: string): string {
   return parts.join(' › ');
 }
 
+/** URL slug for a category, used by /news/category/<slug>. */
+export function categorySlug(cat: string): string {
+  return cat
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * One entry per level of a hierarchy, each with the cumulative slug that
+ * addresses it. "BGMI > Rosters" yields { BGMI, bgmi } and { Rosters,
+ * bgmi-rosters } — so the child link opens the child, not a same-named
+ * top-level category.
+ */
+export function categoryCrumbs(cat: string): Array<{ name: string; slug: string }> {
+  const parts = parseCategoryHierarchy(cat);
+  return parts.map((name, i) => ({
+    name,
+    slug: categorySlug(parts.slice(0, i + 1).join(' ')),
+  }));
+}
+
+export interface CategoryResolution {
+  /** The slug this param resolved to, for canonical/self links. */
+  slug: string;
+  /** Display label for the page heading. */
+  label: string;
+  /** The exact Article.category values the page covers. */
+  matches: string[];
+}
+
+/**
+ * Resolves a /news/category/<param> segment against every category the site
+ * knows about (the predefined six plus whatever the DB holds). A parent slug
+ * also claims its nested children — "bgmi" covers "BGMI > Rosters" — which is
+ * what makes a hierarchy behave as two levels rather than one string.
+ */
+export function resolveCategoryParam(param: string, known: string[]): CategoryResolution | null {
+  const slug = categorySlug(param);
+  if (!slug) return null;
+
+  const exact: string[] = [];
+  const children: string[] = [];
+
+  for (const cat of known) {
+    if (!cat) continue;
+    if (categorySlug(cat) === slug) exact.push(cat);
+    const parts = parseCategoryHierarchy(cat);
+    if (parts.length > 1 && categorySlug(parts[0]) === slug) children.push(cat);
+  }
+
+  const matches = Array.from(new Set([...exact, ...children]));
+  if (matches.length === 0) return null;
+
+  return {
+    slug,
+    label: exact.length > 0 ? getCategoryMeta(exact[0]).label : parseCategoryHierarchy(matches[0])[0],
+    matches,
+  };
+}
+
+
 export const ARTICLE_STATUSES = ['DRAFT', 'PENDING_REVIEW', 'PRIVATE', 'SCHEDULED', 'PUBLISHED'] as const;
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];
 

@@ -12,7 +12,7 @@ import {
   Tags,
   Flame,
 } from 'lucide-react';
-import { ARTICLE_CATEGORIES, formatArticleDateShort, getCategoryMeta, timeAgo } from '@/lib/news';
+import { ARTICLE_CATEGORIES, categorySlug, formatArticleDateShort, getCategoryMeta, timeAgo } from '@/lib/news';
 import { getCategoryCounts, getMostRead, getTagCounts, listPublishedArticles } from '@/lib/news-queries';
 import { baseUrl, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { CoverImage } from '@/components/news/cover-image';
@@ -143,7 +143,7 @@ export default async function NewsHubPage({
               return (
                 <Link
                   key={cat.value}
-                  href={`/news/category/${cat.value.toLowerCase()}`}
+                  href={`/news/category/${categorySlug(cat.value)}`}
                   className="ed-chip whitespace-nowrap px-3.5 py-1.5 transition-colors hover:border-[var(--ed-blue)]"
                 >
                   <span>{cat.label.split(' ')[0]}</span>

@@ -77,27 +77,44 @@ export const articleCardSelect = {
 /** Flat article card (no dossier relations) — used by related/most-read listings. */
 export type ArticleCardSelectData = Prisma.ArticleGetPayload<{ select: typeof articleCardSelect }>;
 
-export function buildPublicWhere(opts: { category?: string; tag?: string; q?: string }) {
+export function buildPublicWhere(opts: { category?: string | string[]; tag?: string; q?: string }) {
   const { category, tag, q } = opts;
+
+  // Each entry is its own OR group, collected under AND so that a category
+  // filter and a search filter can coexist (two top-level OR keys cannot).
+  const filters: Prisma.ArticleWhereInput[] = [];
+
+  if (category && category !== 'ALL') {
+    const values = Array.isArray(category) ? category : [category];
+    if (values.length > 0) {
+      // An article belongs to a category whether it carries it as the primary
+      // one or as one of its secondaries.
+      filters.push({
+        OR: [{ category: { in: values } }, { categories: { hasSome: values } }],
+      });
+    }
+  }
+
+  if (q) {
+    filters.push({
+      OR: [
+        { title: { contains: q, mode: 'insensitive' as const } },
+        { excerpt: { contains: q, mode: 'insensitive' as const } },
+        { authorName: { contains: q, mode: 'insensitive' as const } },
+        { tags: { has: q } },
+      ],
+    });
+  }
+
   return {
     ...publishedVisibility(),
-    ...(category && category !== 'ALL' ? { category } : {}),
     ...(tag ? { tags: { has: tag } } : {}),
-    ...(q
-      ? {
-          OR: [
-            { title: { contains: q, mode: 'insensitive' as const } },
-            { excerpt: { contains: q, mode: 'insensitive' as const } },
-            { authorName: { contains: q, mode: 'insensitive' as const } },
-            { tags: { has: q } },
-          ],
-        }
-      : {}),
+    ...(filters.length > 0 ? { AND: filters } : {}),
   };
 }
 
 export async function listPublishedArticles(opts: {
-  category?: string;
+  category?: string | string[];
   tag?: string;
   q?: string;
   page?: number;
@@ -121,19 +138,38 @@ export async function listPublishedArticles(opts: {
   return { articles, total, page, perPage, totalPages: Math.max(1, Math.ceil(total / perPage)) };
 }
 
-export async function getCategoryCounts() {
-  const rows = await prisma.article.groupBy({
-    by: ['category'],
-    where: publishedVisibility(),
-    _count: { id: true },
+/** Category values in use, primary and secondary alike, with the articles behind each. */
+async function collectCategoryValues(where: Prisma.ArticleWhereInput) {
+  const articles = await prisma.article.findMany({
+    where,
+    select: { category: true, categories: true },
   });
   const map = new Map<string, number>();
-  let total = 0;
-  for (const r of rows) {
-    map.set(r.category, r._count.id);
-    total += r._count.id;
+  for (const a of articles) {
+    for (const value of new Set([a.category, ...a.categories])) {
+      map.set(value, (map.get(value) ?? 0) + 1);
+    }
   }
-  return { map, total };
+  return { map, articleCount: articles.length };
+}
+
+/**
+ * Every category value in use, with the number of articles its page would show —
+ * a secondary counts just like a primary, so the pill totals and the category
+ * page never disagree. `total` stays the number of published articles.
+ */
+export async function getCategoryCounts() {
+  const { map, articleCount } = await collectCategoryValues(publishedVisibility());
+  return { map, total: articleCount };
+}
+
+/**
+ * Every category in use, drafts included, so the editor can offer what already
+ * exists instead of letting a near-duplicate be typed in.
+ */
+export async function listCategoryValues(): Promise<string[]> {
+  const { map } = await collectCategoryValues({ deletedAt: null });
+  return [...map.keys()].sort((a, b) => a.localeCompare(b));
 }
 
 export async function getTagCounts(limit = 24) {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import prisma from '@/lib/prisma';
-import { computeWordCount, getCategoryMeta, isVisibleArticle } from '@/lib/news';
+import { categoryCrumbs, categorySlug, computeWordCount, getCategoryMeta, isVisibleArticle } from '@/lib/news';
 import { getAdjacentArticles, getMostRead, getRelatedArticles } from '@/lib/news-queries';
 import { absoluteUrl, breadcrumbJsonLd, faqPageJsonLd, newsArticleJsonLd } from '@/lib/seo';
 import { ArticleView } from '@/components/news/article-view';
@@ -167,17 +167,18 @@ export default async function ArticleDetailPage({
     { name: 'Home', path: '/' },
     { name: 'News', path: '/news' },
   ];
-  if (categoryMeta.parts && categoryMeta.parts.length > 1) {
-    categoryMeta.parts.forEach((part) => {
+  const crumbs = categoryCrumbs(article.category);
+  if (crumbs.length > 1) {
+    crumbs.forEach((crumb) => {
       breadcrumbItems.push({
-        name: part,
-        path: `/news/category/${encodeURIComponent(part.toLowerCase())}`,
+        name: crumb.name,
+        path: `/news/category/${crumb.slug}`,
       });
     });
   } else {
     breadcrumbItems.push({
       name: categoryMeta.label,
-      path: `/news/category/${article.category.toLowerCase()}`,
+      path: `/news/category/${categorySlug(article.category)}`,
     });
   }
   breadcrumbItems.push({ name: article.title, path: `/news/${article.slug}` });

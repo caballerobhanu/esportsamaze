@@ -2,19 +2,25 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Calendar, ChevronLeft, ChevronRight, Newspaper, Shield, Trophy } from 'lucide-react';
-import { ARTICLE_CATEGORIES, formatArticleDateShort } from '@/lib/news';
-import { listPublishedArticles } from '@/lib/news-queries';
+import { ARTICLE_CATEGORIES, categorySlug, formatArticleDateShort, resolveCategoryParam } from '@/lib/news';
+import { getCategoryCounts, listPublishedArticles } from '@/lib/news-queries';
 import { absoluteUrl } from '@/lib/seo';
 
 export const revalidate = 60;
 const PER_PAGE = 9;
 
 export async function generateStaticParams() {
-  return ARTICLE_CATEGORIES.map((c) => ({ category: c.value.toLowerCase() }));
+  return ARTICLE_CATEGORIES.map((c) => ({ category: categorySlug(c.value) }));
 }
 
-function resolveCategory(categoryParam: string) {
-  return ARTICLE_CATEGORIES.find((c) => c.value.toLowerCase() === categoryParam.toLowerCase());
+/**
+ * The predefined six plus every category the DB actually holds, so a custom or
+ * nested category ("BGMI > Rosters") gets a page of its own — and its parent
+ * slug ("bgmi") claims it as a child.
+ */
+async function knownCategories() {
+  const counts = await getCategoryCounts();
+  return [...ARTICLE_CATEGORIES.map((c) => c.value), ...counts.map.keys()];
 }
 
 export async function generateMetadata({
@@ -23,15 +29,15 @@ export async function generateMetadata({
   params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
-  const cat = resolveCategory(category);
-  if (!cat) return { title: 'Category Not Found — eSportsAmaze' };
+  const resolved = resolveCategoryParam(category, await knownCategories());
+  if (!resolved) return { title: 'Category Not Found — eSportsAmaze' };
 
-  const title = `${cat.label} News & Stories — eSportsAmaze`;
+  const title = `${resolved.label} News & Stories — eSportsAmaze`;
   return {
     title,
-    description: `The latest ${cat.label.toLowerCase()} coverage on eSportsAmaze — recaps, reports, and editorial deep-dives.`,
-    alternates: { canonical: `/news/category/${cat.value.toLowerCase()}` },
-    openGraph: { title, type: 'website', url: absoluteUrl(`/news/category/${cat.value.toLowerCase()}`) },
+    description: `The latest ${resolved.label.toLowerCase()} coverage on eSportsAmaze — recaps, reports, and editorial deep-dives.`,
+    alternates: { canonical: `/news/category/${resolved.slug}` },
+    openGraph: { title, type: 'website', url: absoluteUrl(`/news/category/${resolved.slug}`) },
   };
 }
 
@@ -44,18 +50,18 @@ export default async function NewsCategoryPage({
 }) {
   const { category } = await params;
   const { page: pageParam } = await searchParams;
-  const cat = resolveCategory(category);
-  if (!cat) notFound();
+  const resolved = resolveCategoryParam(category, await knownCategories());
+  if (!resolved) notFound();
 
   const page = Math.max(1, Number(pageParam) || 1);
   const { articles, total, totalPages } = await listPublishedArticles({
-    category: cat.value,
+    category: resolved.matches,
     page,
     perPage: PER_PAGE,
   });
 
   const pageHref = (p: number) =>
-    `/news/category/${cat.value.toLowerCase()}${p > 1 ? `?page=${p}` : ''}`;
+    `/news/category/${resolved.slug}${p > 1 ? `?page=${p}` : ''}`;
 
   return (
     <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
@@ -67,10 +73,10 @@ export default async function NewsCategoryPage({
             <span>/</span>
             <Link href="/news" className="hover:text-[var(--ed-blue)]">News</Link>
             <span>/</span>
-            <span className="text-[var(--ed-blue)]">{cat.label}</span>
+            <span className="text-[var(--ed-blue)]">{resolved.label}</span>
           </nav>
           <h1 className="font-display mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-            {cat.label} <span className="text-[var(--ed-blue)]">News</span>
+            {resolved.label} <span className="text-[var(--ed-blue)]">News</span>
           </h1>
           <p className="ed-label mt-2">{total} {total === 1 ? 'story' : 'stories'} — fresh takes, recaps, and reports.</p>
         </div>
@@ -82,9 +88,9 @@ export default async function NewsCategoryPage({
           {ARTICLE_CATEGORIES.map((c) => (
             <Link
               key={c.value}
-              href={`/news/category/${c.value.toLowerCase()}`}
+              href={`/news/category/${categorySlug(c.value)}`}
               className={`ed-chip whitespace-nowrap px-3.5 py-1.5 transition-colors ${
-                c.value === cat.value
+                categorySlug(c.value) === resolved.slug
                   ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white'
                   : 'hover:border-[var(--ed-blue)]'
               }`}
@@ -99,7 +105,7 @@ export default async function NewsCategoryPage({
             <Newspaper className="mx-auto h-12 w-12 text-[var(--ed-hair)]" />
             <h2 className="font-display mt-4 text-base font-extrabold uppercase tracking-wide">Nothing here yet</h2>
             <p className="mx-auto mt-1 max-w-sm text-xs text-[var(--ed-stone)]">
-              No {cat.label.toLowerCase()} stories published so far — check back soon.
+              No {resolved.label.toLowerCase()} stories published so far — check back soon.
             </p>
             <Link href="/news" className="ed-btn mt-5 px-4 py-2 text-xs">
               Browse all news

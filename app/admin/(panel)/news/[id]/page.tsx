@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { NewsEditor } from '@/components/admin/news-editor';
+import { listCategoryValues } from '@/lib/news-queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export default async function EditArticlePage({
   const { id } = await params;
   const { error, saved, restored } = await searchParams;
 
-  const [article, revisions] = await Promise.all([
+  const [article, revisions, categoryOptions] = await Promise.all([
     prisma.article.findUnique({
       where: { id },
       include: {
@@ -31,6 +32,7 @@ export default async function EditArticlePage({
       take: 20,
       select: { id: true, title: true, content: true, wordCount: true, createdAt: true },
     }),
+    listCategoryValues(),
   ]);
 
   if (!article) notFound();
@@ -83,6 +85,7 @@ export default async function EditArticlePage({
       teamOptions={article.team ? [{ value: article.team.id, label: article.team.name }] : []}
       playerOptions={article.player ? [{ value: article.player.id, label: article.player.ign }] : []}
       linkedSearchUrl="/api/admin/search"
+      categoryOptions={categoryOptions}
     />
   );
 }

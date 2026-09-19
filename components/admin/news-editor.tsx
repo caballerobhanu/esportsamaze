@@ -125,6 +125,9 @@ interface NewsEditorProps {
       of relying on preloaded option lists. Options arrays still seed the
       currently-linked entities so their labels render. */
   linkedSearchUrl?: string;
+  /** Every category already used on the site, offered as suggestions so a
+      near-duplicate ("BGMI" vs "bgmi") cannot be typed in by accident. */
+  categoryOptions?: string[];
   revisions?: NewsEditorRevision[];
   error?: string;
   saved?: boolean;
@@ -167,6 +170,21 @@ function LengthMeter({ value, ideal, max }: { value: number; ideal: number; max:
   );
 }
 
+function splitList(input: string): string[] {
+  return input
+    .split(/[,\n;]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function withUnique(prev: string[], parts: string[]): string[] {
+  const next = [...prev];
+  for (const part of parts) {
+    if (!next.some((x) => x.toLowerCase() === part.toLowerCase())) next.push(part);
+  }
+  return next;
+}
+
 function ToolbarButton({
   onClick,
   active,
@@ -203,6 +221,7 @@ export function NewsEditor({
   teamOptions,
   playerOptions = [],
   linkedSearchUrl,
+  categoryOptions = [],
   revisions,
   error,
   saved,
@@ -269,6 +288,12 @@ export function NewsEditor({
 
   // Feature 3: 1:1 True-to-Life In-Place Page Editing View
   const [inPlacePageView, setInPlacePageView] = useState(false);
+
+  // The sticky header gains a row whenever its controls wrap (narrow widths), so
+  // the toolbar's sticky offset is measured instead of hardcoded — a fixed top
+  // smaller than the real header height clips the toolbar behind it.
+  const editorHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(108);
 
   // Feature 5: Editorial Word Target & Reading Calculator
   const [wordTarget, setWordTarget] = useState<number>(1000);
@@ -355,6 +380,17 @@ export function NewsEditor({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inPlacePageView]);
+
+  /* ── Keep the editor toolbar pinned directly below the sticky header ── */
+  useEffect(() => {
+    const el = editorHeaderRef.current;
+    if (!el) return;
+    const sync = () => setHeaderHeight(el.offsetHeight);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   /* ── Crash-recovery draft (localStorage) ── */
   const saveDraft = useCallback(
@@ -491,18 +527,49 @@ export function NewsEditor({
     }
   };
 
+  // Everything already used on the site, less what this article already carries.
+  const categorySuggestions = categoryOptions.filter(
+    (c) => !categoriesList.some((x) => x.toLowerCase() === c.toLowerCase())
+  );
+
   /* ── Tag chip inputs ── */
+  // A pasted list arrives as a single change event, so the commit path accepts
+  // separators too — otherwise "a, b, c" is committed as one tag.
+  const addTags = (input: string) => {
+    const parts = splitList(input);
+    if (parts.length === 0) return;
+    setTags((prev) => withUnique(prev, parts));
+  };
+
   const commitTag = () => {
-    const t = tagDraft.trim().replace(/,+$/, '');
-    if (t && !tags.some((x) => x.toLowerCase() === t.toLowerCase())) setTags([...tags, t]);
+    addTags(tagDraft);
     setTagDraft('');
   };
 
+  const pasteTags = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (!/[,\n;]/.test(text)) return;
+    e.preventDefault();
+    addTags(tagDraft ? `${tagDraft},${text}` : text);
+    setTagDraft('');
+  };
+
+  const addSecKeywords = (input: string) => {
+    const parts = splitList(input);
+    if (parts.length === 0) return;
+    setSecondaryKeywords((prev) => withUnique(prev, parts));
+  };
+
   const commitSecKeyword = () => {
-    const k = secKeywordDraft.trim().replace(/,+$/, '');
-    if (k && !secondaryKeywords.some((x) => x.toLowerCase() === k.toLowerCase())) {
-      setSecondaryKeywords([...secondaryKeywords, k]);
-    }
+    addSecKeywords(secKeywordDraft);
+    setSecKeywordDraft('');
+  };
+
+  const pasteSecKeywords = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    if (!/[,\n;]/.test(text)) return;
+    e.preventDefault();
+    addSecKeywords(secKeywordDraft ? `${secKeywordDraft},${text}` : text);
     setSecKeywordDraft('');
   };
 
@@ -859,7 +926,10 @@ export function NewsEditor({
         <input type="hidden" name="faqsJson" value={JSON.stringify(faqs.filter((f) => f.question && f.answer))} />
 
         {/* ══════════ STICKY HEADER ══════════ */}
-        <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-[#0b1220]/95 sm:px-6">
+        <div
+          ref={editorHeaderRef}
+          className="sticky top-0 z-30 -mx-4 sm:-mx-6 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-[#0b1220]/95 sm:px-6"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <Link
@@ -1134,7 +1204,10 @@ export function NewsEditor({
             {/* Editor Container with Raw HTML Toggle & 1:1 Page Editor Mode */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
               {/* Editor Toolbar - Sticky so writers never have to scroll back up */}
-              <div className="sticky top-[108px] z-20 flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50/95 px-3 py-2 backdrop-blur-md shadow-xs dark:border-white/10 dark:bg-[#0b1220]/95 rounded-t-2xl">
+              <div
+                style={{ top: headerHeight }}
+                className="sticky z-20 flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50/95 px-3 py-2 backdrop-blur-md shadow-xs dark:border-white/10 dark:bg-[#0b1220]/95 rounded-t-2xl"
+              >
                 {!isSourceView ? (
                   <>
                     <ToolbarButton
@@ -1683,6 +1756,7 @@ export function NewsEditor({
               <div className="flex items-center gap-1.5 mb-2">
                 <input
                   type="text"
+                  list="ea-category-options"
                   value={newCategoryInput}
                   onChange={(e) => setNewCategoryInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -1701,6 +1775,11 @@ export function NewsEditor({
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
+                <datalist id="ea-category-options">
+                  {categorySuggestions.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </div>
 
               {/* Quick Preset Suggester */}
@@ -1750,6 +1829,7 @@ export function NewsEditor({
                       setTags(tags.slice(0, -1));
                     }
                   }}
+                  onPaste={pasteTags}
                   onBlur={commitTag}
                   placeholder={tags.length === 0 ? 'Type tag + Enter…' : 'Add tag…'}
                   className="min-w-[100px] flex-1 border-none bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white"
@@ -1921,6 +2001,7 @@ export function NewsEditor({
                       commitSecKeyword();
                     }
                   }}
+                  onPaste={pasteSecKeywords}
                   onBlur={commitSecKeyword}
                   placeholder={secondaryKeywords.length === 0 ? 'Secondary keyword + Enter…' : 'Add…'}
                   className="min-w-[80px] flex-1 border-none bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-white"

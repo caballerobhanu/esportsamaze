@@ -23,12 +23,13 @@ import {
 import type { ArticleCardSelectData } from '@/lib/news-queries';
 import {
   ArticleFaq,
+  categoryCrumbs,
+  categorySlug,
   formatArticleDate,
   formatArticleDateShort,
   getCategoryMeta,
   isHtmlContent,
   parseArticleFaqs,
-  parseCategoryHierarchy,
 } from '@/lib/news';
 import { slugify } from '@/lib/utils';
 import { NewsShareButtons } from '@/components/news/news-share-buttons';
@@ -328,6 +329,7 @@ export function ArticleView({
   commentCount,
 }: ArticleViewProps) {
   const categoryMeta = getCategoryMeta(article.category);
+  const crumbs = categoryCrumbs(article.category);
   const isHtml = isHtmlContent(article.content);
   const parsedFaqs = parseArticleFaqs(article.faqs);
 
@@ -454,17 +456,17 @@ export function ArticleView({
             <Link href="/news" className="shrink-0 hover:text-[var(--ed-blue)]">
               News
             </Link>
-            {categoryMeta.parts && categoryMeta.parts.length > 1 ? (
-              categoryMeta.parts.map((part, idx) => (
-                <React.Fragment key={idx}>
+            {crumbs.length > 1 ? (
+              crumbs.map((crumb, idx) => (
+                <React.Fragment key={crumb.slug}>
                   <span>/</span>
                   <Link
-                    href={`/news/category/${encodeURIComponent(part.toLowerCase())}`}
+                    href={`/news/category/${crumb.slug}`}
                     className={`truncate hover:underline ${
-                      idx === categoryMeta.parts.length - 1 ? 'text-[var(--ed-blue)]' : 'hover:text-[var(--ed-blue)]'
+                      idx === crumbs.length - 1 ? 'text-[var(--ed-blue)]' : 'hover:text-[var(--ed-blue)]'
                     }`}
                   >
-                    {part}
+                    {crumb.name}
                   </Link>
                 </React.Fragment>
               ))
@@ -472,7 +474,7 @@ export function ArticleView({
               <>
                 <span>/</span>
                 <Link
-                  href={`/news/category/${article.category.toLowerCase()}`}
+                  href={`/news/category/${categorySlug(article.category)}`}
                   className="truncate text-[var(--ed-blue)] hover:underline"
                 >
                   {categoryMeta.label}
@@ -494,7 +496,7 @@ export function ArticleView({
           {/* Category & Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={`/news/category/${article.category.toLowerCase()}`}
+              href={`/news/category/${categorySlug(article.category)}`}
               className={`rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider ${categoryMeta.color}`}
             >
               {categoryMeta.label}
@@ -509,7 +511,7 @@ export function ArticleView({
                   return (
                     <Link
                       key={secCat}
-                      href={`/news/category/${secCat.toLowerCase()}`}
+                      href={`/news/category/${categorySlug(secCat)}`}
                       className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${secMeta.color}`}
                     >
                       {secMeta.label}

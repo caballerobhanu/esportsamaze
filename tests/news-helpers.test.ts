@@ -4,6 +4,9 @@ import {
   parseCategoryHierarchy,
   formatCategoryDisplay,
   getCategoryMeta,
+  categorySlug,
+  categoryCrumbs,
+  resolveCategoryParam,
   computeReadTimeMinutes,
   computeWordCount,
 } from '../lib/news';
@@ -36,5 +39,64 @@ describe('News Feature Helpers', () => {
     const text1000 = 'word '.repeat(1000);
     assert.equal(computeWordCount(text1000), 1000);
     assert.equal(computeReadTimeMinutes(text1000), 5);
+  });
+});
+
+describe('Category slugs and nesting', () => {
+  const KNOWN = ['TOURNAMENTS', 'ROSTERS', 'BGMI', 'BGMI > Rosters', 'BGMI > Tournaments'];
+
+  it('slugs a category for the URL and keeps the predefined six stable', () => {
+    assert.equal(categorySlug('TOURNAMENTS'), 'tournaments');
+    assert.equal(categorySlug('BGMI > Rosters'), 'bgmi-rosters');
+    assert.equal(categorySlug('Rosters & Transfers'), 'rosters-transfers');
+    assert.equal(categorySlug('  BGMI  '), 'bgmi');
+  });
+
+  it('gives each crumb its cumulative slug, so a child is not read as a top-level name', () => {
+    assert.deepEqual(categoryCrumbs('BGMI > Rosters'), [
+      { name: 'BGMI', slug: 'bgmi' },
+      { name: 'Rosters', slug: 'bgmi-rosters' },
+    ]);
+    assert.deepEqual(categoryCrumbs('GENERAL'), [{ name: 'GENERAL', slug: 'general' }]);
+  });
+
+  it('resolves a predefined category to itself', () => {
+    const resolved = resolveCategoryParam('tournaments', KNOWN);
+    assert.equal(resolved?.label, 'Tournaments & Matches');
+    assert.deepEqual(resolved?.matches, ['TOURNAMENTS']);
+  });
+
+  it('resolves a nested child to that child alone', () => {
+    const resolved = resolveCategoryParam('bgmi-rosters', KNOWN);
+    assert.equal(resolved?.label, 'BGMI › Rosters');
+    assert.deepEqual(resolved?.matches, ['BGMI > Rosters']);
+  });
+
+  it('rolls a parent up over its children, whether or not the parent holds articles itself', () => {
+    const withParent = resolveCategoryParam('bgmi', KNOWN);
+    assert.equal(withParent?.label, 'BGMI');
+    assert.deepEqual(withParent?.matches, ['BGMI', 'BGMI > Rosters', 'BGMI > Tournaments']);
+
+    // Nothing sits in a bare "BGMI" category here, but the parent page still exists.
+    const parentOnly = resolveCategoryParam('bgmi', ['BGMI > Rosters']);
+    assert.equal(parentOnly?.label, 'BGMI');
+    assert.deepEqual(parentOnly?.matches, ['BGMI > Rosters']);
+  });
+
+  it('does not answer a nested part with a same-named top-level category', () => {
+    // The old behaviour linked "Rosters" inside "BGMI > Rosters" at the
+    // predefined ROSTERS category, which is a different set of articles.
+    const resolved = resolveCategoryParam('rosters', ['ROSTERS', 'BGMI > Rosters']);
+    assert.deepEqual(resolved?.matches, ['ROSTERS']);
+  });
+
+  it('is insensitive to case, spacing and which separator was typed', () => {
+    assert.deepEqual(resolveCategoryParam('BGMI>Rosters', KNOWN)?.matches, ['BGMI > Rosters']);
+    assert.deepEqual(resolveCategoryParam('  bgmi - rosters ', KNOWN)?.matches, ['BGMI > Rosters']);
+  });
+
+  it('returns null for a category the site has never used', () => {
+    assert.equal(resolveCategoryParam('valorant', KNOWN), null);
+    assert.equal(resolveCategoryParam('', KNOWN), null);
   });
 });

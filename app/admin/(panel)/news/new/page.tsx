@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { Newspaper } from 'lucide-react';
 import { isAdmin } from '@/lib/admin-auth';
 import { NewsEditor } from '@/components/admin/news-editor';
+import { listCategoryValues } from '@/lib/news-queries';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export default async function NewArticlePage({
 }) {
   if (!(await isAdmin())) redirect('/admin/login');
   const { error } = await searchParams;
+  const categoryOptions = await listCategoryValues();
 
   return (
     <div className="space-y-5">
@@ -32,6 +34,7 @@ export default async function NewArticlePage({
         teamOptions={[]}
         playerOptions={[]}
         linkedSearchUrl="/api/admin/search"
+        categoryOptions={categoryOptions}
       />
     </div>
   );

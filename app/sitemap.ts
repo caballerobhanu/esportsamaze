@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import prisma from '@/lib/prisma';
-import { ARTICLE_CATEGORIES } from '@/lib/news';
+import { ARTICLE_CATEGORIES, categoryCrumbs, categorySlug, resolveCategoryParam } from '@/lib/news';
 import { baseUrl } from '@/lib/seo';
 import {
   ALL_TOURNAMENT_TAB_IDS,
@@ -89,7 +89,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }),
         prisma.article.findMany({
           where: publishedVisibility(),
-          select: { slug: true, updatedAt: true, tags: true, category: true },
+          select: { slug: true, updatedAt: true, tags: true, category: true, categories: true },
           orderBy: { publishedAt: 'desc' },
           take: 5000,
         }),
@@ -261,17 +261,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         })),
     ];
 
-    // Indexable news category pages, dated by their newest article.
-    const categoryRoutes: MetadataRoute.Sitemap = ARTICLE_CATEGORIES.map((category) => ({
-      url: `${base}/news/category/${category.value.toLowerCase()}`,
-      lastModified: latest(
-        articles
-          .filter((a) => a.category.toLowerCase() === category.value.toLowerCase())
-          .map((a) => a.updatedAt)
-      ),
-      changeFrequency: 'daily' as const,
-      priority: 0.6,
-    }));
+    // Indexable news category pages, dated by their newest article. The
+    // predefined six plus every category the DB holds — primary or secondary —
+    // and every ancestor slug a nested category implies, so "BGMI > Rosters"
+    // lists both its own page and the "BGMI" parent that rolls it up.
+    const articleCategoryValues = articles.flatMap((a) => [a.category, ...a.categories]);
+    const knownCategories = [
+      ...ARTICLE_CATEGORIES.map((c) => c.value),
+      ...new Set(articleCategoryValues),
+    ];
+    const categorySlugs = new Set<string>([
+      ...ARTICLE_CATEGORIES.map((c) => categorySlug(c.value)),
+      ...articleCategoryValues.flatMap((value) => categoryCrumbs(value).map((crumb) => crumb.slug)),
+    ]);
+    const categoryRoutes: MetadataRoute.Sitemap = [...categorySlugs]
+      .map((slug) => resolveCategoryParam(slug, knownCategories))
+      .filter((resolved) => resolved !== null)
+      .map((resolved) => ({
+        url: `${base}/news/category/${resolved.slug}`,
+        lastModified: latest(
+          articles
+            .filter(
+              (a) =>
+                resolved.matches.includes(a.category) ||
+                a.categories.some((c) => resolved.matches.includes(c))
+            )
+            .map((a) => a.updatedAt)
+        ),
+        changeFrequency: 'daily' as const,
+        priority: 0.6,
+      }));
 
     // Index the 20 most-used tags as dedicated archive pages.
     const tagCounts = new Map<string, { count: number; updatedAt: Date }>();
