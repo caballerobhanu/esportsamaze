@@ -54,12 +54,15 @@ export interface TournamentsFacetCounts {
 const STATUS_CONFIG: Record<string, { label: string; className: string; dot?: boolean }> = {
   ONGOING: {
     label: 'Live now',
-    className: 'border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400',
+    className: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
     dot: true,
   },
-  UPCOMING: { label: 'Upcoming', className: 'text-(--ed-blue)' },
-  COMPLETED: { label: 'Completed', className: 'text-(--ed-stone)' },
-  CANCELED: { label: 'Canceled', className: 'text-(--ed-stone)' },
+  UPCOMING: { label: 'Upcoming', className: 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300' },
+  COMPLETED: {
+    label: 'Completed',
+    className: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  },
+  CANCELED: { label: 'Canceled', className: 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-300' },
 };
 
 export function TournamentsDirectoryExplorer({
@@ -253,13 +256,13 @@ export function TournamentsDirectoryExplorer({
       </div>
 
       {tournaments.length === 0 ? (
-        <div className="ed-card flex flex-col items-center gap-3 py-20 text-center">
-          <Trophy className="h-8 w-8 text-(--ed-stone) opacity-40" />
-          <p className="font-display text-lg font-medium">No tournaments match your filters</p>
-          <p className="max-w-sm text-sm text-(--ed-stone)">Try adjusting your search or selecting a different status, game, or tier.</p>
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-200 bg-white py-20 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+          <Trophy className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+          <p className="text-lg font-black tracking-tight text-slate-950 dark:text-white">No tournaments match your filters</p>
+          <p className="max-w-sm text-sm font-medium text-slate-500 dark:text-slate-400">Try adjusting your search or selecting a different status, game, or tier.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {tournaments.map((t) => {
             const statusCfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.COMPLETED;
             const primaryVenue = t.venues?.[0]?.venue;
@@ -268,30 +271,41 @@ export function TournamentsDirectoryExplorer({
               <Link
                 key={t.id}
                 href={`/tournaments/${t.slug}`}
-                className="ed-card group flex flex-col justify-between transition-colors hover:border-(--ed-stone)/50"
+                className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-[#0A5FC4] hover:shadow-lg dark:border-white/10 dark:bg-[#0b1220]"
               >
-                <div className="p-6 pb-0">
+                <div className="p-5 pb-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`inline-flex items-center gap-1.5 rounded-lg border border-(--ed-hair) px-2.5 py-1 text-[11px] font-medium ${statusCfg.className}`}>
-                      {statusCfg.dot && <span className="h-1.5 w-1.5 animate-live rounded-full bg-rose-500" />}
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${statusCfg.className}`}
+                    >
+                      {statusCfg.dot && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />}
                       {statusCfg.label}
                     </span>
 
-                    <div className="flex items-center gap-1.5">
-                      {t.tier && <span className="ed-chip px-2 py-0.5 text-[11px] text-(--ed-stone)">{t.tier}</span>}
-                    </div>
+                    {t.tier && (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                        {t.tier}
+                      </span>
+                    )}
                   </div>
 
                   {/* Ecosystem chips — primary + cross-region participants */}
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="ed-chip border-(--ed-blue)/25 bg-(--ed-blue)/10 px-2 py-0.5 text-[11px] text-(--ed-blue)" title={t.game.name}>
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[#0A5FC4]/10 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300"
+                      title={t.game.name}
+                    >
                       <GameLogo game={t.game} className="h-3 w-3" />
                       {t.game.shortName || t.game.name}
                     </span>
                     {(t.games ?? [])
                       .filter((g) => g.game.slug !== t.game.slug)
                       .map((g) => (
-                        <span key={g.game.slug} className="ed-chip px-2 py-0.5 text-[11px] text-(--ed-stone)" title={g.game.name}>
+                        <span
+                          key={g.game.slug}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300"
+                          title={g.game.name}
+                        >
                           <GameLogo game={g.game} className="h-3 w-3" />
                           {g.game.shortName || g.game.name}
                         </span>
@@ -299,7 +313,7 @@ export function TournamentsDirectoryExplorer({
                   </div>
 
                   <div className="mt-5 flex items-start gap-4">
-                    <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-(--ed-hair) bg-(--ed-canvas) p-1.5 overflow-hidden">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2 dark:border-white/10 dark:bg-white/5">
                       {t.imageUrl || t.imageDarkUrl ? (
                         <ThemeLogo
                           lightSrc={t.imageUrl}
@@ -308,16 +322,16 @@ export function TournamentsDirectoryExplorer({
                           className="object-contain p-1"
                         />
                       ) : (
-                        <Trophy className="h-5 w-5 text-(--ed-stone) opacity-50" />
+                        <Trophy className="h-6 w-6 text-slate-300 dark:text-slate-600" />
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-display line-clamp-2 text-lg font-medium leading-snug tracking-tight transition-colors group-hover:text-(--ed-blue)">
+                      <h3 className="line-clamp-2 text-base font-black leading-snug tracking-tight text-slate-950 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300">
                         {t.name}
                       </h3>
                       {t.series && (
-                        <p className="mt-0.5 truncate text-xs text-(--ed-stone)">
+                        <p className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {t.series} {t.season ? `· ${t.season}` : ''}
                         </p>
                       )}
@@ -325,45 +339,48 @@ export function TournamentsDirectoryExplorer({
                   </div>
                 </div>
 
-                {/* Facts */}
-                <div className="mt-5 space-y-2.5 border-t border-(--ed-hair) p-6 pt-4 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 text-(--ed-stone)">
-                      <Banknote className="h-4 w-4" />
-                      Prize pool
-                    </span>
-                    <span className="font-medium">
-                      <PrizePoolBadge amount={t.prizePool} currency={t.currency} usdRate={t.usdRate} inline />
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 text-(--ed-stone)">
-                      <Calendar className="h-4 w-4" />
-                      Dates
-                    </span>
-                    <span className="num text-right">{formatDate(t.startDate)} — {formatDate(t.endDate)}</span>
-                  </div>
-
-                  {primaryVenue && (
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 text-(--ed-stone)">
-                        <MapPin className="h-4 w-4" />
-                        Location
-                      </span>
-                      <span className="truncate text-right">
-                        {primaryVenue.name} {primaryVenue.city ? `(${primaryVenue.city})` : ''}
-                      </span>
+                {/* Facts — label above value, so every figure gets the full card
+                    width and all cards in a row share one skeleton */}
+                <div className="mt-5 border-t border-slate-200 p-5 pt-5 dark:border-white/10">
+                  <dl className="space-y-4">
+                    <div>
+                      <dt className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <Banknote className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-300" />
+                        Prize pool
+                      </dt>
+                      <dd className="mt-1.5 text-xl font-black tracking-tight text-[#0A5FC4] dark:text-blue-300">
+                        <PrizePoolBadge amount={t.prizePool} currency={t.currency} usdRate={t.usdRate} inline />
+                      </dd>
                     </div>
-                  )}
 
-                  <div className="flex items-center justify-between gap-3 border-t border-(--ed-hair) pt-3">
-                    <span className="flex items-center gap-3 text-xs text-(--ed-stone)">
+                    <div>
+                      <dt className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <Calendar className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-300" />
+                        Dates
+                      </dt>
+                      <dd className="num mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                        {formatDate(t.startDate)} — {formatDate(t.endDate)}
+                      </dd>
+                    </div>
+
+                    <div>
+                      <dt className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <MapPin className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-300" />
+                        Location
+                      </dt>
+                      <dd className="mt-1 truncate text-sm font-bold text-slate-700 dark:text-slate-200">
+                        {primaryVenue?.city || t.eventType || '—'}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
+                    <span className="flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-slate-400">
                       <span className="num">{t._count.matches} matches</span>
                       <span aria-hidden>·</span>
                       <span className="num">{t._count.teams} teams</span>
                     </span>
-                    <span className="flex items-center gap-1 text-sm font-medium text-(--ed-blue)">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
                       Explore <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </div>
