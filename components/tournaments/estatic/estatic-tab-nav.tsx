@@ -62,8 +62,8 @@ export function EstaticTabNav({
   };
 
   return (
-    <div className="sticky top-[calc(4.25rem+var(--ed-safe-top))] z-30 pointer-events-none py-2 transition-all">
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+    <div className="sticky top-[calc(4.25rem+var(--ed-safe-top))] lg:top-[calc(4rem+var(--ed-safe-top))] z-30 pointer-events-none py-2 transition-all">
+      <div className="mx-auto max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
         {/* Mobile: Clean Searchable Dropdown */}
         <div className="sm:hidden pointer-events-auto max-w-md mx-auto shadow-md rounded-xl bg-white/95 dark:bg-[#0b1220]/95 backdrop-blur-md">
           <SearchableSelect

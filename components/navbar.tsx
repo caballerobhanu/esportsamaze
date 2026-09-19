@@ -21,28 +21,37 @@ import { ModeToggle } from './mode-toggle';
 import { cn } from '@/lib/utils';
 import type { SearchResultItem } from '@/app/api/search/route';
 
-export const OTHER_TITLES = [
-  { name: 'Valorant', genre: 'Tactical FPS', status: 'Coming Soon' },
-  { name: 'Counter-Strike 2', genre: 'Tactical FPS', status: 'Coming Soon' },
-  { name: 'Mobile Legends: Bang Bang', genre: 'MOBA', status: 'Coming Soon' },
-  { name: 'Honor of Kings', genre: 'MOBA', status: 'Coming Soon' },
-  { name: 'Free Fire MAX', genre: 'Battle Royale', status: 'Coming Soon' },
-  { name: 'Tekken 8', genre: 'Fighting', status: 'Coming Soon' },
-  { name: 'EA Sports FC', genre: 'Sports Simulation', status: 'Coming Soon' },
-];
-
-// Flip to true to re-enable the "Other Games" dropdown in the navbar
-const SHOW_OTHER_GAMES = false;
-
 export const NAV_ITEMS = [
   { label: 'Tournaments', href: '/tournaments' },
   { label: 'Teams', href: '/teams' },
-  { label: 'Players', href: '/players' },
-  { label: 'Rankings', href: '/rankings' },
-  { label: 'Compare', href: '/compare' },
   { label: 'News', href: '/news' },
+  { label: 'Rankings', href: '/rankings' },
   { label: 'Support', href: '/about' },
 ];
+
+export const MORE_ITEMS: NavLink[] = [
+  { label: 'Players', href: '/players' },
+  { label: 'Compare', href: '/compare' },
+  { label: 'Saved stories', href: '/news/saved' },
+  { label: 'RSS feed', href: '/rss.xml', plain: true },
+  { label: 'Community wiki', href: 'https://esportsamaze.in', plain: true, external: true },
+];
+
+export interface NavLink {
+  label: string;
+  href: string;
+  plain?: boolean;
+  external?: boolean;
+}
+
+const NAV_LINK_CLASS =
+  'whitespace-nowrap text-sm font-semibold text-white/90 hover:text-white transition-colors duration-150';
+
+const MORE_LINK_CLASS =
+  'block rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60';
+
+const DRAWER_LINK_CLASS =
+  'block rounded-xl px-3.5 py-2.5 text-sm font-bold text-white transition hover:bg-white/15';
 
 interface SearchResponseData {
   teams: SearchResultItem[];
@@ -67,11 +76,12 @@ export function Navbar() {
   const [searchResults, setSearchResults] = React.useState<SearchResponseData>(EMPTY_RESULTS);
   const [isSearching, setIsSearching] = React.useState(false);
   const [selectedIndex, setSelectedIndex] = React.useState(0);
-  const [otherGamesOpen, setOtherGamesOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
 
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const lastTriggerRef = React.useRef<HTMLElement | null>(null);
+  const moreRef = React.useRef<HTMLDivElement>(null);
 
   // Flattened results for keyboard navigation
   const allResults = React.useMemo(() => {
@@ -128,9 +138,21 @@ export function Navbar() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
+  // The More menu is a plain popover — dismiss it on any outside press.
+  React.useEffect(() => {
+    if (!moreOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [moreOpen]);
+
   const openSearch = () => {
     lastTriggerRef.current = document.activeElement as HTMLElement | null;
-    setOtherGamesOpen(false);
+    setMoreOpen(false);
     setSearchQuery('');
     setSearchResults(EMPTY_RESULTS);
     setSelectedIndex(0);
@@ -179,6 +201,11 @@ export function Navbar() {
         return;
       }
 
+      if (moreOpen && e.key === 'Escape') {
+        setMoreOpen(false);
+        return;
+      }
+
       if (!searchOpen) return;
 
       if (e.key === 'Escape') {
@@ -208,7 +235,7 @@ export function Navbar() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [searchOpen, allResults, selectedIndex, mobileDrawerOpen, handleItemSelect]);
+  }, [searchOpen, allResults, selectedIndex, mobileDrawerOpen, moreOpen, handleItemSelect]);
 
   const totalResults = allResults.length;
   // Precomputed flat indices per category for unified keyboard selection —
@@ -226,9 +253,9 @@ export function Navbar() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10 pt-[var(--ed-safe-top)]">
-        <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6">
-          <div className="relative flex items-center justify-between h-14 gap-4">
-            {/* SET 1 (left aligned): Logo + spacing + nav items */}
+        <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative flex h-14 items-center justify-between gap-4 lg:grid lg:h-[52px] lg:grid-cols-[auto_1fr_auto] lg:items-stretch lg:gap-x-8">
+            {/* ZONE 1 — menu button (below lg) + wordmark */}
             <div className="flex items-center min-w-0">
               {/* Tablet/mobile hamburger (desktop nav appears at lg) */}
               <button
@@ -248,22 +275,60 @@ export function Navbar() {
                   className="h-7 sm:h-8 w-auto object-contain brightness-0 invert"
                 />
               </Link>
-
-              {/* Desktop navigation items */}
-              <nav className="hidden lg:flex items-center gap-5 lg:gap-6 xl:gap-9 ml-6 lg:ml-8 xl:ml-14 min-w-0">
-                {NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="whitespace-nowrap text-[13px] font-semibold text-white/85 hover:text-white transition-colors duration-150"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
             </div>
 
-            {/* SET 2 (right aligned): Search Trigger + Other Games + Mode Switcher */}
+            {/* ZONE 2 — primary links, spread across the bar */}
+            <nav className="hidden min-w-0 items-center justify-between lg:flex">
+              {NAV_ITEMS.map((item) => (
+                <Link key={item.label} href={item.href} className={NAV_LINK_CLASS}>
+                  {item.label}
+                </Link>
+              ))}
+
+              <div className="relative flex h-full items-center" ref={moreRef}>
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen((open) => !open)}
+                  aria-haspopup="true"
+                  aria-expanded={moreOpen}
+                  className={cn(NAV_LINK_CLASS, 'flex items-center gap-1')}
+                >
+                  More
+                  <ChevronDown
+                    className={cn('h-3.5 w-3.5 transition-transform duration-200', moreOpen && 'rotate-180')}
+                  />
+                </button>
+
+                {moreOpen && (
+                  <div className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-slate-800 shadow-2xl dark:border-slate-800 dark:bg-[#07090e] dark:text-slate-200">
+                    {MORE_ITEMS.map((item) =>
+                      item.plain ? (
+                        <a
+                          key={item.label}
+                          href={item.href}
+                          {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                          onClick={() => setMoreOpen(false)}
+                          className={MORE_LINK_CLASS}
+                        >
+                          {item.label}
+                        </a>
+                      ) : (
+                        <Link
+                          key={item.label}
+                          href={item.href}
+                          onClick={() => setMoreOpen(false)}
+                          className={MORE_LINK_CLASS}
+                        >
+                          {item.label}
+                        </Link>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            </nav>
+
+            {/* ZONE 3 — search + theme switch */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Search Trigger Button (Desktop pill with shortcut, mobile compact icon) */}
               <button
@@ -288,53 +353,6 @@ export function Navbar() {
               >
                 <Search className="w-4 h-4" />
               </button>
-
-              {/* Other Games Dropdown */}
-              {SHOW_OTHER_GAMES && (
-                <div className="relative">
-                  <button
-                    onClick={() => setOtherGamesOpen(!otherGamesOpen)}
-                    className="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center gap-1.5 transition"
-                    title="Other Games Roadmap"
-                    aria-expanded={otherGamesOpen}
-                  >
-                    <span>Other Games</span>
-                    <ChevronDown
-                      className={cn(
-                        'w-3 h-3 text-white/70 transition-transform duration-200',
-                        otherGamesOpen && 'rotate-180'
-                      )}
-                    />
-                  </button>
-
-                  {otherGamesOpen && (
-                    <div className="absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#07090e] p-2 shadow-2xl z-50 text-xs text-slate-800 dark:text-slate-200">
-                      <div className="px-2 py-1.5 font-bold uppercase tracking-wider text-slate-400 text-[10px] border-b border-slate-100 dark:border-slate-800/80 mb-1">
-                        Multi-Game Roadmap
-                      </div>
-                      <div className="space-y-1">
-                        {OTHER_TITLES.map((g) => (
-                          <div
-                            key={g.name}
-                            className="px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-900 flex items-center justify-between text-slate-700 dark:text-slate-300 cursor-default"
-                          >
-                            <div>
-                              <div className="font-semibold text-slate-900 dark:text-white">{g.name}</div>
-                              <div className="text-[10px] text-slate-500">{g.genre}</div>
-                            </div>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                              {g.status}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-center text-[10px] text-slate-400">
-                        Active focus on BGMI & PUBG Mobile circuits.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Mode Switcher Toggle */}
               <ModeToggle />
@@ -385,12 +403,40 @@ export function Navbar() {
                     key={item.label}
                     href={item.href}
                     onClick={() => setMobileDrawerOpen(false)}
-                    className="block px-3.5 py-2.5 rounded-xl font-bold text-sm text-white hover:bg-white/15 transition"
+                    className={DRAWER_LINK_CLASS}
                   >
                     {item.label}
                   </Link>
                 ))}
               </nav>
+
+              <div className="space-y-1.5 border-t border-white/10">
+                <p className="px-3.5 pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white/50">
+                  More
+                </p>
+                {MORE_ITEMS.map((item) =>
+                  item.plain ? (
+                    <a
+                      key={item.label}
+                      href={item.href}
+                      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                      onClick={() => setMobileDrawerOpen(false)}
+                      className={DRAWER_LINK_CLASS}
+                    >
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      onClick={() => setMobileDrawerOpen(false)}
+                      className={DRAWER_LINK_CLASS}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                )}
+              </div>
             </div>
 
             <div className="border-t border-white/10 pt-4 space-y-2 text-xs text-white/70">
