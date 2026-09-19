@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { CookieConsent } from '@/components/cookie-consent';
+import { BackToTop } from '@/components/ui/back-to-top';
 import { isAdmin } from '@/lib/admin-auth';
 import { getMaintenanceSettings } from '@/lib/site-settings';
 import { MaintenanceView } from '@/components/maintenance/maintenance-view';
@@ -55,6 +56,7 @@ export default async function PublicLayout({
           {children}
           <Footer />
           <CookieConsent />
+          <BackToTop />
         </div>
       );
     }
@@ -75,6 +77,7 @@ export default async function PublicLayout({
       {children}
       <Footer />
       <CookieConsent />
+      <BackToTop />
     </div>
   );
 }
