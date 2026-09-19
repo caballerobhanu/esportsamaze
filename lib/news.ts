@@ -132,6 +132,39 @@ export function resolveCategoryParam(param: string, known: string[]): CategoryRe
   };
 }
 
+export interface CategoryPill {
+  label: string;
+  slug: string;
+  count: number;
+}
+
+/**
+ * The label a category pill shows. The canonical six are known by their first
+ * word ("Tournaments & Matches" -> "Tournaments"), and are recognised by either
+ * their stored value or their full label. Anything custom keeps its formatted
+ * name, so a nested child is not mistaken for its parent.
+ */
+export function categoryPillLabel(category: string): string {
+  const needle = category.trim().toLowerCase();
+  const predefined = ARTICLE_CATEGORIES.find(
+    (c) => c.value.toLowerCase() === needle || c.label.toLowerCase() === needle
+  );
+  return predefined ? predefined.label.split(' ')[0] : getCategoryMeta(category).label;
+}
+
+/**
+ * The categories worth a place on the rail: everything with articles, most-used
+ * first. The canonical six are not privileged — one with nothing published drops
+ * off the row — and a custom category earns a pill as soon as it has a story.
+ * Ties break on label so the order cannot shuffle between renders.
+ */
+export function rankedCategoryPills(counts: Map<string, number>, limit = 12): CategoryPill[] {
+  return [...counts.entries()]
+    .map(([value, count]) => ({ label: categoryPillLabel(value), slug: categorySlug(value), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, limit);
+}
+
 
 export const ARTICLE_STATUSES = ['DRAFT', 'PENDING_REVIEW', 'PRIVATE', 'SCHEDULED', 'PUBLISHED'] as const;
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];

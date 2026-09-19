@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Calendar, ChevronLeft, ChevronRight, Newspaper, Shield, Trophy } from 'lucide-react';
-import { ARTICLE_CATEGORIES, categorySlug, formatArticleDateShort, resolveCategoryParam } from '@/lib/news';
+import { ARTICLE_CATEGORIES, categoryPillLabel, categorySlug, formatArticleDateShort, rankedCategoryPills, resolveCategoryParam } from '@/lib/news';
 import { getCategoryCounts, listPublishedArticles } from '@/lib/news-queries';
 import { absoluteUrl } from '@/lib/seo';
+import { NewsCategoryPills } from '@/components/news/news-category-pills';
 
 export const revalidate = 60;
 const PER_PAGE = 9;
@@ -15,12 +16,13 @@ export async function generateStaticParams() {
 
 /**
  * The predefined six plus every category the DB actually holds, so a custom or
- * nested category ("BGMI > Rosters") gets a page of its own — and its parent
- * slug ("bgmi") claims it as a child.
+ * nested category ("BGMI > Rosters") gets a page of its own — and its parent slug
+ * ("bgmi") claims it as a child. Resolution stays permissive on purpose: a
+ * canonical category with nothing published still has a page, it just does not
+ * earn a pill.
  */
-async function knownCategories() {
-  const counts = await getCategoryCounts();
-  return [...ARTICLE_CATEGORIES.map((c) => c.value), ...counts.map.keys()];
+function withPredefined(values: Iterable<string>): string[] {
+  return [...ARTICLE_CATEGORIES.map((c) => c.value), ...values];
 }
 
 export async function generateMetadata({
@@ -29,7 +31,8 @@ export async function generateMetadata({
   params: Promise<{ category: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
-  const resolved = resolveCategoryParam(category, await knownCategories());
+  const counts = await getCategoryCounts();
+  const resolved = resolveCategoryParam(category, withPredefined(counts.map.keys()));
   if (!resolved) return { title: 'Category Not Found — eSportsAmaze' };
 
   const title = `${resolved.label} News & Stories — eSportsAmaze`;
@@ -50,7 +53,8 @@ export default async function NewsCategoryPage({
 }) {
   const { category } = await params;
   const { page: pageParam } = await searchParams;
-  const resolved = resolveCategoryParam(category, await knownCategories());
+  const counts = await getCategoryCounts();
+  const resolved = resolveCategoryParam(category, withPredefined(counts.map.keys()));
   if (!resolved) notFound();
 
   const page = Math.max(1, Number(pageParam) || 1);
@@ -62,6 +66,13 @@ export default async function NewsCategoryPage({
 
   const pageHref = (p: number) =>
     `/news/category/${resolved.slug}${p > 1 ? `?page=${p}` : ''}`;
+
+  // Most-used first. The current category is kept even when it did not make the
+  // cut, so its own page always shows which pill is the active one.
+  const pills = rankedCategoryPills(counts.map);
+  if (!pills.some((pill) => pill.slug === resolved.slug)) {
+    pills.push({ label: categoryPillLabel(resolved.label), slug: resolved.slug, count: total });
+  }
 
   return (
     <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
@@ -83,22 +94,13 @@ export default async function NewsCategoryPage({
       </section>
 
       <main className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-8 sm:px-6 lg:px-8">
-        {/* Sibling category pills */}
-        <div className="no-scrollbar mb-8 flex items-center gap-1.5 overflow-x-auto pb-1">
-          {ARTICLE_CATEGORIES.map((c) => (
-            <Link
-              key={c.value}
-              href={`/news/category/${categorySlug(c.value)}`}
-              className={`ed-chip whitespace-nowrap px-3.5 py-1.5 transition-colors ${
-                categorySlug(c.value) === resolved.slug
-                  ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white'
-                  : 'hover:border-[var(--ed-blue)]'
-              }`}
-            >
-              {c.label.split(' ')[0]}
-            </Link>
-          ))}
-        </div>
+        {/* Sibling category pills — the shared rail, so this page can get back to All News */}
+        <NewsCategoryPills
+          pills={pills}
+          activeHref={`/news/category/${resolved.slug}`}
+          totalAll={counts.total}
+          className="mb-8"
+        />
 
         {articles.length === 0 ? (
           <div className="ed-card p-12 text-center">

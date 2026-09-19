@@ -12,10 +12,11 @@ import {
   Tags,
   Flame,
 } from 'lucide-react';
-import { ARTICLE_CATEGORIES, categorySlug, formatArticleDateShort, getCategoryMeta, timeAgo } from '@/lib/news';
+import { formatArticleDateShort, getCategoryMeta, rankedCategoryPills, timeAgo } from '@/lib/news';
 import { getCategoryCounts, getMostRead, getTagCounts, listPublishedArticles } from '@/lib/news-queries';
 import { baseUrl, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { CoverImage } from '@/components/news/cover-image';
+import { NewsCategoryPills } from '@/components/news/news-category-pills';
 import { SectionHeading } from '@/components/home/section-heading';
 
 export const revalidate = 60;
@@ -123,35 +124,12 @@ export default async function NewsHubPage({
           </div>
 
           {/* Category pills → real category pages */}
-          <div className="no-scrollbar mt-7 flex items-center gap-1.5 overflow-x-auto border-t border-[var(--ed-hair)] pb-1 pt-4">
-            <Link
-              href="/news"
-              className={`ed-chip whitespace-nowrap px-3.5 py-1.5 transition-colors ${
-                !isFiltered
-                  ? 'border-[var(--ed-blue)] bg-[var(--ed-blue)] text-white'
-                  : 'hover:border-[var(--ed-blue)]'
-              }`}
-            >
-              All News
-              <span className={`rounded-full px-1.5 text-[10px] ${!isFiltered ? 'bg-white/20' : 'bg-[var(--ed-sand)]'}`}>
-                {categoryCounts.total}
-              </span>
-            </Link>
-
-            {ARTICLE_CATEGORIES.map((cat) => {
-              const count = categoryCounts.map.get(cat.value) ?? 0;
-              return (
-                <Link
-                  key={cat.value}
-                  href={`/news/category/${categorySlug(cat.value)}`}
-                  className="ed-chip whitespace-nowrap px-3.5 py-1.5 transition-colors hover:border-[var(--ed-blue)]"
-                >
-                  <span>{cat.label.split(' ')[0]}</span>
-                  {count > 0 && <span className="rounded-full bg-[var(--ed-sand)] px-1.5 text-[10px]">{count}</span>}
-                </Link>
-              );
-            })}
-          </div>
+          <NewsCategoryPills
+            pills={rankedCategoryPills(categoryCounts.map)}
+            activeHref={isFiltered ? null : '/news'}
+            totalAll={categoryCounts.total}
+            className="mt-7 border-t border-[var(--ed-hair)] pt-4"
+          />
         </div>
       </section>
 

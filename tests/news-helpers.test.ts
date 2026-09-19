@@ -6,6 +6,8 @@ import {
   getCategoryMeta,
   categorySlug,
   categoryCrumbs,
+  categoryPillLabel,
+  rankedCategoryPills,
   resolveCategoryParam,
   computeReadTimeMinutes,
   computeWordCount,
@@ -98,5 +100,56 @@ describe('Category slugs and nesting', () => {
   it('returns null for a category the site has never used', () => {
     assert.equal(resolveCategoryParam('valorant', KNOWN), null);
     assert.equal(resolveCategoryParam('', KNOWN), null);
+  });
+});
+
+describe('Category pills', () => {
+  it('shortens the canonical six but keeps a custom name whole', () => {
+    assert.equal(categoryPillLabel('TOURNAMENTS'), 'Tournaments');
+    assert.equal(categoryPillLabel('ROSTERS'), 'Rosters');
+    assert.equal(categoryPillLabel('tournaments'), 'Tournaments');
+    assert.equal(categoryPillLabel('Esports'), 'Esports');
+
+    // The active-pill fallback has a resolved label, not a stored value.
+    assert.equal(categoryPillLabel('Community & Culture'), 'Community');
+
+    // A nested child must not collapse onto its parent, or the two pills collide.
+    assert.equal(categoryPillLabel('BGMI > Rosters'), 'BGMI › Rosters');
+  });
+
+  it('ranks by how much is published, custom categories alongside the canonical six', () => {
+    const counts = new Map([
+      ['TOURNAMENTS', 1],
+      ['ANALYSIS', 4],
+      ['Esports', 2],
+    ]);
+
+    assert.deepEqual(rankedCategoryPills(counts), [
+      { label: 'Analysis', slug: 'analysis', count: 4 },
+      { label: 'Esports', slug: 'esports', count: 2 },
+      { label: 'Tournaments', slug: 'tournaments', count: 1 },
+    ]);
+  });
+
+  it('breaks a tie on label, so the rail cannot reshuffle between renders', () => {
+    const counts = new Map([
+      ['ROSTERS', 2],
+      ['ANALYSIS', 2],
+    ]);
+
+    assert.deepEqual(
+      rankedCategoryPills(counts).map((pill) => pill.slug),
+      ['analysis', 'rosters']
+    );
+  });
+
+  it('caps the rail at the requested length', () => {
+    const counts = new Map([
+      ['A', 5],
+      ['B', 4],
+      ['C', 3],
+    ]);
+
+    assert.equal(rankedCategoryPills(counts, 2).length, 2);
   });
 });
