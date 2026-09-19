@@ -106,7 +106,7 @@ export default async function NewsAuthorPage({
             message={`No live stories by ${resolved.name} right now — check back soon.`}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {articles.map((article) => (
               <ArticleCard key={article.id} article={article} />
             ))}

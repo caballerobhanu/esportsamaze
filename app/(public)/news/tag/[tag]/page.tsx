@@ -83,7 +83,7 @@ export default async function NewsTagPage({
             message={`No stories tagged “${tag}” on this page — check back soon.`}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {articles.map((article) => (
               <ArticleCard key={article.id} article={article} />
             ))}

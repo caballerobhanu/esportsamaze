@@ -240,7 +240,7 @@ export default async function NewsHubPage({
               </Link>
             </div>
           ) : (
-            <div className="mt-2 grid gap-x-8 md:grid-cols-2">
+            <div className="mt-2 grid gap-x-8 md:grid-cols-2 xl:grid-cols-3">
               {wireArticles.map((article) => {
                 const cat = getCategoryMeta(article.category);
                 return (
