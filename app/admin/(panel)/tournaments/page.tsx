@@ -42,6 +42,8 @@ import { TournamentDisplayConfigInput } from '@/components/admin/tournament-disp
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
 import { matchStageLabel, normalizeLogoModeBySurface } from '@/lib/standings-config';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
+import { getStageTemplates } from '@/lib/stage-template-store';
+import { BasicsPasteBox } from '@/components/admin/basics-paste-box';
 
 export const dynamic = 'force-dynamic';
 
@@ -1339,6 +1341,8 @@ export default async function AdminTournamentsPage({
 
           <FormTabs tabs={TOURNAMENT_FORM_TABS} initialTab={initialTab}>
           <FormPanel tab="basics">
+          <BasicsPasteBox />
+
           {/* Section 1: Basic Tournament Identity */}
           <div>
             <h2 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400 mb-3 flex items-center gap-1.5">
@@ -1696,6 +1700,7 @@ export default async function AdminTournamentsPage({
                 <TournamentStagesFormatInput
                   initialFormatDetails={editing?.formatDetails}
                   initialStages={editing?.stages}
+                  initialStageTemplates={await getStageTemplates()}
                   groupCandidates={groupCandidates}
                   stageMatchGroups={stageMatchGroups}
                 />

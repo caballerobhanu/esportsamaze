@@ -51,8 +51,10 @@ export const DEFAULT_MAINTENANCE_SETTINGS: MaintenanceSettings = {
 
 const SETTINGS_KEY = 'maintenance_config';
 
-// Resilient accessor for prisma.siteSetting in case prisma client is awaiting generate on VPS
-function getSiteSettingModel() {
+// Resilient accessor for prisma.siteSetting in case prisma client is awaiting generate on VPS.
+// Exported so other SiteSetting-backed config (lib/stage-templates.ts) reuses this guard
+// instead of duplicating the cast.
+export function getSiteSettingModel() {
   return (prisma as any).siteSetting;
 }
 

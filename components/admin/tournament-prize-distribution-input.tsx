@@ -19,6 +19,8 @@ import {
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 import { classifyPrizeRow, parseRankRange, prizeRowRange, rankLabel, type PrizeRowKind } from '@/lib/prize-rows';
+import { groupPrizeRowsByStage, parsePrizeSheet } from '@/lib/tournament-scaffold-parse';
+import { TabPasteBox, type TabPastePreview } from '@/components/admin/tab-paste-box';
 
 export interface PrizeRankItem {
   /** PLACEMENT sits on the prize ladder; AWARD is a standalone honour. */
@@ -148,6 +150,82 @@ export function TournamentPrizeDistributionInput({
   allTeams = [],
   allPlayers = [],
 }: TournamentPrizeDistributionInputProps) {
+  // ---- Paste a prize ladder straight into this tab ----
+  // Rows are grouped into the per-stage shape this editor stores. A pasted team or player
+  // NAME is matched to a real record where one exists by that name or tag; otherwise the
+  // name is kept as typed and the row stays unlinked, which the editor already supports.
+  const findTeamByName = (name: string) =>
+    allTeams.find(
+      (team) =>
+        team.name.toLowerCase() === name.toLowerCase() ||
+        (team.tag ?? '').toLowerCase() === name.toLowerCase(),
+    );
+  const findPlayerByName = (name: string) =>
+    allPlayers.find((player) => player.ign.toLowerCase() === name.toLowerCase());
+
+  const buildPrizeStages = (text: string): PrizeStageItem[] => {
+    const { rows } = parsePrizeSheet(text);
+
+    return groupPrizeRowsByStage(rows).map(({ stageName, ranks }) => ({
+      stageName,
+      ranks: ranks.map((row) => {
+        const team = row.teamName ? findTeamByName(row.teamName) : undefined;
+        const player = row.playerName ? findPlayerByName(row.playerName) : undefined;
+        const recipientType =
+          row.recipientType === 'TEAM' || row.recipientType === 'PLAYER' ? row.recipientType : undefined;
+        const rewardType =
+          row.rewardType === 'MONEY' || row.rewardType === 'ITEM' || row.rewardType === 'TITLE'
+            ? row.rewardType
+            : undefined;
+
+        return {
+          from: row.from,
+          to: row.to,
+          rank: row.rank,
+          prize: row.prize,
+          percentage: row.percentage,
+          rewardType,
+          customReward: row.customReward,
+          recipientType,
+          teamId: team?.id,
+          teamName: team?.name ?? row.teamName,
+          playerId: player?.id,
+          playerName: player?.ign ?? row.playerName,
+          qualifications: row.qualifications,
+        };
+      }),
+    }));
+  };
+
+  const previewPrizePaste = (text: string): TabPastePreview => {
+    const res = parsePrizeSheet(text);
+    if (res.error) return { summary: [], unrecognised: res.unrecognisedHeaders, error: res.error };
+
+    const grouped = groupPrizeRowsByStage(res.rows);
+    const summary = [
+      `${res.rows.length} prize row${res.rows.length === 1 ? '' : 's'} across ${grouped.length} stage${
+        grouped.length === 1 ? '' : 's'
+      }`,
+    ];
+
+    const unmatched = res.rows.filter(
+      (row) =>
+        (row.teamName && !findTeamByName(row.teamName)) || (row.playerName && !findPlayerByName(row.playerName)),
+    ).length;
+    if (unmatched > 0) {
+      summary.push(
+        `${unmatched} row${unmatched === 1 ? '' : 's'} named a team or player that matched nothing — kept as typed`,
+      );
+    }
+
+    return { summary, unrecognised: res.unrecognisedHeaders, error: null };
+  };
+
+  const applyPrizePaste = (text: string) => {
+    const next = buildPrizeStages(text);
+    if (next.length > 0) setStages(next);
+  };
+
   // Normalize initial distribution
   const [stages, setStages] = React.useState<PrizeStageItem[]>(() => {
     if (initialDistribution) {
@@ -462,6 +540,14 @@ export function TournamentPrizeDistributionInput({
   return (
     <div className="space-y-4">
       {/* Hidden input carrying the JSON data */}
+      <TabPasteBox
+        label="Prize ladder — paste from a sheet"
+        hint="One row per prize slot. The rank is either a single Rank cell (1, 1-4, 5th - 8th) or From and To columns. A row needs a rank or an amount to count. A pasted team or player name is linked automatically when it matches a record here; otherwise it is kept as typed."
+        sampleHeader={'Stage\tFrom\tTo\tAmount\tPercentage\tTeam\tPlayer\tQualification'}
+        parse={previewPrizePaste}
+        onApply={applyPrizePaste}
+      />
+
       <input type="hidden" name="prizeDistribution" value={rawMode ? rawText : syncToJson(stages)} />
 
       {/* Mode switch */}

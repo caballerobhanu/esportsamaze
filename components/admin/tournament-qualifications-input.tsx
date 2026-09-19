@@ -8,6 +8,8 @@ import {
   parseQualificationRules,
   type QualificationRule,
 } from '@/lib/qualification-rules';
+import { parseQualificationSheet } from '@/lib/tournament-scaffold-parse';
+import { TabPasteBox, type TabPastePreview } from '@/components/admin/tab-paste-box';
 
 /** An event a rule qualifies into. Mirrors the stored target shape. */
 export interface SeedEventItem {
@@ -46,6 +48,36 @@ export function TournamentQualificationsInput({
   initialQualifications = [],
   allTournaments = [],
 }: TournamentQualificationsInputProps) {
+  // ---- Paste qualification rules straight into this tab ----
+  // Targets are matched to real events by name, exactly as the loader below does for
+  // stored rules, so a pasted destination becomes a link rather than loose text.
+  const buildQualificationRules = (text: string): QualificationRule[] =>
+    parseQualificationSheet(text).rows.map((row) => ({
+      from: row.from,
+      to: row.to,
+      label: row.label,
+      targets: row.targets.map((target) => {
+        const match = allTournaments.find((tour) => tour.name.toLowerCase() === target.name.toLowerCase());
+        return { name: target.name, tournamentId: match?.id ?? null, tournamentSlug: match?.slug ?? null };
+      }),
+      note: row.note,
+    }));
+
+  const previewQualificationPaste = (text: string): TabPastePreview => {
+    const res = parseQualificationSheet(text);
+    if (res.error) return { summary: [], unrecognised: res.unrecognisedHeaders, error: res.error };
+    return {
+      summary: [`${res.rows.length} rule${res.rows.length === 1 ? '' : 's'} recognised`],
+      unrecognised: res.unrecognisedHeaders,
+      error: null,
+    };
+  };
+
+  const applyQualificationPaste = (text: string) => {
+    const next = buildQualificationRules(text);
+    if (next.length > 0) setRules(next);
+  };
+
   const [rules, setRules] = React.useState<QualificationRule[]>(() =>
     parseQualificationRules(initialQualifications).map((rule) => ({
       ...rule,
@@ -139,6 +171,14 @@ export function TournamentQualificationsInput({
 
   return (
     <div className="space-y-3">
+      <TabPasteBox
+        label="Qualification rules — paste from a sheet"
+        hint="One row per rule. A rule needs a rank range or a target to count. A pasted target is linked automatically when it matches an event by name."
+        sampleHeader={'From\tTo\tTargets\tNote'}
+        parse={previewQualificationPaste}
+        onApply={applyQualificationPaste}
+      />
+
       <input type="hidden" name="qualificationsJson" value={JSON.stringify(payload)} />
 
       {rules.length === 0 && (

@@ -29,6 +29,8 @@ import {
   ALL_TOURNAMENT_TAB_IDS,
   type TournamentTabId,
 } from '@/lib/standings-config';
+import { parseStandingsZoneSheet, planZoneFiling, type ParsedZoneRow } from '@/lib/standings-zone-parse';
+import { TabPasteBox, type TabPastePreview } from '@/components/admin/tab-paste-box';
 import {
   Sparkles,
   Trash2,
@@ -1066,6 +1068,106 @@ export function TournamentStandingsConfigInput({
 
   const patch = (p: Partial<StandingsConfig>) => setConfig((c) => ({ ...c, ...p }));
 
+  // ---- Paste advancement zones straight into this tab ----
+  // A zone lives at one of four places, and the sheet's Stage/Group columns decide which:
+  // blank stage → the default list, stage only → that stage's zones (tab item, or the flat
+  // per-stage config), stage + group → that tab's per-group zones.
+  const toZoneRule = (row: ParsedZoneRow): ZoneRule => ({
+    from: row.from,
+    to: row.to,
+    label: row.label,
+    color: row.color,
+    targetStageName: row.targetStageName,
+    targetGroupName: row.targetGroupName,
+  });
+
+  /** The stage/group names this config already has, which is all a row can be filed against. */
+  const zoneFilingTargets = () => {
+    const tabStageNames: string[] = [];
+    const tabGroupNames: Record<string, string[]> = {};
+
+    for (const group of config.tabGroups ?? []) {
+      for (const item of group.items) {
+        if (item.type === 'STAGE' && item.stageName) {
+          tabStageNames.push(item.stageName);
+          tabGroupNames[item.stageName] = item.groups ?? [];
+        }
+      }
+    }
+
+    return { tabStageNames, tabGroupNames, configStageNames: Object.keys(config.stages ?? {}) };
+  };
+
+  const previewZonePaste = (text: string): TabPastePreview => {
+    const res = parseStandingsZoneSheet(text);
+    if (res.error) return { summary: [], unrecognised: res.unrecognisedHeaders, error: res.error };
+
+    const plan = planZoneFiling(res.rows, zoneFilingTargets());
+    const summary: string[] = [];
+
+    if (plan.defaultRows.length > 0) summary.push(`${plan.defaultRows.length} → the default zone list`);
+    for (const target of plan.tabTargets) {
+      const groupTotal = target.groups.reduce((sum, group) => sum + group.rows.length, 0);
+      const groups = target.groups.map((group) => `${group.groupName} (${group.rows.length})`).join(', ');
+      summary.push(
+        `${target.rows.length + groupTotal} → ${target.stageName}${groups ? ` — ${groups}` : ' (tab zones)'}`,
+      );
+    }
+    for (const target of plan.stageConfigTargets) summary.push(`${target.rows.length} → ${target.stageName} (stage zones)`);
+    if (summary.length === 0) summary.push('Nothing could be filed against this config');
+
+    return {
+      summary,
+      unrecognised: plan.unmatched.length
+        ? [...res.unrecognisedHeaders, `${plan.unmatched.length} row(s) named a stage or group this config has not got — they will be skipped`]
+        : res.unrecognisedHeaders,
+      error: null,
+    };
+  };
+
+  const applyZonePaste = (text: string) => {
+    const { rows } = parseStandingsZoneSheet(text);
+    const plan = planZoneFiling(rows, zoneFilingTargets());
+    const next: StandingsConfig = { ...config };
+
+    if (plan.defaultRows.length > 0) next.zones = plan.defaultRows.map(toZoneRule);
+
+    if (plan.stageConfigTargets.length > 0) {
+      const stages = { ...(config.stages ?? {}) };
+      for (const target of plan.stageConfigTargets) {
+        stages[target.stageName] = { ...(stages[target.stageName] ?? {}), zones: target.rows.map(toZoneRule) };
+      }
+      next.stages = stages;
+    }
+
+    if (plan.tabTargets.length > 0) {
+      next.tabGroups = (config.tabGroups ?? []).map((group) => ({
+        ...group,
+        items: group.items.map((item) => {
+          const target = plan.tabTargets.find(
+            (entry) => item.type === 'STAGE' && entry.stageName === item.stageName,
+          );
+          if (!target) return item;
+
+          const groupZones = { ...(item.groupZones ?? {}) };
+          for (const entry of target.groups) groupZones[entry.groupName] = entry.rows.map(toZoneRule);
+
+          return {
+            ...item,
+            zones: target.rows.length > 0 ? target.rows.map(toZoneRule) : item.zones,
+            groupZones,
+            // Group sub-tabs have to be on for group zones to render, and the group has to be
+            // listed — otherwise the zones are stored but never shown.
+            enableGroupSubTabs: item.enableGroupSubTabs || target.groups.length > 0,
+            groups: [...new Set([...(item.groups ?? []), ...target.groups.map((entry) => entry.groupName)])],
+          };
+        }),
+      }));
+    }
+
+    patch(next);
+  };
+
   const toggleIn = <T,>(list: T[], value: T): T[] =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
@@ -1476,6 +1578,14 @@ export function TournamentStandingsConfigInput({
         </div>
         <ZonesEditor zones={config.zones} stageNames={stageNames} onChange={(zones) => patch({ zones })} />
       </div>
+
+      <TabPasteBox
+        label="Advancement zones — paste from a sheet"
+        hint="One row per zone. The range is either From and To columns, or a single Rank cell like 1-4. Leave Stage blank to carry the row above down, and Group blank for that stage's own zones — so each stage and its groups read as a block instead of repeating the stage on every row."
+        sampleHeader={'Stage\tGroup\tFrom\tTo\tLabel\tColour\tTarget Stage'}
+        parse={previewZonePaste}
+        onApply={applyZonePaste}
+      />
 
       {/* ── Hierarchical Standings Sub-Divisions (e.g. League Weeks, Weekends, Playoffs, Finals) ── */}
       <div className="p-5 rounded-2xl border border-blue-500/30 bg-blue-500/5 space-y-4">

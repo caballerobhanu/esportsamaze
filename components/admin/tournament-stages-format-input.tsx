@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useTransition } from 'react';
 import {
   Layers,
   Plus,
+  Copy,
   Trash2,
   ChevronDown,
   ChevronUp,
@@ -29,6 +30,13 @@ import {
 import type { StageGroupSquad } from '@/components/tournaments/tournament-stage-format-card';
 import { pendingSeatKey, pendingSeatLabel, type PendingSeatSource } from '@/lib/stage-groups';
 import { ZONE_COLOR_OPTIONS } from '@/lib/standings-config';
+import { applyTemplateStages, type StageTemplate } from '@/lib/stage-templates';
+import { parseStageSheet, type ParsedStageRow } from '@/lib/tournament-scaffold-parse';
+import { TabPasteBox, type TabPastePreview } from '@/components/admin/tab-paste-box';
+import {
+  deleteStageTemplateAction,
+  saveStageTemplateAction,
+} from '@/app/admin/(panel)/tournaments/stage-template-actions';
 
 /**
  * A squad the draw can place: a seat in the tournament's field, carrying whatever the
@@ -127,6 +135,8 @@ interface TournamentStagesFormatInputProps {
     formatType?: string;
     stageType?: string | null;
   }>;
+  /** Stage templates saved from earlier events, offered as a starting point. */
+  initialStageTemplates?: StageTemplate[];
   /** The tournament's field of seats, offered when building a stage's group draw. */
   groupCandidates?: GroupCandidate[];
   /** Stage name → the group names its matches carry. Non-empty means matches own them. */
@@ -278,6 +288,7 @@ function calculateMatchdays(
 export function TournamentStagesFormatInput({
   initialFormatDetails,
   initialStages,
+  initialStageTemplates = [],
   groupCandidates = [],
   stageMatchGroups = {},
 }: TournamentStagesFormatInputProps) {
@@ -412,6 +423,109 @@ export function TournamentStagesFormatInput({
   // Active section tab: 'stages' | 'cards' | 'tiebreakers'
   const [activeTab, setActiveTab] = useState<'stages' | 'cards' | 'tiebreakers'>('stages');
   const [expandedStageIndex, setExpandedStageIndex] = useState<number | null>(0);
+
+  // ---- Stage templates: a reusable stage list, carrying structure only ----
+  const [stageTemplates, setStageTemplates] = useState<StageTemplate[]>(initialStageTemplates);
+  const [showTemplateSave, setShowTemplateSave] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [templateMessage, setTemplateMessage] = useState<string | null>(null);
+  const [isTemplateBusy, startTemplateTransition] = useTransition();
+
+  const handleSaveTemplate = () => {
+    const name = newTemplateName.trim();
+    if (!name || stages.length === 0) return;
+    startTemplateTransition(async () => {
+      const res = await saveStageTemplateAction(name, JSON.stringify(stages));
+      if (res.ok) {
+        setStageTemplates(res.templates);
+        setNewTemplateName('');
+        setShowTemplateSave(false);
+        setTemplateMessage(`Saved "${name}" (${stages.length} stages).`);
+      } else {
+        setTemplateMessage(res.error ?? 'Could not save the template.');
+      }
+    });
+  };
+
+  const handleApplyTemplate = (id: string) => {
+    const template = stageTemplates.find((t) => t.id === id);
+    if (!template) return;
+
+    if (
+      stages.length > 0 &&
+      !window.confirm(
+        `Replace the current ${stages.length} stage(s) with "${template.name}" (${template.stages.length} stages)?\n\nDates and group draws already entered for stages of the same name are kept.`,
+      )
+    ) {
+      return;
+    }
+
+    // The stage shape lives with this component, so the merge result is cast into it here
+    // rather than making lib/stage-templates depend on a component type.
+    setStages(applyTemplateStages(template.stages, stages) as unknown as StageFormatItem[]);
+    setExpandedStageIndex(0);
+    setTemplateMessage(`Applied "${template.name}". Check the dates and group draw before saving.`);
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    const template = stageTemplates.find((t) => t.id === id);
+    if (!template || !window.confirm(`Delete the template "${template.name}"?`)) return;
+    startTemplateTransition(async () => {
+      const res = await deleteStageTemplateAction(id);
+      setStageTemplates(res.templates);
+      setTemplateMessage(res.error ?? `Deleted "${template.name}".`);
+    });
+  };
+
+  // ---- Paste a stage sheet straight into this tab ----
+  // The sheet wins for every column it carries. The one thing it cannot carry is the
+  // declared group draw, so that survives from a stage of the same name.
+  const previewStagePaste = (text: string): TabPastePreview => {
+    const res = parseStageSheet(text);
+    return {
+      summary: res.error ? [] : [`${res.rows.length} stage${res.rows.length === 1 ? '' : 's'} recognised`],
+      unrecognised: res.unrecognisedHeaders,
+      error: res.error,
+    };
+  };
+
+  const applyStagePaste = (text: string) => {
+    const { rows } = parseStageSheet(text);
+    if (rows.length === 0) return;
+
+    const existingByName = new Map(stages.map((stage) => [stage.name.trim(), stage]));
+
+    const next: StageFormatItem[] = rows.map((row: ParsedStageRow, index) => {
+      const existing = existingByName.get(row.name);
+      return {
+        id: existing?.id ?? `stage-${index + 1}`,
+        name: row.name,
+        sequence: index + 1,
+        stageType: row.stageType || existing?.stageType || 'GROUPS_WISE',
+        formatType: row.formatType || existing?.formatType || 'Battle Royale Points Table',
+        dates: existing?.dates ?? '',
+        startDate: row.startDate ?? existing?.startDate ?? '',
+        endDate: row.endDate ?? existing?.endDate ?? '',
+        schedulePattern: existing?.schedulePattern ?? 'ALL_DAYS',
+        activeDaysOfWeek: existing?.activeDaysOfWeek ?? [4, 5, 6, 0],
+        customDates: existing?.customDates ?? [],
+        matchesPerDay: row.matchesPerDay ?? existing?.matchesPerDay ?? 6,
+        matchTime: row.matchTime ?? existing?.matchTime ?? '16:00 IST',
+        totalMatches: row.totalMatches ?? existing?.totalMatches,
+        matchesPerGroup: row.matchesPerGroup ?? existing?.matchesPerGroup,
+        matchesPerTeam: row.matchesPerTeam ?? existing?.matchesPerTeam,
+        matchdaysCount: row.matchdaysCount ?? existing?.matchdaysCount ?? '',
+        teamsCount: row.teamsCount ?? existing?.teamsCount,
+        groupsDivision: row.groupsDivision ?? existing?.groupsDivision ?? '',
+        stageDescription: row.stageDescription ?? existing?.stageDescription ?? '',
+        rules: existing?.rules ?? [],
+        groups: existing?.groups ?? {},
+      };
+    });
+
+    setStages(next);
+    setExpandedStageIndex(0);
+  };
 
   // Compile JSON payload
   const compiledPayload = useMemo(() => {
@@ -799,6 +913,123 @@ export function TournamentStagesFormatInput({
           <span>{showCalendarWidget ? 'Calendar Enabled (Click to Turn Off)' : 'Calendar Hidden (Click to Turn On)'}</span>
         </button>
       </div>
+
+      {/* STAGE TEMPLATES — reuse a stage list across events */}
+      <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/15 border border-indigo-200/70 dark:border-indigo-900/50 space-y-2.5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+              <Copy className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-xs font-bold text-slate-900 dark:text-white">Stage Templates</span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 max-w-xl">
+                Reuse this stage list on another event. A template carries the structure only — stage
+                dates and the group draw are left for each event, and anything already entered here is
+                kept.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {stageTemplates.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) handleApplyTemplate(e.target.value);
+                }}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-(--ed-blue) cursor-pointer"
+              >
+                <option value="">Load template…</option>
+                {stageTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.stages.length})
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowTemplateSave((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-indigo-300 dark:border-indigo-800 bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Save as template</span>
+            </button>
+          </div>
+        </div>
+
+        {showTemplateSave && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <input
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              placeholder="e.g. Standard 4-Stage Format"
+              className={`${inputCls} max-w-xs`}
+            />
+            <button
+              type="button"
+              onClick={handleSaveTemplate}
+              disabled={isTemplateBusy || stages.length === 0 || !newTemplateName.trim()}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-40 cursor-pointer"
+            >
+              {isTemplateBusy ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowTemplateSave(false);
+                setNewTemplateName('');
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+            >
+              Cancel
+            </button>
+            {stages.length === 0 && (
+              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                Add a stage first.
+              </span>
+            )}
+          </div>
+        )}
+
+        {stageTemplates.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saved</span>
+            {stageTemplates.map((t) => (
+              <span
+                key={t.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+              >
+                <span>{t.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTemplate(t.id)}
+                  className="text-slate-400 hover:text-rose-500 cursor-pointer"
+                  title={`Delete template "${t.name}"`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {templateMessage && (
+          <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">{templateMessage}</p>
+        )}
+      </div>
+
+      <TabPasteBox
+        label="Stages — paste from a sheet"
+        hint="One row per stage. Columns are matched by header name, so include the header row — anything it does not recognise is reported rather than guessed. The declared group draw is never touched."
+        sampleHeader={
+          'Stage\tFormat\tStructure\tStart Date\tEnd Date\tMatches Per Day\tMatch Time\tTotal Matches\tTeams\tGroups'
+        }
+        parse={previewStagePaste}
+        onApply={applyStagePaste}
+      />
 
       {/* Navigation Subtabs */}
       <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200/80 dark:border-slate-700/60">
