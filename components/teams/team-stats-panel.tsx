@@ -133,7 +133,7 @@ export function TeamStatsPanel({
                       'Wins',
                       'Top-5 %',
                       'Avg place pts',
-                      'Total points',
+                      'Avg points',
                       'Avg damage',
                       'Avg survival',
                     ].map((heading) => (
@@ -157,7 +157,7 @@ export function TeamStatsPanel({
                         {formatAverage(row.avgPlacePoints, row.matches, 1)}
                       </td>
                       <td className={`${td} font-black text-[#0A5FC4] dark:text-blue-300`}>
-                        {row.points}
+                        {formatAverage(row.matches > 0 ? row.points / row.matches : null, row.matches, 1)}
                       </td>
                       <td className={td}>
                         <span className="font-black">
