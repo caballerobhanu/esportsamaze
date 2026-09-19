@@ -5,6 +5,7 @@ import { Pencil, Trash2, Plus, Copy, CheckCircle2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
+import { recordSlugChange } from '@/lib/slug-history';
 import { setRosterMembership } from '@/lib/player-transfers';
 import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { saveUploadedFile } from '@/lib/upload';
@@ -65,7 +66,7 @@ async function savePlayer(formData: FormData) {
     if (id) {
       const existing = await tx.player.findUnique({
         where: { id },
-        select: { avatarUrl: true },
+        select: { avatarUrl: true, slug: true },
       });
       await tx.player.update({
         where: { id },
@@ -76,6 +77,7 @@ async function savePlayer(formData: FormData) {
             avatarUpload ?? fOpt(formData, 'avatarUrl') ?? existing?.avatarUrl ?? null,
         },
       });
+      await recordSlugChange('player', existing?.slug, slug, id, tx);
       playerId = id;
     } else {
       const created = await tx.player.create({

@@ -10,6 +10,7 @@ import { applyRosterMembership } from '@/lib/player-transfers';
 import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
+import { recordSlugChange } from '@/lib/slug-history';
 import { saveUploadedFile } from '@/lib/upload';
 import {
   TOURNAMENT_TIERS,
@@ -575,7 +576,7 @@ async function saveTournament(formData: FormData) {
       if (id) {
         const existing = await tx.tournament.findUnique({
           where: { id },
-          select: { imageUrl: true, imageDarkUrl: true, bannerUrl: true },
+          select: { imageUrl: true, imageDarkUrl: true, bannerUrl: true, slug: true },
         });
 
         await tx.tournament.update({
@@ -590,6 +591,8 @@ async function saveTournament(formData: FormData) {
             bannerUrl: bannerUpload ?? fOpt(formData, 'bannerUrl') ?? existing?.bannerUrl ?? null,
           },
         });
+
+        await recordSlugChange('tournament', existing?.slug, slug, id, tx);
 
         // Update relations
         await tx.tournamentOrganizer.deleteMany({ where: { tournamentId: id } });

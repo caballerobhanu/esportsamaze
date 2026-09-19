@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { EstaticTabNav } from '@/components/tournaments/estatic/estatic-tab-nav';
 import { TournamentHero } from '@/components/tournaments/estatic/tournament-hero';
+import { resolveSlugRedirect } from '@/lib/slug-history';
 import { loadTournamentContext } from './tournament-data';
 
 /**
@@ -23,7 +24,13 @@ export default async function TournamentLayout({
 }) {
   const { slug } = await params;
   const ctx = await loadTournamentContext(slug);
-  if (!ctx) notFound();
+  if (!ctx) {
+    // A slug the live table no longer holds may be a previous one; send it to the
+    // current address rather than 404ing, but only while the event still exists.
+    const target = await resolveSlugRedirect('tournament', slug);
+    if (target) permanentRedirect(`/tournaments/${target}`);
+    notFound();
+  }
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">

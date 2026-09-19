@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { TeamHero } from '@/components/teams/team-hero';
 import { TeamTabNav } from '@/components/teams/team-tab-nav';
 import { fetchEntityStanding } from '@/lib/krafton-data';
 import { loadTeamContext } from '@/lib/team-data';
+import { resolveSlugRedirect } from '@/lib/slug-history';
 
 /**
  * Team chrome for every profile tab route.
@@ -23,7 +24,13 @@ export default async function TeamLayout({
 }) {
   const { slug } = await params;
   const team = await loadTeamContext(slug);
-  if (!team) notFound();
+  if (!team) {
+    // A slug the live table no longer holds may be a previous one; send it to the
+    // current address rather than 404ing, but only while the team still exists.
+    const target = await resolveSlugRedirect('team', slug);
+    if (target) permanentRedirect(`/teams/${target}`);
+    notFound();
+  }
 
   const teamSlug = team.slug || team.id;
   const rank = await fetchEntityStanding('TEAM', team.id)

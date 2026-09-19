@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -23,6 +23,7 @@ import { RecentFormChart } from '@/components/players/recent-form-chart';
 import { buildCareerHistory, type CareerAppearance } from '@/lib/player-career';
 import { eliminations } from '@/lib/player-stats';
 import { formatDate } from '@/lib/utils';
+import { resolveSlugRedirect } from '@/lib/slug-history';
 import {
   loadPlayerCareer,
   loadPlayerContext,
@@ -86,7 +87,11 @@ export async function generateMetadata({ params }: PlayerPageProps): Promise<Met
 export default async function PlayerOverviewPage({ params }: PlayerPageProps) {
   const { slug } = await params;
   const context = await loadPlayerContext(slug);
-  if (!context) notFound();
+  if (!context) {
+    const target = await resolveSlugRedirect('player', slug);
+    if (target) permanentRedirect(`/players/${target}`);
+    notFound();
+  }
   const { player } = context;
 
   const [matches, career, standing] = await Promise.all([

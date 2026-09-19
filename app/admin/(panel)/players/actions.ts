@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { rebuildTransferOrigins, setRosterMembership } from '@/lib/player-transfers';
 import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
+import { recordSlugChange } from '@/lib/slug-history';
 
 export async function bulkDeletePlayersAction(playerIds: string[], cascade: boolean = false) {
   if (!(await isAdmin())) {
@@ -118,6 +119,11 @@ export async function mergePlayersAction(sourcePlayerId: string, targetPlayerId:
         }
       }
 
+      // The absorbed row's slug now belongs to the survivor, so the old address
+      // redirects there instead of 404ing. Recorded in the same transaction so
+      // history can never disagree with the merge.
+      await recordSlugChange('player', source.slug, target.slug, targetPlayerId, tx);
+
       // 5. Safely delete the source player
       await tx.player.delete({ where: { id: sourcePlayerId } });
     });
@@ -159,6 +165,8 @@ export async function togglePlayerVerificationAction(playerId: string, isVerifie
         slug: newSlug,
       },
     });
+    // Verifying strips the timestamp from a slug; keep the old one reachable.
+    await recordSlugChange('player', player.slug, newSlug, playerId);
 
     revalidatePath('/admin/players');
     revalidatePath('/players');

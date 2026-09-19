@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 
 import { TeamOverviewPanel, type KraftonSummary } from '@/components/teams/team-overview-panel';
+import { resolveSlugRedirect } from '@/lib/slug-history';
 import { TeamTabShell } from '@/components/teams/team-tab-shell';
 import { PageViews } from '@/components/ui/page-views';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -29,7 +30,11 @@ export default async function TeamOverviewPage({ params }: TeamPageProps) {
   const { slug } = await params;
 
   const team = await loadTeamContext(slug);
-  if (!team) notFound();
+  if (!team) {
+    const target = await resolveSlugRedirect('team', slug);
+    if (target) permanentRedirect(`/teams/${target}`);
+    notFound();
+  }
 
   const [matchSummary, form, kraftonFull] = await Promise.all([
     loadTeamMatchSummary(team.id),

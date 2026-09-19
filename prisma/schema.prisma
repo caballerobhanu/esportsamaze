@@ -881,3 +881,19 @@ model SiteSetting {
   updatedAt DateTime @updatedAt
 }
 
+/// Every slug a player, team or tournament has previously answered to.
+///
+/// Written whenever a slug changes, and on a merge (where the absorbed row's slug
+/// is re-pointed at the survivor). The public [slug] routes fall back to this table
+/// when a slug no longer resolves live, so an inbound link or accumulated ranking
+/// survives a rename instead of 404ing. The unique index doubles as the read path.
+model SlugHistory {
+  id         String   @id @default(cuid())
+  entityType String // 'player' | 'team' | 'tournament'
+  oldSlug    String
+  entityId   String // the surviving entity's id
+  changedAt  DateTime @default(now())
+
+  @@unique([entityType, oldSlug])
+}
+

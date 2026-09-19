@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { PlayerHero } from '@/components/players/player-hero';
 import { PlayerTabNav } from '@/components/players/player-tab-nav';
+import { resolveSlugRedirect } from '@/lib/slug-history';
 import {
   buildHeroProps,
   loadPlayerContext,
@@ -29,7 +30,13 @@ export default async function PlayerLayout({
 }) {
   const { slug } = await params;
   const context = await loadPlayerContext(slug);
-  if (!context) notFound();
+  if (!context) {
+    // A slug the live table no longer holds may be a previous one; send it to the
+    // current address rather than 404ing, but only while the player still exists.
+    const target = await resolveSlugRedirect('player', slug);
+    if (target) permanentRedirect(`/players/${target}`);
+    notFound();
+  }
 
   const [matches, standing] = await Promise.all([
     loadPlayerMatches(context.player.id),

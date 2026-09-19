@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Copy, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
+import { recordSlugChange } from '@/lib/slug-history';
 import { setRosterMembership } from '@/lib/player-transfers';
 import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { saveUploadedFile } from '@/lib/upload';
@@ -78,7 +79,7 @@ async function saveTeam(formData: FormData) {
   if (id) {
     const existing = await prisma.team.findUnique({
       where: { id },
-      select: { logoUrl: true, imageDarkUrl: true },
+      select: { logoUrl: true, imageDarkUrl: true, slug: true },
     });
     await prisma.team.update({
       where: { id },
@@ -93,6 +94,7 @@ async function saveTeam(formData: FormData) {
           null,
       },
     });
+    await recordSlugChange('team', existing?.slug, slug, id);
   } else {
     await prisma.team.create({
       data: {

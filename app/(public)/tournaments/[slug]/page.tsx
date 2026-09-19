@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { EstaticOverviewPanel } from '@/components/tournaments/estatic/estatic-overview-panel';
+import { resolveSlugRedirect } from '@/lib/slug-history';
 import { PageViews } from '@/components/ui/page-views';
 import { JsonLd } from '@/components/seo/json-ld';
 import { absoluteUrl, breadcrumbJsonLd, sportsEventJsonLd } from '@/lib/seo';
@@ -35,7 +36,11 @@ export default async function TournamentOverviewPage({
 }) {
   const { slug } = await params;
   const ctx = await loadTournamentContext(slug);
-  if (!ctx) notFound();
+  if (!ctx) {
+    const target = await resolveSlugRedirect('tournament', slug);
+    if (target) permanentRedirect(`/tournaments/${target}`);
+    notFound();
+  }
 
   // Hidden-tab guard: if Overview is disabled, land on the first visible tab.
   if (!ctx.visibleTabs.includes('overview')) {

@@ -28,6 +28,7 @@
  *   npx tsx scripts/merge-teams.ts --from iris-myth --to myth-official --apply --delete-source
  */
 import prisma from '../lib/prisma';
+import { recordSlugChange } from '../lib/slug-history';
 
 const APPLY = process.argv.includes('--apply');
 const DELETE_SOURCE = process.argv.includes('--delete-source');
@@ -219,6 +220,10 @@ async function main() {
     console.log(`Re-run with --apply --delete-source to drop the row.`);
     return;
   }
+
+  // The dropped row's slug now belongs to the survivor, so its old address
+  // redirects there instead of 404ing. Repointed rather than left dangling.
+  await recordSlugChange('team', from.slug, to.slug, to.id);
 
   await prisma.team.delete({ where: { id: from.id } });
   console.log(`deleted ${from.name} (${from.slug}).`);
