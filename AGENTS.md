@@ -75,6 +75,15 @@ The job therefore exists to keep the stored status honest for the admin and for 
 - **Plain `<img>` is load-bearing in many places.** 53 occurrences, 34 carrying an explicit `eslint-disable` with a written rationale. Self-hosted SVG flags, 32–48px marks, and light/dark pairs are deliberate. Converting to `next/image` would also move delivery from `/api/media/` (which nginx serves with `expires 30d, immutable`) to `/_next/image?…` (which only gets the 30s micro-cache in `location /`) — treat that as a tradeoff to evaluate, not an obvious improvement.
 - **Several `react-hooks` lint errors are deliberate patterns, not bugs.** `match-inline-scorecard-editor.tsx` reads its dirty-sets through refs on purpose so a parent `router.refresh()` cannot silently discard an admin's unsaved edits — removing that risks data loss. `prize-pool-badge.tsx`'s `setMounted(true)` is an SSR hydration guard for visitor-currency detection. React Compiler is **not enabled** (no `reactCompiler` config, no `babel-plugin-react-compiler` dependency), so every `react-hooks/preserve-manual-memoization` message is hypothetical.
 
+## Retired fields and dead models — do not build on these
+
+Columns are never dropped (additive-only schema), so some of what remains is intentionally dead. Do not wire a feature to any of it:
+
+- **`Tournament.rankingIncluded`** was meant for KRAFTON inclusion, but KRAFTON is standalone now. It is hard-forced `true` (`tournaments/page.tsx:543,1018`) and **never read**, so no "exclude from rankings" behaviour exists. No UI offers it.
+- **`Tournament.legacyMode` / `legacyType` / `legacySponsors`** are referenced nowhere outside `schema.prisma`.
+- **`TournamentGame`** is a join table for *multi-game* tournaments that **nothing ever writes** — there is no `prisma.tournamentGame` call anywhere, so a tournament's `games` relation always returns empty. **Deliberately left as-is** (2026-09-18): every event covers one title and `Tournament.gameId` handles that, so this is dormant rather than broken. Do not wire a feature to it, and do not assume the relation is populated. Note this is *not* the same as `Tournament.gameId`, which is the required single-game field the form uses.
+- **`MatchTeamResult.won` / `.score`** and **`MatchPlayerStat.deaths`** are written on import and never read.
+
 ## Environment parity
 
 - **VPS:** Node 22.x, npm 10.x, PostgreSQL 16 in Docker as `esportsamaze_postgres` (port 5433), 3 PM2 cluster workers, nginx micro-cache in front.

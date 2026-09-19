@@ -17,6 +17,7 @@ import type { StandingsLogoMode } from '@/lib/standings-config';
 import type { MatchLite } from './panel-types';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { KickoffTime } from '@/components/ui/kickoff';
+import { TournamentSponsors } from '@/components/tournaments/tournament-sponsors';
 
 interface OverviewMatchLite extends MatchLite {
   stageType?: string | null;
@@ -49,6 +50,10 @@ export function EstaticOverviewPanel({
     winner?: string | null;
     runnerUp?: string | null;
     venues?: { venue: { name: string; city?: string | null; country?: string | null }; stageName?: string | null }[];
+    sponsors?: {
+      tier?: string | null;
+      sponsor: { id: string; name: string; logoUrl?: string | null; website?: string | null };
+    }[];
   };
   featuredStageName: string;
   featuredStandings: AggregatedTeamStanding[];
@@ -456,6 +461,8 @@ export function EstaticOverviewPanel({
           </section>
         </div>
       </div>
+
+      <TournamentSponsors sponsors={tournament.sponsors ?? []} />
     </div>
   );
 }

@@ -262,6 +262,23 @@ export function TournamentPrizeDistributionInput({
   const [rawMode, setRawMode] = React.useState(false);
   const [rawText, setRawText] = React.useState('');
 
+  // The raw view is validated as it is typed. While it is invalid the editor refuses to apply
+  // it, and because the submitted value is always the visual state (see the hidden input), an
+  // unapplied raw edit costs nothing — the stored ladder is simply left as it was.
+  const rawError = React.useMemo(() => {
+    if (!rawMode || rawText.trim() === '') return null;
+    try {
+      const parsed = JSON.parse(rawText);
+      const rows = Array.isArray(parsed) ? parsed : parsed?.stages;
+      if (!Array.isArray(rows)) {
+        return 'Expected a JSON array of prize rows, or an object with a "stages" array.';
+      }
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'That is not valid JSON.';
+    }
+  }, [rawMode, rawText]);
+
   const teamOptions: SearchableSelectOption[] = React.useMemo(() => {
     return allTeams.map((t) => ({
       value: t.id,
@@ -548,7 +565,11 @@ export function TournamentPrizeDistributionInput({
         onApply={applyPrizePaste}
       />
 
-      <input type="hidden" name="prizeDistribution" value={rawMode ? rawText : syncToJson(stages)} />
+      {/* This ALWAYS serialises the editor's own state — never the raw textarea. The raw view is
+          an import/export affordance rather than a submission path, so malformed JSON can never
+          reach the server (which used to abort the whole tournament save), and a raw edit that
+          has not been applied leaves the stored ladder exactly as it was. */}
+      <input type="hidden" name="prizeDistribution" value={syncToJson(stages)} />
 
       {/* Mode switch */}
       <div className="flex items-center justify-between">
@@ -557,33 +578,51 @@ export function TournamentPrizeDistributionInput({
         </p>
         <button
           type="button"
+          disabled={rawMode && rawError !== null}
+          title={rawMode && rawError !== null ? 'Fix the JSON before switching back' : undefined}
           onClick={() => {
-            if (!rawMode) setRawText(syncToJson(stages));
-            else {
-              try {
-                const parsed = JSON.parse(rawText);
-                if (Array.isArray(parsed)) {
-                  setStages([{ stageName: 'Grand Finals', allocatedPrize: totalPrizePool, ranks: parsed }]);
-                } else if (parsed.stages) {
-                  setStages(parsed.stages);
-                }
-              } catch {}
+            if (!rawMode) {
+              setRawText(syncToJson(stages));
+            } else {
+              // Validation already ran while typing, so this cannot silently discard an edit.
+              const parsed = JSON.parse(rawText);
+              if (Array.isArray(parsed)) {
+                setStages([{ stageName: 'Grand Finals', allocatedPrize: totalPrizePool, ranks: parsed }]);
+              } else if (Array.isArray(parsed?.stages)) {
+                setStages(parsed.stages);
+              }
             }
             setRawMode((p) => !p);
           }}
-          className="text-[11px] font-bold text-(--ed-blue) dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+          className="text-[11px] font-bold text-(--ed-blue) dark:text-blue-400 hover:underline inline-flex items-center gap-1 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
         >
           <Code2 className="w-3 h-3" /> {rawMode ? 'Visual Stage Editor' : 'Edit Raw JSON'}
         </button>
       </div>
 
       {rawMode ? (
-        <textarea
-          value={rawText}
-          onChange={(e) => setRawText(e.target.value)}
-          rows={12}
-          className="w-full font-mono text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
-        />
+        <div className="space-y-2">
+          <textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            rows={12}
+            spellCheck={false}
+            className={`w-full font-mono text-xs p-3 rounded-xl border bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 ${
+              rawError !== null
+                ? 'border-rose-400 dark:border-rose-700 focus:ring-rose-400'
+                : 'border-slate-200 dark:border-slate-800 focus:ring-(--ed-blue)'
+            }`}
+          />
+          {rawError !== null ? (
+            <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+              {rawError} — this will not be applied, and the stored ladder is unchanged.
+            </p>
+          ) : (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Switching back to the visual editor applies this. Until then the stored ladder is untouched.
+            </p>
+          )}
+        </div>
       ) : (
         <div className="space-y-4">
           {stages.map((stage, sIdx) => (
