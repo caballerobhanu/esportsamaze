@@ -7,6 +7,7 @@ import { Crosshair } from 'lucide-react';
 import { TournamentNameFit } from '@/components/ui/tournament-name-fit';
 import { isGrandFinalsStage } from '@/lib/match-stage';
 import { cn } from '@/lib/utils';
+import { MobileDataCard } from '@/components/ui/mobile-card';
 
 /**
  * One player's line for a single game — the raw material for the match-wise
@@ -307,7 +308,58 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
         </div>
       )}
 
-      <div className="w-full overflow-x-auto">
+      <div className="space-y-3 lg:hidden">
+        {groups.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs font-semibold text-slate-400 dark:border-white/10">
+            No games match these filters.
+          </p>
+        ) : (
+          groups.map((group) => (
+            <MobileDataCard
+              key={group.key}
+              title={
+                group.tournament ? (
+                  <Link
+                    href={`/tournaments/${group.tournament.slug}`}
+                    className="transition-colors hover:text-[#0A5FC4]"
+                    title={group.tournament.name}
+                  >
+                    {group.tournament.shortName?.trim() || group.tournament.name}
+                  </Link>
+                ) : (
+                  group.label
+                )
+              }
+              subtitle={
+                [
+                  showTeamColumn ? group.teamName : null,
+                  group.startMs ? new Date(group.startMs).toLocaleDateString('en-IN', MONTH_YEAR) : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || undefined
+              }
+              columns={3}
+              metrics={[
+                { label: showTeamColumn ? 'Matches' : 'MP', value: group.matches },
+                { label: 'Elims', value: group.elims },
+                { label: 'Avg', value: avgOf(group.elims, group.matches) },
+                { label: 'Max', value: group.maxElims },
+                { label: '0 Elim', value: group.zeroElims },
+                { label: '5+ Elim', value: group.fivePlusElims },
+              ]}
+            />
+          ))
+        )}
+
+        {groups.length > 0 ? (
+          <p className="pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {activeFilter ? 'Filtered total' : 'Career total'}: {totals.matches} games ·{' '}
+            {totals.elims} elims · avg {avgOf(totals.elims, totals.matches)}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="hidden w-full overflow-x-auto lg:block">
         <table className="w-full min-w-[680px] text-left">
           <thead className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
             <tr>
