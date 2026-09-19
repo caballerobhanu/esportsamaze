@@ -47,6 +47,12 @@ Our domain is **esportsamaze.com**.
 
 If lint is ever wired into CI, it will fail immediately. That is a deliberate trade, not an oversight.
 
+## Caching — Cloudflare hides nginx's max-age from you
+
+`nginx.conf:165` (`location ~* \.(ico|txt|xml)$`) sets `Cache-Control: public, max-age=86400`, and Cloudflare honors it. So `/favicon.ico`, `/robots.txt` and `/sitemap.xml` keep being served from Cloudflare's edge for up to 24h after origin changes, which makes a good deploy look broken. Tell-tale: `cf-cache-status: HIT` with an `Age` older than the deploy. Adding a query string bypasses it, because Cloudflare keys on the full URL — that is why the bare and `?`-suffixed URLs can disagree.
+
+**Decision 2026-09-19: leave the rule as-is and purge the changed URL by hand in Cloudflare.** First hit by this: swapping `app/favicon.ico` looked like a failed deploy for hours, while origin served the new bytes correctly the whole time.
+
 ## Scheduled jobs
 
 Cron entries belong in **`/etc/cron.d/esportsamaze`** (that directory requires a user field), not the root crontab.
