@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatDate, formatShortDate } from '../lib/utils';
+import { formatDate, formatShortDate, toDatetimeLocal, toIsoInstant } from '../lib/utils';
 
 /** Stored date-only values are UTC midnight, which is what these fixtures mirror. */
 const UTC_MIDNIGHT = '2025-05-03T00:00:00.000Z';
@@ -32,4 +32,21 @@ test('it accepts a Date as well as a string', () => {
 test('the long form keeps its year, so the two cannot be confused', () => {
   assert.equal(formatDate(UTC_MIDNIGHT), 'May 3, 2025');
   assert.equal(formatShortDate(UTC_MIDNIGHT), 'May 3');
+});
+
+test('a datetime-local field round-trips through the instant it denotes', () => {
+  const instant = new Date('2026-09-19T12:30:00.000Z');
+  const shown = toDatetimeLocal(instant);
+  const submitted = toIsoInstant(shown);
+
+  // The submitted value must carry its zone. Naked, the server reads it in its
+  // own zone: "18:00" typed in IST became 18:00 UTC and came back as 23:30.
+  assert.match(submitted, /Z$/, 'a naive wall clock lets the server assume a zone');
+  assert.equal(new Date(submitted).getTime(), instant.getTime());
+  assert.equal(toDatetimeLocal(submitted), shown, 'and it comes back unchanged');
+});
+
+test('an empty or unparseable datetime-local value submits nothing', () => {
+  assert.equal(toIsoInstant(''), '');
+  assert.equal(toIsoInstant('not a date'), '');
 });

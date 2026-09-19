@@ -102,6 +102,31 @@ export function formatShortDate(date: string | Date): string {
 }
 
 /**
+ * Formats an instant for an `<input type="datetime-local">`. That control carries
+ * a wall clock with no zone, so it is rendered in the viewer's own zone — and
+ * must be read back the same way, by `toIsoInstant` below.
+ */
+export function toDatetimeLocal(date: string | Date): string {
+  const d = new Date(date);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Resolves a datetime-local wall clock to the instant it denotes in the viewer's
+ * zone, before it is submitted. Left naive, "18:00" typed by an IST author was
+ * parsed by the UTC server as 18:00 UTC and came back as 23:30 — a silent +5:30
+ * on every save, because the server was left to assume its own zone.
+ *
+ * Returns '' for an empty or unparseable value, so callers can fall back.
+ */
+export function toIsoInstant(localValue: string): string {
+  if (!localValue) return '';
+  const d = new Date(localValue);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+}
+
+/**
  * Resolves a concise short name for tournament badges, cards, and compact mobile views.
  * Prioritizes the explicit custom shortName, falling back to series + season or known acronyms.
  */

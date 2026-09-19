@@ -9,6 +9,13 @@ export function fOpt(fd: FormData, key: string): string | null {
   return v === '' ? null : v;
 }
 
+/**
+ * Parses a form date. A value carrying no zone is read in the SERVER's zone, which
+ * is not the author's — so a datetime-local field must submit the instant it
+ * denotes (`toIsoInstant` in lib/utils) rather than the naked wall clock the
+ * control hands you. Date-only fields are fine: "2026-05-06" is UTC midnight by
+ * spec, in every zone.
+ */
 export function fDate(fd: FormData, key: string): Date | null {
   const v = fStr(fd, key);
   if (!v) return null;

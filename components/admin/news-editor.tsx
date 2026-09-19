@@ -70,7 +70,7 @@ import {
   legacyMarkdownToHtml,
   parseCategoryHierarchy,
 } from '@/lib/news';
-import { slugify } from '@/lib/utils';
+import { slugify, toDatetimeLocal, toIsoInstant } from '@/lib/utils';
 import { saveArticle, deleteArticle, duplicateArticle, restoreRevisionById } from '@/app/admin/(panel)/news/actions';
 import { Combobox } from '@/components/admin/combobox';
 import { MediaPickerDialog } from '@/components/admin/media-picker-dialog';
@@ -144,12 +144,6 @@ const WORD_TARGET_PRESETS = [
   { label: 'Feature Story', target: 1000 },
   { label: 'Deep Dive', target: 1500 },
 ];
-
-function toDatetimeLocal(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function LengthMeter({ value, ideal, max }: { value: number; ideal: number; max: number }) {
   const color =
@@ -921,6 +915,7 @@ export function NewsEditor({
         <input type="hidden" name="categories" value={categoriesList.join(', ')} />
         <input type="hidden" name="tags" value={tags.join(', ')} />
         <input type="hidden" name="secondaryKeywords" value={secondaryKeywords.join(', ')} />
+        <input type="hidden" name="publishedAt" value={toIsoInstant(publishedAtLocal)} />
         <input type="hidden" name="coverImageUrl" value={coverImageUrl} />
         <input type="hidden" name="keyTakeaways" value={keyTakeaways.join('\n')} />
         <input type="hidden" name="faqsJson" value={JSON.stringify(faqs.filter((f) => f.question && f.answer))} />
@@ -1506,10 +1501,9 @@ export function NewsEditor({
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
               <h3 className="mb-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Publish Settings</h3>
 
-              <label className={labelCls}>Publish Date & Time</label>
+              <label className={labelCls}>Publish Date &amp; Time</label>
               <input
                 type="datetime-local"
-                name="publishedAt"
                 value={publishedAtLocal}
                 onChange={(e) => setPublishedAtLocal(e.target.value)}
                 className={inputCls}
