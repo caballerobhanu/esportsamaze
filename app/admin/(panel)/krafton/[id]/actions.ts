@@ -106,7 +106,22 @@ export async function deleteKraftonEvent(formData: FormData) {
   redirect('/admin/krafton');
 }
 
-/** Replace one board's entries with pasted rows. */
+/**
+ * Replace one board's entries with pasted rows.
+ *
+ * The replacement is intended — repasting a board overwrites the previous one. What
+ * is not intended is being left with NO board, which is what the old two-statement
+ * form did: `deleteMany` committed, then a failing `createMany` returned an error
+ * that read like "import failed" while the board was already gone.
+ *
+ * So the delete and the insert run in a single transaction: either the board is
+ * fully replaced or it is left exactly as it was. Do not split them apart again.
+ *
+ * The likeliest way that insert fails is a name repeated in the paste, because
+ * `entityName` is unique per (event, board) — and neither paste parser de-duplicates.
+ * That case is caught by name before anything is written, so the admin is told which
+ * line to fix instead of reading a raw constraint error.
+ */
 export async function importKraftonEntries(
   eventId: string,
   board: KraftonBoard,
@@ -117,22 +132,39 @@ export async function importKraftonEntries(
     const parsed = board === 'TEAM' ? parseTeamPaste(text) : parsePlayerPaste(text);
     if (parsed.length === 0) return { ok: false, imported: 0, error: 'No valid rows found in the pasted text.' };
 
-    await prisma.kraftonEntry.deleteMany({ where: { eventId, board } });
-    await prisma.kraftonEntry.createMany({
-      data: parsed.map((r) => ({
-        eventId,
-        board,
-        entityName: r.entityName,
-        teamName: board === 'PLAYER' ? (r as { teamName: string }).teamName || null : null,
-        rank: board === 'TEAM' ? (r as { rank: number }).rank : 0,
-        finishes: board === 'PLAYER' ? (r as { finishes: number }).finishes : 0,
-        mvp: board === 'PLAYER' ? (r as { mvp: number }).mvp : 0,
-        finalsMvp: board === 'PLAYER' ? (r as { finalsMvp: number }).finalsMvp : 0,
-        igl: board === 'PLAYER' ? (r as { igl: number }).igl : 0,
-        survivor: board === 'PLAYER' ? (r as { survivor: number }).survivor : 0,
-        emerging: board === 'PLAYER' ? (r as { emerging: number }).emerging : 0,
-      })),
-    });
+    // Names that repeat, or that are blank. Reported verbatim so the admin can find
+    // the offending line in the sheet they pasted from.
+    const names = parsed.map((r) => r.entityName.trim());
+    const repeated = [...new Set(names.filter((name, idx) => name !== '' && names.indexOf(name) !== idx))];
+    const problems: string[] = [];
+    if (repeated.length > 0) problems.push(`these names appear more than once: ${repeated.join(', ')}`);
+    if (names.some((name) => name === '')) problems.push('at least one row has a blank name');
+    if (problems.length > 0) {
+      return {
+        ok: false,
+        imported: 0,
+        error: `Nothing was changed — ${problems.join(', and ')}. Fix the sheet and paste again.`,
+      };
+    }
+
+    await prisma.$transaction([
+      prisma.kraftonEntry.deleteMany({ where: { eventId, board } }),
+      prisma.kraftonEntry.createMany({
+        data: parsed.map((r) => ({
+          eventId,
+          board,
+          entityName: r.entityName,
+          teamName: board === 'PLAYER' ? (r as { teamName: string }).teamName || null : null,
+          rank: board === 'TEAM' ? (r as { rank: number }).rank : 0,
+          finishes: board === 'PLAYER' ? (r as { finishes: number }).finishes : 0,
+          mvp: board === 'PLAYER' ? (r as { mvp: number }).mvp : 0,
+          finalsMvp: board === 'PLAYER' ? (r as { finalsMvp: number }).finalsMvp : 0,
+          igl: board === 'PLAYER' ? (r as { igl: number }).igl : 0,
+          survivor: board === 'PLAYER' ? (r as { survivor: number }).survivor : 0,
+          emerging: board === 'PLAYER' ? (r as { emerging: number }).emerging : 0,
+        })),
+      }),
+    ]);
     refresh(eventId);
     return { ok: true, imported: parsed.length };
   } catch (err) {
