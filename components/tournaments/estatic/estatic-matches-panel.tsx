@@ -305,12 +305,27 @@ export function EstaticMatchesPanel({
               <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
-                  <th className="pb-3 w-14 text-center">Rank</th>
-                  <th className="pb-3 pl-2">Squad</th>
-                  <th className="pb-3 text-center">WWCD</th>
-                  <th className="pb-3 text-center">Place Pts</th>
-                  <th className="pb-3 text-center">Elims Pts</th>
-                  <th className="pb-3 pr-4 text-right">Total Score</th>
+                  <th className="w-8 pb-3 text-center sm:w-14">
+                    <span className="sm:hidden">#</span>
+                    <span className="hidden sm:inline">Rank</span>
+                  </th>
+                  <th className="min-w-[75px] pb-3 pl-2 sm:min-w-[240px]">Squad</th>
+                  <th className="w-7 pb-3 px-1 text-center sm:w-16 sm:px-3">
+                    <span className="sm:hidden">W</span>
+                    <span className="hidden sm:inline">WWCD</span>
+                  </th>
+                  <th className="w-8 pb-3 px-1 text-center sm:w-16 sm:px-2">
+                    <span className="sm:hidden">E</span>
+                    <span className="hidden sm:inline">Elims Pts</span>
+                  </th>
+                  <th className="w-8 pb-3 px-1 text-center sm:w-16 sm:px-2">
+                    <span className="sm:hidden">P</span>
+                    <span className="hidden sm:inline">Place Pts</span>
+                  </th>
+                  <th className="w-12 pb-3 pr-4 text-right sm:w-24">
+                    <span className="sm:hidden">T</span>
+                    <span className="hidden sm:inline">Total Score</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/10">
@@ -339,7 +354,7 @@ export function EstaticMatchesPanel({
                         </span>
                       </td>
                       <td className="py-3.5 pl-2">
-                        <div className="flex items-center gap-3 font-extrabold">
+                        <div className="flex items-center gap-2 font-extrabold sm:gap-3">
                           <TeamMark
                             mode={logoMode}
                             name={tr.team?.name || 'Unknown Squad'}
@@ -350,7 +365,15 @@ export function EstaticMatchesPanel({
                             logoClassName="object-contain p-0.5 sm:p-1"
                             fallbackClassName="text-[9px] sm:text-xs font-black text-slate-400"
                           />
-                          <span className="text-slate-900 dark:text-white truncate">{tr.team?.name || 'Unknown Squad'}</span>
+                          <span className="text-xs font-black uppercase tracking-wide text-slate-900 dark:text-white sm:hidden">
+                            {tr.team?.tag?.trim() || tr.team?.name || 'Unknown Squad'}
+                          </span>
+                          <span
+                            className="hidden truncate text-slate-900 dark:text-white sm:inline"
+                            title={tr.team?.name || 'Unknown Squad'}
+                          >
+                            {tr.team?.name || 'Unknown Squad'}
+                          </span>
                         </div>
                       </td>
                       <td className="py-3.5 text-center font-black text-sm">
@@ -360,8 +383,8 @@ export function EstaticMatchesPanel({
                           <span className="text-slate-400 font-medium">0</span>
                         )}
                       </td>
-                      <td className="py-3.5 text-center font-bold text-slate-500">{tr.placePoints || 0}</td>
                       <td className="py-3.5 text-center font-bold text-slate-500">{tr.elimsPoints || 0}</td>
+                      <td className="py-3.5 text-center font-bold text-slate-500">{tr.placePoints || 0}</td>
                       <td className="py-3.5 pr-4 text-right font-black text-base text-[#0A5FC4] dark:text-blue-300">
                         {tr.totalPoints || 0}
                       </td>
