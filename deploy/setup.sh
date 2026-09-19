@@ -193,11 +193,26 @@ chmod +x deploy/update.sh
 # active and the script worked when run by hand, but the crontab was empty and no
 # db_*.sql.gz had ever been written. Files in /etc/cron.d take a user field and are
 # trivially inspectable with `cat`.
-cat > /etc/cron.d/esportsamaze <<CRON
+# The scheduled-publish job authenticates with CRON_SECRET, which the app reads from
+# .env. Generate it once if a previous run did not, then mirror it into a root-only file
+# for the cron line to source — the .env itself is not sourced by cron, because its other
+# values (passwords) must never be expanded by a shell.
+if ! grep -q '^CRON_SECRET=' .env; then
+    echo "CRON_SECRET=\"$(openssl rand -hex 32)\"" >> .env
+fi
+CRON_SECRET_VALUE=$(grep '^CRON_SECRET=' .env | head -1 | cut -d= -f2- | tr -d '"')
+printf 'CRON_SECRET=%s\n' "$CRON_SECRET_VALUE" > /etc/esportsamaze-cron.env
+chmod 600 /etc/esportsamaze-cron.env
+
+# Delimiter quoted so nothing in these lines is expanded as the file is written.
+cat > /etc/cron.d/esportsamaze <<'CRON'
+# Publish SCHEDULED articles whose time has passed. Hits the app directly on 127.0.0.1,
+# so nginx and its micro-cache are not in the path.
+*/5 * * * * root . /etc/esportsamaze-cron.env && curl -fsS -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/publish-scheduled >> /var/log/ea-cron.log 2>&1
 # Nightly database + uploads backup, 14-day local retention.
-0 3 * * * root /bin/bash $APP_DIR/deploy/backup-cron.sh >> /var/log/ea-backup.log 2>&1
+0 3 * * * root /bin/bash /var/www/esportsamaze/deploy/backup-cron.sh >> /var/log/ea-backup.log 2>&1
 # Refresh the Cloudflare real-IP ranges monthly.
-0 4 1 * * root /bin/bash $APP_DIR/deploy/cloudflare-ips.sh >> /var/log/ea-cloudflare-ips.log 2>&1
+0 4 1 * * root /bin/bash /var/www/esportsamaze/deploy/cloudflare-ips.sh >> /var/log/ea-cloudflare-ips.log 2>&1
 CRON
 chmod 644 /etc/cron.d/esportsamaze
 
