@@ -22,6 +22,9 @@ function formatDiff(myAvg: number, oppAvg: number, samples: number): string {
   return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded).toFixed(1)}`;
 }
 
+const TH =
+  'px-2 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400 lg:px-4';
+
 function HeadToHeadTable({
   rows,
   teamSlug,
@@ -40,20 +43,22 @@ function HeadToHeadTable({
       <table className="w-full border-collapse text-sm lg:min-w-[900px]">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/80 text-left dark:border-white/10 dark:bg-white/5">
-            {['Opponent', 'Faced', 'W–L (rank)', 'Opp avg pts', 'Points diff', 'Last meeting', ''].map(
-              (heading) => (
-                <th
-                  key={heading}
-                  className={cn(
-                    'px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400',
-                    heading === 'Opp avg pts' && 'hidden lg:table-cell',
-                    heading === '' && 'hidden lg:table-cell',
-                  )}
-                >
-                  {heading}
-                </th>
-              ),
-            )}
+            <th className={TH}>Opponent</th>
+            <th className={TH}>Faced</th>
+            <th className={TH}>
+              <span className="lg:hidden">W–L</span>
+              <span className="hidden lg:inline">W–L (rank)</span>
+            </th>
+            <th className={cn(TH, 'hidden lg:table-cell')}>Opp avg pts</th>
+            <th className={TH}>
+              <span className="lg:hidden">Diff</span>
+              <span className="hidden lg:inline">Points diff</span>
+            </th>
+            <th className={TH}>
+              <span className="lg:hidden">Last</span>
+              <span className="hidden lg:inline">Last meeting</span>
+            </th>
+            <th className={cn(TH, 'hidden lg:table-cell')} />
           </tr>
         </thead>
         <tbody>
@@ -71,7 +76,7 @@ function HeadToHeadTable({
                   cutOnMobile && 'hidden lg:table-row',
                 )}
               >
-                <td className="px-4 py-3">
+                <td className="px-2 py-3 lg:px-4">
                   <Link href={`/teams/${opponentSlug}`} className="group flex items-center gap-3">
                     <TeamCrest name={row.name} lightSrc={row.logoUrl} darkSrc={row.imageDarkUrl} />
                     <span className="min-w-0">
@@ -92,9 +97,9 @@ function HeadToHeadTable({
                     </span>
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-sm font-black">{row.faced}</td>
+                <td className="px-2 py-3 lg:px-4 text-sm font-black">{row.faced}</td>
                 <td
-                  className="px-4 py-3 text-xs font-black"
+                  className="px-2 py-3 lg:px-4 text-xs font-black"
                   title={`${teamName} finished ahead in ${row.wins}, behind in ${row.losses}${
                     row.ties > 0 ? `, level in ${row.ties}` : ''
                   } of ${row.faced} shared game${row.faced === 1 ? '' : 's'}. Rank-based — not WWCD wins.`}
@@ -104,10 +109,10 @@ function HeadToHeadTable({
                   <span className="text-rose-600 dark:text-rose-400">{row.losses}</span>
                   {row.ties > 0 && <span className="text-slate-400">–{row.ties}</span>}
                 </td>
-                <td className="hidden px-4 py-3 text-xs font-bold text-slate-500 lg:table-cell dark:text-slate-400">
+                <td className="hidden px-2 py-3 lg:px-4 text-xs font-bold text-slate-500 lg:table-cell dark:text-slate-400">
                   {formatAverage(row.oppAvgPoints, row.faced)}
                 </td>
-                <td className="px-4 py-3 text-xs font-black text-slate-500 dark:text-slate-400">
+                <td className="px-2 py-3 lg:px-4 text-xs font-black text-slate-500 dark:text-slate-400">
                   <span
                     className={
                       row.faced < MIN_AVERAGE_SAMPLES
@@ -123,7 +128,7 @@ function HeadToHeadTable({
                     {formatDiff(row.myAvgPoints, row.oppAvgPoints, row.faced)}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-slate-400">
+                <td className="whitespace-nowrap px-2 py-3 lg:px-4 text-xs font-bold text-slate-400">
                   {new Date(row.lastMeetingMs).toLocaleDateString('en-IN', {
                     day: '2-digit',
                     month: 'short',
@@ -139,7 +144,7 @@ function HeadToHeadTable({
                     </span>
                   </span>
                 </td>
-                <td className="hidden px-4 py-3 lg:table-cell">
+                <td className="hidden px-2 py-3 lg:px-4 lg:table-cell">
                   <Link
                     href={`/compare?type=teams&teamA=${encodeURIComponent(teamSlug)}&teamB=${encodeURIComponent(opponentSlug)}`}
                     className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"

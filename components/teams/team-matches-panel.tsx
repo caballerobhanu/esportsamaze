@@ -18,6 +18,9 @@ import {
  * between a podium and a mid-table game, so the top ten carry a marker:
  * trophy for a win, `T5` / `T10` pills below it, and nothing further down.
  */
+const TH =
+  'px-1.5 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400 lg:px-4';
+
 function FinishBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return <Trophy className="h-3.5 w-3.5 text-amber-500" aria-label="Won the game" />;
@@ -45,14 +48,22 @@ function FinishBadge({ rank }: { rank: number }) {
 function MatchRow({ row }: { row: TeamMatchRow }) {
   return (
     <tr className="border-b border-slate-100 transition last:border-0 hover:bg-slate-50/70 dark:border-white/5 dark:hover:bg-white/5">
-      <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
-        {new Date(row.scheduledAtMs).toLocaleDateString('en-IN', {
-          day: '2-digit',
-          month: 'short',
-          year: '2-digit',
-        })}
+      <td className="whitespace-nowrap px-1.5 py-3 lg:px-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+        <span className="lg:hidden">
+          {new Date(row.scheduledAtMs).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+          })}
+        </span>
+        <span className="hidden lg:inline">
+          {new Date(row.scheduledAtMs).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: '2-digit',
+          })}
+        </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-1.5 py-3 lg:px-4">
         {row.tournamentSlug ? (
           <Link
             href={`/tournaments/${row.tournamentSlug}`}
@@ -66,7 +77,7 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
           </span>
         )}
       </td>
-      <td className="hidden px-4 py-3 lg:table-cell">
+      <td className="hidden px-1.5 py-3 lg:px-4 lg:table-cell">
         {row.stageLabel ? (
           <span className="rounded bg-[#0A5FC4]/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
             {row.stageLabel}
@@ -75,10 +86,10 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
           <span className="text-xs text-slate-400">—</span>
         )}
       </td>
-      <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
+      <td className="whitespace-nowrap px-1.5 py-3 lg:px-4 text-xs font-bold text-slate-500 dark:text-slate-400">
         {row.mapName || '—'}
       </td>
-      <td className="px-4 py-3">
+      <td className="px-1.5 py-3 lg:px-4">
         <span className="inline-flex items-center gap-1.5">
           <span className="text-sm font-black">#{row.rank}</span>
           <FinishBadge rank={row.rank} />
@@ -89,7 +100,7 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
           ) : null}
         </span>
       </td>
-      <td className="hidden px-4 py-3 lg:table-cell">
+      <td className="hidden px-1.5 py-3 lg:px-4 lg:table-cell">
         {row.wwcd ? (
           <span className="rounded-md bg-amber-400/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
             WWCD
@@ -98,13 +109,13 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
           <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
         )}
       </td>
-      <td className="hidden px-4 py-3 text-xs font-bold text-slate-500 lg:table-cell dark:text-slate-400">
+      <td className="hidden px-1.5 py-3 lg:px-4 text-xs font-bold text-slate-500 lg:table-cell dark:text-slate-400">
         {row.placePoints}
       </td>
-      <td className="px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
+      <td className="px-1.5 py-3 lg:px-4 text-xs font-bold text-slate-500 dark:text-slate-400">
         {row.elimsPoints}
       </td>
-      <td className="px-4 py-3 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
+      <td className="px-1.5 py-3 lg:px-4 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
         {row.totalPoints}
       </td>
     </tr>
@@ -184,24 +195,18 @@ export function TeamMatchesPanel({
             <table className="w-full border-collapse text-sm lg:min-w-[860px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80 text-left dark:border-white/10 dark:bg-white/5">
-                  {[
-                    { label: 'Date', className: '' },
-                    { label: 'Tournament', className: '' },
-                    { label: 'Stage', className: 'hidden lg:table-cell' },
-                    { label: 'Map', className: '' },
-                    { label: 'Rank', className: '' },
-                    { label: 'WWCD', className: 'hidden lg:table-cell' },
-                    { label: 'Place', className: 'hidden lg:table-cell' },
-                    { label: 'Elim', className: '' },
-                    { label: 'Total', className: '' },
-                  ].map((heading) => (
-                    <th
-                      key={heading.label}
-                      className={`px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400 ${heading.className}`}
-                    >
-                      {heading.label}
-                    </th>
-                  ))}
+                  <th className={TH}>Date</th>
+                  <th className={TH}>
+                    <span className="lg:hidden">Event</span>
+                    <span className="hidden lg:inline">Tournament</span>
+                  </th>
+                  <th className={`${TH} hidden lg:table-cell`}>Stage</th>
+                  <th className={TH}>Map</th>
+                  <th className={TH}>Rank</th>
+                  <th className={`${TH} hidden lg:table-cell`}>WWCD</th>
+                  <th className={`${TH} hidden lg:table-cell`}>Place</th>
+                  <th className={TH}>Elim</th>
+                  <th className={TH}>Total</th>
                 </tr>
               </thead>
               {groups.map((group) => {
