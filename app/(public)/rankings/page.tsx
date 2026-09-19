@@ -157,7 +157,7 @@ export default async function RankingsPage({
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
       <JsonLd data={[rankingJsonLd, breadcrumbs]} />
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         <RankingsBoardClient
           board={board}
           ranked={ranked}

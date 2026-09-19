@@ -49,7 +49,7 @@ export default async function PlayerLayout({
       <main>
         <PlayerHero {...hero} />
 
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
           <PlayerTabNav slug={slug} />
           <div className="pb-24 pt-4 lg:pb-14">{children}</div>
         </section>

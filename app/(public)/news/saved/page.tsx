@@ -14,7 +14,7 @@ export default function SavedStoriesPage() {
     <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
       {/* Breadcrumb bar */}
       <div className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)]">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[var(--page-max-width)] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <nav className="ed-label flex min-w-0 items-center gap-2">
             <Link href="/" className="shrink-0 hover:text-[var(--ed-blue)]">Home</Link>
             <span>/</span>
@@ -32,7 +32,7 @@ export default function SavedStoriesPage() {
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-8 sm:px-6 lg:px-8">
         <div className="kicker inline-flex items-center gap-2 text-[var(--ed-blue)]">
           <Bookmark className="h-3 w-3" aria-hidden />
           Your reading list

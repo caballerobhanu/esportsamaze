@@ -90,7 +90,7 @@ export default async function NewsHubPage({
     <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
       {/* ================= HERO MASTHEAD ================= */}
       <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)] py-7 sm:py-12">
-        <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
+        <div className="mx-auto w-full max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
               <div className="kicker inline-flex items-center gap-2 text-[var(--ed-blue)]">
@@ -156,7 +156,7 @@ export default async function NewsHubPage({
       </section>
 
       {/* ================= MAIN CONTENT ================= */}
-      <main className="mx-auto w-full max-w-[1200px] space-y-8 px-4 py-8 sm:space-y-10 sm:px-6">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] space-y-8 px-4 py-8 sm:space-y-10 sm:px-6 lg:px-8">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd(articles.slice(0, 12))) }}
@@ -170,7 +170,7 @@ export default async function NewsHubPage({
                 <CoverImage
                   src={featuredArticle.coverImage}
                   alt={featuredArticle.title}
-                  sizes="(min-width: 1024px) 660px, 100vw"
+                  sizes="(min-width: 1024px) 720px, 100vw"
                   priority
                   className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
                 />

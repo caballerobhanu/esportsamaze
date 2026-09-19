@@ -441,7 +441,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
 
     return (
       <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
-        <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6 space-y-8">
+        <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 space-y-8 lg:px-8">
           {/* Header Banner */}
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full bg-[#0A5FC4]/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">
@@ -1031,7 +1031,7 @@ export default async function ComparePage({ searchParams }: ComparePageProps) {
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
-      <div className="max-w-[1200px] w-full mx-auto px-4 sm:px-6 space-y-8">
+      <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 space-y-8 lg:px-8">
         {/* Header Banner */}
         <div className="space-y-4">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#0A5FC4]/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:bg-[#0A5FC4]/20 dark:text-blue-300">

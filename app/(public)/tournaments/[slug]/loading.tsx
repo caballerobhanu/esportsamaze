@@ -3,7 +3,7 @@ export default function TournamentLoading() {
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white">
       {/* Tournament Hero Skeleton */}
       <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
-        <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6 pt-5 pb-7 sm:pb-9">
+        <div className="relative mx-auto max-w-[var(--page-max-width)] px-4 sm:px-6 pt-5 pb-7 sm:pb-9 lg:px-8">
           {/* Breadcrumb placeholder */}
           <div className="flex items-center gap-2">
             <div className="h-3 w-12 rounded bg-slate-200 dark:bg-white/10 animate-pulse" />
@@ -35,7 +35,7 @@ export default function TournamentLoading() {
       </section>
 
       {/* Tabs & Body Skeleton */}
-      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8">
+      <div className="mx-auto flex w-full max-w-[var(--page-max-width)] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8 lg:px-8">
         {/* Tab Nav placeholder */}
         <div className="flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-white/10">
           <div className="h-9 w-24 rounded-xl bg-slate-200 dark:bg-white/10 animate-pulse" />

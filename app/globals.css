@@ -143,6 +143,10 @@ body {
   --ed-stone: #64748b;
   --ed-blue: #2452c2;
   --ed-magenta: #cd2f7b;
+
+  /* One page container for every public surface. Widen this and every
+     shell, hero, tab-nav and skeleton follows. */
+  --page-max-width: 1320px;
 }
 
 .dark {

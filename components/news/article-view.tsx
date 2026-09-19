@@ -445,7 +445,7 @@ export function ArticleView({
 
       {/* Breadcrumb bar */}
       <div className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)]">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[var(--page-max-width)] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <nav className="ed-label flex min-w-0 flex-wrap items-center gap-2">
             <Link href="/" className="shrink-0 hover:text-[var(--ed-blue)]">
               Home
@@ -489,7 +489,7 @@ export function ArticleView({
       </div>
 
       {/* Article layout: content + right rail (TOC) */}
-      <div className="mx-auto grid w-full max-w-[1200px] grid-cols-1 gap-10 px-4 py-8 sm:px-6 sm:py-12 xl:grid-cols-[minmax(0,1fr)_260px]">
+      <div className="mx-auto grid w-full max-w-[var(--page-max-width)] grid-cols-1 gap-10 px-4 py-8 sm:px-6 sm:py-12 xl:grid-cols-[minmax(0,1fr)_260px] lg:px-8">
         <article className="mx-auto w-full max-w-4xl xl:mx-0">
           {/* Category & Meta badges */}
           <div className="flex flex-wrap items-center gap-2">

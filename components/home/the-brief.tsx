@@ -35,7 +35,7 @@ export function TheBrief({ articles }: { articles: ArticleCardData[] }) {
                   <CoverImage
                     src={article.coverImage}
                     alt={article.title}
-                    sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
+                    sizes="(min-width: 1024px) 400px, (min-width: 640px) 50vw, 100vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>

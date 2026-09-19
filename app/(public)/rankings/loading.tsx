@@ -1,7 +1,7 @@
 export default function RankingsLoading() {
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white">
-      <main className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-8 sm:px-6 lg:px-8">
         {/* Header Skeleton */}
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

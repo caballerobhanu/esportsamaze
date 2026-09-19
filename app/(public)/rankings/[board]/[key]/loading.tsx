@@ -1,7 +1,7 @@
 export default function RankingBreakdownLoading() {
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 dark:bg-[#070b14] dark:text-white">
-      <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumb Skeleton */}
         <div className="mb-6 flex items-center gap-2">
           <div className="h-3 w-28 rounded bg-slate-200 dark:bg-white/10 animate-pulse" />

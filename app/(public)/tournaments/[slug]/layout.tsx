@@ -37,7 +37,7 @@ export default async function TournamentLayout({
       <TournamentHero ctx={ctx} />
 
       {/* ============ ESTATIC BODY & TABS ============ */}
-      <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8">
+      <div className="mx-auto flex w-full max-w-[var(--page-max-width)] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8 lg:px-8">
         <EstaticTabNav slug={ctx.slug} visibleTabs={ctx.visibleTabs as string[]} />
 
         {children}

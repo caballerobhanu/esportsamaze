@@ -41,7 +41,7 @@ export default async function TeamLayout({
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
       <TeamHero team={team} kraftonRank={rank} />
 
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="mx-auto max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
         <TeamTabNav slug={teamSlug} />
         <main className="pb-24 pt-4 lg:pb-14">{children}</main>
       </section>

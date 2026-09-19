@@ -60,7 +60,7 @@ export function TeamHero({
         {team.tag || team.name}
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-3 sm:px-6 sm:pt-5 lg:px-8">
+      <div className="relative mx-auto max-w-[var(--page-max-width)] px-4 pt-3 sm:px-6 sm:pt-5 lg:px-8">
         {/* breadcrumb + pager */}
         <div className="mb-3 flex items-center justify-between gap-3 sm:mb-10">
           <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[.15em] text-slate-400 dark:text-slate-500 sm:gap-2 sm:text-[11px] sm:tracking-[.18em]">

@@ -24,7 +24,7 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
         </div>
       )}
 
-      <div className="relative mx-auto max-w-[1200px] px-4 pb-0 pt-4 sm:px-6 sm:pt-5">
+      <div className="relative mx-auto max-w-[var(--page-max-width)] px-4 pb-0 pt-4 sm:px-6 sm:pt-5 lg:px-8">
         {/* Breadcrumb + Editions Pager */}
         <div className="mb-5 flex items-center justify-between gap-3 sm:mb-8 sm:gap-4">
           <div className="flex min-w-0 items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">

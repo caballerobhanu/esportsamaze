@@ -151,7 +151,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
 
   return (
     <section className="border-b border-slate-200 bg-white/90 backdrop-blur-md dark:border-white/10 dark:bg-[#0b1220]/90">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 py-3 sm:py-3.5 space-y-3">
+      <div className="max-w-[var(--page-max-width)] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-3.5 space-y-3">
         {/* Header: label + tab toggle on the right */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">

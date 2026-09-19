@@ -59,7 +59,7 @@ export function FrontPage({
                     <CoverImage
                       src={lead.coverImage}
                       alt={lead.title}
-                      sizes="(min-width: 1200px) 780px, 100vw"
+                      sizes="(min-width: 1320px) 860px, 100vw"
                       priority
                       className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
                     />
@@ -94,7 +94,7 @@ export function FrontPage({
                         <CoverImage
                           src={article.coverImage}
                           alt={article.title}
-                          sizes="(min-width: 1200px) 380px, (min-width: 640px) 50vw, 100vw"
+                          sizes="(min-width: 1320px) 420px, (min-width: 640px) 50vw, 100vw"
                           className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
                         />
                       </div>

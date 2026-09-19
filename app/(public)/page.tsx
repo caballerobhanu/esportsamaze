@@ -322,7 +322,7 @@ export default async function HomePage() {
       <EventsSection initialTournaments={circuitTournaments} />
 
       {/* 2. Main body — the front page, then match center, news, reference data */}
-      <main className="relative mx-auto w-full max-w-[1200px] flex-1 space-y-8 px-4 py-6 sm:space-y-12 sm:px-6 sm:py-10">
+      <main className="relative mx-auto w-full max-w-[var(--page-max-width)] flex-1 space-y-8 px-4 py-6 sm:space-y-12 sm:px-6 sm:py-10 lg:px-8">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd(pool.slice(0, 10))) }}

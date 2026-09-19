@@ -30,7 +30,7 @@ export function EditorsPicks({ articles }: { articles: ArticleCardData[] }) {
             <CoverImage
               src={article.coverImage}
               alt={article.title}
-              sizes="(min-width: 1024px) 380px, 82vw"
+              sizes="(min-width: 1024px) 420px, 82vw"
               className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
             />
             <div

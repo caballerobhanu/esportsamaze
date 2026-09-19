@@ -1,7 +1,7 @@
 export default function PublicLoading() {
   return (
     <div className="w-full flex-1 animate-pulse bg-[var(--ed-canvas)] py-8 transition-colors">
-      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
         {/* Masthead Skeleton */}
         <div className="rounded-3xl border border-slate-200/60 bg-white/50 p-6 sm:p-8 dark:border-white/10 dark:bg-[#0d1526]/60">
           <div className="h-4 w-28 rounded-md bg-slate-200 dark:bg-white/10" />

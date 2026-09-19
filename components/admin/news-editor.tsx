@@ -2137,7 +2137,7 @@ export function NewsEditor({
             </div>
 
             {/* Public Layout Container */}
-            <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6 sm:py-12">
+            <div className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
               <div className="mx-auto max-w-4xl">
                 {/* Category & Date Pill */}
                 <div className="flex flex-wrap items-center gap-2">

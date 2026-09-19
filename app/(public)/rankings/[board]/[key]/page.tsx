@@ -151,7 +151,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
       <JsonLd data={breadcrumbs} />
-      <main className="mx-auto w-full max-w-[1100px] px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] px-4 py-8 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="mb-6 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
           <Link href="/rankings" className="hover:text-[#0A5FC4]">

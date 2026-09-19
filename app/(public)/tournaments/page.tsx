@@ -192,7 +192,7 @@ export default async function TournamentsPage({
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Estatic masthead */}
         <div className="mb-10 space-y-3">
           <div className="inline-flex items-center gap-2 rounded-full bg-[#0A5FC4]/10 px-3.5 py-1.5 text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
