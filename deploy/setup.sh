@@ -205,10 +205,12 @@ printf 'CRON_SECRET=%s\n' "$CRON_SECRET_VALUE" > /etc/esportsamaze-cron.env
 chmod 600 /etc/esportsamaze-cron.env
 
 # Delimiter quoted so nothing in these lines is expanded as the file is written.
+# The publish job ends with `; echo` because curl writes no trailing newline — without it
+# every run appends to the same line and the log becomes one growing line.
 cat > /etc/cron.d/esportsamaze <<'CRON'
 # Publish SCHEDULED articles whose time has passed. Hits the app directly on 127.0.0.1,
 # so nginx and its micro-cache are not in the path.
-*/5 * * * * root . /etc/esportsamaze-cron.env && curl -fsS -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/publish-scheduled >> /var/log/ea-cron.log 2>&1
+*/5 * * * * root . /etc/esportsamaze-cron.env && curl -fsS -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/publish-scheduled >> /var/log/ea-cron.log 2>&1; echo >> /var/log/ea-cron.log
 # Nightly database + uploads backup, 14-day local retention.
 0 3 * * * root /bin/bash /var/www/esportsamaze/deploy/backup-cron.sh >> /var/log/ea-backup.log 2>&1
 # Refresh the Cloudflare real-IP ranges monthly.
