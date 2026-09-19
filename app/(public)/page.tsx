@@ -236,14 +236,12 @@ export default async function HomePage() {
   const lead = pool.find((a) => a.coverImage) ?? pool[0] ?? null;
   const usedIds = new Set<string>(lead ? [lead.id] : []);
 
-  const secondary = pool.filter((a) => !usedIds.has(a.id) && a.coverImage).slice(0, 2);
-  secondary.forEach((a) => usedIds.add(a.id));
+  const stories = pool.filter((a) => !usedIds.has(a.id) && a.coverImage).slice(0, 4);
+  stories.forEach((a) => usedIds.add(a.id));
 
-  // The Latest wire and The Brief take priority on unique stories; picks
-  // fill from what's left and may backfill from earlier stories so the
-  // photographic band still renders on a small editorial pool.
-  const latest = pool.filter((a) => !usedIds.has(a.id)).slice(0, 7);
-  latest.forEach((a) => usedIds.add(a.id));
+  // The Brief takes priority on unique stories; picks fill from what's left
+  // and may backfill from earlier stories so the photographic band still
+  // renders on a small editorial pool.
   const brief = pool.filter((a) => !usedIds.has(a.id)).slice(0, 10);
   brief.forEach((a) => usedIds.add(a.id));
 
@@ -255,7 +253,7 @@ export default async function HomePage() {
         (a) =>
           a.coverImage &&
           a.id !== lead?.id &&
-          !secondary.some((s) => s.id === a.id) &&
+          !stories.some((s) => s.id === a.id) &&
           !picks.some((p) => p.id === a.id)
       ),
     ];
@@ -267,17 +265,6 @@ export default async function HomePage() {
       editorPicks.push(article);
     }
   }
-
-  const liveTournamentTeaser = liveTournament
-    ? {
-        name: liveTournament.name,
-        shortName: liveTournament.shortName,
-        series: liveTournament.series,
-        season: liveTournament.season,
-        slug: liveTournament.slug,
-        stageName,
-      }
-    : null;
 
   // 8. Circuit Tournaments & Krafton Rankings pre-computed on server (SSR)
   const [circuitTournaments] = await Promise.all([
@@ -328,13 +315,8 @@ export default async function HomePage() {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(itemListJsonLd(pool.slice(0, 10))) }}
         />
 
-        {/* The Front Page: lead story + numbered latest wire + live tournament card */}
-        <FrontPage
-          lead={lead}
-          secondary={secondary}
-          latest={latest}
-          liveTournament={liveTournamentTeaser}
-        />
+        {/* The Front Page: lead story beside a four-up story grid */}
+        <FrontPage lead={lead} stories={stories} />
 
         {/* Latest match result (or next scheduled match) */}
         {highlightMatch && <HomeMatchHighlight match={highlightMatch} />}
@@ -371,7 +353,7 @@ export default async function HomePage() {
               linkLabel="All tournaments"
             />
 
-            <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {tournaments.map((tourney) => {
                 const organizerName =
                   tourney.organizers[0]?.organizer?.name || tourney.legacyOrganizer || null;
