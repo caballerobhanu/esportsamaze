@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, getTournamentShortName } from '@/lib/utils';
 import { TournamentShortName } from '@/components/ui/tournament-name';
 
 import { formatAverage, formatRate } from '@/lib/team-stats';
 import type { TeamTournamentRow } from '@/lib/team-data';
+import { MobileDataCard } from '@/components/ui/mobile-card';
 
 const th = 'px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400';
 const td = 'px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400';
@@ -52,7 +53,33 @@ export function TeamPerTournamentTable({
         </button>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="space-y-3 lg:hidden">
+        {rows.map((row) => (
+          <MobileDataCard
+            key={row.tournamentId}
+            title={
+              <Link
+                href={`/tournaments/${row.slug}`}
+                className="transition-colors hover:text-[#0A5FC4]"
+                title={row.name}
+              >
+                {getTournamentShortName({ name: row.name, shortName: row.shortName })}
+              </Link>
+            }
+            columns={3}
+            metrics={[
+              { label: 'Matches', value: row.matches },
+              { label: 'Wins', value: row.wins },
+              { label: 'Top-5 %', value: formatRate(row.topFiveRate, row.matches) },
+              { label: 'Avg total pts', value: formatAverage(row.avgTotalPoints, row.matches, 1) },
+              { label: 'Avg elim pts', value: formatAverage(row.avgElimsPoints, row.matches, 1) },
+              { label: 'Final rank', value: row.finalRank ? `#${row.finalRank}` : '—' },
+            ]}
+          />
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto lg:block">
         <table className="w-full min-w-[820px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/10">

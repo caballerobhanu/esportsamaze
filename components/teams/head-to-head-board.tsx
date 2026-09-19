@@ -1,12 +1,18 @@
+'use client';
+
+import * as React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Scale } from 'lucide-react';
 
 import { TeamCrest } from './team-crest';
+import { cn } from '@/lib/utils';
 import { MIN_AVERAGE_SAMPLES, formatAverage } from '@/lib/team-stats';
 import type { HeadToHeadRow } from '@/lib/team-data';
 
-/** Rows shown before the board collapses behind a "show all" disclosure. */
+/** Rows in the main table before the rest collapse behind a "show all". */
 const VISIBLE_ROWS = 15;
+/** Rows a phone shows before the same disclosure opens. */
+const MOBILE_ROWS = 8;
 
 /** "+1.8" / "−0.4" / "+0.0" — the sign is the point of the column. */
 function formatDiff(myAvg: number, oppAvg: number, samples: number): string {
@@ -20,21 +26,29 @@ function HeadToHeadTable({
   rows,
   teamSlug,
   teamName,
+  firstIndex = 0,
+  expanded = false,
 }: {
   rows: HeadToHeadRow[];
   teamSlug: string;
   teamName: string;
+  firstIndex?: number;
+  expanded?: boolean;
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
-      <table className="w-full min-w-[900px] border-collapse text-sm">
+      <table className="w-full border-collapse text-sm lg:min-w-[900px]">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/80 text-left dark:border-white/10 dark:bg-white/5">
             {['Opponent', 'Faced', 'W–L (rank)', 'Opp avg pts', 'Points diff', 'Last meeting', ''].map(
               (heading) => (
                 <th
                   key={heading}
-                  className="px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400"
+                  className={cn(
+                    'px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400',
+                    heading === 'Opp avg pts' && 'hidden lg:table-cell',
+                    heading === '' && 'hidden lg:table-cell',
+                  )}
                 >
                   {heading}
                 </th>
@@ -43,28 +57,35 @@ function HeadToHeadTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
+          {rows.map((row, index) => {
             const opponentSlug = row.slug || row.opponentId;
             const wonLast = row.lastMyRank < row.lastOppRank;
             const lostLast = row.lastMyRank > row.lastOppRank;
+            const cutOnMobile = !expanded && firstIndex + index >= MOBILE_ROWS;
 
             return (
               <tr
                 key={row.opponentId}
-                className="border-b border-slate-100 transition last:border-0 hover:bg-slate-50/70 dark:border-white/5 dark:hover:bg-white/5"
+                className={cn(
+                  'border-b border-slate-100 transition last:border-0 hover:bg-slate-50/70 dark:border-white/5 dark:hover:bg-white/5',
+                  cutOnMobile && 'hidden lg:table-row',
+                )}
               >
                 <td className="px-4 py-3">
-                  <Link
-                    href={`/teams/${opponentSlug}`}
-                    className="group flex items-center gap-3"
-                  >
+                  <Link href={`/teams/${opponentSlug}`} className="group flex items-center gap-3">
                     <TeamCrest name={row.name} lightSrc={row.logoUrl} darkSrc={row.imageDarkUrl} />
                     <span className="min-w-0">
-                      <span className="block truncate font-extrabold transition-colors group-hover:text-[#0A5FC4]">
+                      <span className="hidden truncate font-extrabold transition-colors group-hover:text-[#0A5FC4] lg:block">
                         {row.name}
                       </span>
+                      <span
+                        className="block truncate font-extrabold uppercase tracking-wide transition-colors group-hover:text-[#0A5FC4] lg:hidden"
+                        title={row.name}
+                      >
+                        {row.tag?.trim() || row.name}
+                      </span>
                       {row.tag && (
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        <span className="hidden text-[10px] font-extrabold uppercase tracking-wider text-slate-400 lg:block">
                           {row.tag}
                         </span>
                       )}
@@ -81,13 +102,9 @@ function HeadToHeadTable({
                   <span className="text-emerald-600 dark:text-emerald-400">{row.wins}</span>
                   <span className="text-slate-300 dark:text-slate-600">–</span>
                   <span className="text-rose-600 dark:text-rose-400">{row.losses}</span>
-                  {row.ties > 0 && (
-                    <span className="text-slate-400">
-                      –{row.ties}
-                    </span>
-                  )}
+                  {row.ties > 0 && <span className="text-slate-400">–{row.ties}</span>}
                 </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
+                <td className="hidden px-4 py-3 text-xs font-bold text-slate-500 lg:table-cell dark:text-slate-400">
                   {formatAverage(row.oppAvgPoints, row.faced)}
                 </td>
                 <td className="px-4 py-3 text-xs font-black text-slate-500 dark:text-slate-400">
@@ -122,7 +139,7 @@ function HeadToHeadTable({
                     </span>
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="hidden px-4 py-3 lg:table-cell">
                   <Link
                     href={`/compare?type=teams&teamA=${encodeURIComponent(teamSlug)}&teamB=${encodeURIComponent(opponentSlug)}`}
                     className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
@@ -146,8 +163,8 @@ function HeadToHeadTable({
  * Opponents share a `matchGameId` and every game carries all 16 teams, so this
  * is a complete record — no sampling, always 15 opponents per game.
  *
- * The disclosure uses a native `<details>` so the panel stays a server
- * component.
+ * A phone shows the first eight and drops the opponent-average and compare
+ * columns, which is what makes the table fit without sideways scrolling.
  */
 export function HeadToHeadBoard({
   rows,
@@ -158,6 +175,8 @@ export function HeadToHeadBoard({
   teamSlug: string;
   teamName: string;
 }) {
+  const [expanded, setExpanded] = React.useState(false);
+
   if (rows.length === 0) {
     return (
       <section className="rounded-3xl border border-dashed border-slate-200 bg-white/60 p-8 dark:border-white/10 dark:bg-white/[0.02]">
@@ -197,17 +216,37 @@ export function HeadToHeadBoard({
         <Scale className="h-6 w-6 text-slate-300 dark:text-slate-700" />
       </div>
 
-      <HeadToHeadTable rows={visible} teamSlug={teamSlug} teamName={teamName} />
+      <HeadToHeadTable
+        rows={visible}
+        teamSlug={teamSlug}
+        teamName={teamName}
+        expanded={expanded}
+      />
 
       {hidden.length > 0 && (
-        <details className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0b1220]">
-          <summary className="cursor-pointer text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
-            Show all {rows.length} opponents
-          </summary>
-          <div className="mt-4">
-            <HeadToHeadTable rows={hidden} teamSlug={teamSlug} teamName={teamName} />
-          </div>
-        </details>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-[#0b1220]">
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            className="cursor-pointer text-xs font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300"
+          >
+            {expanded ? `Show top ${VISIBLE_ROWS}` : `Show all ${rows.length} opponents`}
+          </button>
+          {expanded && (
+            <div className="mt-4 space-y-4">
+              {hidden.length > 0 && (
+                <HeadToHeadTable
+                  rows={hidden}
+                  teamSlug={teamSlug}
+                  teamName={teamName}
+                  firstIndex={VISIBLE_ROWS}
+                  expanded
+                />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       <Link

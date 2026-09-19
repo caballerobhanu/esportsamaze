@@ -66,7 +66,7 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
           </span>
         )}
       </td>
-      <td className="px-4 py-3">
+      <td className="hidden px-4 py-3 lg:table-cell">
         {row.stageLabel ? (
           <span className="rounded bg-[#0A5FC4]/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
             {row.stageLabel}
@@ -82,9 +82,14 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
         <span className="inline-flex items-center gap-1.5">
           <span className="text-sm font-black">#{row.rank}</span>
           <FinishBadge rank={row.rank} />
+          {row.wwcd ? (
+            <span className="text-[10px] lg:hidden" title="Won the game (WWCD)">
+              🍗
+            </span>
+          ) : null}
         </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="hidden px-4 py-3 lg:table-cell">
         {row.wwcd ? (
           <span className="rounded-md bg-amber-400/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
             WWCD
@@ -93,7 +98,7 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
           <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
         )}
       </td>
-      <td className="px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
+      <td className="hidden px-4 py-3 text-xs font-bold text-slate-500 lg:table-cell dark:text-slate-400">
         {row.placePoints}
       </td>
       <td className="px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400">
@@ -176,19 +181,27 @@ export function TeamMatchesPanel({
       ) : (
         <>
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
-            <table className="w-full min-w-[860px] border-collapse text-sm">
+            <table className="w-full border-collapse text-sm lg:min-w-[860px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/80 text-left dark:border-white/10 dark:bg-white/5">
-                  {['Date', 'Tournament', 'Stage', 'Map', 'Rank', 'WWCD', 'Place', 'Elim', 'Total'].map(
-                    (heading) => (
-                      <th
-                        key={heading}
-                        className="px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400"
-                      >
-                        {heading}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    { label: 'Date', className: '' },
+                    { label: 'Tournament', className: '' },
+                    { label: 'Stage', className: 'hidden lg:table-cell' },
+                    { label: 'Map', className: '' },
+                    { label: 'Rank', className: '' },
+                    { label: 'WWCD', className: 'hidden lg:table-cell' },
+                    { label: 'Place', className: 'hidden lg:table-cell' },
+                    { label: 'Elim', className: '' },
+                    { label: 'Total', className: '' },
+                  ].map((heading) => (
+                    <th
+                      key={heading.label}
+                      className={`px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400 ${heading.className}`}
+                    >
+                      {heading.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               {groups.map((group) => {

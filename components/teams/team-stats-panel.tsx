@@ -7,6 +7,7 @@ import { TeamPerTournamentTable } from './team-per-tournament-table';
 import { EventMetrics } from '@/components/ui/event-metrics';
 import { TEAM_METRIC_COLUMNS, type EventMetricRow } from '@/lib/event-metrics';
 import { formatAverage, formatDuration, formatRate, scorecardLabel } from '@/lib/team-stats';
+import { TeamMapCards } from './team-map-cards';
 import {
   type HeadToHeadRow,
   type RelatedTeamRow,
@@ -123,7 +124,10 @@ export function TeamStatsPanel({
             title="Per-map record"
             icon={<MapIcon className="h-6 w-6 text-slate-300 dark:text-slate-700" />}
           >
-            <div className="overflow-x-auto">
+            <div className="lg:hidden">
+              <TeamMapCards rows={maps} />
+            </div>
+            <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[880px] border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-white/10">
