@@ -59,6 +59,15 @@ Two backup layers exist and both are wanted:
 
 There is **no offsite copy**: `rclone` is not installed, so `backup-cron.sh`'s optional R2 sync step is skipped and every backup lives on one disk. Hostinger VPS snapshots (weekly free) are a separate, coarser layer worth enabling too.
 
+### Scheduled publishing — why that job is allowed to be lazy
+
+`GET /api/cron/publish-scheduled` (guarded by `CRON_SECRET`, invoked from `/etc/cron.d/esportsamaze`) calls `syncScheduledArticles()`, which flips `SCHEDULED` articles whose time has passed to `PUBLISHED`.
+
+**The public site does not depend on it.** Both `publishedVisibility()` (`lib/news-queries.ts`) and `isVisibleArticle()` (`lib/news.ts`) already treat a due `SCHEDULED` article as live. So lists, the home page, archives, search, the news API, sitemap and RSS are correct the moment the article's time arrives — and so is the article's own page. The only readers of the raw `status` column are `generateStaticParams` (build-time, so frequency is irrelevant) and the admin panel.
+
+The job therefore exists to keep the stored status honest for the admin and for status-based reporting — not to make anything public. It deliberately runs **every 6 hours**; tightening it buys nothing. (A first pass at this job ran every 5 minutes on the incorrect assumption that the public site was waiting for the status flip. It never was.)
+
+
 ## Intentional decisions — do not "fix" these
 
 - **Additive-only schema.** Columns and tables are only ever ADDED, never dropped. So `prisma db push --accept-data-loss` in `deploy/update.sh` is deliberate and safe: if nothing is ever deleted, there is no data loss. Do not re-flag `accept-data-loss`, `db push` versus `migrate deploy`, or migration drift as a risk. Migrations are written idempotent (`ADD COLUMN IF NOT EXISTS`) precisely because `db push` leaves `_prisma_migrations` behind the schema.

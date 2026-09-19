@@ -208,9 +208,15 @@ chmod 600 /etc/esportsamaze-cron.env
 # The publish job ends with `; echo` because curl writes no trailing newline — without it
 # every run appends to the same line and the log becomes one growing line.
 cat > /etc/cron.d/esportsamaze <<'CRON'
-# Publish SCHEDULED articles whose time has passed. Hits the app directly on 127.0.0.1,
-# so nginx and its micro-cache are not in the path.
-*/5 * * * * root . /etc/esportsamaze-cron.env && curl -fsS -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/publish-scheduled >> /var/log/ea-cron.log 2>&1; echo >> /var/log/ea-cron.log
+# Flip SCHEDULED articles whose time has passed to PUBLISHED.
+#
+# The public site does NOT wait for this: publishedVisibility() and isVisibleArticle()
+# already treat a due SCHEDULED article as live, so lists, home, archives, search, the
+# news API, sitemap and RSS are correct the moment its time arrives. This job only keeps
+# the stored status honest for the admin panel and status-based reporting — which is why
+# it runs rarely on purpose. Do not tighten it; more frequent runs buy nothing.
+# Hits 127.0.0.1 directly, so nginx and its micro-cache are out of the path.
+0 */6 * * * root . /etc/esportsamaze-cron.env && curl -fsS -H "x-cron-secret: $CRON_SECRET" http://127.0.0.1:3000/api/cron/publish-scheduled >> /var/log/ea-cron.log 2>&1; echo >> /var/log/ea-cron.log
 # Nightly database + uploads backup, 14-day local retention.
 0 3 * * * root /bin/bash /var/www/esportsamaze/deploy/backup-cron.sh >> /var/log/ea-backup.log 2>&1
 # Refresh the Cloudflare real-IP ranges monthly.
