@@ -29,20 +29,16 @@ export const NAV_ITEMS = [
   { label: 'Support', href: '/about' },
 ];
 
-export const MORE_ITEMS: NavLink[] = [
+type MoreItem = { label: string; href: string } | { label: string; soon: true };
+
+export const MORE_ITEMS: MoreItem[] = [
   { label: 'Players', href: '/players' },
   { label: 'Compare', href: '/compare' },
-  { label: 'Saved stories', href: '/news/saved' },
-  { label: 'RSS feed', href: '/rss.xml', plain: true },
-  { label: 'Community wiki', href: 'https://esportsamaze.in', plain: true, external: true },
+  { label: 'Statistics', soon: true },
 ];
 
-export interface NavLink {
-  label: string;
-  href: string;
-  plain?: boolean;
-  external?: boolean;
-}
+const SOON_BADGE_CLASS =
+  'rounded-md border border-slate-200 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide dark:border-slate-700';
 
 const NAV_LINK_CLASS =
   'whitespace-nowrap text-sm font-semibold text-white/90 hover:text-white transition-colors duration-150';
@@ -82,6 +78,7 @@ export function Navbar() {
   const searchInputRef = React.useRef<HTMLInputElement>(null);
   const lastTriggerRef = React.useRef<HTMLElement | null>(null);
   const moreRef = React.useRef<HTMLDivElement>(null);
+  const moreCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Flattened results for keyboard navigation
   const allResults = React.useMemo(() => {
@@ -138,7 +135,32 @@ export function Navbar() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
-  // The More menu is a plain popover — dismiss it on any outside press.
+  const openMore = React.useCallback(() => {
+    if (moreCloseTimer.current) {
+      clearTimeout(moreCloseTimer.current);
+      moreCloseTimer.current = null;
+    }
+    setMoreOpen(true);
+  }, []);
+
+  // The panel sits a few px below the trigger, so leaving must not dismiss it
+  // instantly — a short grace period lets the pointer cross that gap.
+  const closeMoreSoon = React.useCallback(() => {
+    if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
+    moreCloseTimer.current = setTimeout(() => {
+      moreCloseTimer.current = null;
+      setMoreOpen(false);
+    }, 140);
+  }, []);
+
+  React.useEffect(
+    () => () => {
+      if (moreCloseTimer.current) clearTimeout(moreCloseTimer.current);
+    },
+    []
+  );
+
+  // The More menu is a hover popover — dismiss it on any outside press.
   React.useEffect(() => {
     if (!moreOpen) return;
     const handlePointerDown = (event: PointerEvent) => {
@@ -254,7 +276,7 @@ export function Navbar() {
     <>
       <header className="sticky top-0 z-40 w-full bg-(--ed-blue) dark:bg-[#041129] text-white shadow-md transition-colors border-b border-white/10 pt-[var(--ed-safe-top)]">
         <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative flex h-14 items-center justify-between gap-4 lg:grid lg:h-[52px] lg:grid-cols-[auto_1fr_auto] lg:items-stretch lg:gap-x-8">
+          <div className="relative flex h-14 items-center justify-between gap-4 lg:grid lg:grid-cols-[auto_auto_1fr_auto] lg:items-stretch lg:gap-x-0">
             {/* ZONE 1 — menu button (below lg) + wordmark */}
             <div className="flex items-center min-w-0">
               {/* Tablet/mobile hamburger (desktop nav appears at lg) */}
@@ -268,27 +290,32 @@ export function Navbar() {
               </button>
               <span className="lg:hidden shrink-0 w-px h-5 bg-white/25 mx-3" aria-hidden="true" />
 
-              <Link href="/" className="shrink-0 flex items-center group">
+              <Link href="/" className="flex min-w-0 items-center group">
                 <img
                   src="/logo.svg"
                   alt="eSportsAmaze"
-                  className="h-7 sm:h-8 w-auto object-contain brightness-0 invert"
+                  className="h-[34px] w-auto object-contain brightness-0 invert"
                 />
               </Link>
             </div>
 
-            {/* ZONE 2 — primary links, spread across the bar */}
-            <nav className="hidden min-w-0 items-center justify-between lg:flex">
+            {/* ZONE 2 — primary links, clustered just after the wordmark */}
+            <nav className="hidden min-w-0 items-center gap-x-7 lg:ml-7 lg:flex">
               {NAV_ITEMS.map((item) => (
                 <Link key={item.label} href={item.href} className={NAV_LINK_CLASS}>
                   {item.label}
                 </Link>
               ))}
 
-              <div className="relative flex h-full items-center" ref={moreRef}>
+              <div
+                className="relative flex h-full items-center"
+                ref={moreRef}
+                onMouseEnter={openMore}
+                onMouseLeave={closeMoreSoon}
+              >
                 <button
                   type="button"
-                  onClick={() => setMoreOpen((open) => !open)}
+                  onClick={openMore}
                   aria-haspopup="true"
                   aria-expanded={moreOpen}
                   className={cn(NAV_LINK_CLASS, 'flex items-center gap-1')}
@@ -302,17 +329,7 @@ export function Navbar() {
                 {moreOpen && (
                   <div className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 text-slate-800 shadow-2xl dark:border-slate-800 dark:bg-[#07090e] dark:text-slate-200">
                     {MORE_ITEMS.map((item) =>
-                      item.plain ? (
-                        <a
-                          key={item.label}
-                          href={item.href}
-                          {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                          onClick={() => setMoreOpen(false)}
-                          className={MORE_LINK_CLASS}
-                        >
-                          {item.label}
-                        </a>
-                      ) : (
+                      'href' in item ? (
                         <Link
                           key={item.label}
                           href={item.href}
@@ -321,6 +338,14 @@ export function Navbar() {
                         >
                           {item.label}
                         </Link>
+                      ) : (
+                        <span
+                          key={item.label}
+                          className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px] font-semibold text-slate-400 dark:text-slate-500"
+                        >
+                          {item.label}
+                          <span className={SOON_BADGE_CLASS}>Soon</span>
+                        </span>
                       )
                     )}
                   </div>
@@ -328,7 +353,10 @@ export function Navbar() {
               </div>
             </nav>
 
-            {/* ZONE 3 — search + theme switch */}
+            {/* ZONE 3 — the single flexible space, so the utilities stay pinned right */}
+            <div className="hidden lg:block" aria-hidden="true" />
+
+            {/* ZONE 4 — search + theme switch */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Search Trigger Button (Desktop pill with shortcut, mobile compact icon) */}
               <button
@@ -386,7 +414,7 @@ export function Navbar() {
                 <img
                   src="/logo.svg"
                   alt="eSportsAmaze"
-                  className="h-6 w-auto object-contain brightness-0 invert"
+                  className="h-[34px] w-auto object-contain brightness-0 invert"
                 />
                 <button
                   onClick={() => setMobileDrawerOpen(false)}
@@ -415,17 +443,7 @@ export function Navbar() {
                   More
                 </p>
                 {MORE_ITEMS.map((item) =>
-                  item.plain ? (
-                    <a
-                      key={item.label}
-                      href={item.href}
-                      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                      onClick={() => setMobileDrawerOpen(false)}
-                      className={DRAWER_LINK_CLASS}
-                    >
-                      {item.label}
-                    </a>
-                  ) : (
+                  'href' in item ? (
                     <Link
                       key={item.label}
                       href={item.href}
@@ -434,6 +452,16 @@ export function Navbar() {
                     >
                       {item.label}
                     </Link>
+                  ) : (
+                    <span
+                      key={item.label}
+                      className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-bold text-white/45"
+                    >
+                      {item.label}
+                      <span className="rounded-md border border-white/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                        Soon
+                      </span>
+                    </span>
                   )
                 )}
               </div>
