@@ -1,9 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
-import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
-import type { StandingsLogoMode } from '@/lib/standings-config';
 
 /** Shared preview table shell: hairline rows, no shadows, tight on a phone. */
 function PreviewTable({ head, children }: { head: React.ReactNode; children: React.ReactNode }) {
@@ -144,7 +141,10 @@ export function MatchHistoryPreviewTable({ rows }: { rows: MatchHistoryRowView[]
             <td className="whitespace-nowrap px-3 py-2 font-bold tabular-nums text-slate-500 dark:text-slate-400">
               {row.date}
             </td>
-            <td className="max-w-[92px] truncate px-2 py-2 font-extrabold text-slate-900 dark:text-white" title={row.fullTournament}>
+            <td
+              className="max-w-[92px] truncate px-2 py-2 font-extrabold text-slate-900 dark:text-white"
+              title={row.fullTournament}
+            >
               {row.tournament}
             </td>
             <td className="max-w-[72px] truncate px-2 py-2 font-semibold text-slate-500 dark:text-slate-400">
@@ -168,110 +168,5 @@ export function MatchHistoryPreviewTable({ rows }: { rows: MatchHistoryRowView[]
         ))}
       </tbody>
     </PreviewTable>
-  );
-}
-
-export interface ScorecardRowView {
-  key: string;
-  rank: number;
-  teamTag: string;
-  teamName: string;
-  teamHref: string;
-  logoUrl?: string | null;
-  logoDarkUrl?: string | null;
-  countryCode?: string | null;
-  wwcd: boolean;
-  placePoints: number;
-  elimsPoints: number;
-  totalPoints: number;
-}
-
-/**
- * Match scorecard — same row anatomy as the standings tab, because the two show
- * the same thing: the accent-left rank badge, the crest box, the short tag on a
- * phone, and the single-letter headers.
- */
-export function ScorecardPreviewTable({
-  rows,
-  logoMode = 'TEAM',
-}: {
-  rows: ScorecardRowView[];
-  logoMode?: StandingsLogoMode;
-}) {
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10 dark:bg-white/5">
-            <th className="w-8 py-2.5 pl-3 text-center">#</th>
-            <th className="min-w-[75px] py-2.5 pl-2">Squad</th>
-            <th className="w-7 py-2.5 px-1 text-center">W</th>
-            <th className="w-8 py-2.5 px-1 text-center">E</th>
-            <th className="w-8 py-2.5 px-1 text-center">P</th>
-            <th className="w-12 py-2.5 pr-3 text-right">T</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-white/10">
-          {rows.map((row) => (
-            <tr
-              key={row.key}
-              className="group text-xs transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5"
-            >
-              <td className="py-2.5 pl-3 text-center font-black">
-                <span
-                  className={`inline-flex h-6 w-6 items-center justify-center rounded-lg text-[11px] font-black ${
-                    row.rank === 1
-                      ? 'bg-amber-400 text-slate-950 shadow-sm shadow-amber-400/25'
-                      : row.rank === 2
-                        ? 'bg-slate-300 text-slate-900'
-                        : row.rank === 3
-                          ? 'bg-amber-600/20 text-amber-600 dark:text-amber-400'
-                          : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400'
-                  }`}
-                >
-                  {row.rank}
-                </span>
-              </td>
-
-              <td className="py-2.5 pl-2 pr-2">
-                <div className="flex items-center gap-2">
-                  <TeamMark
-                    mode={logoMode}
-                    name={row.teamName}
-                    lightSrc={row.logoUrl}
-                    darkSrc={row.logoDarkUrl}
-                    countryCode={row.countryCode}
-                    href={row.teamHref}
-                    tileClassName={`${TEAM_CHIP_BOX} ${TEAM_CHIP_FILL} relative flex items-center justify-center overflow-hidden hover:scale-105 transition-transform`}
-                    logoClassName="object-contain p-0.5"
-                    fallbackClassName="text-[9px] font-black text-slate-400"
-                  />
-                  <Link
-                    href={row.teamHref}
-                    className="block truncate font-black text-xs uppercase tracking-wide text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white"
-                    title={row.teamName}
-                  >
-                    {row.teamTag}
-                  </Link>
-                </div>
-              </td>
-
-              <td className="px-1 py-2.5 text-center text-xs font-black text-amber-600 dark:text-amber-400">
-                {row.wwcd ? '1' : '—'}
-              </td>
-              <td className="px-1 py-2.5 text-center text-xs font-bold text-slate-600 dark:text-slate-300">
-                {row.elimsPoints}
-              </td>
-              <td className="px-1 py-2.5 text-center text-xs font-bold text-slate-600 dark:text-slate-300">
-                {row.placePoints}
-              </td>
-              <td className="pr-3 py-2.5 text-right text-xs font-black text-[#0A5FC4] dark:text-blue-300">
-                {row.totalPoints}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }

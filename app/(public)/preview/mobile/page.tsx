@@ -20,11 +20,6 @@ const SURFACES = [
     label: 'Player',
     detail: 'Event stats (680px)',
   },
-  {
-    href: '/preview/mobile/tournaments/bgms-2026',
-    label: 'Tournament',
-    detail: 'Match scorecard and prize breakdown',
-  },
 ];
 
 export default function MobilePreviewIndex() {
@@ -39,8 +34,10 @@ export default function MobilePreviewIndex() {
         Mobile table cards
       </h1>
       <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
-        The wide tables rendered as cards, below 1024px. Same loaders, same figures — this route is
-        the prototype, so deleting it reverts everything.
+        The wide tables in their narrow-screen form, driven by the same loaders so the figures
+        cannot drift from the pages they mirror. This route is the prototype — deleting it reverts
+        everything. The tournament scorecard is no longer here: its short names and W/E/P/T headers
+        ship on the live matches tab.
       </p>
 
       <div className="mt-8 space-y-3">
