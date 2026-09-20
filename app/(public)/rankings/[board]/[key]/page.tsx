@@ -17,6 +17,7 @@ import {
   computeNextDecay,
   computeUnifiedNextUpdate,
 } from '@/lib/krafton-standings';
+import prisma from '@/lib/prisma';
 import { RankTrendChart } from '@/components/rankings/rank-trend-chart';
 import { TournamentName } from '@/components/ui/tournament-name';
 import type { KraftonBoard } from '@prisma/client';
@@ -141,6 +142,44 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
       ? Math.min(...nonTransferContributions.map((c) => c.rank || 999))
       : 999;
   const basePointsTotal = contributions.reduce((s, c) => s + (c.basePoints || 0), 0);
+
+  // The Team Name column prints each team's short code rather than the full name.
+  // The entry rows carry a team name (and often no id), so resolve every referenced
+  // team by id and by name in one query, falling back to the full name when a team
+  // has no tag. The names come only from data already on the page.
+  const tableContributions = [...contributions, ...(me?.transferredOutContributions ?? [])];
+  const referencedTeamIds = new Set(
+    tableContributions
+      .flatMap((c) => [c.teamId, c.transferredFromTeamId])
+      .filter((id): id is string => Boolean(id)),
+  );
+  if (!isPlayers && entries[0].entityId) referencedTeamIds.add(entries[0].entityId);
+
+  const referencedTeamNames = new Set(
+    tableContributions
+      .flatMap((c) => [c.teamName, c.transferredFrom])
+      .filter((name): name is string => Boolean(name))
+      .map((name) => name.trim().toLowerCase()),
+  );
+
+  const teams =
+    referencedTeamIds.size || referencedTeamNames.size
+      ? await prisma.team.findMany({
+          where: {
+            OR: [
+              ...(referencedTeamIds.size ? [{ id: { in: [...referencedTeamIds] } }] : []),
+              ...[...referencedTeamNames].map((name) => ({
+                name: { equals: name, mode: 'insensitive' as const },
+              })),
+            ],
+          },
+          select: { id: true, name: true, tag: true },
+        })
+      : [];
+  const teamTagById = new Map(teams.map((t) => [t.id, t.tag]));
+  const teamTagByName = new Map(teams.map((t) => [t.name.trim().toLowerCase(), t.tag]));
+  const shortTeamName = (id: string | null | undefined, name: string): string =>
+    (id ? teamTagById.get(id) : null) ?? teamTagByName.get(name.trim().toLowerCase()) ?? name;
 
   const breadcrumbs = breadcrumbJsonLd([
     { name: 'Home', path: '/' },
@@ -342,7 +381,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
               <thead>
                 <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
                   <th className="pb-3">Tournament / Event</th>
-                  <th className="pb-3 text-left">Team Name</th>
+                  <th className="pb-3 text-center">Team Name</th>
                   {isPlayers ? (
                     <>
                       <th className="pb-3 text-center">Finishes (GF)</th>
@@ -374,6 +413,12 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
 
                     // Always show team name — no deduplication
                     const displayTeam = rawTeam || '—';
+
+                    // Short code for the cell; the full name stays on hover.
+                    const rowTeamId = c.teamName
+                      ? c.teamId ?? (!isPlayers ? entries[0].entityId : null)
+                      : c.transferredFromTeamId;
+                    const shortTeam = displayTeam !== '—' ? shortTeamName(rowTeamId, displayTeam) : displayTeam;
 
                     const isDifferentTeam = !isPlayers
                       ? normalizedTeam !== entityName.trim().toLowerCase()
@@ -418,13 +463,13 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                               <TournamentName name={c.eventName} shortName={c.eventShortName} />
                             )}
                             <span className="block text-[11px] font-normal text-slate-400">
-                              {c.tier} · Concluded {fmtDate(c.endDate)}
+                              {c.tier} · {fmtDate(c.endDate)}
                             </span>
                           </div>
                         </td>
 
                         {/* 2. Team Name (shown only when changed, links to team detail if different) */}
-                        <td className="py-3 font-semibold text-slate-700 dark:text-slate-300">
+                        <td className="py-3 text-center font-semibold text-slate-700 dark:text-slate-300">
                           {displayTeam !== '—' ? (
                             isDifferentTeam && targetHref ? (
                               <Link
@@ -432,11 +477,11 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                                 className="group/teamlink inline-flex items-center gap-1 font-bold text-[#0A5FC4] transition-colors hover:underline dark:text-blue-400"
                                 title={`View ${displayTeam} ranking breakdown`}
                               >
-                                <span>{displayTeam}</span>
+                                <span title={displayTeam}>{shortTeam}</span>
                                 <ArrowUpRight className="h-3 w-3 opacity-60 transition-transform group-hover/teamlink:-translate-y-0.5 group-hover/teamlink:translate-x-0.5 group-hover/teamlink:opacity-100" />
                               </Link>
                             ) : (
-                              <span className="font-bold text-slate-900 dark:text-white">{displayTeam}</span>
+                              <span className="font-bold text-slate-900 dark:text-white" title={displayTeam}>{shortTeam}</span>
                             )
                           ) : (
                             <span className="text-slate-300 dark:text-slate-600">—</span>
@@ -561,14 +606,16 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                                 <TournamentName name={c.eventName} shortName={c.eventShortName} />
                               )}
                               <span className="block text-[11px] font-normal text-slate-400">
-                                {c.tier} · Concluded {fmtDate(c.endDate)}
+                                {c.tier} · {fmtDate(c.endDate)}
                               </span>
                             </div>
                           </td>
 
                           {/* 2. Team Name */}
-                          <td className="py-3 font-semibold text-slate-700 dark:text-slate-300">
-                            <span className="font-bold text-slate-900 dark:text-white">{c.teamName || entityName}</span>
+                          <td className="py-3 text-center font-semibold text-slate-700 dark:text-slate-300">
+                            <span className="font-bold text-slate-900 dark:text-white" title={c.teamName || entityName}>
+                              {shortTeamName(c.teamId, c.teamName || entityName)}
+                            </span>
                           </td>
 
                           {isPlayers ? (
@@ -650,13 +697,16 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                         <div className="flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-400" />
                           <span>{p.dateStr}</span>
-                          <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400 font-mono">
+                          <span className="ml-1 hidden rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-white/10 dark:text-slate-400 font-mono sm:inline">
                             in {p.daysRemaining}d
                           </span>
                         </div>
                       </td>
                       <td className="py-3 font-sans text-slate-700 dark:text-slate-300">
-                        {p.eventName}
+                        <TournamentName
+                          name={p.eventName}
+                          shortName={contributions.find((c) => c.eventName === p.eventName)?.eventShortName ?? null}
+                        />
                       </td>
                       <td className="py-3 text-center">
                         <span className="text-slate-500">
