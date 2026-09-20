@@ -16,7 +16,11 @@ export function ViewPinger({ slug }: { slug: string }) {
       /* storage unavailable — still count the view */
     }
     fired.current = true;
-    fetch(`/api/news/${encodeURIComponent(slug)}/view`, { method: 'POST' }).catch(() => {});
+    fetch(`/api/news/${encodeURIComponent(slug)}/view`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }).catch(() => {});
   }, [slug]);
 
   return null;
