@@ -80,6 +80,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning className={`${jakarta.variable} font-sans antialiased min-h-screen transition-colors`}>
+        {/*
+          AdSense site verification. Rendered as a hoisted element rather than via
+          `metadata.other`: generateMetadata is async here, so its tags stream in
+          after the initial shell and land outside <head>. React hoists this one
+          into the real <head>, which is what the verifier reads.
+        */}
+        {adsenseClient && <meta name="google-adsense-account" content={adsenseClient} />}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: siteJsonLd }} />
         {adsenseClient && (
