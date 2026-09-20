@@ -3,6 +3,7 @@ import { ArrowRight, Network } from 'lucide-react';
 
 import { TeamCrest } from './team-crest';
 import type { RelatedTeamRow } from '@/lib/team-data';
+import { teamHref } from '@/lib/entity-links';
 
 function formDotClass(entry: { rank: number; wwcd: boolean }) {
   if (entry.wwcd) return 'bg-amber-400';
@@ -48,7 +49,7 @@ export function RelatedTeamsBand({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((row) => {
-            const href = `/teams/${row.slug || row.id}`;
+            const href = teamHref({ slug: row.slug, id: row.id });
             return (
               <Link
                 key={row.id}

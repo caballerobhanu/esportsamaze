@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import {
   Newspaper,
   Search,
@@ -64,6 +65,9 @@ export default async function NewsHubPage({
     getTagCounts(14),
     !isFiltered ? getMostRead(30, 5) : Promise.resolve([]),
   ]);
+
+  // A page past the last one is a soft-404; don't serve an empty 200 for it.
+  if (page > totalPages) notFound();
 
   // Lead story only on the unfiltered first page
   const featuredArticle =

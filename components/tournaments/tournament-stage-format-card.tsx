@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ThemeLogo } from './estatic/theme-logo';
 import type { PendingSeatSource } from '@/lib/stage-groups';
+import { teamHref } from '@/lib/entity-links';
 
 export interface StageAdvancementRule {
   rankRange: string; // e.g. "1st - 8th"
@@ -80,7 +81,7 @@ function SquadWrapper({
   }
 
   return (
-    <Link href={`/teams/${squad.slug || encodeURIComponent(squad.teamName)}`} className={className}>
+    <Link href={teamHref({ slug: squad.slug, name: squad.teamName, id: squad.teamId })} className={className}>
       {children}
     </Link>
   );

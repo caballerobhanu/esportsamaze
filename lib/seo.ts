@@ -102,6 +102,16 @@ export function websiteJsonLd() {
     name: SITE_NAME,
     url: baseUrl(),
     publisher: { '@type': 'Organization', name: SITE_NAME },
+    // Sitelinks searchbox: the news hub filters on `q`, so it is a working
+    // search target even though the filtered view itself is noindexed.
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${baseUrl()}/news?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
   };
 }
 

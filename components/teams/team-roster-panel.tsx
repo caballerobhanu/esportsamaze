@@ -22,6 +22,7 @@ import { TeamCrest } from './team-crest';
 import { formatAverage, formatRate, type PlayerElimMetrics } from '@/lib/team-stats';
 import { parseRoster } from '@/lib/team-roster';
 import type { TeamContext, TeamContextTransfer, TransferDirection } from '@/lib/team-data';
+import { playerHref } from '@/lib/entity-links';
 
 /**
  * Movement types that still earn a badge. JOINED/LEFT merely restate the
@@ -98,7 +99,7 @@ function TransferTimelineRow({ transfer }: { transfer: TeamContextTransfer }) {
         </div>
         <div className="min-w-0">
           <Link
-            href={`/players/${transfer.player.slug || transfer.player.ign.toLowerCase()}`}
+            href={playerHref({ slug: transfer.player.slug, ign: transfer.player.ign })}
             className="block truncate text-sm font-extrabold transition-colors hover:text-[#0A5FC4]"
           >
             {transfer.player.ign}
@@ -225,7 +226,7 @@ export function TeamRosterPanel({
               return (
                 <Link
                   key={player.id}
-                  href={`/players/${player.slug || player.ign.toLowerCase()}`}
+                  href={playerHref({ slug: player.slug, ign: player.ign })}
                   className="group rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-white/5"
                 >
                   <div className="flex items-center gap-4">
@@ -301,7 +302,7 @@ export function TeamRosterPanel({
                   {staffRoster.map((member) => (
                     <Link
                       key={member.id}
-                      href={`/players/${member.slug || member.ign.toLowerCase()}`}
+                      href={playerHref({ slug: member.slug, ign: member.ign })}
                       className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5"
                     >
                       <Briefcase className="h-4 w-4 shrink-0 text-[#0A5FC4] dark:text-blue-300" />
@@ -326,7 +327,7 @@ export function TeamRosterPanel({
                   {orgPeople.map((member) => (
                     <Link
                       key={member.id}
-                      href={`/players/${member.slug || member.ign.toLowerCase()}`}
+                      href={playerHref({ slug: member.slug, ign: member.ign })}
                       className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5"
                     >
                       <Building2 className="h-4 w-4 shrink-0 text-[#0A5FC4] dark:text-blue-300" />

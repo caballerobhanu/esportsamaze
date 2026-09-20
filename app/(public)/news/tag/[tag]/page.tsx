@@ -50,7 +50,9 @@ export default async function NewsTagPage({
   const { articles, total, totalPages } = await listPublishedArticles({ tag, page, perPage: PER_PAGE });
 
   // Unknown tags (no stories at all) 404 instead of creating empty indexable pages.
-  if (total === 0 && page === 1) notFound();
+  // Unknown tags, and pages past the last one, 404 rather than rendering an
+  // empty 200 — Google reads those as soft-404s and keeps re-crawling them.
+  if (total === 0 || page > totalPages) notFound();
 
   const pageHref = (p: number) => `/news/tag/${encodeURIComponent(tag)}${p > 1 ? `?page=${p}` : ''}`;
 

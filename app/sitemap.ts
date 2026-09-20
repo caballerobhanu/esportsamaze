@@ -20,12 +20,12 @@ import { publishedVisibility } from '@/lib/news-queries';
 export const revalidate = 3600; // Cache sitemap for 1 hour
 
 /*
- * Intentionally a single sitemap. At the current shape (9 URLs per tournament,
- * 6 per team, 5 per player) it would take roughly 5,000 tournaments to reach
- * Google's 50,000-URL ceiling, and splitting via generateSitemaps would move
- * the file to /sitemap/[id].xml — breaking the /sitemap.xml pointer in
- * robots.ts. Revisit splitting only if the entity counts grow by two orders
- * of magnitude.
+ * Intentionally a single sitemap. Entity tab URLs are listed only when the tab
+ * has content behind it (see the team/player gating below), so the file stays
+ * close to the entity count plus their articles rather than ballooning to every
+ * possible tab of every profile. Splitting via generateSitemaps would move the
+ * file to /sitemap/[id].xml — breaking the /sitemap.xml pointer in robots.ts.
+ * Revisit splitting only if the entity counts grow by two orders of magnitude.
  */
 
 /**
@@ -76,14 +76,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           take: 5000,
         }),
         prisma.team.findMany({
-          where: { slug: { not: null } },
-          select: { slug: true, updatedAt: true },
+          where: { slug: { not: null }, isVerified: true },
+          select: {
+            slug: true,
+            updatedAt: true,
+            _count: {
+              select: {
+                players: true,
+                tournamentRosters: true,
+                matchResults: true,
+                matchPlayerStats: true,
+                teamTotals: true,
+                tournamentsWon: true,
+                tournamentsRunnerUp: true,
+              },
+            },
+          },
           orderBy: { updatedAt: 'desc' },
           take: 5000,
         }),
         prisma.player.findMany({
-          where: { slug: { not: null } },
-          select: { slug: true, updatedAt: true },
+          where: { slug: { not: null }, isVerified: true },
+          select: {
+            slug: true,
+            updatedAt: true,
+            _count: { select: { matchStats: true, reportedTotals: true } },
+          },
           orderBy: { updatedAt: 'desc' },
           take: 5000,
         }),
@@ -168,35 +186,84 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ];
     });
 
-    const teamRoutes: MetadataRoute.Sitemap = teams.flatMap((team) => [
-      {
-        url: `${base}/teams/${team.slug}`,
-        lastModified: team.updatedAt,
-        changeFrequency: 'daily' as const,
-        priority: 0.6,
-      },
-      ...TEAM_TABS.map((tab) => ({
-        url: `${base}/teams/${team.slug}/${tab}`,
-        lastModified: team.updatedAt,
-        changeFrequency: 'weekly' as const,
-        priority: 0.5,
-      })),
-    ]);
+    /*
+     * A team's tabs are listed only when the tab has something behind it: a squad
+     * with no results renders an empty stats table, no match list and no titles.
+     * The base profile is always listed (it is a directory entry), but a tab page
+     * with no data is thin content that only pads the crawl queue.
+     */
+    const teamRoutes: MetadataRoute.Sitemap = teams.flatMap((team) => {
+      const counts = team._count;
+      const tabs = TEAM_TABS.filter((tab) => {
+        switch (tab) {
+          case 'matches':
+            return counts.matchResults > 0;
+          case 'stats':
+            return (
+              counts.matchResults > 0 || counts.matchPlayerStats > 0 || counts.teamTotals > 0
+            );
+          case 'roster':
+            return counts.players > 0;
+          case 'titles':
+            return counts.tournamentsWon > 0 || counts.tournamentsRunnerUp > 0;
+          default:
+            return false;
+        }
+      });
 
-    const playerRoutes: MetadataRoute.Sitemap = players.flatMap((player) => [
-      {
-        url: `${base}/players/${player.slug}`,
-        lastModified: player.updatedAt,
-        changeFrequency: 'daily' as const,
-        priority: 0.6,
-      },
-      ...PLAYER_TABS.map((tab) => ({
-        url: `${base}/players/${player.slug}/${tab}`,
-        lastModified: player.updatedAt,
-        changeFrequency: 'weekly' as const,
-        priority: 0.5,
-      })),
-    ]);
+      return [
+        {
+          url: `${base}/teams/${team.slug}`,
+          lastModified: team.updatedAt,
+          changeFrequency: 'daily' as const,
+          priority: 0.6,
+        },
+        ...tabs.map((tab) => ({
+          url: `${base}/teams/${team.slug}/${tab}`,
+          lastModified: team.updatedAt,
+          changeFrequency: 'weekly' as const,
+          priority: 0.5,
+        })),
+      ];
+    });
+
+    /*
+     * Same rule for players: one with no recorded match stats has nothing on
+     * /stats or /results, so those tabs are dropped and only the profile is
+     * listed. The three-tabs-per-player block was the single largest source of
+     * near-empty URLs in the sitemap.
+     */
+    const playerRoutes: MetadataRoute.Sitemap = players.flatMap((player) => {
+      const hasStats = player._count.matchStats > 0;
+      const hasTotals = player._count.reportedTotals > 0;
+      const tabs = PLAYER_TABS.filter((tab) => {
+        switch (tab) {
+          case 'stats':
+            return hasStats;
+          case 'results':
+            return hasStats || hasTotals;
+          case 'honours':
+            return hasStats || hasTotals;
+          default:
+            return false;
+        }
+      });
+
+      return [
+        {
+          url: `${base}/players/${player.slug}`,
+          lastModified: player.updatedAt,
+          changeFrequency: 'daily' as const,
+          priority: 0.6,
+        },
+        ...tabs.map((tab) => ({
+          url: `${base}/players/${player.slug}/${tab}`,
+          lastModified: player.updatedAt,
+          changeFrequency: 'weekly' as const,
+          priority: 0.5,
+        })),
+      ];
+    });
 
     /*
      * KRAFTON breakdown pages are the highest-intent URLs on the site, so every
@@ -278,16 +345,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .map((slug) => resolveCategoryParam(slug, knownCategories))
       .filter((resolved) => resolved !== null)
       .map((resolved) => ({
-        url: `${base}/news/category/${resolved.slug}`,
-        lastModified: latest(
-          articles
-            .filter(
-              (a) =>
-                resolved.matches.includes(a.category) ||
-                a.categories.some((c) => resolved.matches.includes(c))
-            )
-            .map((a) => a.updatedAt)
+        resolved,
+        matching: articles.filter(
+          (a) =>
+            resolved.matches.includes(a.category) ||
+            a.categories.some((c) => resolved.matches.includes(c))
         ),
+      }))
+      // A category with no articles now 404s, so it must not be listed either —
+      // the predefined six are categories, not a guarantee they hold stories.
+      .filter((entry) => entry.matching.length > 0)
+      .map(({ resolved, matching }) => ({
+        url: `${base}/news/category/${resolved.slug}`,
+        lastModified: latest(matching.map((a) => a.updatedAt)),
         changeFrequency: 'daily' as const,
         priority: 0.6,
       }));

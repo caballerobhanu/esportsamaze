@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BarChart3, Crosshair, ArrowRight } from 'lucide-react';
 import { TournamentShortName } from '@/components/ui/tournament-name';
 import type { TeamStandingEntry, PlayerFraggerEntry } from '@/lib/match-standings';
+import { teamHref, playerHref } from '@/lib/entity-links';
 
 interface HomeStandingsSectionProps {
   tournament: { name: string; shortName?: string | null; series?: string | null; season?: string | null };
@@ -95,7 +96,7 @@ export function HomeStandingsSection({
                         </td>
                         <td className="px-3 py-2.5">
                           <Link
-                            href={`/teams/${encodeURIComponent(team.teamSlug || team.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
+                            href={teamHref({ slug: team.teamSlug, name: team.teamName })}
                             className="group flex items-center gap-2.5"
                           >
                             {team.logoUrl ? (
@@ -202,7 +203,7 @@ export function HomeStandingsSection({
                       </span>
                       <div>
                         <Link
-                          href={`/players/${encodeURIComponent(player.playerSlug || player.ign.toLowerCase())}`}
+                          href={playerHref({ slug: player.playerSlug, ign: player.ign })}
                           className="text-sm font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
                         >
                           {player.ign}

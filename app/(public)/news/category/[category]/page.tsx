@@ -64,6 +64,10 @@ export default async function NewsCategoryPage({
     perPage: PER_PAGE,
   });
 
+  // A resolved category holding no stories, or a page past the last one, is a
+  // soft-404 — 404 it rather than serving an empty 200 for Google to re-crawl.
+  if (total === 0 || page > totalPages) notFound();
+
   const pageHref = (p: number) =>
     `/news/category/${resolved.slug}${p > 1 ? `?page=${p}` : ''}`;
 

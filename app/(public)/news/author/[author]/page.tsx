@@ -68,6 +68,10 @@ export default async function NewsAuthorPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 
+  // An author with no visible stories, or a page past the last one, is a
+  // soft-404 — 404 it rather than serving an empty 200.
+  if (total === 0 || page > totalPages) notFound();
+
   const pageHref = (p: number) => `/news/author/${author}${p > 1 ? `?page=${p}` : ''}`;
 
   return (

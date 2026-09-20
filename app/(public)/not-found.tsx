@@ -3,6 +3,9 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Page Not Found — eSportsAmaze',
+  // notFound() currently renders with HTTP 200 (a loading.tsx boundary streams
+  // the shell first), so keep a 200 soft-404 out of the index too.
+  robots: { index: false, follow: false },
 };
 
 export default function NotFound() {

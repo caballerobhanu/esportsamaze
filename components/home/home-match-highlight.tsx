@@ -2,6 +2,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Clock, Trophy } from 'lucide-react';
 import { getTournamentShortName } from '@/lib/utils';
+import { teamHref } from '@/lib/entity-links';
 import { KickoffDate, KickoffTime } from '@/components/ui/kickoff';
 
 export interface HighlightMatchData {
@@ -103,7 +104,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
 
               <div>
                 <Link
-                  href={`/teams/${encodeURIComponent(match.winner.teamSlug || match.winner.teamName.toLowerCase().replace(/\s+/g, '-'))}`}
+                  href={teamHref({ slug: match.winner.teamSlug, tag: match.winner.teamTag, name: match.winner.teamName })}
                   className="block text-2xl font-black tracking-tight text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 sm:text-3xl leading-none"
                 >
                   {match.winner.teamName}

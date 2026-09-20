@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { LogIn, AlertCircle } from 'lucide-react';
@@ -11,6 +12,16 @@ import {
 } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
+
+/*
+ * Kept out of the index without naming the secret path in robots.txt (which is
+ * world-readable and would publish it). /poorvith/login rewrites to this route,
+ * so this covers both the disguised and the plain admin login URL.
+ */
+export const metadata: Metadata = {
+  title: 'Admin Login',
+  robots: { index: false, follow: false },
+};
 
 async function login(formData: FormData) {
   'use server';

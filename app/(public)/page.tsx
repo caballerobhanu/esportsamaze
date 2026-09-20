@@ -17,10 +17,19 @@ import { TournamentName } from '@/components/ui/tournament-name';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
 import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
-import { itemListJsonLd, serializeJsonLd } from '@/lib/seo';
+import type { Metadata } from 'next';
+import { canonical, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
+import { teamHref, playerHref } from '@/lib/entity-links';
 
 export const revalidate = 120;
+
+// The one indexable page that shipped without a canonical of its own: without
+// this "/" emits no <link rel="canonical"> and is open to duplicate indexing on a
+// variant host (e.g. www).
+export const metadata: Metadata = {
+  ...canonical('/'),
+};
 
 export default async function HomePage() {
   // 1. Featured Tournament: ONLY live/ongoing tournaments (status = 'ONGOING') with completed matches
@@ -490,7 +499,7 @@ export default async function HomePage() {
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Link
-                              href={`/players/${encodeURIComponent(move.player.slug || move.player.ign.toLowerCase())}`}
+                              href={playerHref({ slug: move.player.slug, ign: move.player.ign })}
                               className="font-black text-sm text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 truncate"
                             >
                               {move.player.ign}
@@ -516,7 +525,7 @@ export default async function HomePage() {
                         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {move.fromTeam ? (
                             <Link
-                              href={`/teams/${encodeURIComponent(move.fromTeam.slug || move.fromTeam.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                              href={teamHref({ slug: move.fromTeam.slug, tag: move.fromTeam.tag, name: move.fromTeam.name })}
                               className="transition-colors hover:text-slate-900 dark:hover:text-white truncate max-w-[140px] sm:max-w-[180px]"
                             >
                               {move.fromTeam.name}
@@ -531,7 +540,7 @@ export default async function HomePage() {
                             <span className="font-normal text-slate-400">Free agent</span>
                           ) : move.team ? (
                             <Link
-                              href={`/teams/${encodeURIComponent(move.team.slug || move.team.name.toLowerCase().replace(/\s+/g, '-'))}`}
+                              href={teamHref({ slug: move.team.slug, tag: move.team.tag, name: move.team.name })}
                               className="font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 truncate max-w-[140px] sm:max-w-[180px]"
                             >
                               {move.team.name}
