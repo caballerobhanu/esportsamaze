@@ -28,6 +28,7 @@ import {
   formatArticleDate,
   formatArticleDateShort,
   getCategoryMeta,
+  headingOrdinals,
   isHtmlContent,
   parseArticleFaqs,
 } from '@/lib/news';
@@ -382,6 +383,7 @@ export function ArticleView({
       if (!listEl) return;
       listEl.innerHTML = '';
 
+      const ordinals = headingOrdinals(headings.map((h) => (h.tagName === 'H2' ? 2 : 3)));
       headings.forEach((h, idx) => {
         if (!h.id) h.id = `section-${idx + 1}`;
         const isH3 = h.tagName === 'H3';
@@ -390,7 +392,7 @@ export function ArticleView({
         a.className = `block truncate hover:text-(--ed-blue) hover:underline transition-colors ${
           isH3 ? 'pl-3.5 opacity-80' : 'font-bold text-[var(--ed-ink)]'
         }`;
-        a.textContent = `${isH3 ? '· ' : `${idx + 1}. `}${h.textContent || ''}`;
+        a.textContent = `${isH3 ? '· ' : `${ordinals[idx]}. `}${h.textContent || ''}`;
         a.onclick = (e) => {
           e.preventDefault();
           document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

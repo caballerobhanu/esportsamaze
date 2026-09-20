@@ -67,6 +67,7 @@ import {
   ArticleFaq,
   formatCategoryDisplay,
   getCategoryMeta,
+  headingOrdinals,
   isHtmlContent,
   legacyMarkdownToHtml,
   parseCategoryHierarchy,
@@ -660,7 +661,7 @@ export function NewsEditor({
 
   /* ── Feature 4: Table of Contents Auto-Extractor ── */
   const headings = useMemo(() => {
-    const items: Array<{ id: string; text: string; level: number }> = [];
+    const found: Array<{ id: string; text: string; level: number }> = [];
     const regex = /<(h2|h3)[^>]*>(.*?)<\/\1>/gi;
     let match: RegExpExecArray | null;
     let count = 0;
@@ -668,14 +669,15 @@ export function NewsEditor({
       count++;
       const text = match[2].replace(/<[^>]+>/g, '').trim();
       if (text) {
-        items.push({
+        found.push({
           id: `heading-${count}`,
           text,
           level: match[1].toLowerCase() === 'h2' ? 2 : 3,
         });
       }
     }
-    return items;
+    const ordinals = headingOrdinals(found.map((h) => h.level));
+    return found.map((h, i) => ({ ...h, ordinal: ordinals[i] ?? 0 }));
   }, [contentHtml]);
 
   /* ── Feature 5: Words & Reading Progress ── */
@@ -1721,14 +1723,14 @@ export function NewsEditor({
                   </button>
                 </div>
                 <div className="space-y-1 text-xs">
-                  {headings.map((h, i) => (
+                  {headings.map((h) => (
                     <div
                       key={h.id}
                       className={`truncate text-slate-600 dark:text-slate-400 ${
                         h.level === 3 ? 'pl-3 text-[11px]' : 'font-semibold'
                       }`}
                     >
-                      <span className="text-slate-400">{i + 1}.</span> {h.text}
+                      <span className="text-slate-400">{h.level === 3 ? '·' : `${h.ordinal}.`}</span> {h.text}
                     </div>
                   ))}
                 </div>

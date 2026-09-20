@@ -11,6 +11,7 @@ import {
   resolveCategoryParam,
   computeReadTimeMinutes,
   computeWordCount,
+  headingOrdinals,
 } from '../lib/news';
 
 describe('News Feature Helpers', () => {
@@ -151,5 +152,22 @@ describe('Category pills', () => {
     ]);
 
     assert.equal(rankedCategoryPills(counts, 2).length, 2);
+  });
+});
+
+describe('Table of contents heading numbers', () => {
+  it('numbers H2s sequentially and leaves each H3 unnumbered', () => {
+    // The reported defect: counting every heading made the H3s consume figures,
+    // so this run printed as 1, 2, ·, 4, ·, 6.
+    assert.deepEqual(headingOrdinals([2, 2, 3, 2, 3, 2]), [1, 2, null, 3, null, 4]);
+  });
+
+  it('copes with an H3 before the first H2 and with H3s alone', () => {
+    assert.deepEqual(headingOrdinals([3, 2, 3]), [null, 1, null]);
+    assert.deepEqual(headingOrdinals([3, 3]), [null, null]);
+  });
+
+  it('returns nothing when there are no headings', () => {
+    assert.deepEqual(headingOrdinals([]), []);
   });
 });

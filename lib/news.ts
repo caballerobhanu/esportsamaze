@@ -227,6 +227,21 @@ export function computeWordCount(content: string): number {
 }
 
 /**
+ * Display numbers for a run of headings, given their levels (2 = H2, 3 = H3).
+ *
+ * Only H2s are numbered; an H3 returns null because it sits beneath its parent
+ * H2 rather than taking a figure of its own. Counting every heading instead
+ * made an H3 consume a number, so H2/H2/H3/H2/H3/H2 printed as 1, 2, ·, 4, ·, 6.
+ *
+ * Shared by the article's in-content table of contents and the editor's
+ * outline panel so the two cannot drift apart.
+ */
+export function headingOrdinals(levels: number[]): Array<number | null> {
+  let h2Count = 0;
+  return levels.map((level) => (level === 2 ? ++h2Count : null));
+}
+
+/**
  * Convert the legacy markdown subset (seed-era articles) into plain HTML so the
  * WYSIWYG editor can open old stories without showing raw `##` markers.
  */
