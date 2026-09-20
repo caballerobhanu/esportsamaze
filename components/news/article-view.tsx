@@ -40,6 +40,8 @@ import { CommentsSection, type PublicComment } from '@/components/news/comments-
 import { ArticleReactions } from '@/components/news/article-reactions';
 import { BookmarkButton } from '@/components/news/bookmark-button';
 import { serializeJsonLd } from '@/lib/seo';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 
 /* Shape of the article with its tournament, team, and player relations attached. */
 export interface ArticleViewData {
@@ -315,6 +317,25 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
   return transformed;
 }
 
+/**
+ * Splits rendered article HTML after the Nth closing </p> so an in-article unit
+ * can sit mid-copy. Returns the whole document as `head` when the article has
+ * too few paragraphs to split.
+ */
+function splitArticleHtml(html: string, after: number): { head: string; tail: string } {
+  const re = /<\/p>/gi;
+  let seen = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(html)) !== null) {
+    seen += 1;
+    if (seen === after) {
+      const cut = match.index + match[0].length;
+      return { head: html.slice(0, cut), tail: html.slice(cut) };
+    }
+  }
+  return { head: html, tail: '' };
+}
+
 /** The full reading view of an article, shared by the public page and the admin draft preview. */
 export function ArticleView({
   article,
@@ -337,6 +358,13 @@ export function ArticleView({
     const raw = isHtml ? article.content : renderLegacyMarkdown(article.content);
     return transformShortcodes(raw, article.tournament?.slug);
   }, [article.content, isHtml, article.tournament?.slug]);
+
+  // One split point, reused for the inline unit. Both halves stay inside a single
+  // body wrapper so the table of contents still finds every heading.
+  const { head: bodyHead, tail: bodyTail } = React.useMemo(
+    () => splitArticleHtml(renderedContent, 2),
+    [renderedContent]
+  );
 
   // Hydrate in-content [toc] shortcode if present
   React.useEffect(() => {
@@ -491,7 +519,7 @@ export function ArticleView({
       </div>
 
       {/* Article layout: content + right rail (TOC) */}
-      <div className="mx-auto grid w-full max-w-[var(--page-max-width)] grid-cols-1 gap-10 px-4 py-8 sm:px-6 sm:py-12 xl:grid-cols-[minmax(0,1fr)_260px] lg:px-8">
+      <div className="mx-auto grid w-full max-w-[var(--page-max-width)] grid-cols-1 gap-10 px-4 py-8 sm:px-6 sm:py-12 xl:grid-cols-[minmax(0,1fr)_300px] lg:px-8">
         <article className="mx-auto w-full max-w-4xl xl:mx-0">
           {/* Category & Meta badges */}
           <div className="flex flex-wrap items-center gap-2">
@@ -602,6 +630,10 @@ export function ArticleView({
             </div>
           </div>
 
+          {/* Ad: slim bar. Sits below the byline rather than under the breadcrumb
+              so there is real content above it on mobile. */}
+          {!isPreview && <AdSlot placement={AD_PLACEMENTS.articleTop} />}
+
           {/* Hero Cover Image + Alt, Caption, and Credit */}
           {article.coverImage && (
             <div className="mt-8">
@@ -626,11 +658,27 @@ export function ArticleView({
             </div>
           )}
 
-          {/* Article Body */}
-          <div
-            className={`mt-8 sm:mt-10 ${isHtml ? 'article-body' : 'article-legacy'}`}
-            dangerouslySetInnerHTML={{ __html: renderedContent }}
-          />
+          {/* Article Body. Split at one paragraph boundary so the inline unit can
+              sit mid-copy; both halves repeat the body class so the paragraph
+              spacing holds, and the wrapper carries it for the table of contents. */}
+          <div className={`mt-8 sm:mt-10 ${isHtml ? 'article-body' : 'article-legacy'}`}>
+            <div
+              className={isHtml ? 'article-body' : 'article-legacy'}
+              dangerouslySetInnerHTML={{ __html: bodyHead }}
+            />
+            {bodyTail !== '' && !isPreview && (
+              <AdSlot placement={AD_PLACEMENTS.articleInline} className="xl:hidden" />
+            )}
+            {bodyTail !== '' && (
+              <div
+                className={isHtml ? 'article-body' : 'article-legacy'}
+                dangerouslySetInnerHTML={{ __html: bodyTail }}
+              />
+            )}
+          </div>
+
+          {/* Ad: end of the article body */}
+          {!isPreview && <AdSlot placement={AD_PLACEMENTS.articleEnd} />}
 
           {/* Interactive Frequently Asked Questions (FAQ) Accordion */}
           {parsedFaqs.length > 0 && (
@@ -896,6 +944,9 @@ export function ArticleView({
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
             <TableOfContents containerSelector={isHtml ? '.article-body' : '.article-legacy'} />
+            {/* Ad: portrait unit. The rail only exists from xl up, so this is
+                desktop-only by construction. */}
+            {!isPreview && <AdSlot placement={AD_PLACEMENTS.articleRail} />}
             {mostRead && mostRead.length > 0 && (
               <div className="ed-card p-4">
                 <div className="ed-label mb-3 flex items-center gap-1.5">
