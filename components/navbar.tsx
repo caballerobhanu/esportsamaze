@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ModeToggle } from './mode-toggle';
 import { cn } from '@/lib/utils';
+import { SITE_SLOGAN } from '@/lib/seo';
 import type { SearchResultItem } from '@/app/api/search/route';
 
 export const NAV_ITEMS = [
@@ -467,9 +468,8 @@ export function Navbar() {
               </div>
             </div>
 
-            <div className="border-t border-white/10 pt-4 space-y-2 text-xs text-white/70">
-              <div className="font-semibold text-white">Battle Royale Statistics Hub</div>
-              <p className="text-[11px]">BGMI India & PUBG Mobile Global Circuits</p>
+            <div className="border-t border-white/10 pt-4">
+              <p className="text-xs font-semibold text-white/70">{SITE_SLOGAN}</p>
             </div>
           </div>
         </div>
