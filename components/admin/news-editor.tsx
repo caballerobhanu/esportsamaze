@@ -9,6 +9,7 @@ import TiptapLink from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { CharacterCount } from '@tiptap/extension-character-count';
 import Youtube from '@tiptap/extension-youtube';
+import { TableKit } from '@tiptap/extension-table';
 import {
   ArrowLeft,
   Bold,
@@ -209,6 +210,30 @@ function ToolbarButton({
   );
 }
 
+function TableMenuItem({
+  onClick,
+  danger,
+  children,
+}: {
+  onClick: () => void;
+  danger?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`cursor-pointer rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold transition-colors ${
+        danger
+          ? 'text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30'
+          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function NewsEditor({
   article,
   tournamentOptions,
@@ -304,7 +329,14 @@ export function NewsEditor({
 
   // Embeds & Revisions
   const [embedModalOpen, setEmbedModalOpen] = useState(false);
-  const [embedTab, setEmbedTab] = useState<'shortcode' | 'social' | 'table'>('shortcode');
+  const [embedTab, setEmbedTab] = useState<'shortcode' | 'social'>('shortcode');
+
+  // Table inserter / editor menu
+  const [tableMenuOpen, setTableMenuOpen] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
+  const [tableWithHeader, setTableWithHeader] = useState(true);
+  const tableMenuRef = useRef<HTMLDivElement | null>(null);
   const [embedTweetUrl, setEmbedTweetUrl] = useState('');
   const [embedInstaUrl, setEmbedInstaUrl] = useState('');
   const [embedInstaCaptioned, setEmbedInstaCaptioned] = useState(false);
@@ -338,6 +370,9 @@ export function NewsEditor({
       }),
       TiptapImage.configure({ inline: false, allowBase64: false }),
       Youtube.configure({ nocookie: true, width: 800, height: 450 }),
+      TableKit.configure({
+        table: { resizable: false, renderWrapper: true },
+      }),
       CharacterCount,
     ],
     content: initialContent,
@@ -374,6 +409,25 @@ export function NewsEditor({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inPlacePageView]);
+
+  /* ── Close the table menu on outside click or Escape ── */
+  useEffect(() => {
+    if (!tableMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (tableMenuRef.current && !tableMenuRef.current.contains(e.target as Node)) {
+        setTableMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTableMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [tableMenuOpen]);
 
   /* ── Keep the editor toolbar pinned directly below the sticky header ── */
   useEffect(() => {
@@ -629,6 +683,9 @@ export function NewsEditor({
   const readTime = Math.max(1, Math.round(words / 200));
   const wordProgressPct = Math.min(100, Math.round((words / wordTarget) * 100));
 
+  // True while the caret sits inside a table, which reveals the edit commands.
+  const inTable = editor?.isActive('table') ?? false;
+
   /* ── Toolbar & Embed actions ── */
   const setLink = () => {
     if (!editor) return;
@@ -659,38 +716,14 @@ export function NewsEditor({
     setEmbedModalOpen(false);
   };
 
-  const insertTableTemplate = () => {
+  const insertTable = () => {
     if (!editor) return;
-    const tableHtml = `
-<table class="w-full border-collapse my-6 text-sm">
-  <thead>
-    <tr class="bg-slate-100 dark:bg-slate-800 text-left">
-      <th class="border border-slate-300 dark:border-slate-700 p-2.5 font-bold">Team / Player</th>
-      <th class="border border-slate-300 dark:border-slate-700 p-2.5 font-bold text-center">Matches</th>
-      <th class="border border-slate-300 dark:border-slate-700 p-2.5 font-bold text-center">WWCD</th>
-      <th class="border border-slate-300 dark:border-slate-700 p-2.5 font-bold text-center">Elims</th>
-      <th class="border border-slate-300 dark:border-slate-700 p-2.5 font-bold text-center">Total Pts</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 font-semibold">Team Soul</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center">12</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center">3</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center">58</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center font-black text-(--ed-blue)">114</td>
-    </tr>
-    <tr>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 font-semibold">GodLike Esports</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center">12</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center">2</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center">52</td>
-      <td class="border border-slate-200 dark:border-slate-800 p-2.5 text-center font-black text-(--ed-blue)">108</td>
-    </tr>
-  </tbody>
-</table>`;
-    editor.chain().focus().insertContent(tableHtml).run();
-    setEmbedModalOpen(false);
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows: tableRows, cols: tableCols, withHeaderRow: tableWithHeader })
+      .run();
+    setTableMenuOpen(false);
   };
 
   const insertTwitterEmbed = () => {
@@ -1314,13 +1347,113 @@ export function NewsEditor({
                       <span>Embed</span>
                     </button>
 
-                    <ToolbarButton
-                      title="Insert Esports Standings Table"
-                      onClick={insertTableTemplate}
-                      disabled={!editor}
-                    >
-                      <Table className="h-4 w-4" />
-                    </ToolbarButton>
+                    {/* Table inserter + in-table editor */}
+                    <div ref={tableMenuRef} className="relative">
+                      <ToolbarButton
+                        title="Insert or edit a table"
+                        active={tableMenuOpen || inTable}
+                        onClick={() => setTableMenuOpen((open) => !open)}
+                        disabled={!editor}
+                      >
+                        <Table className="h-4 w-4" />
+                      </ToolbarButton>
+
+                      {tableMenuOpen && (
+                        <div className="absolute left-0 top-9 z-40 w-60 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-[#0f172a]">
+                          <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Insert table
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <label className="block">
+                              <span className="mb-1 block text-[10px] font-bold text-slate-500">Rows</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={tableRows}
+                                onChange={(e) =>
+                                  setTableRows(Math.max(1, Math.min(20, Number(e.target.value) || 1)))
+                                }
+                                className={`${inputCls} py-1 text-xs`}
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block text-[10px] font-bold text-slate-500">Columns</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={12}
+                                value={tableCols}
+                                onChange={(e) =>
+                                  setTableCols(Math.max(1, Math.min(12, Number(e.target.value) || 1)))
+                                }
+                                className={`${inputCls} py-1 text-xs`}
+                              />
+                            </label>
+                          </div>
+                          <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={tableWithHeader}
+                              onChange={(e) => setTableWithHeader(e.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-slate-300 text-(--ed-blue) focus:ring-(--ed-blue)"
+                            />
+                            Header row
+                          </label>
+                          <button
+                            type="button"
+                            onClick={insertTable}
+                            className="mt-2.5 w-full cursor-pointer rounded-lg bg-(--ed-blue) py-1.5 text-[11px] font-black uppercase tracking-wider text-white hover:opacity-90"
+                          >
+                            Insert table
+                          </button>
+
+                          <div className="mt-3 border-t border-slate-100 pt-2 dark:border-white/5">
+                            {inTable ? (
+                              <div className="grid grid-cols-2 gap-0.5">
+                                <TableMenuItem onClick={() => editor?.chain().focus().addRowBefore().run()}>
+                                  Add row above
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().addRowAfter().run()}>
+                                  Add row below
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().addColumnBefore().run()}>
+                                  Add column left
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().addColumnAfter().run()}>
+                                  Add column right
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().mergeCells().run()}>
+                                  Merge cells
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().splitCell().run()}>
+                                  Split cell
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().toggleHeaderRow().run()}>
+                                  Toggle header
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().deleteRow().run()}>
+                                  Delete row
+                                </TableMenuItem>
+                                <TableMenuItem onClick={() => editor?.chain().focus().deleteColumn().run()}>
+                                  Delete column
+                                </TableMenuItem>
+                                <TableMenuItem
+                                  danger
+                                  onClick={() => editor?.chain().focus().deleteTable().run()}
+                                >
+                                  Delete table
+                                </TableMenuItem>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] leading-snug text-slate-400">
+                                Place the cursor inside a table to add, merge or delete rows and columns.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
 
                     <ToolbarButton
                       title="Divider"
@@ -2593,17 +2726,6 @@ export function NewsEditor({
               >
                 Twitter / Instagram
               </button>
-              <button
-                type="button"
-                onClick={() => setEmbedTab('table')}
-                className={`border-b-2 px-3 py-2 text-xs font-bold transition-all ${
-                  embedTab === 'table'
-                    ? 'border-(--ed-blue) text-(--ed-blue)'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                }`}
-              >
-                Data Table
-              </button>
             </div>
 
             {/* Tab content */}
@@ -2732,22 +2854,6 @@ export function NewsEditor({
                   </label>
                   <span className="mt-1 block text-[10px] text-slate-400">e.g. https://www.instagram.com/p/Dc8yW21E8I_/</span>
                 </div>
-              </div>
-            )}
-
-            {embedTab === 'table' && (
-              <div className="space-y-3 text-xs">
-                <p className="text-slate-500 dark:text-slate-400">
-                  Insert a responsive, pre-styled esports data table into the editor. You can edit the cells directly in the WYSIWYG editor or in Raw HTML mode.
-                </p>
-                <button
-                  type="button"
-                  onClick={insertTableTemplate}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-(--ed-blue) py-2.5 font-bold text-white shadow-sm hover:opacity-90"
-                >
-                  <Table className="h-4 w-4" />
-                  Insert Pre-Styled Data Table
-                </button>
               </div>
             )}
           </div>

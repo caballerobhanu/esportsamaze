@@ -7,6 +7,7 @@ import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { computeReadTimeMinutes, computeWordCount, ARTICLE_STATUSES } from '@/lib/news';
+import { sanitizeArticleHtml } from '@/lib/article-content';
 import DOMPurify from 'isomorphic-dompurify';
 
 const MAX_REVISIONS = 20;
@@ -78,24 +79,7 @@ export async function saveArticle(formData: FormData) {
     categories.unshift(category);
   }
   const rawContent = fStr(formData, 'content');
-  const content = DOMPurify.sanitize(rawContent, {
-    ADD_ATTR: [
-      'target',
-      'rel',
-      'allow',
-      'allowfullscreen',
-      'frameborder',
-      'scrolling',
-      'src',
-      'colspan',
-      'rowspan',
-      'data-instgrm-permalink',
-      'data-instgrm-version',
-      'data-tweet-id',
-      'data-inline-toc',
-    ],
-    ADD_TAGS: ['iframe', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'script'],
-  });
+  const content = sanitizeArticleHtml(rawContent);
   const rawExcerpt = fStr(formData, 'excerpt') || null;
   const excerpt = rawExcerpt ? DOMPurify.sanitize(rawExcerpt, { ALLOWED_TAGS: [] }).trim().slice(0, 500) : null;
   const rawKeyTakeaways = fStr(formData, 'keyTakeaways');

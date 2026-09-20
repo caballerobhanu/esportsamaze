@@ -400,6 +400,26 @@ export function ArticleView({
     });
   }, [renderedContent, isHtml]);
 
+  // Wrap top-level data tables so a wide table scrolls inside the article
+  // column rather than overflowing it on narrow screens. Tables saved from the
+  // editor already carry a .tableWrapper (and nested tables are left alone),
+  // so this only touches tables without one; the check makes it idempotent.
+  React.useEffect(() => {
+    document.querySelectorAll('.article-body, .article-legacy').forEach((body) => {
+      body.querySelectorAll('table').forEach((table) => {
+        const parent = table.parentElement;
+        if (!parent) return;
+        if (parent.classList.contains('article-table-wrap')) return;
+        if (parent.classList.contains('tableWrapper')) return;
+        if (parent.closest('table')) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'article-table-wrap';
+        parent.insertBefore(wrap, table);
+        wrap.appendChild(table);
+      });
+    });
+  }, [renderedContent]);
+
   // Load and trigger Twitter/X and Instagram embed widgets
   React.useEffect(() => {
     // Twitter/X widgets

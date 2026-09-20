@@ -338,6 +338,33 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   DATA TABLES — authored in the WYSIWYG table menu
+   ═══════════════════════════════════════════════════════════ */
+/* Wide tables scroll inside their own box instead of overflowing the
+   article column (the editor renders its own .tableWrapper via TableKit). */
+.article-table-wrap,
+.article-body .tableWrapper,
+.news-editor-prose .tableWrapper {
+  @apply my-6 w-full overflow-x-auto;
+}
+.article-body table,
+.news-editor-prose table {
+  @apply w-full border-collapse text-left text-[14px] leading-normal;
+}
+.article-body th,
+.news-editor-prose th {
+  @apply border border-[var(--ed-hair)] bg-[var(--ed-sand)] px-3 py-2 text-left align-top font-extrabold text-[var(--ed-ink)];
+}
+.article-body td,
+.news-editor-prose td {
+  @apply border border-[var(--ed-hair)] px-3 py-2 align-top;
+}
+.article-body table :is(th, td),
+.news-editor-prose table :is(th, td) {
+  min-width: 4rem;
+}
+
+/* ═══════════════════════════════════════════════════════════
    LEGACY MARKDOWN fallback (pre-WYSIWYG seed articles)
    ═══════════════════════════════════════════════════════════ */
 .article-legacy {
