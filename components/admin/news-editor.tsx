@@ -2763,6 +2763,18 @@ export function NewsEditor({
 
                   <button
                     type="button"
+                    onClick={() => insertShortcode('[tournament-card tournament="BGMI Series 2026"]')}
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-200 p-2.5 text-left hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
+                  >
+                    <div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">[tournament-card tournament=&quot;BGMI Series 2026&quot;]</div>
+                      <div className="text-[11px] text-slate-400">Renders an event card linking to the tournament page</div>
+                    </div>
+                    <Plus className="h-4 w-4 text-slate-400" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => insertShortcode('[team-card team="Team Soul"]')}
                     className="flex w-full items-center justify-between rounded-lg border border-slate-200 p-2.5 text-left hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
                   >

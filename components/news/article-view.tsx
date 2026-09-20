@@ -145,8 +145,8 @@ function renderLegacyMarkdown(content: string): string {
 }
 
 /**
- * Transform dynamic shortcodes like [standings], [match-scorecard], [team-card], [player-card]
- * into beautifully styled HTML interactive widgets.
+ * Transform dynamic shortcodes like [standings], [match-scorecard], [tournament-card],
+ * [team-card] and [player-card] into beautifully styled HTML interactive widgets.
  */
 function transformShortcodes(html: string, defaultTournamentSlug?: string): string {
   if (!html) return '';
@@ -198,6 +198,30 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
     </div>
     <span class="rounded bg-slate-100 dark:bg-white/10 px-2 py-1 text-[10px] font-bold text-slate-500">Official Result</span>
   </div>
+</div>`;
+    }
+  );
+
+  // [tournament-card tournament="..."]
+  transformed = transformed.replace(
+    /(?:<p>)?(?:<code>)?\[tournament-card(?:\s+tournament=["']?([^"'\]]+)["']?)?\](?:<\/code>)?(?:<\/p>)?/gi,
+    (_match, tourName) => {
+      const name = tourName || 'Tournament';
+      const tourSlug = slugify(name);
+      return `
+<div class="my-6 flex items-center justify-between gap-4 rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4 shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-(--ed-blue)/10 text-(--ed-blue)">
+      <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+    </div>
+    <div>
+      <div class="text-[10px] font-black uppercase tracking-wider text-[var(--ed-stone)]">Esports Tournament</div>
+      <div class="text-sm font-extrabold text-[var(--ed-ink)]">${name}</div>
+    </div>
+  </div>
+  <a href="/tournaments/${tourSlug}" class="inline-flex items-center gap-1 text-xs font-bold text-(--ed-blue) hover:underline">
+    Standings &amp; Matches ➔
+  </a>
 </div>`;
     }
   );
