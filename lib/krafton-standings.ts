@@ -559,13 +559,16 @@ export function computeEntityFutureProjections(
   asOf: Date = new Date(),
   limit = 5
 ): FutureProjectionItem[] {
-  const myEntries = entries.filter((e) => (e.entityId || e.entityName.toLowerCase()) === entityKey);
-  const futureDatesSet = new Set<number>();
+  const currentBoard = computeBoard(entries, transfers, asOf);
+  const currentEntity = currentBoard.find((b) => b.key === entityKey);
+  if (!currentEntity) return [];
 
-  for (const e of myEntries) {
-    const end = new Date(e.eventEndDate);
-    const milestones = decayMilestones(board, end);
-    for (const m of milestones) {
+  // Decay dates follow the points. Reading them off the entity's post-transfer
+  // contributions means an acquired event's step-downs belong to the team that
+  // received them, and the team that gave the points away stops showing them.
+  const futureDatesSet = new Set<number>();
+  for (const c of currentEntity.contributions) {
+    for (const m of decayMilestones(board, c.endDate)) {
       if (m.date.getTime() > asOf.getTime()) {
         futureDatesSet.add(m.date.getTime());
       }
@@ -573,9 +576,6 @@ export function computeEntityFutureProjections(
   }
 
   const sortedDates = [...futureDatesSet].sort((a, b) => a - b).slice(0, limit);
-  const currentBoard = computeBoard(entries, transfers, asOf);
-  const currentEntity = currentBoard.find((b) => b.key === entityKey);
-  if (!currentEntity) return [];
 
   let runningPoints = currentEntity.totalPoints;
   const items: FutureProjectionItem[] = [];

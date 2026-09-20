@@ -11,12 +11,14 @@ import {
   computeBoardWithRankChanges,
   generateHistoricalSnapshotDates,
   computeNextDecay,
+  computeEntityFutureProjections,
   computeUnifiedNextUpdate,
   computeEntityRankMilestones,
   computeRankOneReigns,
   parseTeamPaste,
   parsePlayerPaste,
   type EntryRow,
+  type TransferRule,
 } from '../lib/krafton-standings';
 
 const day = 86_400_000;
@@ -356,6 +358,36 @@ test('computeNextDecay calculates upcoming milestone and point loss', () => {
   assert.equal(nextDecay.toMultiplier, 0.75);
   assert.equal(nextDecay.estimatedPointLoss, 200); // 800 * 0.25 = 200
   assert.ok(nextDecay.daysRemaining > 0);
+});
+
+test('future decay projections follow transferred points to the receiving team', () => {
+  const asOf = d('2026-09-20');
+  const k9 = entry({ id: 'e1', eventId: 'ev1', entityId: 'k9', entityName: 'K9 Esports', rank: 6, eventEndDate: d('2026-03-29') });
+  const divine = entry({ id: 'e2', eventId: 'ev2', entityId: 'divine', entityName: 'Divine Gaming', rank: 2, eventEndDate: d('2026-06-21') });
+  const entries = [k9, divine];
+
+  const transfers: TransferRule[] = [
+    {
+      id: 't1',
+      fromTeamId: 'k9',
+      fromName: 'K9 Esports',
+      toTeamId: 'divine',
+      toName: 'Divine Gaming',
+      cutoff: new Date('2026-06-07T10:00:01Z'),
+      preference: 1,
+      mode: 'add',
+      amount: null,
+    },
+  ];
+
+  const divineDates = computeEntityFutureProjections('divine', 'TEAM', entries, transfers, asOf).map((p) => p.dateStr);
+  const k9Dates = computeEntityFutureProjections('k9', 'TEAM', entries, transfers, asOf).map((p) => p.dateStr);
+
+  // K9's March event — and its 26 Sept 2026 step-down — now belongs to Divine.
+  assert.ok(divineDates.includes('26 Sept 2026'));
+  assert.ok(!k9Dates.includes('26 Sept 2026'));
+  // K9 gave every point away, so nothing decays on its page any more.
+  assert.equal(k9Dates.length, 0);
 });
 
 test('computeUnifiedNextUpdate picks earlier of decay or future event end date', () => {
