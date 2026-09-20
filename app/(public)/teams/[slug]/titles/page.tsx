@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 
 import { TeamTabShell } from '@/components/teams/team-tab-shell';
 import { TeamTitlesPanel } from '@/components/teams/team-titles-panel';
+import { TabIntro } from '@/components/seo/tab-intro';
+import { teamTitlesIntro } from '@/lib/entity-intros';
 import { collectTeamAwards } from '@/lib/team-awards';
 import { buildPlayerSlugMaps, collectLineupPlayerIds } from '@/lib/team-roster';
 import { loadLineupPlayers, loadTeamContext, teamMetadata } from '@/lib/team-data';
@@ -52,8 +54,16 @@ export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
     playerIdToSlug,
   });
 
+  const intro = teamTitlesIntro({
+    name: team.name,
+    titles: team.won.length,
+    runnerUps: team.runnerUp.length,
+    awards: awards.length,
+  });
+
   return (
     <TeamTabShell team={team} activeTab="titles">
+      <TabIntro text={intro} />
       <TeamTitlesPanel team={team} awards={awards} />
     </TeamTabShell>
   );

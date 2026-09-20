@@ -4,6 +4,8 @@ import { Coins, Crosshair, Gift, Swords, Trophy } from 'lucide-react';
 
 import { PlayerTabShell } from '@/components/players/player-tab-shell';
 import { PlayerKraftonPanel } from '@/components/players/player-krafton-panel';
+import { TabIntro } from '@/components/seo/tab-intro';
+import { playerHonoursIntro } from '@/lib/entity-intros';
 import { EarningsAmount } from '@/components/players/earnings-amount';
 import { flattenPrizeRanks } from '@/lib/standings-config';
 import { TournamentName } from '@/components/ui/tournament-name';
@@ -170,8 +172,15 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
   const teamNative = nativeTotalFor(earningLines.filter((l) => l.kind === 'team'));
   const careerNative = nativeTotalFor(earningLines);
 
+  const intro = playerHonoursIntro({
+    ign: player.ign,
+    entries: earningLines.length,
+    events: lineupTournamentIds.size,
+  });
+
   return (
     <PlayerTabShell slug={slug} activeTab="honours">
+      <TabIntro text={intro} />
       <div className="space-y-8">
         {earningLines.length > 0 && (
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">

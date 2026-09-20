@@ -8,6 +8,7 @@ import { fStr, fOpt, fDate, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { computeReadTimeMinutes, computeWordCount, ARTICLE_STATUSES } from '@/lib/news';
 import { sanitizeArticleHtml } from '@/lib/article-content';
+import { articleUrls, pingIndexNow } from '@/lib/indexnow';
 import DOMPurify from 'isomorphic-dompurify';
 
 const MAX_REVISIONS = 20;
@@ -204,6 +205,9 @@ export async function saveArticle(formData: FormData) {
   }
 
   revalidateNews(slug);
+  if (status === 'PUBLISHED' && slug) {
+    await pingIndexNow(articleUrls([slug]));
+  }
   redirect(`/admin/news/${articleId}?saved=1`);
 }
 
@@ -370,12 +374,18 @@ export async function bulkArticleAction(formData: FormData) {
   if (ids.length === 0 || !action) redirect('/admin/news');
 
   switch (action) {
-    case 'PUBLISH':
+    case 'PUBLISH': {
       await prisma.article.updateMany({
         where: { id: { in: ids }, deletedAt: null },
         data: { status: 'PUBLISHED' },
       });
+      const published = await prisma.article.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: { slug: true },
+      });
+      await pingIndexNow(articleUrls(published.map((a) => a.slug)));
       break;
+    }
     case 'UNPUBLISH':
       await prisma.article.updateMany({
         where: { id: { in: ids }, deletedAt: null },

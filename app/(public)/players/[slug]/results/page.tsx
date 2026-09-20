@@ -4,6 +4,8 @@ import { CalendarRange } from 'lucide-react';
 
 import { PlayerTabShell } from '@/components/players/player-tab-shell';
 import { EarningsAmount } from '@/components/players/earnings-amount';
+import { TabIntro } from '@/components/seo/tab-intro';
+import { playerResultsIntro } from '@/lib/entity-intros';
 import { TournamentName } from '@/components/ui/tournament-name';
 import {
   loadPlayerCareer,
@@ -95,8 +97,15 @@ export default async function PlayerResultsPage({ params }: { params: Promise<{ 
   const finished = rows.filter((row) => row.rank !== null);
   const winnings = rows.filter((row) => row.prizeAmount > 0);
 
+  const intro = playerResultsIntro({
+    ign: player.ign,
+    events: rows.length,
+    reported: rows.filter((row) => row.reported).length,
+  });
+
   return (
     <PlayerTabShell slug={slug} activeTab="results">
+      <TabIntro text={intro} />
       <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-8">
         <div className="mb-7 flex items-start justify-between gap-4">
           <div>

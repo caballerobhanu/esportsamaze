@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 
 import { PlayerTabShell } from '@/components/players/player-tab-shell';
 import { PlayerEventStats, type PlayerEventStatLine } from '@/components/players/player-event-stats';
+import { TabIntro } from '@/components/seo/tab-intro';
+import { playerStatsIntro } from '@/lib/entity-intros';
 import { EventMetrics } from '@/components/ui/event-metrics';
 import { eliminations } from '@/lib/player-stats';
 import { PLAYER_METRIC_COLUMNS } from '@/lib/event-metrics';
@@ -62,8 +64,16 @@ export default async function PlayerStatsPage({ params }: { params: Promise<{ sl
   // for the metrics an event only captured day / stage / event-wise ──
   const eventMetrics = buildPlayerEventMetrics(matches, career);
 
+  const intro = playerStatsIntro({
+    ign: context.player.ign,
+    matches: matches.length,
+    elims: matches.reduce((sum, row) => sum + eliminations(row), 0),
+    events: career.squadParticipations.length,
+  });
+
   return (
     <PlayerTabShell slug={slug} activeTab="stats">
+      <TabIntro text={intro} />
       <div className="space-y-8">
         <PlayerEventStats lines={matchStatLines} />
 

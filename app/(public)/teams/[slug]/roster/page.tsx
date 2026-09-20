@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 
 import { TeamRosterPanel } from '@/components/teams/team-roster-panel';
 import { TeamTabShell } from '@/components/teams/team-tab-shell';
+import { TabIntro } from '@/components/seo/tab-intro';
+import { teamRosterIntro } from '@/lib/entity-intros';
 import { buildPlayerSlugMaps, collectLineupPlayerIds } from '@/lib/team-roster';
 import {
   loadLineupPlayers,
@@ -41,8 +43,16 @@ export default async function TeamRosterPage({ params }: TeamRosterPageProps) {
     lineupPlayers,
   );
 
+  const intro = teamRosterIntro({
+    name: team.name,
+    players: team.players.filter((player) => player.isPlayer).length,
+    staff: team.players.filter((player) => player.staffRole && player.isPlayer).length,
+    events: team.tournaments.length,
+  });
+
   return (
     <TeamTabShell team={team} activeTab="roster">
+      <TabIntro text={intro} />
       <TeamRosterPanel team={team} metrics={metrics} playerIdToSlug={playerIdToSlug} />
     </TeamTabShell>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { syncScheduledArticles } from '@/lib/news-queries';
+import { dueScheduledArticleSlugs, syncScheduledArticles } from '@/lib/news-queries';
+import { articleUrls, pingIndexNow } from '@/lib/indexnow';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,12 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Read the due slugs before the update flips them, so IndexNow can name them.
+    const dueSlugs = await dueScheduledArticleSlugs();
     const published = await syncScheduledArticles();
+    if (published > 0 && dueSlugs.length > 0) {
+      await pingIndexNow(articleUrls(dueSlugs));
+    }
     return NextResponse.json(
       { ok: true, published, timestamp: new Date().toISOString() },
       { headers: { 'Cache-Control': 'no-store' } }

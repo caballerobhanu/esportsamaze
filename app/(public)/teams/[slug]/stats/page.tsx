@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 
 import { TeamStatsPanel } from '@/components/teams/team-stats-panel';
 import { TeamTabShell } from '@/components/teams/team-tab-shell';
+import { TabIntro } from '@/components/seo/tab-intro';
+import { teamStatsIntro } from '@/lib/entity-intros';
 import {
   loadRelatedTeams,
   loadTeamContext,
@@ -41,8 +43,18 @@ export default async function TeamStatsPage({ params }: TeamStatsPageProps) {
     loadTeamEventMetrics(team.id),
   ]);
 
+  const summary = matchSummary.summary;
+  const intro = teamStatsIntro({
+    name: team.name,
+    matches: summary.matches,
+    wins: summary.wins,
+    topFive: Math.round((summary.topFiveRate ?? 0) * summary.matches),
+    events: team.tournaments.length,
+  });
+
   return (
     <TeamTabShell team={team} activeTab="stats">
+      <TabIntro text={intro} />
       <TeamStatsPanel
         team={team}
         matchSummary={matchSummary}

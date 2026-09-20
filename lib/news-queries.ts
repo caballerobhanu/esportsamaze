@@ -18,6 +18,19 @@ export async function syncScheduledArticles(): Promise<number> {
   return res.count;
 }
 
+/**
+ * Slugs of the SCHEDULED articles a `syncScheduledArticles()` call is about to
+ * publish, so the IndexNow ping can name them. Must be read BEFORE the update —
+ * afterwards the rows are no longer SCHEDULED.
+ */
+export async function dueScheduledArticleSlugs(): Promise<string[]> {
+  const rows = await prisma.article.findMany({
+    where: { status: 'SCHEDULED', deletedAt: null, publishedAt: { lte: new Date() } },
+    select: { slug: true },
+  });
+  return rows.map((row) => row.slug);
+}
+
 /** Top viewed stories from the last `days` days (falls back to all-time if none). */
 export async function getMostRead(days = 30, take = 5) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
