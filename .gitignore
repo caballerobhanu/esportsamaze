@@ -53,11 +53,17 @@ next-env.d.ts
 .freebuff/
 .zcode/
 .agents/
+.agent/
+.codex/
+.cursor/
+.opencode/
+.qoder/
 .gemini/
 .claude/
 .commandcode/
 .windsurf/
 skills-lock.json
+.impeccable/config.local.json
 
 # tokens & private data
 *cline-tokens*

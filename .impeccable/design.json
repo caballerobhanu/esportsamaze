@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-21T14:02:00.000Z",
+  "title": "Design System: eSportsAmaze",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Press Cobalt",
+        "canonical": "#2452c2",
+        "tonalRamp": ["#0b1a3d", "#122a61", "#193985", "#2452c2", "#4b77dc", "#7da1e8", "#b5c9f4", "#e8effc"]
+      },
+      "accent": {
+        "role": "tertiary",
+        "displayName": "Editorial Crimson",
+        "canonical": "#cd2f7b",
+        "tonalRamp": ["#420a23", "#6c143d", "#9a1e58", "#cd2f7b", "#dd5e9a", "#ea93bd", "#f5c8dd", "#fdf0f6"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Cool Paper Canvas",
+        "canonical": "#f5f7fa",
+        "tonalRamp": ["#0f1216", "#1c222b", "#333d4d", "#64748b", "#94a3b8", "#cbd5e1", "#eaeef4", "#f5f7fa"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Pure Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#161b22", "#242c38", "#434f63", "#74839d", "#a5b1c5", "#d6dce7", "#f0f3f7", "#ffffff"]
+      },
+      "sand": {
+        "role": "neutral",
+        "displayName": "Subtle Sand",
+        "canonical": "#eaeef4",
+        "tonalRamp": ["#1d242e", "#2e3947", "#4b5c72", "#778aa3", "#a7b5c8", "#cbd5e1", "#eaeef4", "#f8fafc"]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline Divider",
+        "canonical": "#e0e6ee",
+        "tonalRamp": ["#2a3441", "#3b4859", "#56687f", "#7f92ab", "#a9b8cc", "#cdd6e3", "#e0e6ee", "#f1f4f8"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "#161a22",
+        "tonalRamp": ["#0b0d11", "#161a22", "#272f3d", "#434f63", "#697994", "#9bb0cb", "#cdd8e6", "#e9edf3"]
+      },
+      "stone": {
+        "role": "neutral",
+        "displayName": "Slate Stone",
+        "canonical": "#64748b",
+        "tonalRamp": ["#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f8fafc"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines and major tournament titles." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings and article titles." },
+      "title": { "displayName": "Title", "purpose": "Card headers, squad names, and standings tables." },
+      "body": { "displayName": "Body", "purpose": "Article text, commentary, and general UI descriptions." },
+      "label": { "displayName": "Label / Kicker", "purpose": "Table headers (.ed-th), category kickers (.kicker), badges, and timestamps." }
+    },
+    "shadows": [
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "The Zero-Shadow Rule: depth is achieved through tonal contrast and hairline borders rather than drop shadows."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Standard UI color and state transitions."
+      },
+      {
+        "name": "live-pulse",
+        "value": "1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "purpose": "Live broadcast indicator pulse animation."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1320px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Tactile, pill-soft control with confident press cobalt background.",
+      "html": "<button class=\"ds-btn-primary\">VIEW STANDINGS</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 16px; background-color: var(--ed-blue, #2452c2); padding: 10px 20px; font-size: 13px; font-weight: 500; color: #ffffff; border: none; cursor: pointer; transition: filter 0.2s ease, transform 0.1s ease; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Editorial Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat, paper-crisp module with distinct hairline header and no shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\"><span class=\"ds-label\">ROUND 1 · MATCH 4</span><span class=\"ds-kicker\">LIVE</span></div><div class=\"ds-card-body\"><p class=\"ds-body\">GodLike Esports claims WWCD with 14 finishes.</p></div></div>",
+      "css": ".ds-card { overflow: hidden; border-radius: 12px; border: 1px solid var(--ed-hair, #e0e6ee); background-color: var(--ed-surface, #ffffff); font-family: 'Plus Jakarta Sans', sans-serif; } .ds-card-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ed-hair, #e0e6ee); padding: 10px 16px; } .ds-card-body { padding: 16px; } .ds-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ed-stone, #64748b); } .ds-kicker { font-size: 10px; font-weight: 700; color: var(--ed-magenta, #cd2f7b); text-transform: uppercase; } .ds-body { font-size: 14px; line-height: 1.5; color: var(--ed-ink, #161a22); margin: 0; }"
+    },
+    {
+      "name": "Editorial Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Compact 8px hairline tag for status indicators and filter controls.",
+      "html": "<span class=\"ds-chip\">GROUP A</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid var(--ed-hair, #e0e6ee); background-color: var(--ed-surface, #ffffff); padding: 2px 8px; font-size: 11px; font-weight: 500; color: var(--ed-ink, #161a22); font-family: 'Plus Jakarta Sans', sans-serif; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Quiet, high-legibility input with subtle hairline border and cobalt focus ring.",
+      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Search players, teams, tournaments...\" />",
+      "css": ".ds-input { width: 100%; border-radius: 8px; border: 1px solid var(--ed-hair, #e0e6ee); background-color: var(--ed-surface, #ffffff); padding: 10px 14px; font-size: 14px; color: var(--ed-ink, #161a22); font-family: 'Plus Jakarta Sans', sans-serif; outline: none; transition: border-color 0.2s ease; box-sizing: border-box; } .ds-input::placeholder { color: var(--ed-stone, #64748b); } .ds-input:focus { border-color: var(--ed-blue, #2452c2); }"
+    },
+    {
+      "name": "Navigation Tab",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Clean tab navigation link with persistent cobalt active underline.",
+      "html": "<div class=\"ds-tab-strip\"><a class=\"ds-tab ds-tab-active\">Overview</a><a class=\"ds-tab\">Matches</a><a class=\"ds-tab\">Standings</a></div>",
+      "css": ".ds-tab-strip { display: flex; gap: 24px; border-bottom: 1px solid var(--ed-hair, #e0e6ee); } .ds-tab { display: inline-flex; align-items: center; padding: 12px 2px; font-size: 14px; font-weight: 500; color: var(--ed-stone, #64748b); text-decoration: none; cursor: pointer; border-bottom: 2px solid transparent; font-family: 'Plus Jakarta Sans', sans-serif; transition: color 0.2s; } .ds-tab:hover { color: var(--ed-ink, #161a22); } .ds-tab-active { color: var(--ed-blue, #2452c2); border-bottom-color: var(--ed-blue, #2452c2); }"
+    },
+    {
+      "name": "Live Pulse Indicator",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pill indicator with subtle broadcast pulse for active tournament matches.",
+      "html": "<span class=\"ds-live\"><span class=\"ds-live-dot\"></span>LIVE NOW</span>",
+      "css": ".ds-live { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; background-color: rgba(205, 47, 123, 0.1); color: var(--ed-magenta, #cd2f7b); padding: 3px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-live-dot { width: 6px; height: 6px; border-radius: 9999px; background-color: var(--ed-magenta, #cd2f7b); animation: ds-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; } @keyframes ds-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.9); } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Esports Press Room",
+    "overview": "eSportsAmaze is structured as a calm, authoritative sports journalism desk rather than a chaotic gaming portal or dark flashy dashboard. Inspired by the editorial restraint of premium publications and broadcast control rooms, the interface treats esports statistics with the dignity of top-flight athletics. Clean paper-tinted surfaces replace harsh pure whites and muddy darks; crisp slate ink anchors long-form reading and dense tables; and one confident, high-clarity Press Cobalt commands interactive attention.\n\nThe visual atmosphere balances editorial breathing room with high tabular density. Data tables, standings matrices, and match scorecards are presented with razor-sharp micro-typography and hairline separation, completely eliminating fuzzy box shadows and neon glow effects. Broadcast energy is channeled selectively through pulse badges and Editorial Crimson highlights on live tournaments.",
+    "keyCharacteristics": [
+      "Editorial Paper Canvas: Quiet, tinted backgrounds that allow dense data grids and team marks to stand out naturally.",
+      "Zero Drop Shadows: Structural hierarchy and depth conveyed strictly via tonal paper contrast and crisp 1px hairline dividers.",
+      "Press Cobalt Focal Points: The primary blue accent is guarded strictly for actionable controls, primary CTAs, and active navigation states.",
+      "Tabular Precision: Monospace-aligned numerical figures (tabular-nums) paired with wide-tracked micro-labels (tracking-wider).",
+      "Tactile Soft Controls: Distinctive pill-shaped buttons (16px radius) that introduce an approachable, human balance to rigid grid tables."
+    ],
+    "rules": [
+      {
+        "name": "The Rare Blue Rule",
+        "body": "Press Cobalt is reserved for actionable touchpoints and active state indicators. It should cover less than 8% of any given viewport; its rarity is what makes the interface instantly scanable.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tinted Neutral Rule",
+        "body": "Never introduce pure #000000 or sterile #ffffff canvas backgrounds. Every neutral carries a minute slate or paper undertone to prevent harsh eye strain during extended match tracking.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Precision Rule",
+        "body": "All numerical points, finish tallies, match times, and rankings metrics must apply tabular-nums font-semibold (font-variant-numeric: tabular-nums). Non-tabular figures in data columns are strictly forbidden.",
+        "section": "typography"
+      },
+      {
+        "name": "The Editorial Kicker Rule",
+        "body": "Section titles and featured groupings should be preceded by an uppercase, wide-tracked micro-kicker in Slate Stone to establish immediate context before the primary headline.",
+        "section": "typography"
+      },
+      {
+        "name": "The Zero-Shadow Rule",
+        "body": "Surfaces are completely flat at rest. Depth is established through tonal paper contrast and hairline boundaries. Avoid ambient drop shadows, blurred glows, and inset bevels.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the 1px hairline border strategy (--ed-hair) for all card, table, and header demarcations.",
+      "Do use tabular-nums on all statistical columns, point tables, and match countdown timers.",
+      "Do respect the 1320px maximum layout width (--page-max-width) across all public pages.",
+      "Do reserve Press Cobalt for actionable links, primary buttons, and active tabs.",
+      "Do use horizontal snap rails (.rail) on mobile screens to keep large data matrices accessible without causing full-page sideways scroll."
+    ],
+    "donts": [
+      "Don't add heavy drop shadows, neon box-shadows, or blurred card glows.",
+      "Don't use pure #000000 or #ffffff backgrounds without the editorial cool-paper undertones.",
+      "Don't saturate entire cards or section backgrounds in solid bright colors.",
+      "Don't mix multiple conflicting accent colors in the same view; keep accents focused to Press Cobalt and occasional Editorial Crimson.",
+      "Don't render non-tabular numbers in standings, scorecards, or rankings matrices."
+    ]
+  }
+}
