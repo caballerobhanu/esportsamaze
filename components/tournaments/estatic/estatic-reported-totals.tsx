@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { ClipboardList, Info } from 'lucide-react';
 import type { ReportedPlayerTotal, ReportedTeamTotal } from '@/app/(public)/tournaments/[slug]/tournament-data';
-import type { StandingsLogoMode } from '@/lib/standings-config';
+import type { StandingsColumnKey, StandingsLogoMode } from '@/lib/standings-config';
 import { TeamMark } from '@/components/ui/team-mark';
+
+/** Columns the reported table can draw, and what it shows when the config names none of them. */
+const REPORTED_STANDINGS_COLUMNS: StandingsColumnKey[] = ['mp', 'wwcd', 'place', 'elims', 'bonus', 'total'];
 
 /**
  * Reported totals — row-level facts entered by hand for events that have no
@@ -38,13 +41,17 @@ function PartialNote({ count }: { count: number }) {
 export function EstaticReportedStandings({
   teams,
   logoMode = 'TEAM',
+  columns = REPORTED_STANDINGS_COLUMNS,
 }: {
   teams: ReportedTeamTotal[];
   /** How the standings tab draws each team: crest, flag, both, or neither. */
   logoMode?: StandingsLogoMode;
+  /** The standings-config column choice, so the reported table honours the same toggles. */
+  columns?: StandingsColumnKey[];
 }) {
   const derived = teams.some((team) => team.derived);
   const partialCount = teams.reduce((count, team) => count + team.partial.length, 0);
+  const show = (key: StandingsColumnKey) => columns.includes(key);
 
   return (
     <section className="space-y-4">
@@ -66,12 +73,12 @@ export function EstaticReportedStandings({
             <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-white/10">
               <th className="px-4 py-3 text-center">#</th>
               <th className="px-4 py-3">Team</th>
-              <th className="px-4 py-3 text-center">MP</th>
-              <th className="px-4 py-3 text-center">WWCD</th>
-              <th className="px-4 py-3 text-center">Place</th>
-              <th className="px-4 py-3 text-center">Elims</th>
-              <th className="px-4 py-3 text-center">Bonus</th>
-              <th className="px-4 py-3 text-right">Total</th>
+              {show('mp') && <th className="px-4 py-3 text-center">MP</th>}
+              {show('wwcd') && <th className="px-4 py-3 text-center">WWCD</th>}
+              {show('place') && <th className="px-4 py-3 text-center">Place</th>}
+              {show('elims') && <th className="px-4 py-3 text-center">Elims</th>}
+              {show('bonus') && <th className="px-4 py-3 text-center">Bonus</th>}
+              {show('total') && <th className="px-4 py-3 text-right">Total</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-white/10">
@@ -106,14 +113,26 @@ export function EstaticReportedStandings({
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.matches)}</td>
-                <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.wwcd)}</td>
-                <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.placePoints)}</td>
-                <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.finishes ?? team.elimsPoints)}</td>
-                <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.bonusPoints)}</td>
-                <td className="px-4 py-3 text-right font-mono font-black text-[#0A5FC4] dark:text-blue-300">
-                  {num(team.totalPoints)}
-                </td>
+                {show('mp') && (
+                  <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.matches)}</td>
+                )}
+                {show('wwcd') && (
+                  <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.wwcd)}</td>
+                )}
+                {show('place') && (
+                  <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.placePoints)}</td>
+                )}
+                {show('elims') && (
+                  <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.finishes ?? team.elimsPoints)}</td>
+                )}
+                {show('bonus') && (
+                  <td className="px-4 py-3 text-center font-mono text-slate-500">{num(team.bonusPoints)}</td>
+                )}
+                {show('total') && (
+                  <td className="px-4 py-3 text-right font-mono font-black text-[#0A5FC4] dark:text-blue-300">
+                    {num(team.totalPoints)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

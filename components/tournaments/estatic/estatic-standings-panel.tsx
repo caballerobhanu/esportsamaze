@@ -22,7 +22,6 @@ import { calculateTournamentStandings, type AggregatedTeamStanding } from '@/lib
 import {
   getStageConfig,
   zoneForRank,
-  STANDINGS_COLUMN_DEFS,
   type StandingsConfig,
   type StandingsStageConfig,
   type StandingsColumnKey,
@@ -190,6 +189,7 @@ export function EstaticStandingsPanel({
   const tabGroups = React.useMemo(() => config.tabGroups || [], [config.tabGroups]);
   const hasTabGroups = tabGroups.length > 0;
   const customTabs = React.useMemo(() => config.customTabs || [], [config.customTabs]);
+  const visibleColumns = React.useMemo(() => new Set(config.columns), [config.columns]);
 
   // Active Tab Group (Level 1)
   const [activeGroupId, setActiveGroupId] = React.useState<string>(() => {
@@ -1001,59 +1001,73 @@ export function EstaticStandingsPanel({
                 </th>
 
                 {/* MP (M on mobile) */}
-                <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-7 sm:w-14" onClick={() => toggleSort('matchesPlayed')}>
-                  <span className="inline-flex items-center gap-0.5">
-                    <span className="sm:hidden">M</span>
-                    <span className="hidden sm:inline">MP</span>
-                    {sortKey === 'matchesPlayed' && (sortDir === 'asc' ? '▲' : '▼')}
-                  </span>
-                </th>
+                {visibleColumns.has('mp') && (
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-7 sm:w-14" onClick={() => toggleSort('matchesPlayed')}>
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="sm:hidden">M</span>
+                      <span className="hidden sm:inline">MP</span>
+                      {sortKey === 'matchesPlayed' && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                )}
 
                 {/* WWCD (W on mobile) */}
-                <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-7 sm:w-16" onClick={() => toggleSort('wwcd')}>
-                  <span className="inline-flex items-center gap-0.5">
-                    <span className="sm:hidden">W</span>
-                    <span className="hidden sm:inline">WWCD</span>
-                    {sortKey === 'wwcd' && (sortDir === 'asc' ? '▲' : '▼')}
-                  </span>
-                </th>
+                {visibleColumns.has('wwcd') && (
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-3 text-center cursor-pointer w-7 sm:w-16" onClick={() => toggleSort('wwcd')}>
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="sm:hidden">W</span>
+                      <span className="hidden sm:inline">WWCD</span>
+                      {sortKey === 'wwcd' && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                )}
 
                 {/* Elims Pts (E on mobile) */}
-                <th className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center cursor-pointer w-8 sm:w-16" onClick={() => toggleSort('eliminationPoints')}>
-                  <span className="inline-flex items-center gap-0.5">
-                    <span className="sm:hidden">E</span>
-                    <span className="hidden sm:inline">Elims</span>
-                    {sortKey === 'eliminationPoints' && (sortDir === 'asc' ? '▲' : '▼')}
-                  </span>
-                </th>
+                {visibleColumns.has('elims') && (
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center cursor-pointer w-8 sm:w-16" onClick={() => toggleSort('eliminationPoints')}>
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="sm:hidden">E</span>
+                      <span className="hidden sm:inline">Elims</span>
+                      {sortKey === 'eliminationPoints' && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                )}
 
                 {/* Place Pts (P on mobile) */}
-                <th className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center cursor-pointer w-8 sm:w-16" onClick={() => toggleSort('placementPoints')}>
-                  <span className="inline-flex items-center gap-0.5">
-                    <span className="sm:hidden">P</span>
-                    <span className="hidden sm:inline">Place</span>
-                    {sortKey === 'placementPoints' && (sortDir === 'asc' ? '▲' : '▼')}
-                  </span>
-                </th>
+                {visibleColumns.has('place') && (
+                  <th className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center cursor-pointer w-8 sm:w-16" onClick={() => toggleSort('placementPoints')}>
+                    <span className="inline-flex items-center gap-0.5">
+                      <span className="sm:hidden">P</span>
+                      <span className="hidden sm:inline">Place</span>
+                      {sortKey === 'placementPoints' && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                )}
 
                 {/* Bonus Pts */}
-                <th className="hidden lg:table-cell py-2.5 sm:py-3.5 px-2 text-center cursor-pointer" onClick={() => toggleSort('bonusPoints')}>
-                  <span className="inline-flex items-center gap-0.5">
-                    Bonus {sortKey === 'bonusPoints' && (sortDir === 'asc' ? '▲' : '▼')}
-                  </span>
-                </th>
+                {visibleColumns.has('bonus') && (
+                  <th className="hidden lg:table-cell py-2.5 sm:py-3.5 px-2 text-center cursor-pointer" onClick={() => toggleSort('bonusPoints')}>
+                    <span className="inline-flex items-center gap-0.5">
+                      Bonus {sortKey === 'bonusPoints' && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                )}
 
                 {/* Total Points */}
-                <th className="py-2.5 sm:py-3.5 pr-2.5 sm:pr-6 text-right cursor-pointer w-12 sm:w-24" onClick={() => toggleSort('totalPoints')}>
-                  <span className="inline-flex items-center gap-0.5">
-                    Total {sortKey === 'totalPoints' && (sortDir === 'asc' ? '▲' : '▼')}
-                  </span>
-                </th>
+                {visibleColumns.has('total') && (
+                  <th className="py-2.5 sm:py-3.5 pr-2.5 sm:pr-6 text-right cursor-pointer w-12 sm:w-24" onClick={() => toggleSort('totalPoints')}>
+                    <span className="inline-flex items-center gap-0.5">
+                      Total {sortKey === 'totalPoints' && (sortDir === 'asc' ? '▲' : '▼')}
+                    </span>
+                  </th>
+                )}
 
                 {/* Recent Form */}
-                <th className="hidden lg:table-cell py-2.5 sm:py-3.5 pr-5 pl-3 text-center min-w-[120px]">
-                  Form
-                </th>
+                {visibleColumns.has('form') && (
+                  <th className="hidden lg:table-cell py-2.5 sm:py-3.5 pr-5 pl-3 text-center min-w-[120px]">
+                    Form
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/10">
@@ -1172,75 +1186,89 @@ export function EstaticStandingsPanel({
                     </td>
 
                     {/* MP (M on mobile) */}
-                    <td className="py-2 sm:py-3 px-1 sm:px-3 text-center font-bold text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
-                      {team.matchesPlayed}
-                    </td>
+                    {visibleColumns.has('mp') && (
+                      <td className="py-2 sm:py-3 px-1 sm:px-3 text-center font-bold text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
+                        {team.matchesPlayed}
+                      </td>
+                    )}
 
                     {/* WWCD (W on mobile) */}
-                    <td className="py-2 sm:py-3 px-1 sm:px-3 text-center font-black text-amber-500 text-xs sm:text-sm">
-                      {team.wwcd > 0 ? (
-                        <span className="inline-flex items-center gap-0.5 text-[11px] sm:text-xs">
-                          {team.wwcd}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-xs">—</span>
-                      )}
-                    </td>
+                    {visibleColumns.has('wwcd') && (
+                      <td className="py-2 sm:py-3 px-1 sm:px-3 text-center font-black text-amber-500 text-xs sm:text-sm">
+                        {team.wwcd > 0 ? (
+                          <span className="inline-flex items-center gap-0.5 text-[11px] sm:text-xs">
+                            {team.wwcd}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
 
                     {/* Elims Pts (E on mobile) */}
-                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-center font-bold text-slate-700 dark:text-slate-200 text-xs sm:text-sm">
-                      {team.eliminationPoints}
-                    </td>
+                    {visibleColumns.has('elims') && (
+                      <td className="py-2 sm:py-3 px-1 sm:px-2 text-center font-bold text-slate-700 dark:text-slate-200 text-xs sm:text-sm">
+                        {team.eliminationPoints}
+                      </td>
+                    )}
 
                     {/* Place Pts (P on mobile) */}
-                    <td className="py-2 sm:py-3 px-1 sm:px-2 text-center font-bold text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
-                      {team.placementPoints}
-                    </td>
+                    {visibleColumns.has('place') && (
+                      <td className="py-2 sm:py-3 px-1 sm:px-2 text-center font-bold text-slate-600 dark:text-slate-300 text-xs sm:text-sm">
+                        {team.placementPoints}
+                      </td>
+                    )}
 
                     {/* Bonus Pts */}
-                    <td className="hidden lg:table-cell py-2 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
-                      {team.bonusPoints || 0}
-                    </td>
+                    {visibleColumns.has('bonus') && (
+                      <td className="hidden lg:table-cell py-2 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
+                        {team.bonusPoints || 0}
+                      </td>
+                    )}
 
                     {/* Total Points */}
-                    <td className="py-2 sm:py-3 pr-2.5 sm:pr-6 text-right">
-                      <span className="text-xs sm:text-base font-black text-[#0A5FC4] dark:text-blue-300">
-                        {team.totalPoints}
-                      </span>
-                    </td>
+                    {visibleColumns.has('total') && (
+                      <td className="py-2 sm:py-3 pr-2.5 sm:pr-6 text-right">
+                        <span className="text-xs sm:text-base font-black text-[#0A5FC4] dark:text-blue-300">
+                          {team.totalPoints}
+                        </span>
+                      </td>
+                    )}
 
                     {/* Recent Match Form */}
-                    <td className="hidden lg:table-cell py-2.5 sm:py-3 pr-5 pl-3 text-center">
-                      {form.length > 0 ? (
-                        <div className="inline-flex items-center gap-1">
-                          {form.map((f, idx) => {
-                            const isWwcd = f.wwcd || f.rank === 1;
-                            const isTop3 = !isWwcd && f.rank <= 3;
-                            const isZero = f.totalPoints === 0;
+                    {visibleColumns.has('form') && (
+                      <td className="hidden lg:table-cell py-2.5 sm:py-3 pr-5 pl-3 text-center">
+                        {form.length > 0 ? (
+                          <div className="inline-flex items-center gap-1">
+                            {form.map((f, idx) => {
+                              const isWwcd = f.wwcd || f.rank === 1;
+                              const isTop3 = !isWwcd && f.rank <= 3;
+                              const isZero = f.totalPoints === 0;
 
-                            return (
-                              <span
-                                key={idx}
-                                className={`inline-flex h-5 min-w-5 px-1 items-center justify-center rounded-md text-[10px] font-extrabold ${
-                                  isWwcd
-                                    ? 'bg-amber-400 text-slate-950 font-black ring-1 ring-amber-400 shadow-xs'
-                                    : isTop3
-                                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold'
-                                    : isZero
-                                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold'
-                                    : 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300 font-semibold'
-                                }`}
-                                title={`Match ${f.overallMatchNumber ?? f.matchNumber ?? ''}: ${f.totalPoints} pts (Rank #${f.rank}${isWwcd ? ' · WWCD' : ''})`}
-                              >
-                                {f.totalPoints}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
-                    </td>
+                              return (
+                                <span
+                                  key={idx}
+                                  className={`inline-flex h-5 min-w-5 px-1 items-center justify-center rounded-md text-[10px] font-extrabold ${
+                                    isWwcd
+                                      ? 'bg-amber-400 text-slate-950 font-black ring-1 ring-amber-400 shadow-xs'
+                                      : isTop3
+                                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold'
+                                      : isZero
+                                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold'
+                                      : 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300 font-semibold'
+                                  }`}
+                                  title={`Match ${f.overallMatchNumber ?? f.matchNumber ?? ''}: ${f.totalPoints} pts (Rank #${f.rank}${isWwcd ? ' · WWCD' : ''})`}
+                                >
+                                  {f.totalPoints}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
