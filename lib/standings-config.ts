@@ -370,6 +370,9 @@ export interface StandingsConfig {
       config that predates this setting renders exactly as it did before. */
   logoModeBySurface: Record<DisplaySurface, StandingsLogoMode>;
   showOverall: boolean;
+  /** Whether teams level on points get a tiebreaker badge beside their name. Admins switch this
+      off during live events, where the badges churn as results land. */
+  showTiebreakers: boolean;
   filters: StandingsFilterKey[];
   columns: StandingsColumnKey[];
   matchColumns?: MatchColumnKey[];
@@ -394,6 +397,7 @@ export const DEFAULT_STANDINGS_CONFIG: StandingsConfig = {
     statistics: DEFAULT_SURFACE_LOGO_MODE,
   },
   showOverall: true,
+  showTiebreakers: true,
   filters: ['day', 'map', 'group'],
   columns: ['mp', 'wwcd', 'place', 'elims', 'total', 'form'],
   matchColumns: ['place', 'elims', 'damage', 'total'],
@@ -747,6 +751,7 @@ export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
   const cfg: StandingsConfig = {
     logoModeBySurface: normalizeLogoModeBySurface(src.logoModeBySurface),
     showOverall: typeof src.showOverall === 'boolean' ? src.showOverall : true,
+    showTiebreakers: typeof src.showTiebreakers === 'boolean' ? src.showTiebreakers : true,
     filters: normalizeFilters(src.filters, DEFAULT_STANDINGS_CONFIG.filters),
     columns: normalizeColumns(src.columns),
     matchColumns: normalizeMatchColumns(src.matchColumns),

@@ -1154,7 +1154,7 @@ export function EstaticStandingsPanel({
                           )}
 
                           {/* Tiebreaker Explanation Badge */}
-                          {team.tiebreaker?.isTied && (
+                          {config.showTiebreakers && team.tiebreaker?.isTied && (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-tight border cursor-help shadow-2xs transition-transform hover:scale-105 ${
                                 team.tiebreaker.won

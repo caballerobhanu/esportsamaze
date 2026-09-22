@@ -1377,6 +1377,16 @@ export function TournamentStandingsConfigInput({
             Show Global Overall Standings Tab
           </label>
         </div>
+        <div className="flex items-end pb-2">
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config.showTiebreakers}
+              onChange={(e) => patch({ showTiebreakers: e.target.checked })}
+            />
+            Show Tiebreaker Badges
+          </label>
+        </div>
       </div>
 
       <div>
