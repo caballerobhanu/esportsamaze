@@ -386,13 +386,13 @@ export function EstaticStatisticsPanel({
     return Array.from(set);
   }, [playerRows]);
 
-  // Groups that the current stage selection covers. A stage that runs in a single
-  // lobby (Grand Finals, Last Chance) contributes nothing, so the filter hides.
+  // Groups the selected stages cover. Only shown once a specific stage is picked —
+  // "All Stages" spans every lobby, so it stays group-free — and a single-lobby
+  // stage (Grand Finals, Last Chance) contributes nothing, so the filter hides there too.
   const groupsList = React.useMemo(() => {
-    if (!stageGroups) return [];
+    if (!stageGroups || selectedStages.length === 0) return [];
     const set = new Set<string>();
-    const names = selectedStages.length > 0 ? selectedStages : Object.keys(stageGroups);
-    for (const name of names) {
+    for (const name of selectedStages) {
       for (const group of stageGroups[name] || []) {
         const trimmed = group?.trim();
         if (trimmed) set.add(trimmed);
