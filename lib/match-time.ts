@@ -89,9 +89,20 @@ export function timezoneCodeFromMatchTime(matchTime?: string | null): string {
   return found ? found[1].toUpperCase() : 'IST';
 }
 
+/**
+ * The locale every kick-off is rendered in.
+ *
+ * Left to the runtime's own locale, the same instant prints differently per device:
+ * en-IN gives "2:00 pm IST" while en-US gives "2:00 PM GMT+5:30" and en-GB gives
+ * "14:00 GMT+5:30" (no "IST" short name, 24-hour clock). Pinning one locale keeps the
+ * figure identical everywhere — the viewer's own *zone* still shows, just not its
+ * locale's spelling.
+ */
+const KICKOFF_LOCALE = 'en-IN';
+
 /** Overrides for the viewer-facing formatters; tests pin these, callers don't. */
 export interface KickoffFormatOptions {
-  /** BCP-47 tag. Left undefined, the runtime's own locale is used. */
+  /** BCP-47 tag. Left undefined, {@link KICKOFF_LOCALE} is used. */
   locale?: string;
   /** IANA zone. Left undefined, the runtime's own zone is used — the point of these. */
   timeZone?: string;
@@ -108,7 +119,7 @@ export interface KickoffFormatOptions {
  * having to convert from IST.
  */
 export function formatKickoffTime(date: Date, options: KickoffFormatOptions = {}): string {
-  return new Intl.DateTimeFormat(options.locale, {
+  return new Intl.DateTimeFormat(options.locale ?? KICKOFF_LOCALE, {
     hour: 'numeric',
     minute: '2-digit',
     timeZoneName: 'short',
@@ -124,7 +135,7 @@ export function formatKickoffTime(date: Date, options: KickoffFormatOptions = {}
  * the compact meta line it usually sits in.
  */
 export function formatKickoffDate(date: Date, options: KickoffFormatOptions = {}): string {
-  return new Intl.DateTimeFormat(options.locale, {
+  return new Intl.DateTimeFormat(options.locale ?? KICKOFF_LOCALE, {
     month: 'short',
     day: 'numeric',
     ...(options.withYear ? { year: 'numeric' } : {}),

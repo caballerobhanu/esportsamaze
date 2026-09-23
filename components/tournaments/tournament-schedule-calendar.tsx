@@ -360,6 +360,22 @@ export function TournamentScheduleCalendar({
   // Selected day key for match schedule drawer/sidebar
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
+  // The visitor's local "today", resolved after mount. Reading the local components of a
+  // client-side Date keeps the calendar on the visitor's date (e.g. 23rd in IST) without a
+  // UTC server render disagreeing with the browser and tripping hydration.
+  const [todayKey, setTodayKey] = useState<string | null>(null);
+  useEffect(() => {
+    setTodayKey(getLocalDateKey(new Date()));
+  }, []);
+
+  // Open on the visitor's current month rather than the first month of the schedule.
+  useEffect(() => {
+    if (!todayKey) return;
+    const [y, m] = todayKey.split('-').map(Number);
+    const idx = availableMonths.findIndex((mo) => mo.year === y && mo.month === m - 1);
+    if (idx >= 0) setSelectedMonthIdx(idx);
+  }, [todayKey, availableMonths]);
+
   // 3. Generate 7-column calendar weeks for the active month
   const { weeksData, phasesByWeek } = useMemo(() => {
     const year = activeMonth.year;
@@ -495,8 +511,18 @@ export function TournamentScheduleCalendar({
     return { weeksData: weeks, phasesByWeek: phaseMap };
   }, [activeMonth, minDate, maxDate, matchesByDate, stageColorMap, dayMetaMap]);
 
-  // Auto-select the first matchday in this active month so PC view is immediately populated
+  // Populate the active month so PC view is immediately filled. Today wins when the
+  // visible month contains it; otherwise fall back to the month's first matchday.
   useEffect(() => {
+    if (!todayKey) return;
+    if (
+      weeksData.some(
+        (w) => w.some((d) => d.dateKey === todayKey && d.isCurrentMonth && d.isWithinTournament)
+      )
+    ) {
+      setSelectedDayKey(todayKey);
+      return;
+    }
     for (const w of weeksData) {
       const firstMatchDay = w.find((d) => d.isCurrentMonth && d.isMatchDay);
       if (firstMatchDay) {
@@ -509,7 +535,7 @@ export function TournamentScheduleCalendar({
     if (anyDay) {
       setSelectedDayKey(anyDay.dateKey);
     }
-  }, [weeksData]);
+  }, [weeksData, todayKey]);
 
   // Selected Day Object
   const selectedDay = useMemo(() => {
