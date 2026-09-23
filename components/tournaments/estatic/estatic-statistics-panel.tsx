@@ -152,12 +152,20 @@ const COLUMN_CONFIG_MAP: Record<
       if (!detail || detail.teamElims === 0) {
         return <span className="text-xs text-slate-400">—</span>;
       }
+      const share = p.elimContribution ?? 0;
+      // Colour rises with the share — a bigger slice of the squad's kills stands out.
+      const tone =
+        share >= 30
+          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+          : share >= 20
+          ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:text-blue-300'
+          : 'bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400';
       return (
         <span
-          className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-black text-rose-600 dark:text-rose-400"
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-black ${tone}`}
           title={`${detail.playerElims} of ${detail.teamElims} squad elims`}
         >
-          {p.elimContribution ?? 0}%
+          {share}%
         </span>
       );
     },
