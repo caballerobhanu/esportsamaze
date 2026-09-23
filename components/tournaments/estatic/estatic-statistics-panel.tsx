@@ -1422,9 +1422,23 @@ export function EstaticStatisticsPanel({
                               {player.ign}
                             </Link>
                             <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                              <span className="font-bold text-slate-600 dark:text-slate-300">
+                              <button
+                                type="button"
+                                onClick={() => handlePlayerSort('team')}
+                                title="Sort by team"
+                                className={`inline-flex items-center gap-0.5 font-bold transition-colors cursor-pointer ${
+                                  playerSortKey === 'team'
+                                    ? 'text-[#0A5FC4] dark:text-blue-300'
+                                    : 'text-slate-600 dark:text-slate-300 hover:text-[#0A5FC4] dark:hover:text-blue-300'
+                                }`}
+                              >
                                 {player.teamTag || player.teamName}
-                              </span>
+                                {playerSortKey === 'team' && (
+                                  <span className="text-[8px] leading-none">
+                                    {playerSortDir === 'asc' ? '▲' : '▼'}
+                                  </span>
+                                )}
+                              </button>
                               {showPlayerRole && player.role && (
                                 <>
                                   <span>•</span>
