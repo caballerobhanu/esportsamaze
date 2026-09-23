@@ -186,6 +186,7 @@ export interface StandingsTabGroup {
 
 export type PlayerStatColumnKey =
   | 'elims'
+  | 'elimContribution'
   | 'powerplay'
   | 'avgElims'
   | 'maxElims'
@@ -204,6 +205,7 @@ export type PlayerStatColumnKey =
 
 export const PLAYER_STAT_COLUMN_DEFS: { key: PlayerStatColumnKey; label: string; short: string }[] = [
   { key: 'elims', label: 'Eliminations', short: 'Elims' },
+  { key: 'elimContribution', label: 'Elim Contribution (Squad Share)', short: 'Elim %' },
   { key: 'powerplay', label: 'Powerplay Finishes', short: 'Powerplay' },
   { key: 'avgElims', label: 'Avg Elims / Match', short: 'Avg/M' },
   { key: 'maxElims', label: 'Max Elims in Match', short: 'Max Elims' },

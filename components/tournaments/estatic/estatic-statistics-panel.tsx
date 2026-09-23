@@ -144,6 +144,26 @@ const COLUMN_CONFIG_MAP: Record<
     headerClass: 'text-center w-20',
     cellClass: 'text-center',
   },
+  elimContribution: {
+    field: 'elimContribution',
+    label: 'Contribution',
+    render: (p) => {
+      const detail = p.elimContributionDetail;
+      if (!detail || detail.teamElims === 0) {
+        return <span className="text-xs text-slate-400">—</span>;
+      }
+      return (
+        <span
+          className="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-black text-rose-600 dark:text-rose-400"
+          title={`${detail.playerElims} of ${detail.teamElims} squad elims`}
+        >
+          {p.elimContribution ?? 0}%
+        </span>
+      );
+    },
+    headerClass: 'text-center w-24',
+    cellClass: 'text-center',
+  },
   powerplay: {
     field: 'totalPowerplay',
     label: 'Powerplay',
@@ -408,6 +428,19 @@ export function EstaticStatisticsPanel({
     }
   }, [groupsList, selectedGroup]);
 
+  // A squad's elims per match, summed across its players, so a player's share can be
+  // computed from the same (filtered) match set the rest of the row uses. Key is team|match.
+  const teamElimsByMatch = React.useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const p of playerRows) {
+      for (const [matchId, s] of Object.entries(p.matchStats)) {
+        const key = `${p.teamId || ''}|${matchId}`;
+        totals.set(key, (totals.get(key) || 0) + (s.playerElims || 0));
+      }
+    }
+    return totals;
+  }, [playerRows]);
+
   // Handle stage multi-selection
   const toggleStage = (stage: string) => {
     if (stage === 'ALL') {
@@ -421,6 +454,22 @@ export function EstaticStatisticsPanel({
 
   // Filtered Players aggregation based on Multi-Stage / Map / Day / Role / Search
   const filteredPlayers = React.useMemo(() => {
+    // A player's elims over the squad's elims across the same matches (0–100).
+    const elimContributionOf = (
+      p: PlayerPerformanceRow,
+      entries: [string, PlayerPerformanceRow['matchStats'][string]][]
+    ) => {
+      const playerElims = entries.reduce((s, [, m]) => s + (m.playerElims || 0), 0);
+      const teamElims = entries.reduce(
+        (s, [matchId]) => s + (teamElimsByMatch.get(`${p.teamId || ''}|${matchId}`) || 0),
+        0
+      );
+      return {
+        elimContribution: teamElims > 0 ? Number(((playerElims / teamElims) * 100).toFixed(1)) : 0,
+        elimContributionDetail: { playerElims, teamElims },
+      };
+    };
+
     return playerRows
       .map((p) => {
         const isAllStages = selectedStages.length === 0;
@@ -429,7 +478,8 @@ export function EstaticStatisticsPanel({
         const isAllGroups = selectedGroup === 'ALL';
 
         if (isAllStages && isAllMaps && isAllDays && isAllGroups) {
-          const allMatches = Object.values(p.matchStats);
+          const allEntries = Object.entries(p.matchStats);
+          const allMatches = allEntries.map(([, m]) => m);
           const customStats: Record<string, number> = {};
           if (customPlayerColumns && customPlayerColumns.length > 0) {
             for (const col of customPlayerColumns) {
@@ -454,16 +504,18 @@ export function EstaticStatisticsPanel({
                 ? allMatches.filter((m) => (m.playerElims || 0) >= 5).length
                 : 0),
             customStats,
+            ...elimContributionOf(p, allEntries),
           };
         }
 
-        const activeMatches = Object.values(p.matchStats).filter((m) => {
+        const activeEntries = Object.entries(p.matchStats).filter(([, m]) => {
           if (!isAllStages && !selectedStages.includes(m.stageName)) return false;
           if (!isAllMaps && m.mapName !== selectedMap) return false;
           if (!isAllDays && m.day !== selectedDay) return false;
           if (!isAllGroups && (m.groupName || '') !== selectedGroup) return false;
           return true;
         });
+        const activeMatches = activeEntries.map(([, m]) => m);
 
         if (activeMatches.length === 0) return null;
 
@@ -503,6 +555,7 @@ export function EstaticStatisticsPanel({
           zeroElimsMatches: zeroElims,
           fivePlusElimsMatches: fivePlusElims,
           customStats,
+          ...elimContributionOf(p, activeEntries),
         };
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -539,7 +592,7 @@ export function EstaticStatisticsPanel({
         }
         return playerSortDir === 'desc' ? -cmp : cmp;
       });
-  }, [playerRows, selectedStages, selectedMap, selectedDay, selectedRole, selectedGroup, searchQuery, playerSortKey, playerSortDir, customPlayerColumns]);
+  }, [playerRows, teamElimsByMatch, selectedStages, selectedMap, selectedDay, selectedRole, selectedGroup, searchQuery, playerSortKey, playerSortDir, customPlayerColumns]);
 
   // Filtered Teams aggregation based on Multi-Stage / Map / Day / Search
   const filteredTeams = React.useMemo(() => {

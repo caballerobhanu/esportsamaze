@@ -172,6 +172,10 @@ export interface PlayerPerformanceRow {
   zeroElimsMatches?: number;
   fivePlusElimsMatches?: number;
   customStats?: Record<string, number>;
+  /** Share of the squad's elims this player accounted for, over the matches shown (0–100). */
+  elimContribution?: number;
+  /** Raw counts behind {@link elimContribution}, for the cell's tooltip. */
+  elimContributionDetail?: { playerElims: number; teamElims: number };
   matchStats: Record<
     string,
     {
