@@ -56,6 +56,7 @@ export default async function TournamentStatisticsPage({
           defaultTeamPointsMode={ctx.standingsConfig.statisticsConfig?.defaultTeamPointsMode}
           adminPlayerColumns={ctx.standingsConfig.statisticsConfig?.playerColumns}
           customPlayerColumns={ctx.standingsConfig.statisticsConfig?.customPlayerColumns}
+          showPlayerRole={ctx.standingsConfig.statisticsConfig?.showPlayerRole}
         />
 
         <EstaticReportedTotals teams={reported.teams} players={reported.players} />

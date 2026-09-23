@@ -1307,6 +1307,7 @@ export function buildStatisticsData(ctx: TournamentContext) {
         };
         if (mapName) mStat.mapName = mapName;
         if (matchDay) mStat.day = matchDay;
+        if (m.groupName) mStat.groupName = m.groupName;
         if (ps.playerPowerplay) mStat.playerPowerplay = ps.playerPowerplay;
         if (ps.isMvp) mStat.isMvp = true;
         if (allowDamage && ps.damage) mStat.damage = ps.damage;

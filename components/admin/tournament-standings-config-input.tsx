@@ -1719,6 +1719,21 @@ export function TournamentStandingsConfigInput({
         {/* ── PLAYER CONFIGURATION TAB ── */}
         {statsConfigTab === 'players' && (
           <div className="space-y-4 pt-1">
+            {/* Player Role Display */}
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={config.statisticsConfig?.showPlayerRole === true}
+                onChange={(e) =>
+                  patch({
+                    statisticsConfig: { ...config.statisticsConfig, showPlayerRole: e.target.checked },
+                  })
+                }
+                className="rounded text-purple-600 focus:ring-purple-500"
+              />
+              <span>Show each player&apos;s role beside their name</span>
+            </label>
+
             {/* Player Columns to Showcase */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">

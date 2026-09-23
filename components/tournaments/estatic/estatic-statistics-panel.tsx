@@ -36,6 +36,8 @@ export interface EstaticStatisticsPanelProps {
   defaultTeamPointsMode?: TeamPointsMode;
   adminPlayerColumns?: PlayerStatColumnKey[];
   customPlayerColumns?: CustomPlayerColumn[];
+  /** Show each player's role beside their name. Off by default: the role pills already filter. */
+  showPlayerRole?: boolean;
 }
 
 function computeCustomColumnValue(
@@ -328,6 +330,7 @@ export function EstaticStatisticsPanel({
   defaultTeamPointsMode = 'sum',
   adminPlayerColumns,
   customPlayerColumns,
+  showPlayerRole = false,
   logoMode = 'TEAM',
 }: EstaticStatisticsPanelProps) {
   // Navigation & view states
@@ -336,6 +339,7 @@ export function EstaticStatisticsPanel({
   const [selectedMap, setSelectedMap] = React.useState<string>('ALL');
   const [selectedDay, setSelectedDay] = React.useState<string>('ALL');
   const [selectedRole, setSelectedRole] = React.useState<string>('ALL');
+  const [selectedGroup, setSelectedGroup] = React.useState<string>('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const activeColumns: PlayerStatColumnKey[] = React.useMemo(() => {
@@ -382,6 +386,28 @@ export function EstaticStatisticsPanel({
     return Array.from(set);
   }, [playerRows]);
 
+  // Groups that the current stage selection covers. A stage that runs in a single
+  // lobby (Grand Finals, Last Chance) contributes nothing, so the filter hides.
+  const groupsList = React.useMemo(() => {
+    if (!stageGroups) return [];
+    const set = new Set<string>();
+    const names = selectedStages.length > 0 ? selectedStages : Object.keys(stageGroups);
+    for (const name of names) {
+      for (const group of stageGroups[name] || []) {
+        const trimmed = group?.trim();
+        if (trimmed) set.add(trimmed);
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [stageGroups, selectedStages]);
+
+  // A group chosen under one stage must not linger once another stage is picked.
+  React.useEffect(() => {
+    if (selectedGroup !== 'ALL' && !groupsList.includes(selectedGroup)) {
+      setSelectedGroup('ALL');
+    }
+  }, [groupsList, selectedGroup]);
+
   // Handle stage multi-selection
   const toggleStage = (stage: string) => {
     if (stage === 'ALL') {
@@ -400,8 +426,9 @@ export function EstaticStatisticsPanel({
         const isAllStages = selectedStages.length === 0;
         const isAllMaps = selectedMap === 'ALL';
         const isAllDays = selectedDay === 'ALL';
+        const isAllGroups = selectedGroup === 'ALL';
 
-        if (isAllStages && isAllMaps && isAllDays) {
+        if (isAllStages && isAllMaps && isAllDays && isAllGroups) {
           const allMatches = Object.values(p.matchStats);
           const customStats: Record<string, number> = {};
           if (customPlayerColumns && customPlayerColumns.length > 0) {
@@ -434,6 +461,7 @@ export function EstaticStatisticsPanel({
           if (!isAllStages && !selectedStages.includes(m.stageName)) return false;
           if (!isAllMaps && m.mapName !== selectedMap) return false;
           if (!isAllDays && m.day !== selectedDay) return false;
+          if (!isAllGroups && (m.groupName || '') !== selectedGroup) return false;
           return true;
         });
 
@@ -511,18 +539,42 @@ export function EstaticStatisticsPanel({
         }
         return playerSortDir === 'desc' ? -cmp : cmp;
       });
-  }, [playerRows, selectedStages, selectedMap, selectedDay, selectedRole, searchQuery, playerSortKey, playerSortDir, customPlayerColumns]);
+  }, [playerRows, selectedStages, selectedMap, selectedDay, selectedRole, selectedGroup, searchQuery, playerSortKey, playerSortDir, customPlayerColumns]);
 
   // Filtered Teams aggregation based on Multi-Stage / Map / Day / Search
   const filteredTeams = React.useMemo(() => {
+    // Per-map totals, so the map columns stay right under a stage/day/group filter
+    // as well as with every map in view. `peak` is the best single match on a map,
+    // which is what Peak mode means everywhere else in this table.
+    const accumulateByMap = (matches?: TeamPerformanceRow['matches']) => {
+      const out: Record<string, { points: number; matches: number; peak: number }> = {};
+      for (const m of matches ?? []) {
+        const entry = out[m.mapName] || (out[m.mapName] = { points: 0, matches: 0, peak: 0 });
+        const pts = m.totalPoints || 0;
+        entry.points += pts;
+        entry.matches += 1;
+        entry.peak = Math.max(entry.peak, pts);
+      }
+      return out;
+    };
+    const mapPointsFor = (t: TeamPerformanceRow) => {
+      if (t.matches && t.matches.length > 0) return accumulateByMap(t.matches);
+      const out: Record<string, { points: number; matches: number; peak: number }> = {};
+      for (const [map, stats] of Object.entries(t.mapStats || {})) {
+        out[map] = { points: stats.totalPoints, matches: stats.matchesPlayed, peak: stats.totalPoints };
+      }
+      return out;
+    };
+
     return teamRows
       .map((t) => {
         const isAllStages = selectedStages.length === 0;
         const isAllMaps = selectedMap === 'ALL';
         const isAllDays = selectedDay === 'ALL';
+        const isAllGroups = selectedGroup === 'ALL';
 
-        if (isAllStages && isAllMaps && isAllDays) {
-          return t;
+        if (isAllStages && isAllMaps && isAllDays && isAllGroups) {
+          return { ...t, pointsByMap: mapPointsFor(t) };
         }
 
         if (t.matches && t.matches.length > 0) {
@@ -530,10 +582,13 @@ export function EstaticStatisticsPanel({
             if (!isAllStages && !selectedStages.includes(m.stageName)) return false;
             if (!isAllMaps && m.mapName !== selectedMap) return false;
             if (!isAllDays && m.day !== selectedDay) return false;
+            if (!isAllGroups && (m.groupName || '') !== selectedGroup) return false;
             return true;
           });
 
           if (activeMatches.length === 0) return null;
+
+          const pointsByMap = accumulateByMap(activeMatches);
 
           const mp = activeMatches.length;
           const wwcd = activeMatches.filter((m) => m.wwcd || m.rank === 1).length;
@@ -558,10 +613,11 @@ export function EstaticStatisticsPanel({
             totalPoints: totalPts,
             avgTotalPoints: Number((totalPts / (mp || 1)).toFixed(1)),
             maxTotalPoints: activeMatches.reduce((mx, m) => Math.max(mx, m.totalPoints || 0), 0),
+            pointsByMap,
           };
         }
 
-        return t;
+        return { ...t, pointsByMap: mapPointsFor(t) };
       })
       .filter((t): t is NonNullable<typeof t> => t !== null)
       .filter((t) => {
@@ -595,7 +651,7 @@ export function EstaticStatisticsPanel({
         }
         return teamSortDir === 'desc' ? -cmp : cmp;
       });
-  }, [teamRows, selectedStages, selectedMap, selectedDay, searchQuery, teamSortKey, teamSortDir, teamPointsMode]);
+  }, [teamRows, selectedStages, selectedMap, selectedDay, selectedGroup, searchQuery, teamSortKey, teamSortDir, teamPointsMode]);
 
   // Top 3 Tournament Fraggers Spotlight
   const top3Fraggers = React.useMemo(() => {
@@ -1099,6 +1155,38 @@ export function EstaticStatisticsPanel({
               </div>
             )}
 
+            {/* Group Filter — only when the active stage(s) hold more than one group */}
+            {groupsList.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Group:</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedGroup('ALL')}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                    selectedGroup === 'ALL'
+                      ? 'bg-[#0A5FC4] text-white'
+                      : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-400'
+                  }`}
+                >
+                  All
+                </button>
+                {groupsList.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setSelectedGroup(g)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
+                      selectedGroup === g
+                        ? 'bg-[#0A5FC4] text-white'
+                        : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-400'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Role Filter (Player View Only) */}
             {activeTab === 'players' && rolesList.length > 0 && (
               <div className="flex items-center gap-1.5">
@@ -1276,7 +1364,7 @@ export function EstaticStatisticsPanel({
                               <span className="font-bold text-slate-600 dark:text-slate-300">
                                 {player.teamTag || player.teamName}
                               </span>
-                              {player.role && (
+                              {showPlayerRole && player.role && (
                                 <>
                                   <span>•</span>
                                   <span className="font-semibold uppercase tracking-wider">
@@ -1373,6 +1461,17 @@ export function EstaticStatisticsPanel({
                     <span>Elims</span>
                     <SortIcon active={teamSortKey === 'elimsPoints'} dir={teamSortDir} />
                   </th>
+                  {/* Per-map points — shown only while every map is in view */}
+                  {selectedMap === 'ALL' &&
+                    mapsList.map((map) => (
+                      <th
+                        key={map}
+                        className="hidden md:table-cell py-3.5 px-3 text-center w-20"
+                        title={`Points on ${map}`}
+                      >
+                        <span className="block max-w-[5rem] truncate mx-auto">{map}</span>
+                      </th>
+                    ))}
                   <th
                     className="py-3.5 pr-4 sm:pr-6 text-right cursor-pointer group w-28"
                     onClick={() => handleTeamSort('totalPoints')}
@@ -1385,7 +1484,10 @@ export function EstaticStatisticsPanel({
               <tbody className="divide-y divide-slate-100 dark:divide-white/10 text-xs sm:text-sm">
                 {filteredTeams.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-sm font-bold text-slate-400">
+                    <td
+                      colSpan={8 + (selectedMap === 'ALL' ? mapsList.length : 0)}
+                      className="py-12 text-center text-sm font-bold text-slate-400"
+                    >
                       No team statistics found for selected filters.
                     </td>
                   </tr>
@@ -1491,6 +1593,28 @@ export function EstaticStatisticsPanel({
                         <td className="hidden md:table-cell py-3 px-3 text-center font-bold text-slate-600 dark:text-slate-300">
                           {elimsVal}
                         </td>
+
+                        {/* Per-map points — shown only while every map is in view */}
+                        {selectedMap === 'ALL' &&
+                          mapsList.map((map) => {
+                            const mapEntry = team.pointsByMap?.[map];
+                            const mapVal =
+                              !mapEntry
+                                ? 0
+                                : teamPointsMode === 'avg'
+                                ? Number((mapEntry.points / (mapEntry.matches || 1)).toFixed(1))
+                                : teamPointsMode === 'max'
+                                ? mapEntry.peak
+                                : mapEntry.points;
+                            return (
+                              <td
+                                key={map}
+                                className="hidden md:table-cell py-3 px-3 text-center font-bold text-slate-600 dark:text-slate-300"
+                              >
+                                {mapVal}
+                              </td>
+                            );
+                          })}
 
                         {/* Total Points */}
                         <td className="py-3 pr-4 sm:pr-6 text-right">

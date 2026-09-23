@@ -111,6 +111,11 @@ export interface TeamPerformanceRow {
   avgTotalPoints: number;
   maxTotalPoints: number;
   matches?: TeamMatchDetail[];
+  /**
+   * Per-map totals, computed by the statistics panel from the currently-filtered
+   * matches: `points` sums the map, `peak` is the best single match on it.
+   */
+  pointsByMap?: Record<string, { points: number; matches: number; peak: number }>;
   mapStats: Record<
     string,
     {

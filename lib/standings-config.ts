@@ -324,6 +324,8 @@ export interface StatisticsConfig {
   playerColumns?: PlayerStatColumnKey[];
   customPlayerColumns?: CustomPlayerColumn[];
   defaultTeamPointsMode?: 'sum' | 'avg' | 'max';
+  /** Show a player's role beside their name. Off by default: the role pills already filter. */
+  showPlayerRole?: boolean;
 }
 
 /** Public surfaces that each choose how a team is drawn: crest, flag, both, or neither. */
@@ -713,6 +715,7 @@ export function normalizeStatisticsConfig(v: unknown): StatisticsConfig {
     playerColumns: playerColumns.length > 0 ? playerColumns : undefined,
     customPlayerColumns: customPlayerColumns.length > 0 ? customPlayerColumns : undefined,
     defaultTeamPointsMode,
+    showPlayerRole: s.showPlayerRole === true,
   };
 }
 
