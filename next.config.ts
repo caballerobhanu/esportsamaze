@@ -78,6 +78,28 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  /**
+   * Game-scoped routes replaced the flat ones. Every section moved under the
+   * default game (`/bgmi/...`), so the old URL for each is a permanent redirect.
+   * Targets are hardcoded — dynamic prefixes are not supported here.
+   */
+  async redirects() {
+    const game = (process.env.NEXT_PUBLIC_DEFAULT_GAME_SLUG || "bgmi").trim();
+    const sections = ["tournaments", "teams", "players", "rankings"];
+    return sections.map((section) => ({
+      source: `/${section}`,
+      destination: `/${game}/${section}`,
+      permanent: true,
+    })).concat(
+      sections.map((section) => ({
+        source: `/${section}/:path*`,
+        destination: `/${game}/${section}/:path*`,
+        permanent: true,
+      })),
+      // Compare moved under the game too.
+      { source: `/compare`, destination: `/${game}/compare`, permanent: true }
+    );
+  },
 };
 
 export default nextConfig;

@@ -10,6 +10,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { playerHref } from '@/lib/entity-links';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export interface PlayersDirectoryItem {
   id: string;
@@ -49,7 +51,7 @@ export interface PlayersDirectoryFilters {
 export interface PlayersFacetCounts {
   total: number;
   roles: Record<string, number>;
-  games: Array<{ id: string; name: string; count: number }>;
+  games: Array<{ slug: string; name: string; count: number }>;
 }
 
 const ROLES = ['ALL', 'Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
@@ -61,7 +63,7 @@ export function PlayersDirectoryExplorer({
   counts,
   page = 1,
   totalPages = 1,
-  basePath = '/players',
+  basePath = gameHref(DEFAULT_GAME_SLUG, 'players'),
 }: {
   players: PlayersDirectoryItem[];
   filters: PlayersDirectoryFilters;
@@ -146,7 +148,7 @@ export function PlayersDirectoryExplorer({
               >
                 <option value="ALL">All Games</option>
                 {counts.games.map((g) => (
-                  <option key={g.id} value={g.id}>
+                  <option key={g.slug} value={g.slug}>
                     {g.name} ({g.count})
                   </option>
                 ))}
@@ -298,7 +300,7 @@ export function PlayersDirectoryExplorer({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {players.map((p) => {
-            const playerUrl = p.slug ? `/players/${p.slug}` : '#';
+            const playerUrl = p.slug ? playerHref(p) : '#';
 
             return (
               <Link

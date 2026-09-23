@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SITE_SLOGAN } from '@/lib/seo';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * Closing masthead above the footer: the site statement (the page's single h1),
@@ -17,10 +18,10 @@ export function StatsBand({
   matchesCount: number;
 }) {
   const quickLinks = [
-    { label: 'All tournaments', href: '/tournaments' },
-    { label: 'Team index', href: '/teams' },
-    { label: 'Power rankings', href: '/rankings' },
-    { label: 'Compare teams', href: '/compare' },
+    { label: 'All tournaments', href: gameHref(DEFAULT_GAME_SLUG, 'tournaments') },
+    { label: 'Team index', href: gameHref(DEFAULT_GAME_SLUG, 'teams') },
+    { label: 'Power rankings', href: gameHref(DEFAULT_GAME_SLUG, 'rankings') },
+    { label: 'Compare teams', href: gameHref(DEFAULT_GAME_SLUG, 'compare') },
     { label: 'News & analysis', href: '/news' },
     { label: 'About the project', href: '/about' },
   ];

@@ -1,4 +1,5 @@
 /* Site-wide SEO helpers: base URL, metadata defaults and JSON-LD builders. */
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export const SITE_NAME = 'eSportsAmaze';
 
@@ -273,6 +274,8 @@ export interface SportsEventInput {
   organizers?: SportsEventEntity[];
   imageUrl?: string | null;
   gameName?: string | null;
+  /** The game whose section the event's URL lives under; defaults to the default game. */
+  gameSlug?: string | null;
   /** Participating teams — emitted as both `competitor` and `performer`. */
   competitors?: SportsEventEntity[];
 }
@@ -336,7 +339,7 @@ function eventPlace(venue: SportsEventVenue): SportsEventPlaceJsonLd {
 }
 
 export function sportsEventJsonLd(event: SportsEventInput): SportsEventJsonLd {
-  const url = absoluteUrl(`/tournaments/${event.slug}`);
+  const url = absoluteUrl(gameHref(event.gameSlug || DEFAULT_GAME_SLUG, `tournaments/${event.slug}`));
   const status = event.status ? EVENT_STATUS[event.status] : undefined;
   const mode = attendanceMode(event.eventType);
   const venues = (event.venues ?? []).filter((venue) => venue.name);
@@ -396,18 +399,21 @@ export interface SportsTeamInput {
   logoUrl?: string | null;
   region?: string | null;
   foundedYear?: number | null;
+  /** The game whose section the team's URL lives under; defaults to the default game. */
+  gameSlug?: string | null;
   members?: Array<{ name: string; slug: string | null; role?: string | null }>;
   sameAs?: string[];
 }
 
 export function sportsTeamJsonLd(team: SportsTeamInput) {
-  const url = team.slug ? absoluteUrl(`/teams/${team.slug}`) : undefined;
+  const game = team.gameSlug || DEFAULT_GAME_SLUG;
+  const url = team.slug ? absoluteUrl(gameHref(game, `teams/${team.slug}`)) : undefined;
   const alternateName = team.tag || team.displayName || undefined;
   const sameAs = (team.sameAs ?? []).filter(Boolean);
   const members = (team.members ?? []).map((member) => ({
     '@type': 'Person',
     name: member.name,
-    ...(member.slug ? { url: absoluteUrl(`/players/${member.slug}`) } : {}),
+    ...(member.slug ? { url: absoluteUrl(gameHref(game, `players/${member.slug}`)) } : {}),
     ...(member.role ? { jobTitle: member.role } : {}),
   }));
 
@@ -438,11 +444,14 @@ export interface PlayerPersonInput {
   birthDate?: Date | null;
   teamName?: string | null;
   teamSlug?: string | null;
+  /** The game whose section the player's URL lives under; defaults to the default game. */
+  gameSlug?: string | null;
   sameAs?: string[];
 }
 
 export function personJsonLd(player: PlayerPersonInput) {
-  const url = player.slug ? absoluteUrl(`/players/${player.slug}`) : undefined;
+  const game = player.gameSlug || DEFAULT_GAME_SLUG;
+  const url = player.slug ? absoluteUrl(gameHref(game, `players/${player.slug}`)) : undefined;
   const realName = [player.firstName, player.lastName].filter(Boolean).join(' ').trim();
   const sameAs = (player.sameAs ?? []).filter(Boolean);
 
@@ -465,7 +474,7 @@ export function personJsonLd(player: PlayerPersonInput) {
           memberOf: {
             '@type': 'SportsTeam',
             name: player.teamName,
-            ...(player.teamSlug ? { url: absoluteUrl(`/teams/${player.teamSlug}`) } : {}),
+            ...(player.teamSlug ? { url: absoluteUrl(gameHref(game, `teams/${player.teamSlug}`)) } : {}),
           },
         }
       : {}),

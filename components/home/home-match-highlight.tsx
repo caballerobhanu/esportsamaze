@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { CheckCircle2, Clock, Trophy } from 'lucide-react';
 import { getTournamentShortName } from '@/lib/utils';
 import { teamHref } from '@/lib/entity-links';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { KickoffDate, KickoffTime } from '@/components/ui/kickoff';
 
 export interface HighlightMatchData {
@@ -54,7 +55,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3 sm:px-5 dark:border-white/10 dark:bg-[#070b14]/50">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
           <Link
-            href={`/tournaments/${match.tournament.slug}`}
+            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${match.tournament.slug}`)}
             className="rounded-full bg-[#0A5FC4]/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#0A5FC4] hover:bg-[#0A5FC4]/20 transition-colors dark:text-blue-400"
           >
             {getTournamentShortName(match.tournament)}

@@ -20,21 +20,22 @@ import {
 import { ModeToggle } from './mode-toggle';
 import { cn } from '@/lib/utils';
 import { SITE_SLOGAN } from '@/lib/seo';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import type { SearchResultItem } from '@/app/api/search/route';
 
 export const NAV_ITEMS = [
-  { label: 'Tournaments', href: '/tournaments' },
-  { label: 'Teams', href: '/teams' },
+  { label: 'Tournaments', href: gameHref(DEFAULT_GAME_SLUG, 'tournaments') },
+  { label: 'Teams', href: gameHref(DEFAULT_GAME_SLUG, 'teams') },
   { label: 'News', href: '/news' },
-  { label: 'Rankings', href: '/rankings' },
+  { label: 'Rankings', href: gameHref(DEFAULT_GAME_SLUG, 'rankings') },
   { label: 'Support', href: '/about' },
 ];
 
 type MoreItem = { label: string; href: string } | { label: string; soon: true };
 
 export const MORE_ITEMS: MoreItem[] = [
-  { label: 'Players', href: '/players' },
-  { label: 'Compare', href: '/compare' },
+  { label: 'Players', href: gameHref(DEFAULT_GAME_SLUG, 'players') },
+  { label: 'Compare', href: gameHref(DEFAULT_GAME_SLUG, 'compare') },
   { label: 'Statistics', soon: true },
 ];
 

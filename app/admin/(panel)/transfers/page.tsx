@@ -12,6 +12,7 @@ import {
 import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import type { PlayerTransferType } from '@/lib/player-transfer-rule';
 import { Combobox } from '@/components/admin/combobox';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export const dynamic = 'force-dynamic';
 
@@ -272,7 +273,7 @@ export default async function AdminTransfersPage({
               <tr key={tr.id} className="hover:bg-slate-50 dark:hover:bg-[#121929] transition-colors">
                 <td className="py-2.5 px-3">
                   {tr.player.slug ? (
-                    <Link href={`/players/${tr.player.slug}`} className="font-bold hover:text-(--ed-blue) transition-colors">
+                    <Link href={gameHref(DEFAULT_GAME_SLUG, `players/${tr.player.slug}`)} className="font-bold hover:text-(--ed-blue) transition-colors">
                       {tr.player.ign}
                     </Link>
                   ) : (

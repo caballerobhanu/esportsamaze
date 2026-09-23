@@ -8,6 +8,7 @@ import { TeamCrest } from './team-crest';
 import { cn } from '@/lib/utils';
 import { MIN_AVERAGE_SAMPLES, formatAverage } from '@/lib/team-stats';
 import type { HeadToHeadRow } from '@/lib/team-data';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /** Rows in the main table before the rest collapse behind a "show all". */
 const VISIBLE_ROWS = 15;
@@ -77,7 +78,7 @@ function HeadToHeadTable({
                 )}
               >
                 <td className="px-2 py-3 lg:px-4">
-                  <Link href={`/teams/${opponentSlug}`} className="group flex items-center gap-3">
+                  <Link href={gameHref(DEFAULT_GAME_SLUG, `teams/${opponentSlug}`)} className="group flex items-center gap-3">
                     <TeamCrest name={row.name} lightSrc={row.logoUrl} darkSrc={row.imageDarkUrl} />
                     <span className="min-w-0">
                       <span className="hidden truncate font-extrabold transition-colors group-hover:text-[#0A5FC4] lg:block">
@@ -146,7 +147,7 @@ function HeadToHeadTable({
                 </td>
                 <td className="hidden px-2 py-3 lg:px-4 lg:table-cell">
                   <Link
-                    href={`/compare?type=teams&teamA=${encodeURIComponent(teamSlug)}&teamB=${encodeURIComponent(opponentSlug)}`}
+                    href={`${gameHref(DEFAULT_GAME_SLUG, 'compare')}?type=teams&teamA=${encodeURIComponent(teamSlug)}&teamB=${encodeURIComponent(opponentSlug)}`}
                     className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
                     aria-label={`Compare ${teamName} with ${row.name}`}
                   >
@@ -255,7 +256,7 @@ export function HeadToHeadBoard({
       )}
 
       <Link
-        href={`/compare?type=teams&teamA=${encodeURIComponent(teamSlug)}`}
+        href={`${gameHref(DEFAULT_GAME_SLUG, 'compare')}?type=teams&teamA=${encodeURIComponent(teamSlug)}`}
         className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-black uppercase tracking-wider transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
       >
         Compare {teamName} with another team <ArrowRight className="h-3.5 w-3.5" />

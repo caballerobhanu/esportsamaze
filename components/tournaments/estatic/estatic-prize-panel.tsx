@@ -24,6 +24,7 @@ import {
   qualificationTargetsForRank,
   type QualificationRule,
 } from '@/lib/qualification-rules';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export interface TournamentPrizeRank {
   rank: string;
@@ -343,7 +344,7 @@ export function EstaticPrizePanel({
                     target.tournamentSlug ? (
                       <Link
                         key={targetIdx}
-                        href={`/tournaments/${target.tournamentSlug}`}
+                        href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${target.tournamentSlug}`)}
                         className="block text-sm font-bold text-[#0A5FC4] hover:underline dark:text-blue-300"
                       >
                         {target.name}
@@ -732,7 +733,7 @@ export function EstaticPrizePanel({
                             fallbackClassName="text-[10px] font-black text-slate-500 dark:text-slate-400"
                           />
                           <Link
-                            href={`/teams/${row.slug || encodeURIComponent(row.name)}`}
+                            href={gameHref(DEFAULT_GAME_SLUG, `teams/${row.slug || encodeURIComponent(row.name)}`)}
                             className="min-w-0 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
                           >
                             <span className="hidden sm:inline">{row.name}</span>
@@ -756,7 +757,7 @@ export function EstaticPrizePanel({
                               berth.tournamentSlug ? (
                                 <Link
                                   key={berthIdx}
-                                  href={`/tournaments/${berth.tournamentSlug}`}
+                                  href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${berth.tournamentSlug}`)}
                                   className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-[#0A5FC4] hover:underline dark:text-blue-300"
                                 >
                                   <ShieldCheck className="h-3 w-3 shrink-0" />
@@ -927,7 +928,7 @@ export function EstaticPrizePanel({
                               target.tournamentSlug ? (
                                 <Link
                                   key={targetIdx}
-                                  href={`/tournaments/${target.tournamentSlug}`}
+                                  href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${target.tournamentSlug}`)}
                                   className="inline-flex items-center gap-1 text-[#0A5FC4] hover:underline dark:text-blue-300"
                                 >
                                   <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
@@ -1006,10 +1007,10 @@ export function EstaticPrizePanel({
                 : meta?.displayName || meta?.name || row.teamName || '—';
               const recipientHref = isPlayerAward
                 ? player?.slug
-                  ? `/players/${player.slug}`
+                  ? gameHref(DEFAULT_GAME_SLUG, `players/${player.slug}`)
                   : null
                 : meta?.slug
-                  ? `/teams/${meta.slug}`
+                  ? gameHref(DEFAULT_GAME_SLUG, `teams/${meta.slug}`)
                   : null;
 
               // One variant only, so a player's single photo shows in both themes.

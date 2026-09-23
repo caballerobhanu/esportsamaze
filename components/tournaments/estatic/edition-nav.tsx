@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 import { activeTabFromPathname } from '@/lib/nav';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export interface EditionLink {
   slug: string;
@@ -14,7 +15,9 @@ export interface EditionLink {
 
 /** Edition link that preserves the active tab (overview = base route). */
 function editionHref(slug: string, activeTab: string): string {
-  return activeTab === 'overview' ? `/tournaments/${slug}` : `/tournaments/${slug}/${activeTab}`;
+  return activeTab === 'overview'
+    ? gameHref(DEFAULT_GAME_SLUG, `tournaments/${slug}`)
+    : gameHref(DEFAULT_GAME_SLUG, `tournaments/${slug}/${activeTab}`);
 }
 
 /*

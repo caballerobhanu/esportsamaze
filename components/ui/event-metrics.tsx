@@ -4,6 +4,7 @@ import { ClipboardList, Info } from 'lucide-react';
 import { TournamentNameFit } from '@/components/ui/tournament-name-fit';
 import { cn } from '@/lib/utils';
 import type { EventMetricRow, MetricColumn, MetricSource } from '@/lib/event-metrics';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * Detailed metrics — the telemetry beyond matches and eliminations, per event.
@@ -94,7 +95,7 @@ export function EventMetrics({
               <tr key={row.tournamentId} className="text-sm">
                 <td className="py-4 pr-3">
                   <Link
-                    href={`/tournaments/${row.tournamentSlug}`}
+                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.tournamentSlug}`)}
                     className="block w-full font-bold transition-colors hover:text-[#0A5FC4]"
                   >
                     <TournamentNameFit
@@ -114,7 +115,7 @@ export function EventMetrics({
                   <td className="py-4 pr-3 text-slate-500">
                     {row.teamName ? (
                       row.teamSlug ? (
-                        <Link href={`/teams/${row.teamSlug}`} className="font-bold hover:text-[#0A5FC4]">
+                        <Link href={gameHref(DEFAULT_GAME_SLUG, `teams/${row.teamSlug}`)} className="font-bold hover:text-[#0A5FC4]">
                           {row.teamName}
                         </Link>
                       ) : (

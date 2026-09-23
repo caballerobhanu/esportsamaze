@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import prisma from '@/lib/prisma';
 import { ARTICLE_CATEGORIES, categoryCrumbs, categorySlug, resolveCategoryParam } from '@/lib/news';
 import { baseUrl } from '@/lib/seo';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import {
   ALL_TOURNAMENT_TAB_IDS,
   normalizeStandingsConfig,
@@ -71,7 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const [tournaments, teams, players, articles, teamEntries, playerEntries, transfers] =
       await Promise.all([
         prisma.tournament.findMany({
-          select: { slug: true, updatedAt: true, standingsConfig: true },
+          select: { slug: true, updatedAt: true, standingsConfig: true, game: { select: { slug: true } } },
           orderBy: { updatedAt: 'desc' },
           take: 5000,
         }),
@@ -80,6 +81,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           select: {
             slug: true,
             updatedAt: true,
+            game: { select: { slug: true } },
             _count: {
               select: {
                 players: true,
@@ -100,6 +102,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           select: {
             slug: true,
             updatedAt: true,
+            game: { select: { slug: true } },
             _count: { select: { matchStats: true, reportedTotals: true } },
           },
           orderBy: { updatedAt: 'desc' },
@@ -124,16 +127,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       [...teamEntries, ...playerEntries].map((entry) => entry.eventEndDate)
     );
 
+    const hub = (path: string) => `${base}${gameHref(DEFAULT_GAME_SLUG, path)}`;
+
     const staticRoutes: MetadataRoute.Sitemap = [
       { url: base, lastModified: articlesLatest, changeFrequency: 'daily', priority: 1 },
+      { url: hub(''), changeFrequency: 'daily', priority: 0.8 },
       {
-        url: `${base}/tournaments`,
+        url: hub('tournaments'),
         lastModified: tournamentsLatest,
         changeFrequency: 'hourly',
         priority: 0.9,
       },
       {
-        url: `${base}/rankings`,
+        url: hub('rankings'),
         lastModified: rankingsLatest,
         changeFrequency: 'daily',
         priority: 0.9,
@@ -141,15 +147,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       {
         // A separate board, not view state — the team and player leaderboards
         // are different datasets, so each is listed and self-canonicalises.
-        url: `${base}/rankings?board=players`,
+        url: `${hub('rankings')}?board=players`,
         lastModified: rankingsLatest,
         changeFrequency: 'daily',
         priority: 0.9,
       },
       { url: `${base}/news`, lastModified: articlesLatest, changeFrequency: 'daily', priority: 0.8 },
-      { url: `${base}/teams`, lastModified: teamsLatest, changeFrequency: 'daily', priority: 0.8 },
-      { url: `${base}/players`, lastModified: playersLatest, changeFrequency: 'daily', priority: 0.8 },
-      { url: `${base}/compare`, changeFrequency: 'monthly', priority: 0.4 },
+      { url: hub('teams'), lastModified: teamsLatest, changeFrequency: 'daily', priority: 0.8 },
+      { url: hub('players'), lastModified: playersLatest, changeFrequency: 'daily', priority: 0.8 },
+      { url: hub('compare'), changeFrequency: 'monthly', priority: 0.4 },
       { url: `${base}/about`, changeFrequency: 'monthly', priority: 0.3 },
       { url: `${base}/contact`, changeFrequency: 'monthly', priority: 0.3 },
       { url: `${base}/disclaimer`, changeFrequency: 'yearly', priority: 0.2 },
@@ -165,9 +171,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           ...ALL_TOURNAMENT_TAB_IDS,
         ];
 
+      const game = tournament.game?.slug || DEFAULT_GAME_SLUG;
       return [
         {
-          url: `${base}/tournaments/${tournament.slug}`,
+          url: `${base}${gameHref(game, `tournaments/${tournament.slug}`)}`,
           lastModified: tournament.updatedAt,
           changeFrequency: 'hourly' as const,
           priority: 0.9,
@@ -178,7 +185,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             priority: 0.5,
           };
           return {
-            url: `${base}/tournaments/${tournament.slug}/${tab}`,
+            url: `${base}${gameHref(game, `tournaments/${tournament.slug}/${tab}`)}`,
             lastModified: tournament.updatedAt,
             ...meta,
           };
@@ -211,15 +218,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
       });
 
+      const game = team.game?.slug || DEFAULT_GAME_SLUG;
       return [
         {
-          url: `${base}/teams/${team.slug}`,
+          url: `${base}${gameHref(game, `teams/${team.slug}`)}`,
           lastModified: team.updatedAt,
           changeFrequency: 'daily' as const,
           priority: 0.6,
         },
         ...tabs.map((tab) => ({
-          url: `${base}/teams/${team.slug}/${tab}`,
+          url: `${base}${gameHref(game, `teams/${team.slug}/${tab}`)}`,
           lastModified: team.updatedAt,
           changeFrequency: 'weekly' as const,
           priority: 0.5,
@@ -249,15 +257,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
       });
 
+      const game = player.game?.slug || DEFAULT_GAME_SLUG;
       return [
         {
-          url: `${base}/players/${player.slug}`,
+          url: `${base}${gameHref(game, `players/${player.slug}`)}`,
           lastModified: player.updatedAt,
           changeFrequency: 'daily' as const,
           priority: 0.6,
         },
         ...tabs.map((tab) => ({
-          url: `${base}/players/${player.slug}/${tab}`,
+          url: `${base}${gameHref(game, `players/${player.slug}/${tab}`)}`,
           lastModified: player.updatedAt,
           changeFrequency: 'weekly' as const,
           priority: 0.5,
@@ -311,7 +320,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .map((team) => team.slug || team.tag)
         .filter((key): key is string => !!key)
         .map((key) => ({
-          url: `${base}/rankings/team/${key}`,
+          url: `${base}${gameHref(DEFAULT_GAME_SLUG, `rankings/team/${key}`)}`,
           lastModified: rankingsLatest,
           changeFrequency: 'daily' as const,
           priority: 0.8,
@@ -321,7 +330,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         .map((player) => player.slug)
         .filter((key): key is string => !!key)
         .map((key) => ({
-          url: `${base}/rankings/player/${key}`,
+          url: `${base}${gameHref(DEFAULT_GAME_SLUG, `rankings/player/${key}`)}`,
           lastModified: rankingsLatest,
           changeFrequency: 'daily' as const,
           priority: 0.8,
@@ -403,11 +412,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   } catch {
     return [
       { url: base, changeFrequency: 'daily', priority: 1 },
-      { url: `${base}/tournaments`, changeFrequency: 'hourly', priority: 0.9 },
-      { url: `${base}/rankings`, changeFrequency: 'daily', priority: 0.9 },
+      { url: `${base}${gameHref(DEFAULT_GAME_SLUG, 'tournaments')}`, changeFrequency: 'hourly', priority: 0.9 },
+      { url: `${base}${gameHref(DEFAULT_GAME_SLUG, 'rankings')}`, changeFrequency: 'daily', priority: 0.9 },
       { url: `${base}/news`, changeFrequency: 'daily', priority: 0.8 },
-      { url: `${base}/teams`, changeFrequency: 'daily', priority: 0.8 },
-      { url: `${base}/players`, changeFrequency: 'daily', priority: 0.8 },
+      { url: `${base}${gameHref(DEFAULT_GAME_SLUG, 'teams')}`, changeFrequency: 'daily', priority: 0.8 },
+      { url: `${base}${gameHref(DEFAULT_GAME_SLUG, 'players')}`, changeFrequency: 'daily', priority: 0.8 },
     ];
   }
 }

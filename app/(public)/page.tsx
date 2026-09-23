@@ -21,6 +21,7 @@ import type { Metadata } from 'next';
 import { canonical, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
 import { teamHref, playerHref } from '@/lib/entity-links';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export const revalidate = 120;
 
@@ -358,7 +359,7 @@ export default async function HomePage() {
               id="tournaments-heading"
               kicker="Competitions"
               title="Tournaments"
-              href="/tournaments"
+              href={gameHref(DEFAULT_GAME_SLUG, 'tournaments')}
               linkLabel="All tournaments"
             />
 
@@ -377,7 +378,7 @@ export default async function HomePage() {
                 return (
                   <Link
                     key={tourney.id}
-                    href={`/tournaments/${tourney.slug}`}
+                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`)}
                     className="group block rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220]"
                   >
                     <div className="flex flex-col gap-3">

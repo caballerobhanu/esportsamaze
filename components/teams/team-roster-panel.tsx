@@ -23,6 +23,7 @@ import { formatAverage, formatRate, type PlayerElimMetrics } from '@/lib/team-st
 import { parseRoster } from '@/lib/team-roster';
 import type { TeamContext, TeamContextTransfer, TransferDirection } from '@/lib/team-data';
 import { playerHref } from '@/lib/entity-links';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * Movement types that still earn a badge. JOINED/LEFT merely restate the
@@ -131,7 +132,7 @@ function TransferTimelineRow({ transfer }: { transfer: TeamContextTransfer }) {
         </span>
         {counterpart && counterpartSlug ? (
           <Link
-            href={`/teams/${counterpartSlug}`}
+            href={gameHref(DEFAULT_GAME_SLUG, `teams/${counterpartSlug}`)}
             className="group flex items-center gap-2"
             title={counterpart.tag ? `${counterpart.name} [${counterpart.tag}]` : counterpart.name}
           >
@@ -373,7 +374,7 @@ export function TeamRosterPanel({
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <Link
-                    href={`/tournaments/${event.slug}`}
+                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)}
                     className="truncate text-sm font-extrabold transition-colors hover:text-[#0A5FC4]"
                   >
                     <TournamentName name={event.name} shortName={event.shortName} />
@@ -389,9 +390,9 @@ export function TeamRosterPanel({
                     const playerSlug =
                       (entry.playerId && playerIdToSlug[entry.playerId]) || entry.slug || null;
                     const playerHref = playerSlug
-                      ? `/players/${playerSlug}`
+                      ? gameHref(DEFAULT_GAME_SLUG, `players/${playerSlug}`)
                       : entry.playerId
-                        ? `/players/${entry.playerId}`
+                        ? gameHref(DEFAULT_GAME_SLUG, `players/${entry.playerId}`)
                         : null;
                     const chip = (
                       <>

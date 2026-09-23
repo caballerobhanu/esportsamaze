@@ -11,6 +11,7 @@ import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
 import { recordSlugChange } from '@/lib/slug-history';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { saveUploadedFile } from '@/lib/upload';
 import {
   TOURNAMENT_TIERS,
@@ -1973,7 +1974,7 @@ export default async function AdminTournamentsPage({
                 <td className="py-3 px-3 text-right">
                   <span className="inline-flex items-center gap-1.5">
                     <Link
-                      href={`/tournaments/${t.slug}`}
+                      href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${t.slug}`)}
                       target="_blank"
                       className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors"
                       title="View Public Page"

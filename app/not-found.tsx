@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { isAdmin } from '@/lib/admin-auth';
@@ -46,7 +47,7 @@ export default async function NotFound() {
                 Back to Home
               </Link>
               <Link
-                href="/tournaments"
+                href={gameHref(DEFAULT_GAME_SLUG, 'tournaments')}
                 className="text-sm font-semibold text-[var(--ed-blue)] hover:underline"
               >
                 Browse Tournaments
@@ -77,7 +78,7 @@ export default async function NotFound() {
               Back to Home
             </Link>
             <Link
-              href="/tournaments"
+              href={gameHref(DEFAULT_GAME_SLUG, 'tournaments')}
               className="text-sm font-semibold text-[var(--ed-blue)] hover:underline"
             >
               Browse Tournaments

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export const metadata: Metadata = {
   title: 'Page Not Found — eSportsAmaze',
@@ -25,7 +26,7 @@ export default function NotFound() {
             Back to Home
           </Link>
           <Link
-            href="/tournaments"
+            href={gameHref(DEFAULT_GAME_SLUG, 'tournaments')}
             className="text-sm font-semibold text-[var(--ed-blue)] hover:underline"
           >
             Browse Tournaments

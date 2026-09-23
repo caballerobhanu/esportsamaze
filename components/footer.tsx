@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 // Universal grey footer — identical in light & dark mode.
 export function Footer() {
@@ -43,7 +44,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/compare" className="hover:text-white transition-colors">
+                <Link href={gameHref(DEFAULT_GAME_SLUG, 'compare')} className="hover:text-white transition-colors">
                   Head-to-Head Compare
                 </Link>
               </li>
@@ -98,7 +99,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/rankings"
+                  href={gameHref(DEFAULT_GAME_SLUG, 'rankings')}
                   className="hover:text-white transition-colors"
                 >
                   KRAFTON Rankings

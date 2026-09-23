@@ -4,6 +4,8 @@ import { isSameOrigin, crossSiteForbiddenResponse } from '@/lib/anti-scrape';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 import { isAdmin } from '@/lib/admin-auth';
 import { getMaintenanceSettings } from '@/lib/site-settings';
+import { DEFAULT_GAME_SLUG } from '@/lib/games';
+import { getGameBySlug } from '@/lib/game-queries';
 
 // Search-as-you-type backend for the compare page pickers. Returns the top
 // 20 matches for a query; the client component debounces and aborts stale
@@ -32,19 +34,44 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const q = (searchParams.get('q') || '').trim();
   const type = searchParams.get('type') === 'players' ? 'players' : 'teams';
+  const requestedGame = (searchParams.get('game') || '').trim();
 
   if (q.length < 2) {
     return NextResponse.json({ options: [] });
+  }
+
+  // A comparison may only pair entities from one game family, so the picker is
+  // scoped to the requested game's family. Entities with no game fall back to the
+  // default game, so they are offered only when that family is the one asked for.
+  let gameScope: Record<string, unknown> = {};
+  if (requestedGame) {
+    const [game, defaultGame] = await Promise.all([
+      getGameBySlug(requestedGame),
+      getGameBySlug(DEFAULT_GAME_SLUG),
+    ]);
+    if (game?.familyId) {
+      // `familyId` is the relation key (a cuid), so it comes from the game row —
+      // not from `familyOf`, which returns the family's *slug*.
+      gameScope =
+        game.familyId === defaultGame?.familyId
+          ? { OR: [{ game: { familyId: game.familyId } }, { gameId: null }] }
+          : { game: { familyId: game.familyId } };
+    }
   }
 
   try {
     if (type === 'teams') {
       const teams = await prisma.team.findMany({
         where: {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { tag: { contains: q, mode: 'insensitive' } },
-            { slug: { contains: q, mode: 'insensitive' } },
+          AND: [
+            gameScope,
+            {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' } },
+                { tag: { contains: q, mode: 'insensitive' } },
+                { slug: { contains: q, mode: 'insensitive' } },
+              ],
+            },
           ],
         },
         select: { id: true, name: true, slug: true, logoUrl: true, tag: true },
@@ -65,7 +92,9 @@ export async function GET(req: NextRequest) {
     }
 
     const players = await prisma.player.findMany({
-      where: { ign: { contains: q, mode: 'insensitive' } },
+      where: {
+        AND: [gameScope, { ign: { contains: q, mode: 'insensitive' } }],
+      },
       select: { id: true, ign: true, slug: true, avatarUrl: true, currentTeam: { select: { name: true } } },
       orderBy: { ign: 'asc' },
       take: 20,

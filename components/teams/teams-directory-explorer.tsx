@@ -11,6 +11,8 @@ import {
 import { GameLogo } from '@/components/ui/game-capsule';
 import { ThemeLogo } from '@/components/ui/theme-logo';
 import { cn } from '@/lib/utils';
+import { teamHref } from '@/lib/entity-links';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export interface TeamsDirectoryItem {
   id: string;
@@ -94,7 +96,7 @@ export function TeamsDirectoryExplorer({
   counts,
   page = 1,
   totalPages = 1,
-  basePath = '/teams',
+  basePath = gameHref(DEFAULT_GAME_SLUG, 'teams'),
 }: {
   teams: TeamsDirectoryItem[];
   filters: TeamsDirectoryFilters;
@@ -232,7 +234,9 @@ export function TeamsDirectoryExplorer({
               </button>
             ))}
             {counts.families
-              .filter((f) => f.count > 0)
+              // A game page is already pinned to one family, so the family chip is
+              // only offered when the directory actually spans more than one.
+              .filter((f) => f.count > 0 && counts.families.length > 1)
               .map(({ slug, name }) => (
                 <button
                   key={slug}
@@ -368,10 +372,6 @@ export function TeamsDirectoryExplorer({
 }
 
 /* ═══════════ CREST GRID — logo + name, scales to 1000+ teams ═══════════ */
-
-function teamHref(team: { slug?: string | null; tag?: string | null; id: string }) {
-  return `/teams/${team.slug || team.tag || team.id}`;
-}
 
 function CrestGrid({ teams }: { teams: TeamsDirectoryItem[] }) {
   return (

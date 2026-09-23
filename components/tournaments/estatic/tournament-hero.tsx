@@ -4,7 +4,8 @@ import { Crown, Trophy, Users, Layers, Swords } from 'lucide-react';
 import { EditionPagerButtons, EditionSwitcher } from './edition-nav';
 import { formatDate } from '@/lib/utils';
 import { ThemeLogo } from './theme-logo';
-import type { TournamentContext } from '@/app/(public)/tournaments/[slug]/tournament-data';
+import type { TournamentContext } from '@/app/(public)/[game]/tournaments/[slug]/tournament-data';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * The estatic masthead shared by every tournament tab route:
@@ -30,7 +31,7 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
           <div className="flex min-w-0 items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
             <Link href="/" className="shrink-0 hover:text-[#0A5FC4]">Home</Link>
             <span className="shrink-0">/</span>
-            <Link href="/tournaments" className="shrink-0 hover:text-[#0A5FC4]">Tournaments</Link>
+            <Link href={gameHref(DEFAULT_GAME_SLUG, 'tournaments')} className="shrink-0 hover:text-[#0A5FC4]">Tournaments</Link>
             <span className="shrink-0">/</span>
             <span className="truncate text-[#0A5FC4] dark:text-blue-300">
               <TournamentShortName name={tournament.name} shortName={tournament.shortName} />

@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { TOURNAMENT_AVAILABLE_TABS } from '@/lib/standings-config';
 import { breadcrumbJsonLd } from '@/lib/seo';
 import { JsonLd } from '@/components/seo/json-ld';
-import type { TournamentContext } from '@/app/(public)/tournaments/[slug]/tournament-data';
+import type { TournamentContext } from '@/app/(public)/[game]/tournaments/[slug]/tournament-data';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * The per-route half of the tournament chrome.
@@ -28,11 +29,14 @@ export function TournamentTabShell({
   // Breadcrumbs always carry the short event name, at every width.
   const eventLabel = ctx.tournament.shortName || ctx.tournament.name;
   const tabLabel = TOURNAMENT_AVAILABLE_TABS.find((tab) => tab.id === activeTab)?.label;
+  const game = ctx.tournament.game?.slug || DEFAULT_GAME_SLUG;
   const breadcrumbs = breadcrumbJsonLd([
     { name: 'Home', path: '/' },
-    { name: 'Tournaments', path: '/tournaments' },
-    { name: eventLabel, path: `/tournaments/${ctx.slug}` },
-    ...(tabLabel ? [{ name: tabLabel, path: `/tournaments/${ctx.slug}/${activeTab}` }] : []),
+    { name: 'Tournaments', path: gameHref(game, 'tournaments') },
+    { name: eventLabel, path: gameHref(game, `tournaments/${ctx.slug}`) },
+    ...(tabLabel
+      ? [{ name: tabLabel, path: gameHref(game, `tournaments/${ctx.slug}/${activeTab}`) }]
+      : []),
   ]);
 
   return (

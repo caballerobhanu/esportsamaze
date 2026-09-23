@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { DEFAULT_GAME_SLUG } from '@/lib/games';
 
 /**
  * Previous slugs for players, teams and tournaments.
@@ -40,8 +41,8 @@ interface SlugHistoryModel {
 interface EntitySlugModel {
   findUnique(args: {
     where: { id: string };
-    select: { slug: true };
-  }): Promise<{ slug: string | null } | null>;
+    select: { slug: true; game: { select: { slug: true } } };
+  }): Promise<{ slug: string | null; game: { slug: string } | null } | null>;
 }
 
 function slugHistoryModel(client: unknown): SlugHistoryModel | null {
@@ -100,28 +101,32 @@ export async function recordSlugChange(
   }
 }
 
-/** Loads the entity's current slug, or null when it no longer exists. */
+/** Loads the entity's current slug and game, or null when it no longer exists. */
 async function loadCurrentSlug(
   entityType: SlugEntityType,
   entityId: string,
   client: unknown
-): Promise<{ slug: string | null } | null> {
+): Promise<{ slug: string | null; game: { slug: string } | null } | null> {
   // The Prisma model name is the same as the entity type.
   const model = (client as Record<string, EntitySlugModel | undefined>)?.[entityType];
   if (!model?.findUnique) return null;
-  return model.findUnique({ where: { id: entityId }, select: { slug: true } });
+  return model.findUnique({
+    where: { id: entityId },
+    select: { slug: true, game: { select: { slug: true } } },
+  });
 }
 
 /**
- * Resolves a stale slug to its entity's current one, for the `[slug]` routes to
- * redirect to. Null when there is no history entry, or when the entry points at an
- * entity that no longer exists — the caller then renders its own not-found, so a
- * deleted entity is never redirected to nothing.
+ * Resolves a stale slug to its entity's current slug and game, for the `[slug]`
+ * routes to redirect to (`/<game>/<section>/<slug>`). Null when there is no
+ * history entry, or when the entry points at an entity that no longer exists — the
+ * caller then renders its own not-found, so a deleted entity is never redirected
+ * to nothing.
  */
 export async function resolveSlugRedirect(
   entityType: SlugEntityType,
   slug: string
-): Promise<string | null> {
+): Promise<{ slug: string; gameSlug: string } | null> {
   try {
     const model = slugHistoryModel(prisma);
     if (!model) return null;
@@ -133,7 +138,9 @@ export async function resolveSlugRedirect(
     if (!entry) return null;
 
     const entity = await loadCurrentSlug(entityType, entry.entityId, prisma);
-    return decideSlugRedirect(slug, entity);
+    const current = decideSlugRedirect(slug, entity);
+    if (!current) return null;
+    return { slug: current, gameSlug: entity?.game?.slug || DEFAULT_GAME_SLUG };
   } catch {
     return null;
   }

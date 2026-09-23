@@ -141,36 +141,37 @@ const KNOWN_TAB_SEGMENTS = new Set([
 function tournamentTabRedirect(request: NextRequest): NextResponse | null {
   const { pathname, searchParams } = request.nextUrl;
 
-  // Legacy draft-preview shim: /tournaments/<slug>/preview?tab=x&matchId=y
-  const previewMatch = pathname.match(/^\/tournaments\/([^/]+)\/preview$/);
-  if (previewMatch) {
+  // Routes are game-scoped: /<game>/tournaments/<slug>[/preview]. The flat
+  // /tournaments/... form is already 308'd to the prefixed one by next.config
+  // (config redirects run before proxy), so only the prefixed shape is handled.
+  const gameBase = pathname.match(/^\/([^/]+)\/tournaments\/([^/]+)/);
+  if (!gameBase) return null;
+  const [, game, slug] = gameBase;
+  const base = `/${game}/tournaments/${slug}`;
+
+  // Legacy draft-preview shim: /<game>/tournaments/<slug>/preview?tab=x&matchId=y
+  if (pathname === `${base}/preview`) {
     const rawTab = searchParams.get('tab');
     if (rawTab) {
       const tab = rawTab === 'fraggers' ? 'statistics' : rawTab;
-      if (tab === 'overview') return NextResponse.redirect(new URL(`/tournaments/${previewMatch[1]}`, request.url), 308);
+      if (tab === 'overview') return NextResponse.redirect(new URL(base, request.url), 308);
       if (KNOWN_TAB_SEGMENTS.has(tab)) {
         searchParams.delete('tab');
         const rest = searchParams.toString();
-        return NextResponse.redirect(
-          new URL(`/tournaments/${previewMatch[1]}/${tab}${rest ? `?${rest}` : ''}`, request.url),
-          308
-        );
+        return NextResponse.redirect(new URL(`${base}/${tab}${rest ? `?${rest}` : ''}`, request.url), 308);
       }
     }
-    return NextResponse.redirect(new URL(`/tournaments/${previewMatch[1]}`, request.url), 308);
+    return NextResponse.redirect(new URL(base, request.url), 308);
   }
 
-  if (!/^\/tournaments\/[^/]+$/.test(pathname)) return null;
+  if (pathname !== base) return null;
   const rawTab = searchParams.get('tab');
   if (!rawTab) return null;
   const tab = rawTab === 'fraggers' ? 'statistics' : rawTab;
   if (!KNOWN_TAB_SEGMENTS.has(tab)) return null;
   searchParams.delete('tab');
   const rest = searchParams.toString();
-  return NextResponse.redirect(
-    new URL(`/tournaments/${pathname.split('/')[2]}/${tab}${rest ? `?${rest}` : ''}`, request.url),
-    308
-  );
+  return NextResponse.redirect(new URL(`${base}/${tab}${rest ? `?${rest}` : ''}`, request.url), 308);
 }
 
 const ADMIN_SLUG = process.env.ADMIN_PATH || 'poorvith';
@@ -213,5 +214,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/poorvith/:path*', '/tournaments/:path*'],
+  matcher: ['/admin/:path*', '/poorvith/:path*', '/:game/tournaments/:path*'],
 };

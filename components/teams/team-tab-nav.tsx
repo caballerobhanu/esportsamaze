@@ -17,8 +17,9 @@ export const TEAM_TABS = [
 ] as const;
 
 /** Tabs are route segments; overview lives on the base team route. */
-export function teamTabHref(slug: string, tab: string): string {
-  return tab === 'overview' ? `/teams/${slug}` : `/teams/${slug}/${tab}`;
+export function teamTabHref(game: string, slug: string, tab: string): string {
+  const base = `/${game}/teams/${slug}`;
+  return tab === 'overview' ? base : `${base}/${tab}`;
 }
 
 /**
@@ -26,7 +27,7 @@ export function teamTabHref(slug: string, tab: string): string {
  * families behave identically: floating pill dock on desktop, dropdown on
  * mobile, active tab resolved from the route segment.
  */
-export function TeamTabNav({ slug }: { slug: string }) {
+export function TeamTabNav({ game, slug }: { game: string; slug: string }) {
   const router = useRouter();
   /* Rendered by the [slug] layout, so the active tab comes from the route. */
   const activeTab = activeTabFromPathname(usePathname());
@@ -45,7 +46,7 @@ export function TeamTabNav({ slug }: { slug: string }) {
           <SearchableSelect
             options={tabOptions}
             value={activeTab}
-            onChange={(nextTab) => router.push(teamTabHref(slug, nextTab))}
+            onChange={(nextTab) => router.push(teamTabHref(game, slug, nextTab))}
             showSearch={false}
             size="md"
           />
@@ -60,7 +61,7 @@ export function TeamTabNav({ slug }: { slug: string }) {
               return (
                 <Link
                   key={tab.id}
-                  href={teamTabHref(slug, tab.id)}
+                  href={teamTabHref(game, slug, tab.id)}
                   className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     active
                       ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25 scale-[1.02]'

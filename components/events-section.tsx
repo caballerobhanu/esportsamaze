@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { cn, getTournamentShortName } from '@/lib/utils';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 type EventTab = 'active' | 'past';
 type EventStatus = 'UPCOMING' | 'ONGOING' | 'COMPLETED' | 'CANCELED';
@@ -285,7 +286,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
               );
 
               return event.slug ? (
-                <Link key={event.id} href={`/tournaments/${event.slug}`} className={cardClasses} title={event.name}>
+                <Link key={event.id} href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)} className={cardClasses} title={event.name}>
                   {inner}
                 </Link>
               ) : (

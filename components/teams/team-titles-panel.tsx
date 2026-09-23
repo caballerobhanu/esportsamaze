@@ -6,6 +6,7 @@ import { TournamentName } from '@/components/ui/tournament-name';
 import { describeAwardReward, type TeamAward } from '@/lib/team-awards';
 import type { TeamContext } from '@/lib/team-data';
 import { formatPrizePool } from '@/lib/utils';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /** Reward-type chip colours: money / item / title. */
 const rewardTypeClass: Record<string, string> = {
@@ -56,7 +57,7 @@ function AwardRow({ award }: { award: TeamAward }) {
             <>
               {award.playerSlug ? (
                 <Link
-                  href={`/players/${award.playerSlug}`}
+                  href={gameHref(DEFAULT_GAME_SLUG, `players/${award.playerSlug}`)}
                   className="uppercase tracking-wider transition-colors hover:text-[#0A5FC4]"
                 >
                   {award.playerName}
@@ -68,7 +69,7 @@ function AwardRow({ award }: { award: TeamAward }) {
             </>
           )}
           <Link
-            href={`/tournaments/${award.tournamentSlug}`}
+            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${award.tournamentSlug}`)}
             className="transition-colors hover:text-[#0A5FC4]"
           >
             <TournamentName name={award.tournamentName} shortName={award.tournamentShortName} />
@@ -188,7 +189,7 @@ export function TeamTitlesPanel({
               return (
                 <Link
                   key={event.id}
-                  href={`/tournaments/${event.slug}`}
+                  href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)}
                   className={`relative flex items-center gap-4 overflow-hidden rounded-2xl border p-4 ring-4 ring-offset-2 ring-offset-white transition hover:-translate-y-0.5 hover:shadow-md dark:ring-offset-[#0b1220] ${meta.card} ${meta.ring}`}
                 >
                   {/* Emblem */}
@@ -277,7 +278,7 @@ export function TeamTitlesPanel({
                 {ladder.map((event) => (
                   <Link
                     key={event.id}
-                    href={`/tournaments/${event.slug}`}
+                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)}
                     className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-500/50"
                   >
                     <div className="min-w-0">

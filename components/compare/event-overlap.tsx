@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { TournamentNameFit } from '@/components/ui/tournament-name-fit';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * The events both sides actually appeared in, with each one's finishing rank —
@@ -61,7 +62,7 @@ export function EventOverlap({
                   </td>
                   <td className="px-4 py-4 text-center">
                     <Link
-                      href={`/tournaments/${row.slug}`}
+                      href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.slug}`)}
                       className="mx-auto block max-w-[320px] font-bold transition-colors hover:text-[#0A5FC4]"
                     >
                       <TournamentNameFit

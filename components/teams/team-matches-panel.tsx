@@ -3,6 +3,7 @@ import { Swords, Trophy } from 'lucide-react';
 
 import { DirectoryPagination } from '@/components/directory-pagination';
 import { TournamentShortName } from '@/components/ui/tournament-name';
+import { DEFAULT_GAME_SLUG, gameHref, gameSlugOf } from '@/lib/games';
 import { TeamMatchFilters, type TeamMatchFilterState } from './team-match-filters';
 import { groupRowsByEvent } from '@/lib/team-stats';
 import {
@@ -66,7 +67,7 @@ function MatchRow({ row }: { row: TeamMatchRow }) {
       <td className="px-1.5 py-3 lg:px-4">
         {row.tournamentSlug ? (
           <Link
-            href={`/tournaments/${row.tournamentSlug}`}
+            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.tournamentSlug}`)}
             className="line-clamp-1 max-w-[220px] font-bold transition-colors hover:text-[#0A5FC4]"
           >
             <TournamentShortName name={row.tournamentName} shortName={row.tournamentShortName} />
@@ -144,7 +145,7 @@ export function TeamMatchesPanel({
   filters: TeamMatchFilterState;
   options: TeamMatchFilterOptions;
 }) {
-  const basePath = `/teams/${team.slug || team.id}/matches`;
+  const basePath = gameHref(gameSlugOf(team), `teams/${team.slug || team.id}/matches`);
   const paginationParams: Record<string, string> = {};
   if (filters.tournament) paginationParams.tournament = filters.tournament;
   if (filters.map) paginationParams.map = filters.map;
@@ -218,7 +219,7 @@ export function TeamMatchesPanel({
                         <span className="flex flex-wrap items-center gap-2">
                           {head.tournamentSlug ? (
                             <Link
-                              href={`/tournaments/${head.tournamentSlug}`}
+                              href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${head.tournamentSlug}`)}
                               className="text-[10px] font-black uppercase tracking-[.16em] text-[#0A5FC4] transition-colors hover:underline dark:text-blue-300"
                             >
                               <TournamentShortName name={head.tournamentName} shortName={head.tournamentShortName} />

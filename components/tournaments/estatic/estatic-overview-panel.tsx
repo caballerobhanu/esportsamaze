@@ -18,6 +18,7 @@ import type { MatchLite } from './panel-types';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { KickoffTime } from '@/components/ui/kickoff';
 import { TournamentSponsors } from '@/components/tournaments/tournament-sponsors';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 interface OverviewMatchLite extends MatchLite {
   stageType?: string | null;
@@ -92,11 +93,11 @@ export function EstaticOverviewPanel({
   // encoded name is an honest fallback (never link internal DB ids).
   const teamHref = (teamId: string, fallbackName: string) => {
     const meta = teamsMeta?.[teamId];
-    return `/teams/${meta?.slug || encodeURIComponent(meta?.name || fallbackName)}`;
+    return gameHref(DEFAULT_GAME_SLUG, `teams/${meta?.slug || encodeURIComponent(meta?.name || fallbackName)}`);
   };
   const playerHref = (playerId: string, ign: string) => {
     const slug = playerSlugById?.[playerId];
-    return `/players/${slug || playerId || encodeURIComponent(ign)}`;
+    return gameHref(DEFAULT_GAME_SLUG, `players/${slug || playerId || encodeURIComponent(ign)}`);
   };
 
   const facts = [
@@ -189,7 +190,7 @@ export function EstaticOverviewPanel({
                 </h3>
               </div>
               <Link
-                href={`/tournaments/${tournament.slug}/standings`}
+                href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournament.slug}/standings`)}
                 className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
               >
                 Full Standings <ChevronRight className="h-3.5 w-3.5" />
@@ -276,7 +277,7 @@ export function EstaticOverviewPanel({
                   </h3>
                 </div>
                 <Link
-                  href={`/tournaments/${tournament.slug}/matches`}
+                  href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournament.slug}/matches`)}
                   className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-[#0A5FC4] hover:text-white dark:bg-white/5 dark:text-slate-300 transition-all"
                 >
                   All Matches <ChevronRight className="h-3.5 w-3.5" />
@@ -379,7 +380,7 @@ export function EstaticOverviewPanel({
                 </h3>
               </div>
               <Link
-                href={`/tournaments/${tournament.slug}/statistics`}
+                href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournament.slug}/statistics`)}
                 className="text-xs font-bold text-[#0A5FC4] hover:underline dark:text-blue-300"
               >
                 Full List →
@@ -452,7 +453,7 @@ export function EstaticOverviewPanel({
 
             <div className="mt-5 border-t border-white/15 pt-4">
               <Link
-                href={`/tournaments/${tournament.slug}/prizepool`}
+                href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournament.slug}/prizepool`)}
                 className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow hover:bg-blue-50 transition-colors"
               >
                 Inspect Distribution <ArrowRight className="h-3.5 w-3.5" />

@@ -33,6 +33,7 @@ import {
   parseArticleFaqs,
 } from '@/lib/news';
 import { slugify } from '@/lib/utils';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { NewsShareButtons } from '@/components/news/news-share-buttons';
 import { ReadingProgress } from '@/components/news/reading-progress';
 import { TableOfContents } from '@/components/news/table-of-contents';
@@ -159,6 +160,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
     (_match, tourName) => {
       const targetSlug = tourName ? slugify(tourName) : defaultTournamentSlug || 'bgms-2026';
       const displayName = tourName || 'Tournament';
+      const standingsHref = gameHref(DEFAULT_GAME_SLUG, `tournaments/${targetSlug}/standings`);
       return `
 <div class="my-6 rounded-2xl border border-[var(--ed-hair)] bg-gradient-to-r from-[var(--ed-surface)] to-[var(--ed-sand)]/40 p-5 shadow-sm">
   <div class="flex items-center justify-between gap-4">
@@ -171,7 +173,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
         <div class="text-sm font-black text-[var(--ed-ink)]">${displayName} Points Table & Bracket</div>
       </div>
     </div>
-    <a href="/tournaments/${targetSlug}/standings" class="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white hover:opacity-90">
+    <a href="${standingsHref}" class="inline-flex items-center gap-1.5 rounded-lg bg-(--ed-blue) px-3 py-1.5 text-xs font-black uppercase tracking-wider text-white hover:opacity-90">
       View Table ➔
     </a>
   </div>
@@ -208,6 +210,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
     (_match, tourName) => {
       const name = tourName || 'Tournament';
       const tourSlug = slugify(name);
+      const tournamentCardHref = gameHref(DEFAULT_GAME_SLUG, `tournaments/${tourSlug}`);
       return `
 <div class="my-6 flex items-center justify-between gap-4 rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4 shadow-sm">
   <div class="flex items-center gap-3">
@@ -219,7 +222,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
       <div class="text-sm font-extrabold text-[var(--ed-ink)]">${name}</div>
     </div>
   </div>
-  <a href="/tournaments/${tourSlug}" class="inline-flex items-center gap-1 text-xs font-bold text-(--ed-blue) hover:underline">
+  <a href="${tournamentCardHref}" class="inline-flex items-center gap-1 text-xs font-bold text-(--ed-blue) hover:underline">
     Standings &amp; Matches ➔
   </a>
 </div>`;
@@ -232,6 +235,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
     (_match, teamName) => {
       const name = teamName || 'Featured Squad';
       const teamSlug = slugify(name);
+      const teamCardHref = gameHref(DEFAULT_GAME_SLUG, `teams/${teamSlug}`);
       return `
 <div class="my-6 rounded-2xl border border-[var(--ed-hair)] bg-[var(--ed-surface)] p-4 shadow-sm flex items-center justify-between gap-4">
   <div class="flex items-center gap-3">
@@ -243,7 +247,7 @@ function transformShortcodes(html: string, defaultTournamentSlug?: string): stri
       <div class="text-sm font-extrabold text-[var(--ed-ink)]">${name}</div>
     </div>
   </div>
-  <a href="/teams/${teamSlug}" class="inline-flex items-center gap-1 text-xs font-bold text-(--ed-blue) hover:underline">
+  <a href="${teamCardHref}" class="inline-flex items-center gap-1 text-xs font-bold text-(--ed-blue) hover:underline">
     Squad Roster ➔
   </a>
 </div>`;
@@ -780,7 +784,7 @@ export function ArticleView({
                       <h4 className="mt-2 text-sm font-extrabold">{article.tournament.name}</h4>
                     </div>
                     <Link
-                      href={`/tournaments/${article.tournament.slug}`}
+                      href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${article.tournament.slug}`)}
                       className="mt-4 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[var(--ed-blue)] hover:underline"
                     >
                       Standings & Matches <ArrowRight className="h-3 w-3" />
@@ -820,7 +824,7 @@ export function ArticleView({
                     </div>
                     {article.team.slug && (
                       <Link
-                        href={`/teams/${article.team.slug}`}
+                        href={gameHref(DEFAULT_GAME_SLUG, `teams/${article.team.slug}`)}
                         className="mt-4 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-600 hover:underline dark:text-emerald-400"
                       >
                         Squad Profile <ArrowRight className="h-3 w-3" />

@@ -8,6 +8,7 @@ import { TournamentNameFit } from '@/components/ui/tournament-name-fit';
 import { isGrandFinalsStage } from '@/lib/match-stage';
 import { cn } from '@/lib/utils';
 import { MobileDataCard } from '@/components/ui/mobile-card';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * One player's line for a single game — the raw material for the match-wise
@@ -320,7 +321,7 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
               title={
                 group.tournament ? (
                   <Link
-                    href={`/tournaments/${group.tournament.slug}`}
+                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${group.tournament.slug}`)}
                     className="transition-colors hover:text-[#0A5FC4]"
                     title={group.tournament.name}
                   >
@@ -381,7 +382,7 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
                     {group.tournament ? (
                       <>
                         <Link
-                          href={`/tournaments/${group.tournament.slug}`}
+                          href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${group.tournament.slug}`)}
                           className="block w-full font-bold transition-colors hover:text-[#0A5FC4]"
                         >
                           <TournamentNameFit
@@ -405,7 +406,7 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
                     <td className="py-4 pr-3 text-slate-500">
                       {group.teamName ? (
                         group.teamSlug ? (
-                          <Link href={`/teams/${group.teamSlug}`} className="font-bold hover:text-[#0A5FC4]">
+                          <Link href={gameHref(DEFAULT_GAME_SLUG, `teams/${group.teamSlug}`)} className="font-bold hover:text-[#0A5FC4]">
                             {group.teamName}
                           </Link>
                         ) : (

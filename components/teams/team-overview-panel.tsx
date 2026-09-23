@@ -12,6 +12,7 @@ import {
 import { RecentFormStrip } from './recent-form-strip';
 import { TeamStatBand } from './team-stat-band';
 import type { TeamContext, TeamFormPoint, TeamMatchSummaryPayload } from '@/lib/team-data';
+import { DEFAULT_GAME_SLUG, gameHref, gameSlugOf } from '@/lib/games';
 
 export interface KraftonSummary {
   rank: number;
@@ -105,7 +106,7 @@ export function TeamOverviewPanel({
                 </div>
               </div>
               <Link
-                href={`/teams/${team.slug || team.id}/titles`}
+                href={gameHref(gameSlugOf(team), `teams/${team.slug || team.id}/titles`)}
                 className="mt-5 inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-black uppercase tracking-wider transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
               >
                 Open trophy cabinet <ArrowRight className="h-3.5 w-3.5" />
@@ -133,7 +134,7 @@ export function TeamOverviewPanel({
               {recentEvents.map((event) => (
                 <li key={event.id} className="relative">
                   <span className="absolute -left-[27px] top-1.5 h-3 w-3 rounded-full border-2 border-white bg-[#0A5FC4] dark:border-[#0b1220]" />
-                  <Link href={`/tournaments/${event.slug}`} className="group block">
+                  <Link href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)} className="group block">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="line-clamp-2 text-sm font-extrabold transition-colors group-hover:text-[#0A5FC4]">
                         <TournamentName name={event.name} shortName={event.shortName} />
@@ -204,14 +205,14 @@ export function TeamOverviewPanel({
           <div className="mt-6 flex flex-wrap items-center gap-2">
             {krafton && (
               <Link
-                href={`/rankings/team/${team.id}`}
+                href={gameHref(gameSlugOf(team), `rankings/team/${team.id}`)}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-xs font-black uppercase tracking-wider text-[#0A5FC4] shadow-sm transition hover:bg-blue-50"
               >
                 Points breakdown <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             )}
             <Link
-              href="/rankings?board=teams"
+              href={`${gameHref(gameSlugOf(team), 'rankings')}?board=teams`}
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-white transition hover:bg-white/20 hover:text-amber-200"
             >
               Leaderboard <ArrowRight className="h-3.5 w-3.5" />

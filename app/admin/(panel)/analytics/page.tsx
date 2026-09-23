@@ -20,6 +20,7 @@ import {
 import { VIEW_WINDOW_LABELS, VIEW_WINDOWS, isViewWindow } from '@/lib/view-window';
 import { getViewCountSettings } from '@/lib/site-settings';
 import { ConfirmSubmit } from '@/components/admin/confirm-submit';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { resetEntityViews, resetTypeViews, saveViewVisibility, setPageVisibility } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -43,9 +44,9 @@ const num = (value: number) => value.toLocaleString('en-IN');
 
 const entityHref = (type: PageViewType, slug: string | null, id: string) => {
   const key = slug || id;
-  if (type === 'TOURNAMENT') return `/tournaments/${key}`;
-  if (type === 'TEAM') return `/teams/${key}`;
-  return `/players/${key}`;
+  if (type === 'TOURNAMENT') return gameHref(DEFAULT_GAME_SLUG, `tournaments/${key}`);
+  if (type === 'TEAM') return gameHref(DEFAULT_GAME_SLUG, `teams/${key}`);
+  return gameHref(DEFAULT_GAME_SLUG, `players/${key}`);
 };
 
 /** Builds a link back to this page with one query value changed ('' clears it). */

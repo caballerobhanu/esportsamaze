@@ -8,6 +8,7 @@ import { formatDate } from '@/lib/utils';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { GameLogo } from '@/components/ui/game-capsule';
 import { ThemeLogo } from '@/components/ui/theme-logo';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export interface TournamentDirectoryItem {
   id: string;
@@ -72,7 +73,7 @@ export function TournamentsDirectoryExplorer({
   counts,
   page = 1,
   totalPages = 1,
-  basePath = '/tournaments',
+  basePath = gameHref(DEFAULT_GAME_SLUG, 'tournaments'),
 }: {
   tournaments: TournamentDirectoryItem[];
   games: { name: string; slug: string; shortName?: string | null; logoUrl?: string | null; logoDarkUrl?: string | null }[];
@@ -270,7 +271,7 @@ export function TournamentsDirectoryExplorer({
             return (
               <Link
                 key={t.id}
-                href={`/tournaments/${t.slug}`}
+                href={gameHref(t.game?.slug || DEFAULT_GAME_SLUG, `tournaments/${t.slug}`)}
                 className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-[#0A5FC4] hover:shadow-lg dark:border-white/10 dark:bg-[#0b1220]"
               >
                 <div className="p-5 pb-0">

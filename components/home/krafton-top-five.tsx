@@ -4,6 +4,7 @@ import { ArrowRight, Trophy, Users, User } from 'lucide-react';
 import { SectionHeading } from '@/components/home/section-heading';
 import { fetchBoardEntries, fetchTeamTransfers } from '@/lib/krafton-data';
 import { computeBoard } from '@/lib/krafton-standings';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
@@ -149,7 +150,7 @@ export async function KraftonTopFive() {
         id="krafton-rankings-heading"
         kicker="KRAFTON India Esports"
         title="BGMI Season Standings & Rankings"
-        href="/rankings"
+        href={gameHref(DEFAULT_GAME_SLUG, 'rankings')}
         linkLabel="All leaderboards"
       />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -158,16 +159,16 @@ export async function KraftonTopFive() {
           'Squad Leaderboard',
           <Users className="h-3.5 w-3.5" />,
           topTeams,
-          '/rankings/team',
-          '/rankings'
+          gameHref(DEFAULT_GAME_SLUG, 'rankings/team'),
+          gameHref(DEFAULT_GAME_SLUG, 'rankings')
         )}
         {column(
           'Top Players',
           'Individual Fraggers',
           <User className="h-3.5 w-3.5" />,
           topPlayers,
-          '/rankings/player',
-          '/rankings?board=players'
+          gameHref(DEFAULT_GAME_SLUG, 'rankings/player'),
+          `${gameHref(DEFAULT_GAME_SLUG, 'rankings')}?board=players`
         )}
       </div>
     </section>

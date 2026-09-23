@@ -25,6 +25,7 @@ import type {
 import { KraftonRulesDialog } from '@/components/rankings/krafton-rules-dialog';
 import { KraftonTransferLedgerDialog } from '@/components/rankings/krafton-transfer-ledger-dialog';
 import { RankOneLeaderboard, RankOneTimeline } from '@/components/rankings/rank-one-panels';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 type BoardView = 'standings' | 'timeline' | 'days';
 
@@ -121,7 +122,7 @@ export function RankingsBoardClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPlayers = board === 'PLAYER';
-  const detailBase = isPlayers ? '/rankings/player' : '/rankings/team';
+  const detailBase = gameHref(DEFAULT_GAME_SLUG, isPlayers ? 'rankings/player' : 'rankings/team');
 
   // Search & quick filter state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -165,7 +166,7 @@ export function RankingsBoardClient({
     } else {
       params.set('date', dateStr);
     }
-    router.push(`/rankings${params.toString() ? `?${params.toString()}` : ''}`);
+    router.push(`${gameHref(DEFAULT_GAME_SLUG, 'rankings')}${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
   const isHistorical = selectedDate !== snapshotDates[0];
@@ -209,7 +210,7 @@ export function RankingsBoardClient({
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4 dark:border-white/10">
         <div className="flex w-fit items-center rounded-full bg-slate-200/70 p-1 dark:bg-white/10">
           <Link
-            href="/rankings"
+            href={gameHref(DEFAULT_GAME_SLUG, 'rankings')}
             className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider transition-all ${
               !isPlayers
                 ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600'
@@ -219,7 +220,7 @@ export function RankingsBoardClient({
             <Trophy className="h-3.5 w-3.5" /> Teams
           </Link>
           <Link
-            href="/rankings?board=players"
+            href={`${gameHref(DEFAULT_GAME_SLUG, 'rankings')}?board=players`}
             className={`flex items-center gap-2 rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider transition-all ${
               isPlayers
                 ? 'bg-[#0A5FC4] text-white shadow-md dark:bg-blue-600'
@@ -675,7 +676,7 @@ export function RankingsBoardClient({
                         {/* Direct link to site profile */}
                         {logo?.slug && (
                           <Link
-                            href={isPlayers ? `/players/${logo.slug}` : `/teams/${logo.slug}`}
+                            href={gameHref(DEFAULT_GAME_SLUG, isPlayers ? `players/${logo.slug}` : `teams/${logo.slug}`)}
                             onClick={(e) => e.stopPropagation()}
                             title="Visit site profile"
                             className="hidden sm:inline-block rounded-md p-1 text-slate-300 hover:text-[#0A5FC4] dark:hover:text-blue-300"

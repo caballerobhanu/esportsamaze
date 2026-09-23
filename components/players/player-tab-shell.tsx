@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation';
 import { PLAYER_TAB_LABELS, type PlayerTabId } from '@/lib/seo-titles';
 import { breadcrumbJsonLd } from '@/lib/seo';
 import { JsonLd } from '@/components/seo/json-ld';
-import { loadPlayerContext } from '@/app/(public)/players/[slug]/player-data';
+import { loadPlayerContext } from '@/app/(public)/[game]/players/[slug]/player-data';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /**
  * The per-route half of the player chrome.
@@ -26,12 +27,13 @@ export async function PlayerTabShell({
   if (!context) notFound();
 
   const tabLabel = PLAYER_TAB_LABELS[activeTab as PlayerTabId];
+  const game = context.player.game?.slug || DEFAULT_GAME_SLUG;
   const breadcrumbs = breadcrumbJsonLd([
     { name: 'Home', path: '/' },
-    { name: 'Players', path: '/players' },
-    { name: context.player.ign, path: `/players/${slug}` },
+    { name: 'Players', path: gameHref(game, 'players') },
+    { name: context.player.ign, path: gameHref(game, `players/${slug}`) },
     ...(activeTab !== 'overview' && tabLabel
-      ? [{ name: tabLabel, path: `/players/${slug}/${activeTab}` }]
+      ? [{ name: tabLabel, path: gameHref(game, `players/${slug}/${activeTab}`) }]
       : []),
   ]);
 

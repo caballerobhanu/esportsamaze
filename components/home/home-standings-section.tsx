@@ -3,6 +3,7 @@ import { BarChart3, Crosshair, ArrowRight } from 'lucide-react';
 import { TournamentShortName } from '@/components/ui/tournament-name';
 import type { TeamStandingEntry, PlayerFraggerEntry } from '@/lib/match-standings';
 import { teamHref, playerHref } from '@/lib/entity-links';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 interface HomeStandingsSectionProps {
   tournament: { name: string; shortName?: string | null; series?: string | null; season?: string | null };
@@ -43,7 +44,7 @@ export function HomeStandingsSection({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link
-              href={`/tournaments/${tournamentSlug}/standings`}
+              href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournamentSlug}/standings`)}
               className="group flex items-center gap-1.5 text-xs font-bold text-[var(--ed-blue)] hover:underline"
             >
               <span>Full Standings</span>

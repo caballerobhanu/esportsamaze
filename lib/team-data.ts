@@ -12,6 +12,7 @@ import { unstable_cache } from 'next/cache';
 import type { Metadata } from 'next';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { parseRoster } from '@/lib/team-roster';
 import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
 import {
@@ -1446,16 +1447,25 @@ export const loadTeamEventMetrics = unstable_cache(
 /* ── Metadata ──────────────────────────────────────────────────────────── */
 
 /** Shared metadata for the base route and its tab routes. */
-export async function teamMetadata(slug: string, tab: TeamTabId = 'overview'): Promise<Metadata> {
+export async function teamMetadata(
+  slug: string,
+  tab: TeamTabId = 'overview',
+  /** The game segment from the URL; a mismatch yields no metadata (the layout 404s). */
+  expectedGame?: string
+): Promise<Metadata> {
   const team = await loadTeamContext(slug);
   if (!team) return { title: `Team Not Found — ${SITE_NAME}` };
+  if (expectedGame && (team.game?.slug || DEFAULT_GAME_SLUG) !== expectedGame) return {};
 
   const label = `${team.name}${team.tag ? ` [${team.tag}]` : ''}`;
   const game = team.game?.name || null;
   const segment = TEAM_TAB_SEGMENT[tab];
   // Canonical resolves to the stored slug so tag/name look-alikes consolidate.
   const canonicalSlug = team.slug || slug;
-  const path = segment ? `/teams/${canonicalSlug}/${segment}` : `/teams/${canonicalSlug}`;
+  const path = gameHref(
+    team.game?.slug || DEFAULT_GAME_SLUG,
+    segment ? `teams/${canonicalSlug}/${segment}` : `teams/${canonicalSlug}`
+  );
   // The title carries the name alone — the tag costs ~8 characters that a long
   // team name needs more, and it is kept in the description and the structured
   // data instead.

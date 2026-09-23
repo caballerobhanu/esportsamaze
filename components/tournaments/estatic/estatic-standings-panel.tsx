@@ -35,6 +35,7 @@ import {
 } from '@/lib/standings-config';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 type SortKey =
   | 'rank'
@@ -1077,7 +1078,7 @@ export function EstaticStandingsPanel({
                 const teamTag = meta?.tag || cleanName.slice(0, 4).toUpperCase();
                 // Prefer the team slug; the public team page also resolves by
                 // name, so an encoded name is a safe fallback (never the DB id).
-                const teamHref = `/teams/${meta?.slug || encodeURIComponent(cleanName)}`;
+                const teamHref = gameHref(DEFAULT_GAME_SLUG, `teams/${meta?.slug || encodeURIComponent(cleanName)}`);
                 const assignment = teamAssignedZones.get(team.teamId);
                 const isPrec = assignment?.isPrecedence;
                 const zone = assignment?.zone || null;

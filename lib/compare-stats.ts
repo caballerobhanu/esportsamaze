@@ -189,6 +189,7 @@ export const getTeamCompareProfile = unstable_cache(
     prisma.team.findFirst({
       where: { OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
       include: {
+        game: { select: { slug: true, name: true } },
         tournamentsWon: true,
         tournamentsRunnerUp: true,
         players: { where: { status: 'ACTIVE' }, select: { id: true, ign: true, slug: true, role: true, avatarUrl: true } },

@@ -29,14 +29,17 @@ const PREVIEW_TABS = [
 ] as const;
 
 /** Tabs are route segments now; overview lives on the base route. */
-export function tabHref(slug: string, tab: string): string {
-  return tab === 'overview' ? `/tournaments/${slug}` : `/tournaments/${slug}/${tab}`;
+export function tabHref(game: string, slug: string, tab: string): string {
+  const base = `/${game}/tournaments/${slug}`;
+  return tab === 'overview' ? base : `${base}/${tab}`;
 }
 
 export function EstaticTabNav({
+  game,
   slug,
   visibleTabs,
 }: {
+  game: string;
   slug: string;
   visibleTabs?: string[];
 }) {
@@ -58,7 +61,7 @@ export function EstaticTabNav({
   }));
 
   const handleMobileSelect = (nextTab: string) => {
-    router.push(tabHref(slug, nextTab));
+    router.push(tabHref(game, slug, nextTab));
   };
 
   return (
@@ -84,7 +87,7 @@ export function EstaticTabNav({
               return (
                 <Link
                   key={t.id}
-                  href={tabHref(slug, t.id)}
+                  href={tabHref(game, slug, t.id)}
                   className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2 text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     active
                       ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25 scale-[1.02]'

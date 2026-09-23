@@ -4,6 +4,8 @@ import { publishedVisibility } from '@/lib/news-queries';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 import { isSameOrigin, crossSiteForbiddenResponse } from '@/lib/anti-scrape';
 import { isAdmin } from '@/lib/admin-auth';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { teamHref } from '@/lib/entity-links';
 import { getMaintenanceSettings } from '@/lib/site-settings';
 
 export const dynamic = 'force-dynamic';
@@ -197,7 +199,7 @@ export async function GET(request: NextRequest) {
       type: 'team',
       title: team.name,
       subtitle: team.region ? `${team.region} Region` : 'Esports Team',
-      href: `/teams/${team.slug || team.tag || team.id}`,
+      href: teamHref(team),
       imageUrl: team.logoUrl,
       badge: team.game?.name || team.status,
     }));
@@ -212,7 +214,7 @@ export async function GET(request: NextRequest) {
       ]
         .filter(Boolean)
         .join(' • '),
-      href: `/players/${player.slug || player.ign.toLowerCase()}`,
+      href: gameHref(DEFAULT_GAME_SLUG, `players/${player.slug || player.ign.toLowerCase()}`),
       imageUrl: player.avatarUrl,
       badge: player.role || 'Pro Player',
     }));
@@ -224,7 +226,7 @@ export async function GET(request: NextRequest) {
       subtitle: `${tourney.tier} • ${tourney.region || 'Global'}${
         tourney.prizePool ? ` • $${tourney.prizePool.toLocaleString()}` : ''
       }`,
-      href: `/tournaments/${tourney.slug}`,
+      href: gameHref(DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`),
       imageUrl: tourney.imageUrl,
       badge: tourney.status,
     }));

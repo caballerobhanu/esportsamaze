@@ -9,6 +9,7 @@ import {
 
 import { ThemeLogo } from '@/components/ui/theme-logo';
 import type { TeamContext } from '@/lib/team-data';
+import { DEFAULT_GAME_SLUG, gameHref, gameSlugOf } from '@/lib/games';
 
 const socialIcons: Record<string, typeof Globe> = {
   instagram: Globe,
@@ -32,7 +33,7 @@ function socialLinkHref(key: string, value: string) {
 }
 
 export function teamHref(team: { slug: string | null; tag: string | null; id: string }) {
-  return `/teams/${team.slug || team.tag || team.id}`;
+  return gameHref(DEFAULT_GAME_SLUG, `teams/${team.slug || team.tag || team.id}`);
 }
 
 /**
@@ -135,7 +136,7 @@ export function TeamHero({
               )}
               {typeof kraftonRank === 'number' && (
                 <Link
-                  href={`/rankings/team/${team.id}`}
+                  href={gameHref(gameSlugOf(team), `rankings/team/${team.id}`)}
                   className="inline-flex items-center gap-1 rounded-full bg-[#0A5FC4]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] transition hover:bg-[#0A5FC4]/20 dark:bg-[#0A5FC4]/20 dark:text-blue-300 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px]"
                 >
                   <BarChart3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> #{kraftonRank} KRAFTON Ranking

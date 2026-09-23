@@ -12,6 +12,7 @@ import {
 import { ThemeLogo } from './theme-logo';
 import type { StandingsLogoMode } from '@/lib/standings-config';
 import { TeamMark } from '@/components/ui/team-mark';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 interface TeamRosterMember {
   playerId?: string | null;
@@ -260,7 +261,7 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                       {seat.qualifierName &&
                         (seat.qualifierSlug ? (
                           <Link
-                            href={`/tournaments/${seat.qualifierSlug}`}
+                            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${seat.qualifierSlug}`)}
                             className="text-[11px] font-semibold text-[#0A5FC4] hover:underline dark:text-blue-300"
                           >
                             via {seat.qualifierName}
@@ -374,14 +375,14 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                     lightSrc={tt.logoUrl ?? tt.team.logoUrl}
                     darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
                     countryCode={tt.countryCode}
-                    href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}
+                    href={gameHref(DEFAULT_GAME_SLUG, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
                     tileClassName="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
                     logoClassName="object-contain p-1.5"
                     fallbackClassName="font-black text-slate-400 text-sm"
                   />
                   <div className="min-w-0">
                     <Link
-                      href={`/teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`}
+                      href={gameHref(DEFAULT_GAME_SLUG, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
                       className="text-base font-black text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block truncate"
                     >
                       {teamDisplayName(tt)}
@@ -394,7 +395,7 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                           seedLabel
                         ) : (
                           <Link
-                            href={`/tournaments/${tt.seedTournament?.slug}`}
+                            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tt.seedTournament?.slug}`)}
                             className="hover:underline"
                           >
                             {seedLabel}
@@ -432,10 +433,10 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                       const isStaff = Boolean(m.isStaff || m.staffRole);
                       const staffRole = m.staffRole || (m.isStaff ? m.role : null);
                       const playerUrl = m.slug
-                        ? `/players/${m.slug}`
+                        ? gameHref(DEFAULT_GAME_SLUG, `players/${m.slug}`)
                         : m.playerId
-                          ? `/players/${m.playerId}`
-                          : `/players/${encodeURIComponent(m.ign)}`;
+                          ? gameHref(DEFAULT_GAME_SLUG, `players/${m.playerId}`)
+                          : gameHref(DEFAULT_GAME_SLUG, `players/${encodeURIComponent(m.ign)}`);
 
                       return (
                         <Link

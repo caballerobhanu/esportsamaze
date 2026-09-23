@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { ClipboardList, Info } from 'lucide-react';
-import type { ReportedPlayerTotal, ReportedTeamTotal } from '@/app/(public)/tournaments/[slug]/tournament-data';
+import type { ReportedPlayerTotal, ReportedTeamTotal } from '@/app/(public)/[game]/tournaments/[slug]/tournament-data';
 import type { StandingsColumnKey, StandingsLogoMode } from '@/lib/standings-config';
 import { TeamMark } from '@/components/ui/team-mark';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 /** Columns the reported table can draw, and what it shows when the config names none of them. */
 const REPORTED_STANDINGS_COLUMNS: StandingsColumnKey[] = ['mp', 'wwcd', 'place', 'elims', 'bonus', 'total'];
@@ -100,7 +101,7 @@ export function EstaticReportedStandings({
                       fallbackClassName="text-[9px] font-black text-slate-400"
                     />
                     {team.slug ? (
-                      <Link href={`/teams/${team.slug}`} className="font-extrabold hover:text-[#0A5FC4]">
+                      <Link href={gameHref(DEFAULT_GAME_SLUG, `teams/${team.slug}`)} className="font-extrabold hover:text-[#0A5FC4]">
                         {team.displayName || team.name}
                       </Link>
                     ) : (
@@ -228,7 +229,7 @@ export function EstaticReportedTotals({
                 <tr key={player.playerId}>
                   <td className="px-4 py-3">
                     {player.slug ? (
-                      <Link href={`/players/${player.slug}`} className="font-extrabold hover:text-[#0A5FC4]">
+                      <Link href={gameHref(DEFAULT_GAME_SLUG, `players/${player.slug}`)} className="font-extrabold hover:text-[#0A5FC4]">
                         {player.ign}
                       </Link>
                     ) : (

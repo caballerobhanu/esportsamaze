@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { KickoffTime } from '@/components/ui/kickoff';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -789,7 +790,7 @@ export function TournamentScheduleCalendar({
                       // Only link to scorecard if it is a REAL database match that is completed or has live data
                       const hasRealScorecard = !isProjected && m.status !== 'SCHEDULED' && Boolean(m.id);
                       const matchUrl = hasRealScorecard && tournamentSlug
-                        ? `/tournaments/${tournamentSlug}/matches?matchId=${m.id}`
+                        ? `${gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournamentSlug}/matches`)}?matchId=${m.id}`
                         : null;
 
                       return (

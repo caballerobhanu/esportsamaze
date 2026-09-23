@@ -2,7 +2,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, BarChart3, Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import type { PlayerHeroProps } from '@/app/(public)/players/[slug]/player-data';
+import type { PlayerHeroProps } from '@/app/(public)/[game]/players/[slug]/player-data';
+import { DEFAULT_GAME_SLUG, gameHref, gameSlugOf } from '@/lib/games';
 
 /**
  * The player masthead, shared by every profile tab so the four routes render an
@@ -36,7 +37,7 @@ export function PlayerHero({ player, standing, stats, prevPlayer, nextPlayer }: 
           <div className="flex gap-1.5 sm:gap-2">
             {prevPlayer && (
               <Link
-                href={`/players/${prevPlayer.slug}`}
+                href={gameHref(DEFAULT_GAME_SLUG, `players/${prevPlayer.slug}`)}
                 className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Previous player: ${prevPlayer.ign}`}
               >
@@ -45,7 +46,7 @@ export function PlayerHero({ player, standing, stats, prevPlayer, nextPlayer }: 
             )}
             {nextPlayer && (
               <Link
-                href={`/players/${nextPlayer.slug}`}
+                href={gameHref(DEFAULT_GAME_SLUG, `players/${nextPlayer.slug}`)}
                 className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Next player: ${nextPlayer.ign}`}
               >
@@ -91,7 +92,7 @@ export function PlayerHero({ player, standing, stats, prevPlayer, nextPlayer }: 
               </span>
               {standing && (
                 <Link
-                  href={`/rankings/player/${player.id}`}
+                  href={gameHref(gameSlugOf(player), `rankings/player/${player.id}`)}
                   className="inline-flex items-center gap-1 rounded-full bg-[#0A5FC4]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] transition hover:bg-[#0A5FC4]/20 dark:bg-[#0A5FC4]/20 dark:text-blue-300 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[11px]"
                 >
                   <BarChart3 className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> #{standing.rank} KRAFTON Ranking
@@ -109,7 +110,7 @@ export function PlayerHero({ player, standing, stats, prevPlayer, nextPlayer }: 
 
             {player.currentTeam && (
               <Link
-                href={`/teams/${player.currentTeam.slug}`}
+                href={gameHref(DEFAULT_GAME_SLUG, `teams/${player.currentTeam.slug}`)}
                 className="mt-3.5 inline-flex max-w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-extrabold transition hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 sm:mt-7 sm:gap-3 sm:px-4 sm:py-3 sm:text-sm"
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center sm:h-8 sm:w-8">

@@ -23,6 +23,7 @@ import type {
 } from './panel-types';
 import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from '@/lib/standings-config';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
+import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
 export interface EstaticStatisticsPanelProps {
   playerRows: PlayerPerformanceRow[];
@@ -1416,7 +1417,7 @@ export function EstaticStatisticsPanel({
                           />
                           <div>
                             <Link
-                              href={`/players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`}
+                              href={gameHref(DEFAULT_GAME_SLUG, `players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`)}
                               className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                             >
                               {player.ign}
@@ -1624,7 +1625,7 @@ export function EstaticStatisticsPanel({
                             />
                             <div>
                               <Link
-                                href={`/teams/${team.teamSlug || encodeURIComponent(team.teamName)}`}
+                                href={gameHref(DEFAULT_GAME_SLUG, `teams/${team.teamSlug || encodeURIComponent(team.teamName)}`)}
                                 className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                               >
                                 {team.teamName}
