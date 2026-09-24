@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
         .join(' • '),
       href: gameHref(DEFAULT_GAME_SLUG, `players/${player.slug || player.ign.toLowerCase()}`),
       imageUrl: player.avatarUrl,
-      badge: player.role || 'Pro Player',
+      badge: player.role || 'Player',
     }));
 
     const formattedTournaments: SearchResultItem[] = tournaments.map((tourney) => ({

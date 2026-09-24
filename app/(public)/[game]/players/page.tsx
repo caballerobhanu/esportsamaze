@@ -40,7 +40,7 @@ export async function generateMetadata({
   };
 }
 
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 80;
 const ROLES = ['ALL', 'Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
 
 type PlayersFilters = {
@@ -175,7 +175,7 @@ export default async function PlayersPage({
   const siblingGames = pathGameRow?.familyId
     ? await prisma.game.findMany({
         where: { familyId: pathGameRow.familyId },
-        select: { id: true, name: true, slug: true },
+        select: { id: true, name: true, slug: true, shortName: true, logoUrl: true, logoDarkUrl: true },
         orderBy: { name: 'asc' },
       })
     : [];
@@ -217,7 +217,14 @@ export default async function PlayersPage({
     roles: Object.fromEntries(ROLES.map((r) => [r, roleCountBy.get(r.toLowerCase()) ?? 0])),
     // Only the family's games are offered.
     games: siblingGames
-      .map((g) => ({ slug: g.slug, name: g.name, count: gameCountById.get(g.id) ?? 0 }))
+      .map((g) => ({
+        slug: g.slug,
+        name: g.name,
+        count: gameCountById.get(g.id) ?? 0,
+        shortName: g.shortName,
+        logoUrl: g.logoUrl,
+        logoDarkUrl: g.logoDarkUrl,
+      }))
       .filter((g) => g.count > 0),
   };
 
@@ -229,48 +236,39 @@ export default async function PlayersPage({
   ];
 
   const paginationParams = Object.fromEntries(
-    Object.entries(filters).filter(([, v]) => v && v !== 'ALL')
+    Object.entries(filters).filter(([k, v]) => v && (v !== 'ALL' || k === 'game'))
   ) as Record<string, string>;
 
   return (
-    <div className="min-h-screen bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
-      {/* ================= HERO MASTHEAD ================= */}
-      <section className="border-b border-[var(--ed-hair)] bg-[var(--ed-surface)] py-7 sm:py-12">
-        <div className="mx-auto w-full max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-            <div>
-              <div className="kicker inline-flex items-center gap-2 text-[var(--ed-blue)] font-bold text-xs uppercase tracking-wider">
-                <Crosshair className="h-3.5 w-3.5 text-[var(--ed-blue)]" aria-hidden />
-                Official Pro Athlete Directory
-              </div>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl text-slate-900 dark:text-white">
-                Players
-              </h1>
-              <p className="mt-2 max-w-xl text-sm font-medium text-[var(--ed-stone)]">
-                Discover verified competitive esports athletes — explore tactical roles, team history, match performances, and carrier records.
-              </p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white">
+      <main className="mx-auto w-full max-w-[var(--page-max-width)] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        {/* Masthead */}
+        <div className="mb-10 space-y-3">
+          <h1 className="text-4xl font-black uppercase tracking-tight text-slate-950 dark:text-white sm:text-5xl">
+            Players
+          </h1>
+          <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
+            Browse verified esports athletes — tactical roles, current rosters, match records, and
+            career statistics across every registered competitor.
+          </p>
         </div>
-      </section>
 
-      {/* ================= MAIN CONTENT ================= */}
-      <main className="mx-auto w-full max-w-[var(--page-max-width)] space-y-8 px-4 py-8 sm:space-y-10 sm:px-6 lg:px-8">
-        {/* Metric ribbon — flat editorial card */}
-        <div className="ed-card grid grid-cols-2 md:grid-cols-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] overflow-hidden shadow-xs">
+        {/* Metric ribbon — rounded-3xl card */}
+        <div className="mb-10 grid grid-cols-2 gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0b1220] md:grid-cols-4 md:divide-x divide-slate-200 dark:divide-white/10">
           {metrics.map((m) => (
-            <div
-              key={m.label}
-              className="flex flex-col items-center gap-2 border-b border-slate-100 dark:border-slate-800 px-4 py-6 last:border-b-0 md:border-r md:last:border-r-0"
-            >
-              <m.icon className="h-4 w-4 text-[var(--ed-blue)]" aria-hidden />
-              <p className="num text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{m.value}</p>
-              <p className="ed-label text-[10px] font-bold uppercase tracking-wider text-slate-400">{m.label}</p>
+            <div key={m.label} className="flex flex-col items-center gap-1.5 p-3 text-center">
+              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <m.icon className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-300" />
+                {m.label}
+              </p>
+              <p className="flex items-center gap-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                {m.value}
+              </p>
             </div>
           ))}
         </div>
 
-        {/* Directory Explorer */}
+        {/* Directory */}
         <PlayersDirectoryExplorer
           players={players}
           filters={filters}
@@ -280,15 +278,17 @@ export default async function PlayersPage({
           basePath={gameHref(pathGame, 'players')}
         />
 
-        <DirectoryPagination
-          basePath={gameHref(pathGame, 'players')}
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          pageSize={PAGE_SIZE}
-          entityPlural="players"
-          params={paginationParams}
-        />
+        <div className="mt-10">
+          <DirectoryPagination
+            basePath={gameHref(pathGame, 'players')}
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            pageSize={PAGE_SIZE}
+            entityPlural="players"
+            params={paginationParams}
+          />
+        </div>
       </main>
     </div>
   );

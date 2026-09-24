@@ -3,12 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Search,
-  Crosshair,
-  Flame,
-  ChevronRight,
-} from 'lucide-react';
+import { Search, Crosshair, Users } from 'lucide-react';
+import { GameLogo } from '@/components/ui/game-capsule';
 import { cn } from '@/lib/utils';
 import { playerHref } from '@/lib/entity-links';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
@@ -51,11 +47,34 @@ export interface PlayersDirectoryFilters {
 export interface PlayersFacetCounts {
   total: number;
   roles: Record<string, number>;
-  games: Array<{ slug: string; name: string; count: number }>;
+  games: Array<{
+    slug: string;
+    name: string;
+    count: number;
+    shortName?: string | null;
+    logoUrl?: string | null;
+    logoDarkUrl?: string | null;
+  }>;
 }
 
 const ROLES = ['ALL', 'Assaulter', 'IGL', 'Support', 'Sniper', 'Flex'];
 const ALPHABET = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
+
+/* Player-profile language: slate surfaces, #0A5FC4 accents, no editorial chips. */
+const fieldCls =
+  'rounded-xl border border-slate-200 bg-slate-50 text-slate-900 transition-colors placeholder:text-slate-400 focus:border-[#0A5FC4] focus:outline-none focus:ring-2 focus:ring-[#0A5FC4]/25 dark:border-white/10 dark:bg-white/5 dark:text-white';
+const labelCls = 'mr-1 text-[10px] font-black uppercase tracking-wider text-slate-400';
+const chipBase =
+  'inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-bold transition-colors';
+const letterChip =
+  'inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border text-xs font-bold transition-colors';
+const chipOn = 'border-[#0A5FC4] bg-[#0A5FC4] text-white';
+const chipOff =
+  'border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300';
+const pagerCls =
+  'flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-sm font-black text-slate-700 transition-colors hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:text-slate-200';
+const pagerIdle =
+  'flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-sm font-black text-slate-300 opacity-60 select-none dark:border-white/10 dark:text-slate-600';
 
 export function PlayersDirectoryExplorer({
   players,
@@ -80,12 +99,14 @@ export function PlayersDirectoryExplorer({
     const params = new URLSearchParams();
     const merged = { ...filters, ...updates };
     for (const [k, v] of Object.entries(merged)) {
-      if (v && v !== 'ALL') params.set(k, v);
+      // `game` keeps an explicit ALL (otherwise the page falls back to the path
+      // game); every other facet treats ALL as "no filter".
+      if (!v || (v === 'ALL' && k !== 'game')) continue;
+      params.set(k, v);
     }
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   };
-
 
   const [lastUrlQ, setLastUrlQ] = React.useState(filters.q);
   if (lastUrlQ !== filters.q) {
@@ -110,125 +131,103 @@ export function PlayersDirectoryExplorer({
     navigate({ letter: filters.letter === letter ? '' : letter });
   };
 
-  // Chevron page switcher hrefs (filters carried, page swapped)
   const pageHref = (p: number) => {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filters)) {
-      if (v && v !== 'ALL') params.set(k, v);
+      if (!v || (v === 'ALL' && k !== 'game')) continue;
+      params.set(k, v);
     }
     if (p > 1) params.set('page', String(p));
     const qs = params.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
 
+  const gameCount = (slug: string) => counts.games.find((g) => g.slug === slug)?.count ?? 0;
+  const roleCount = (role: string) => counts.roles[role] ?? 0;
+
+  const hasActiveFilters =
+    filters.q !== '' || filters.role !== 'ALL' || filters.game !== 'ALL' || filters.letter !== '';
+
   return (
-    <div className="space-y-6">
-      {/* Search & Filter Header Bar */}
-      <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-[#0b101c]/80 backdrop-blur-md shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Search Box */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+    <div className="space-y-8">
+      {/* Controls */}
+      <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#0b1220] sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative max-w-md flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
+              placeholder="Search players, IGNs, real names, teams…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by IGN, real name, or team..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-(--ed-blue) transition-all"
+              className={cn(fieldCls, 'w-full py-2.5 pl-10 pr-3.5 text-sm')}
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Game Filter */}
-            {counts.games.length > 1 && (
-              <select
-                value={filters.game || 'ALL'}
-                onChange={(e) => navigate({ game: e.target.value })}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-(--ed-blue)"
-              >
-                <option value="ALL">All Games</option>
-                {counts.games.map((g) => (
-                  <option key={g.slug} value={g.slug}>
-                    {g.name} ({g.count})
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {/* Sort Toggle */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                ['ign', 'A–Z'],
+                ['ign-desc', 'Z–A'],
+                ['matches', 'Most Matches'],
+              ] as const
+            ).map(([value, label]) => (
               <button
+                key={value}
                 type="button"
-                onClick={() => navigate({ sort: 'ign' })}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg font-bold transition-all',
-                  (filters.sort || 'ign') === 'ign'
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                )}
+                onClick={() => navigate({ sort: value })}
+                className={cn(chipBase, (filters.sort || 'ign') === value ? chipOn : chipOff)}
               >
-                A–Z
+                {label}
               </button>
-              <button
-                type="button"
-                onClick={() => navigate({ sort: 'ign-desc' })}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg font-bold transition-all',
-                  filters.sort === 'ign-desc'
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                )}
-              >
-                Z–A
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate({ sort: 'matches' })}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1',
-                  filters.sort === 'matches'
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                )}
-              >
-                <Flame className="w-3 h-3 text-rose-500" />
-                Most Matches
-              </button>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Role Pills */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Role:</span>
-          {ROLES.map((r) => (
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+          <span className={labelCls}>Game</span>
+          <button
+            type="button"
+            onClick={() => navigate({ game: 'ALL' })}
+            className={cn(chipBase, filters.game === 'ALL' ? chipOn : chipOff)}
+          >
+            All games
+          </button>
+          {counts.games.map((g) => (
             <button
-              key={r}
+              key={g.slug}
               type="button"
-              onClick={() => navigate({ role: r })}
-              className={cn(
-                'px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer',
-                (filters.role || 'ALL') === r
-                  ? 'bg-(--ed-blue) text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              )}
+              onClick={() => navigate({ game: g.slug })}
+              className={cn(chipBase, filters.game === g.slug ? chipOn : chipOff)}
+              title={g.name}
             >
-              {r === 'ALL' ? 'All Roles' : r}
+              <GameLogo game={g} className="h-3.5 w-3.5" />
+              {g.shortName || g.name}
+              {gameCount(g.slug) > 0 && <span className="opacity-70">({gameCount(g.slug)})</span>}
             </button>
           ))}
         </div>
 
-        {/* Alphabet Jump Bar */}
-        <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+          <span className={labelCls}>Role</span>
+          {ROLES.map((role) => (
+            <button
+              key={role}
+              type="button"
+              onClick={() => navigate({ role })}
+              className={cn(chipBase, (filters.role || 'ALL') === role ? chipOn : chipOff)}
+            >
+              {role === 'ALL' ? `All (${counts.total})` : `${role} (${roleCount(role)})`}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
+          <span className={labelCls}>Name</span>
           <button
             type="button"
             onClick={() => navigate({ letter: '' })}
-            className={cn(
-              'px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-colors',
-              !filters.letter
-                ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
-                : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            )}
+            className={cn(chipBase, !filters.letter ? chipOn : chipOff)}
           >
             All
           </button>
@@ -237,12 +236,7 @@ export function PlayersDirectoryExplorer({
               key={char}
               type="button"
               onClick={() => toggleLetter(char)}
-              className={cn(
-                'w-6 h-6 rounded flex items-center justify-center text-[11px] font-mono font-bold transition-colors',
-                filters.letter === char
-                  ? 'bg-(--ed-blue) text-white shadow-xs'
-                  : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-              )}
+              className={cn(letterChip, filters.letter === char ? chipOn : chipOff)}
             >
               {char}
             </button>
@@ -250,55 +244,57 @@ export function PlayersDirectoryExplorer({
         </div>
       </div>
 
-      {/* Counter + page switcher */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-        <span>
-          Showing <strong className="text-slate-800 dark:text-slate-200">{players.length}</strong> verified esports players
-        </span>
+      {/* Results header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Showing{' '}
+            <span className="font-bold tabular-nums text-slate-900 dark:text-white">{players.length}</span> players
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={() => router.push(basePath)}
+              className="text-sm font-medium text-[#0A5FC4] hover:underline dark:text-blue-300"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           {page > 1 ? (
-            <Link
-              href={pageHref(page - 1)}
-              prefetch
-              aria-label="Previous page"
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-700 hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors dark:border-slate-700 dark:text-slate-200"
-            >
+            <Link href={pageHref(page - 1)} prefetch aria-label="Previous page" className={pagerCls}>
               ‹
             </Link>
           ) : (
-            <span aria-disabled className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-400 opacity-40 select-none dark:border-slate-700">
+            <span aria-disabled className={pagerIdle}>
               ‹
             </span>
           )}
-          <span className="num rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-extrabold text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold tabular-nums text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
             {page} / {totalPages}
           </span>
           {page < totalPages ? (
-            <Link
-              href={pageHref(page + 1)}
-              prefetch
-              aria-label="Next page"
-              className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-700 hover:border-(--ed-blue) hover:text-(--ed-blue) transition-colors dark:border-slate-700 dark:text-slate-200"
-            >
+            <Link href={pageHref(page + 1)} prefetch aria-label="Next page" className={pagerCls}>
               ›
             </Link>
           ) : (
-            <span aria-disabled className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-sm font-black text-slate-400 opacity-40 select-none dark:border-slate-700">
+            <span aria-disabled className={pagerIdle}>
               ›
             </span>
           )}
         </div>
       </div>
 
-      {/* Grid of Players */}
       {players.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#0b101c]/50">
-          <Crosshair className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
-          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No players match your filters</p>
-          <p className="text-xs text-slate-400 mt-1">Try broadening your search query or clearing the letter filter.</p>
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-200 bg-white py-20 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+          <Crosshair className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+          <p className="text-lg font-black tracking-tight text-slate-950 dark:text-white">No players match your filters</p>
+          <p className="max-w-sm text-sm font-medium text-slate-500 dark:text-slate-400">
+            Try adjusting your search or selecting a different role, game, or letter.
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {players.map((p) => {
             const playerUrl = p.slug ? playerHref(p) : '#';
 
@@ -306,77 +302,66 @@ export function PlayersDirectoryExplorer({
               <Link
                 key={p.id}
                 href={playerUrl}
-                className="group p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b101c] hover:border-(--ed-blue) dark:hover:border-blue-500/50 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-[#0A5FC4] hover:shadow-lg dark:border-white/10 dark:bg-[#0b1220]"
               >
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    {/* Avatar */}
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700">
+                <div className="p-5">
+                  <div className="flex items-start gap-4">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
                       {p.avatarUrl ? (
-                        <img
-                          src={p.avatarUrl}
-                          alt={p.ign}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
+                        // eslint-disable-next-line @next/next/no-img-element -- same-origin /api/media, nginx-cached
+                        <img src={p.avatarUrl} alt={p.ign} loading="lazy" className="h-full w-full object-cover" />
                       ) : (
-                        <span className="text-base font-black text-slate-400 font-mono">
+                        <span className="text-base font-black text-slate-400 dark:text-slate-500">
                           {p.ign.slice(0, 2).toUpperCase()}
                         </span>
                       )}
                     </div>
 
-                    {/* Role & Verification Badge */}
-                    <div className="flex flex-col items-end gap-1">
-                      {p.role && (
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold">
-                          {p.role}
-                        </span>
-                      )}
-                      {p.isVerified && (
-                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
-                          ✓ Pro
-                        </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="line-clamp-2 text-base font-black leading-snug tracking-tight text-slate-950 transition-colors group-hover:text-[#0A5FC4] dark:text-white dark:group-hover:text-blue-300">
+                        {p.ign}
+                      </h3>
+                      {p.name && (
+                        <p className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{p.name}</p>
                       )}
                     </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-black text-sm text-slate-900 dark:text-white group-hover:text-(--ed-blue) dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
-                      {p.ign}
-                    </h3>
-                    {p.name && (
-                      <p className="text-[11px] text-slate-400 truncate">
-                        {p.name}
-                      </p>
-                    )}
                   </div>
                 </div>
 
-                {/* Footer with Team & Stats */}
-                <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                  {p.currentTeam ? (
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {p.currentTeam.logoUrl && (
-                        <img
-                          src={p.currentTeam.logoUrl}
-                          alt={p.currentTeam.name}
-                          className="w-4 h-4 rounded object-contain shrink-0"
-                        />
-                      )}
-                      <span className="font-bold text-slate-700 dark:text-slate-300 truncate text-[11px]">
-                        {p.currentTeam.tag || p.currentTeam.name}
-                      </span>
+                {/* Facts — label above value, matching the tournaments card skeleton */}
+                <div className="border-t border-slate-200 p-5 dark:border-white/10">
+                  <dl className="space-y-4">
+                    <div>
+                      <dt className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <Users className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-300" />
+                        Current team
+                      </dt>
+                      <dd className="mt-1.5 flex items-center gap-2">
+                        {p.currentTeam?.logoUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element -- same-origin /api/media, nginx-cached
+                          <img
+                            src={p.currentTeam.logoUrl}
+                            alt=""
+                            loading="lazy"
+                            className="h-4 w-4 shrink-0 rounded object-contain"
+                          />
+                        )}
+                        <span className="truncate text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {p.currentTeam ? p.currentTeam.name : 'Free Agent'}
+                        </span>
+                      </dd>
                     </div>
-                  ) : (
-                    <span className="text-slate-400 text-[11px] italic">Free Agent</span>
-                  )}
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] font-mono text-slate-400">
-                      {p._count.matchStats} matches
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-(--ed-blue) group-hover:translate-x-0.5 transition-all" />
-                  </div>
+                    <div>
+                      <dt className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                        <Crosshair className="h-3.5 w-3.5 text-[#0A5FC4] dark:text-blue-300" />
+                        Matches played
+                      </dt>
+                      <dd className="mt-1 text-xl font-black tracking-tight tabular-nums text-[#0A5FC4] dark:text-blue-300">
+                        {p._count.matchStats.toLocaleString('en-IN')}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
               </Link>
             );
