@@ -832,6 +832,50 @@ export function matchStageLabel(m: {
   return 'Grand Finals';
 }
 
+/* ── which tab opens ── */
+
+/**
+ * The stage a standings surface should open on: the latest stage that has a
+ * result — the same anchor the matches tab already opens on, so the two tabs
+ * agree about where the event currently is.
+ *
+ * Matches are expected in schedule order, the order the tab receives them, so the
+ * last one carrying a scorecard is the most recent thing that happened. Null when
+ * nothing has been played, leaving the config's own order to decide.
+ */
+export function latestPlayedStageName(
+  matches: readonly { stageName: string; results: readonly unknown[] }[]
+): string | null {
+  for (let i = matches.length - 1; i >= 0; i--) {
+    if ((matches[i].results?.length ?? 0) > 0) return matches[i].stageName;
+  }
+  return null;
+}
+
+/**
+ * Where a stage sits in a standings config: the tab group holding it and the item
+ * that shows it. Null when the config never mentions the stage, so the caller can
+ * fall back to its own default rather than forcing an entry that does not exist.
+ *
+ * A stage is named by a STAGE item's `stageName`, or covered by a custom tab.
+ */
+export function navEntryForStage(
+  config: { tabGroups?: StandingsTabGroup[] | null; customTabs?: StandingsCustomTab[] | null },
+  stageName: string
+): { groupId: string | null; itemId: string } | null {
+  const showsStage = (item: StandingsNavigationItem) =>
+    item.type === 'STAGE'
+      ? (item.stageName ?? item.label) === stageName
+      : item.type === 'CUSTOM_TAB' && (item.includeStages ?? []).includes(stageName);
+
+  for (const group of config.tabGroups ?? []) {
+    const item = group.items.find(showsStage);
+    if (item) return { groupId: group.id, itemId: item.id };
+  }
+  const tab = (config.customTabs ?? []).find((t) => (t.includeStages ?? []).includes(stageName));
+  return tab ? { groupId: null, itemId: tab.id } : null;
+}
+
 export function matchDayLabel(scheduledAt: Date | string | null | undefined): string {
   if (!scheduledAt) return '1';
   const d = typeof scheduledAt === 'string' ? new Date(scheduledAt) : scheduledAt;

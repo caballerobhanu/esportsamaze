@@ -22,6 +22,8 @@ import { calculateTournamentStandings, type AggregatedTeamStanding } from '@/lib
 import {
   getStageConfig,
   zoneForRank,
+  latestPlayedStageName,
+  navEntryForStage,
   type StandingsConfig,
   type StandingsStageConfig,
   type StandingsColumnKey,
@@ -192,8 +194,25 @@ export function EstaticStandingsPanel({
   const customTabs = React.useMemo(() => config.customTabs || [], [config.customTabs]);
   const visibleColumns = React.useMemo(() => new Set(config.columns), [config.columns]);
 
+  // Both levels open on whatever the calendar last touched — the latest stage with
+  // a result, the same anchor the matches tab opens on — so switching tabs does not
+  // move you from the stage being played to one that is still untouched. A config
+  // that never names that stage, or an event with nothing played yet, falls back to
+  // the config's own first entry.
+  const playedEntry = React.useMemo(() => {
+    const played = latestPlayedStageName(matches);
+    if (!played) return null;
+    const entry = navEntryForStage(config, played);
+    if (entry) return entry;
+    // An unconfigured surface lists the stages themselves, so the stage name is
+    // already a valid item id.
+    if (!hasTabGroups && customTabs.length === 0) return { groupId: null, itemId: played };
+    return null;
+  }, [config, matches, hasTabGroups, customTabs]);
+
   // Active Tab Group (Level 1)
   const [activeGroupId, setActiveGroupId] = React.useState<string>(() => {
+    if (playedEntry?.groupId) return playedEntry.groupId;
     if (hasTabGroups && tabGroups[0]) return tabGroups[0].id;
     return 'default';
   });
@@ -207,12 +226,13 @@ export function EstaticStandingsPanel({
 
   // Active Sub-Tab / Stage (Level 2)
   const initialActiveId = React.useMemo(() => {
+    if (playedEntry) return playedEntry.itemId;
     if (activeGroup && activeGroup.items.length > 0) {
       return activeGroup.items[0].id;
     }
     if (customTabs.length > 0) return customTabs[0].id;
     return stages[stages.length - 1]?.stageName ?? 'OVERALL';
-  }, [activeGroup, customTabs, stages]);
+  }, [playedEntry, activeGroup, customTabs, stages]);
 
   const [activeId, setActiveId] = React.useState<string>(initialActiveId);
   const [day, setDay] = React.useState('');
