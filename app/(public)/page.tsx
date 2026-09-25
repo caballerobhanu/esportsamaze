@@ -20,6 +20,7 @@ import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
 import type { Metadata } from 'next';
 import { canonical, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
+import { formatTournamentDates } from '@/lib/tournament-dates';
 import { teamHref, playerHref } from '@/lib/entity-links';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
@@ -193,6 +194,7 @@ export default async function HomePage() {
     usdRate: true,
     startDate: true,
     endDate: true,
+    datePrecision: true,
     imageUrl: true,
     imageDarkUrl: true,
     eventType: true,
@@ -462,7 +464,7 @@ export default async function HomePage() {
                       <div className="flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-3 text-xs text-slate-400 dark:text-slate-500">
                         <span className="flex items-center gap-1.5 font-medium">
                           <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                          {formatDate(tourney.startDate)} – {formatDate(tourney.endDate)}
+                          {formatTournamentDates(tourney.startDate, tourney.endDate, tourney.datePrecision)}
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] opacity-0 transition-opacity group-hover:opacity-100 dark:text-blue-400">
                           View details <ArrowRight className="h-3 w-3" />

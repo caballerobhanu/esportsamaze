@@ -5,7 +5,7 @@ import { Trophy, Swords, Users, ArrowRight, Flame } from 'lucide-react';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { GameLogo } from '@/components/ui/game-capsule';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
-import { formatDate } from '@/lib/utils';
+import { formatTournamentDates } from '@/lib/tournament-dates';
 import { DirectoryPagination } from '@/components/directory-pagination';
 import { gameHref } from '@/lib/games';
 import { getGameBySlug } from '@/lib/game-queries';
@@ -131,6 +131,7 @@ const featuredSelect = {
   season: true,
   startDate: true,
   endDate: true,
+  datePrecision: true,
   prizePool: true,
   currency: true,
   usdRate: true,
@@ -158,6 +159,7 @@ async function getTournamentsDirectoryData(filters: TournamentsFilters, scope: G
           gameMode: true,
           startDate: true,
           endDate: true,
+          datePrecision: true,
           prizePool: true,
           currency: true,
           usdRate: true,
@@ -339,7 +341,7 @@ export default async function TournamentsPage({
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-500 dark:text-slate-400">
                   <span>
-                    {formatDate(featured.startDate)} — {formatDate(featured.endDate)}
+                    {formatTournamentDates(featured.startDate, featured.endDate, featured.datePrecision)}
                   </span>
                   <span>•</span>
                   <span>

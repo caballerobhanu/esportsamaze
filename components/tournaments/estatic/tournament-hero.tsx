@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { TournamentShortName } from '@/components/ui/tournament-name';
 import { Crown, Trophy, Users, Layers, Swords } from 'lucide-react';
 import { EditionPagerButtons, EditionSwitcher } from './edition-nav';
-import { formatDate } from '@/lib/utils';
+import { formatTournamentDates } from '@/lib/tournament-dates';
 import { ThemeLogo } from './theme-logo';
 import type { TournamentContext } from '@/app/(public)/[game]/tournaments/[slug]/tournament-data';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
@@ -115,7 +115,7 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
                   <span className="mx-2 text-slate-300 dark:text-slate-700">•</span>
                 </>
               )}
-              <span>{formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}</span>
+              <span>{formatTournamentDates(tournament.startDate, tournament.endDate, tournament.datePrecision)}</span>
             </p>
 
             {/* Season / Edition Switcher */}

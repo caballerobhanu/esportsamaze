@@ -9,7 +9,8 @@ import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { applyRosterMembership } from '@/lib/player-transfers';
 import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
-import { fStr, fOpt, fDate, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
+import { fStr, fOpt, fDate, fMonthStart, fMonthEnd, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
+import { formatTournamentDates } from '@/lib/tournament-dates';
 import { recordSlugChange } from '@/lib/slug-history';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { saveUploadedFile } from '@/lib/upload';
@@ -42,6 +43,7 @@ import { TournamentSquadsInput, type SquadRow } from '@/components/admin/tournam
 import { TournamentStandingsConfigInput } from '@/components/admin/tournament-standings-config-input';
 import { TournamentDisplayConfigInput } from '@/components/admin/tournament-display-config-input';
 import { TournamentCloneDialog } from '@/components/admin/tournament-clone-dialog';
+import { TournamentDatesInput } from '@/components/admin/tournament-dates-input';
 import { matchStageLabel, normalizeLogoModeBySurface } from '@/lib/standings-config';
 import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
 import { getStageTemplates } from '@/lib/stage-template-store';
@@ -165,8 +167,14 @@ async function saveTournament(formData: FormData) {
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
   const gameId = fStr(formData, 'gameId');
-  const startDate = fDate(formData, 'startDate');
-  const endDate = fDate(formData, 'endDate');
+  // Dates are either exact days or month-only (the day was not announced); a
+  // month-only range is stored as the 1st of the start month and the last day of
+  // the end month, with `datePrecision` remembering how to display it.
+  const datePrecision = fStr(formData, 'datePrecision') === 'MONTH' ? 'MONTH' : 'DAY';
+  const startDate =
+    datePrecision === 'MONTH' ? fMonthStart(formData, 'startMonth') : fDate(formData, 'startDate');
+  const endDate =
+    datePrecision === 'MONTH' ? fMonthEnd(formData, 'endMonth') : fDate(formData, 'endDate');
   if (!name || !gameId || !startDate || !endDate) {
     redirect(`/admin/tournaments?error=required${id ? `&edit=${id}` : ''}`);
   }
@@ -559,6 +567,7 @@ async function saveTournament(formData: FormData) {
     qualifications,
     startDate,
     endDate,
+    datePrecision,
     winner,
     runnerUp,
     liquipedia: fUrl(formData, 'liquipedia'),
@@ -929,6 +938,7 @@ async function duplicateTournament(formData: FormData) {
       qualifications: source.qualifications ?? undefined,
       startDate: source.startDate,
       endDate: source.endDate,
+      datePrecision: source.datePrecision,
       imageUrl: source.imageUrl,
       imageDarkUrl: source.imageDarkUrl,
       bannerUrl: source.bannerUrl,
@@ -1019,6 +1029,7 @@ export default async function AdminTournamentsPage({
         gameMode: true,
         startDate: true,
         endDate: true,
+        datePrecision: true,
         prizePool: true,
         currency: true,
         rankingIncluded: true,
@@ -1608,26 +1619,15 @@ export default async function AdminTournamentsPage({
                   ))}
                 </select>
               </div>
-              <div>
-                <label className={labelCls}>Start Date *</label>
-                <input
-                  type="date"
-                  name="startDate"
-                  required
-                  defaultValue={editing ? editing.startDate.toISOString().slice(0, 10) : ''}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>End Date *</label>
-                <input
-                  type="date"
-                  name="endDate"
-                  required
-                  defaultValue={editing ? editing.endDate.toISOString().slice(0, 10) : ''}
-                  className={inputCls}
-                />
-              </div>
+              <TournamentDatesInput
+                inputCls={inputCls}
+                labelCls={labelCls}
+                precision={editing?.datePrecision ?? 'DAY'}
+                startDate={editing ? editing.startDate.toISOString().slice(0, 10) : ''}
+                endDate={editing ? editing.endDate.toISOString().slice(0, 10) : ''}
+                startMonth={editing ? editing.startDate.toISOString().slice(0, 7) : ''}
+                endMonth={editing ? editing.endDate.toISOString().slice(0, 7) : ''}
+              />
               <div>
                 <label className={labelCls}>Winner Team (Champion)</label>
                 <Combobox
@@ -1951,7 +1951,7 @@ export default async function AdminTournamentsPage({
                 <td className="py-3 px-3 text-slate-500 text-xs hidden sm:table-cell">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-slate-400" />
-                    {t.startDate.toISOString().slice(0, 10)} → {t.endDate.toISOString().slice(0, 10)}
+                    {formatTournamentDates(t.startDate, t.endDate, t.datePrecision)}
                   </span>
                 </td>
                 <td className="py-3 px-3 font-mono font-bold text-xs">

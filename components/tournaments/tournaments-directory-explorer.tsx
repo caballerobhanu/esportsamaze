@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search, Trophy, Calendar, MapPin, ArrowRight, Banknote } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { formatTournamentDates } from '@/lib/tournament-dates';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { GameLogo } from '@/components/ui/game-capsule';
 import { ThemeLogo } from '@/components/ui/theme-logo';
@@ -22,6 +22,7 @@ export interface TournamentDirectoryItem {
   gameMode?: string | null;
   startDate: Date | string;
   endDate: Date | string;
+  datePrecision?: string | null;
   prizePool?: number | null;
   currency?: string | null;
   usdRate?: number | null;
@@ -360,7 +361,7 @@ export function TournamentsDirectoryExplorer({
                         Dates
                       </dt>
                       <dd className="num mt-1 text-sm font-bold text-slate-700 dark:text-slate-200">
-                        {formatDate(t.startDate)} — {formatDate(t.endDate)}
+                        {formatTournamentDates(t.startDate, t.endDate, t.datePrecision)}
                       </dd>
                     </div>
 

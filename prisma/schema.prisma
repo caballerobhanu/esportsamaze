@@ -287,6 +287,10 @@ model Tournament {
   qualifications    Json?                 // [{ place: "1st", events: ["PMGC 2025", "EWC 2025"] }, ...]
   startDate         DateTime
   endDate           DateTime
+  // How precisely the dates are known: "DAY" (default) or "MONTH" when the day is
+  // unknown. MONTH stores the 1st of the start month and the last day of the end
+  // month, so ranges, status derivation and sorting all keep working.
+  datePrecision     String                @default("DAY")
   winnerTeamId      String?
   winnerTeam        Team?                 @relation("TournamentWinner", fields: [winnerTeamId], references: [id])
   winner            String?               // Cached winner display name

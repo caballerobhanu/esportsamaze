@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { formatDate, CURRENCY_SYMBOLS } from '@/lib/utils';
+import { formatTournamentDates } from '@/lib/tournament-dates';
 import type { AggregatedTeamStanding } from '@/lib/tournament-math';
 import type { StandingsLogoMode } from '@/lib/standings-config';
 import type { MatchLite } from './panel-types';
@@ -45,6 +46,7 @@ export function EstaticOverviewPanel({
     usdRate?: number | null;
     startDate: Date;
     endDate: Date;
+    datePrecision?: string | null;
     gameMode?: string | null;
     eventType?: string | null;
     device?: string | null;
@@ -113,7 +115,7 @@ export function EstaticOverviewPanel({
     {
       icon: CalendarDays,
       label: 'Tournament Schedule',
-      value: `${formatDate(tournament.startDate)} – ${formatDate(tournament.endDate)}`,
+      value: `${formatTournamentDates(tournament.startDate, tournament.endDate, tournament.datePrecision)}`,
       sub: tournament.eventType || 'Multi-Week Event',
     },
     {

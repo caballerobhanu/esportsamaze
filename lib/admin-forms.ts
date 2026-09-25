@@ -30,6 +30,30 @@ export function fNum(fd: FormData, key: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** "2026-11" → { y: 2026, m: 11 }, or null when malformed. */
+function monthParts(fd: FormData, key: string): { y: number; m: number } | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(fStr(fd, key));
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  return m >= 1 && m <= 12 ? { y, m } : null;
+}
+
+/**
+ * Month-only date range (the day was never announced). `<input type="month">`
+ * submits "YYYY-MM"; the range is stored as the 1st of the start month and the
+ * last day of the end month so ordering, status and filtering stay correct.
+ */
+export function fMonthStart(fd: FormData, key: string): Date | null {
+  const parts = monthParts(fd, key);
+  return parts ? new Date(Date.UTC(parts.y, parts.m - 1, 1)) : null;
+}
+
+export function fMonthEnd(fd: FormData, key: string): Date | null {
+  const parts = monthParts(fd, key);
+  return parts ? new Date(Date.UTC(parts.y, parts.m, 0)) : null;
+}
+
 export const VALID_TOURNAMENT_STATUSES = ['UPCOMING', 'ONGOING', 'COMPLETED', 'CANCELED'] as const;
 export type ValidTournamentStatus = (typeof VALID_TOURNAMENT_STATUSES)[number];
 
