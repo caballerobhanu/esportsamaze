@@ -11,6 +11,7 @@ import type { Prisma } from '@prisma/client';
 import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fMonthStart, fMonthEnd, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
 import { formatTournamentDates } from '@/lib/tournament-dates';
+import { refreshDerivedTournamentStatuses } from '@/lib/tournament-status';
 import { recordSlugChange } from '@/lib/slug-history';
 import { gameHref, gameSlugOf } from '@/lib/games';
 import { currencyLocale } from '@/lib/utils';
@@ -996,6 +997,11 @@ export default async function AdminTournamentsPage({
   searchParams: Promise<{ edit?: string; error?: string; field?: string }>;
 }) {
   const { edit, error, field } = await searchParams;
+
+  // The calendar moves past events between saves, so bring their derived status
+  // up to date as the list is opened. Completed and cancelled events are left
+  // alone: once an event is over, it is over.
+  await refreshDerivedTournamentStatuses();
 
   // Open the tab that owns a field that failed to parse, so the banner never names a
   // control the admin cannot see. `required` covers name and game (Basics) plus the dates

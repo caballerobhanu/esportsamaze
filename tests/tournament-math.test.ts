@@ -14,6 +14,7 @@ import {
   tournamentHasEnded,
   deriveTournamentStatus,
 } from '../lib/tournament-math';
+import { statusRefreshes } from '../lib/tournament-status';
 
 test('an event runs through its closing day and is over the day after', () => {
   const DAY = 24 * 60 * 60 * 1000;
@@ -36,6 +37,29 @@ test('derived status keeps that same inclusive closing day', () => {
   assert.equal(deriveTournamentStatus(at(-5), at(0)), 'ONGOING', 'closing day is today');
   assert.equal(deriveTournamentStatus(at(-5), at(1)), 'ONGOING', 'closing day is tomorrow');
   assert.equal(deriveTournamentStatus(at(1), at(5)), 'UPCOMING', 'starts tomorrow');
+});
+
+test('a refresh moves unfinished events only, and never one that is over', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const todayStart = Math.floor(Date.now() / DAY) * DAY;
+  const at = (offsetDays: number) => new Date(todayStart + offsetDays * DAY).toISOString();
+  const row = (id: string, status: string, start: number, end: number) => ({
+    id,
+    status,
+    startDate: at(start),
+    endDate: at(end),
+  });
+
+  const moved = statusRefreshes([
+    row('a', 'UPCOMING', -5, 5), // mid-event → ONGOING
+    row('b', 'UPCOMING', -9, -1), // ended yesterday → COMPLETED
+    row('c', 'ONGOING', 3, 9), // not started yet → UPCOMING
+    row('d', 'UPCOMING', 3, 9), // already right → left alone
+    row('e', 'COMPLETED', -9, -1), // over → never touched
+    row('f', 'CANCELED', -1, 2), // called off by hand → never touched
+  ]).map((r) => `${r.id}:${r.from}->${r.to}`);
+
+  assert.deepEqual(moved, ['a:UPCOMING->ONGOING', 'b:UPCOMING->COMPLETED', 'c:ONGOING->UPCOMING']);
 });
 
 test('computeTotalPoints sums place, elims and bonus', () => {
