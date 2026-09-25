@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_SURFACE_LOGO_MODE,
+  latestPlayedGroupName,
   latestPlayedStageName,
   logoModesFromConfig,
   navEntryForStage,
@@ -144,4 +145,53 @@ test('an overall tab is never taken for the stage it happens to be named after',
 test('a stage the config never mentions resolves to nothing, so the caller keeps its own default', () => {
   assert.equal(navEntryForStage({}, 'Week 3'), null);
   assert.equal(navEntryForStage({ tabGroups: [], customTabs: [] }, 'Week 3'), null);
+});
+
+test('a stage opens on the group being played, not the first one configured', () => {
+  // Week 2's groups are played C, then B, then A. Today only C has a scorecard, so
+  // opening Group A would show an empty table while Group C is the live one.
+  assert.equal(
+    latestPlayedGroupName([
+      { groupName: 'Group C', results: [{}] },
+      { groupName: 'Group B', results: [] as unknown[] },
+      { groupName: 'Group A', results: [] as unknown[] },
+    ]),
+    'Group C'
+  );
+
+  // Tomorrow B has been played too, and the day after that it is A that opens last.
+  assert.equal(
+    latestPlayedGroupName([
+      { groupName: 'Group C', results: [{}] },
+      { groupName: 'Group B', results: [{}] },
+      { groupName: 'Group A', results: [] as unknown[] },
+    ]),
+    'Group B'
+  );
+  assert.equal(
+    latestPlayedGroupName([
+      { groupName: 'Group C', results: [{}] },
+      { groupName: 'Group B', results: [{}] },
+      { groupName: 'Group A', results: [{}] },
+    ]),
+    'Group A'
+  );
+});
+
+test('an untouched stage has no group anchor, so the configured order stands', () => {
+  // The next stage, before anything of it is played: Group A is the right landing.
+  assert.equal(
+    latestPlayedGroupName([
+      { groupName: 'Group A', results: [] as unknown[] },
+      { groupName: 'Group B', results: [] as unknown[] },
+      { groupName: 'Group C', results: [] as unknown[] },
+    ]),
+    null
+  );
+  assert.equal(latestPlayedGroupName([]), null);
+});
+
+test('a played match carrying no group has nothing to open', () => {
+  assert.equal(latestPlayedGroupName([{ groupName: '', results: [{}] }]), null);
+  assert.equal(latestPlayedGroupName([{ results: [{}] }]), null);
 });

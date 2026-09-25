@@ -853,6 +853,22 @@ export function latestPlayedStageName(
 }
 
 /**
+ * The group a stage's standings should open on: the group of the most recent
+ * match that carries a scorecard, so a stage whose groups are played in a
+ * different order does not keep opening on the first one every time the page is
+ * refreshed. Null when the stage has not been played, leaving the configured
+ * order to decide.
+ */
+export function latestPlayedGroupName(
+  matches: readonly { groupName?: string | null; results: readonly unknown[] }[]
+): string | null {
+  for (let i = matches.length - 1; i >= 0; i--) {
+    if ((matches[i].results?.length ?? 0) > 0) return matches[i].groupName?.trim() || null;
+  }
+  return null;
+}
+
+/**
  * Where a stage sits in a standings config: the tab group holding it and the item
  * that shows it. Null when the config never mentions the stage, so the caller can
  * fall back to its own default rather than forcing an entry that does not exist.

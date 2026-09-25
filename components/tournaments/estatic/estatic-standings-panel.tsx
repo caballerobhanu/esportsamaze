@@ -23,6 +23,7 @@ import {
   getStageConfig,
   zoneForRank,
   latestPlayedStageName,
+  latestPlayedGroupName,
   navEntryForStage,
   type StandingsConfig,
   type StandingsStageConfig,
@@ -390,14 +391,6 @@ export function EstaticStandingsPanel({
 
   const [activeGroupSubTab, setActiveGroupSubTab] = React.useState<string>('OVERALL');
 
-  React.useEffect(() => {
-    if (activeNavItem?.enableGroupSubTabs && activeNavItem.showOverallInGroupTabs === false) {
-      setActiveGroupSubTab(activeNavItem.groups?.[0] || 'FIRST');
-    } else {
-      setActiveGroupSubTab('OVERALL');
-    }
-  }, [activeId, activeNavItem]);
-
   const rawStageMatches = React.useMemo(() => {
     let result: StandingsMatchLite[] = [];
     if (activeNavItem) {
@@ -446,6 +439,20 @@ export function EstaticStandingsPanel({
 
     return result;
   }, [activeNavItem, activeCustomTab, activeId, matches, stages, config]);
+
+  // Which group a stage opens on. The configured first group is the floor, but a
+  // stage whose groups are played out of order (C today, B tomorrow, A the day
+  // after) should land on the group actually being played rather than snapping back
+  // to the first one on every refresh. A stage with no scorecard yet keeps the
+  // configured order, which is what "starts on Group A" means for the next stage.
+  React.useEffect(() => {
+    if (activeNavItem?.enableGroupSubTabs && activeNavItem.showOverallInGroupTabs === false) {
+      const playedGroup = latestPlayedGroupName(rawStageMatches);
+      setActiveGroupSubTab(playedGroup || activeNavItem.groups?.[0] || 'FIRST');
+    } else {
+      setActiveGroupSubTab('OVERALL');
+    }
+  }, [activeId, activeNavItem, rawStageMatches]);
 
   // Detected group sub-tabs
   const availableGroups = React.useMemo(() => {
