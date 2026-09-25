@@ -42,6 +42,27 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 /**
+ * The digit grouping a currency is written in. Rupees group by lakh/crore
+ * (`en-IN`: 30,00,000), every other currency here groups in threes
+ * (`en-US`: 3,000,000). A USD amount must never render as "$3,00,000".
+ */
+export function currencyLocale(currency?: string | null): 'en-IN' | 'en-US' {
+  return (currency ?? '').toUpperCase() === 'INR' ? 'en-IN' : 'en-US';
+}
+
+/** A grouped number in its currency's convention, with no symbol. */
+export function formatCurrencyNumber(amount: number, currency?: string | null): string {
+  return amount.toLocaleString(currencyLocale(currency));
+}
+
+/** An amount with its currency symbol, grouped in that currency's convention. */
+export function formatMoney(amount: number, currency: string = 'USD'): string {
+  const code = (currency || 'USD').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
+  return `${symbol}${amount.toLocaleString(currencyLocale(code))}`;
+}
+
+/**
  * Formats a prize pool as "local currency first, universal dollar second".
  * If currency is USD, shows only USD.
  * e.g. formatPrizePool(40000000, 'INR') → "₹4,00,00,000 (≈ $460,000 USD)"
@@ -57,8 +78,7 @@ export function formatPrizePool(
   const currCode = (currency || 'USD').toUpperCase();
   const rate = usdRate && usdRate > 0 ? usdRate : getCurrencyUsdRate(currCode);
 
-  const symbol = CURRENCY_SYMBOLS[currCode] ?? `${currCode} `;
-  const localFormatted = `${symbol}${amount.toLocaleString(currCode === 'INR' ? 'en-IN' : 'en-US')}`;
+  const localFormatted = formatMoney(amount, currCode);
 
   if (currCode === 'USD' || !includeSecondary) {
     return localFormatted;

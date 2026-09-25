@@ -27,7 +27,7 @@ import {
   type TournamentTabId,
 } from '@/lib/standings-config';
 import { countryCodeFor } from '@/lib/countries';
-import { CURRENCY_SYMBOLS } from '@/lib/utils';
+import { formatMoney } from '@/lib/utils';
 import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
 import {
   TOURNAMENT_TAB_SEGMENT,
@@ -329,7 +329,7 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
     ? `${firstVenue.name}${firstVenue.city ? `, ${firstVenue.city}` : ''}`
     : null;
   const prizePoolLabel = tournament.prizePool
-    ? `${CURRENCY_SYMBOLS[tournament.currency] ?? `${tournament.currency} `}${tournament.prizePool.toLocaleString('en-IN')}`
+    ? formatMoney(tournament.prizePool, tournament.currency || 'USD')
     : 'TBD';
 
   const fdRecord = tournament.formatDetails as { backdropText?: unknown } | null;

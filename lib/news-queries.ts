@@ -53,7 +53,7 @@ export async function getMostRead(days = 30, take = 5) {
 }
 
 export const articleCardInclude = {
-  tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, game: { select: { slug: true } } } },
+  tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, prizePool: true, currency: true, game: { select: { slug: true } } } },
   team: { select: { id: true, name: true, tag: true, slug: true, logoUrl: true } },
 } satisfies Prisma.ArticleInclude;
 

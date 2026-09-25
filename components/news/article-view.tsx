@@ -32,7 +32,7 @@ import {
   isHtmlContent,
   parseArticleFaqs,
 } from '@/lib/news';
-import { slugify } from '@/lib/utils';
+import { slugify, formatMoney } from '@/lib/utils';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { NewsShareButtons } from '@/components/news/news-share-buttons';
 import { ReadingProgress } from '@/components/news/reading-progress';
@@ -74,6 +74,7 @@ export interface ArticleViewData {
     tier: string;
     series: string | null;
     prizePool: number | null;
+    currency?: string | null;
     startDate: Date | null;
     endDate: Date | null;
     game?: { slug: string } | null;
@@ -778,7 +779,7 @@ export function ArticleView({
                         </span>
                         {article.tournament.prizePool && (
                           <span className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400">
-                            ₹{article.tournament.prizePool.toLocaleString('en-IN')}
+                            {formatMoney(article.tournament.prizePool, article.tournament.currency || 'USD')}
                           </span>
                         )}
                       </div>

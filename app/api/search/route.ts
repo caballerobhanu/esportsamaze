@@ -7,6 +7,7 @@ import { isAdmin } from '@/lib/admin-auth';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { teamHref } from '@/lib/entity-links';
 import { getMaintenanceSettings } from '@/lib/site-settings';
+import { formatMoney } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -142,6 +143,7 @@ export async function GET(request: NextRequest) {
           tier: true,
           region: true,
           prizePool: true,
+          currency: true,
           slug: true,
           imageUrl: true,
           status: true,
@@ -228,7 +230,7 @@ export async function GET(request: NextRequest) {
       type: 'tournament',
       title: tourney.name,
       subtitle: `${tourney.tier} • ${tourney.region || 'Global'}${
-        tourney.prizePool ? ` • $${tourney.prizePool.toLocaleString()}` : ''
+        tourney.prizePool ? ` • ${formatMoney(tourney.prizePool, tourney.currency || 'USD')}` : ''
       }`,
       href: gameHref(tourney.game?.slug || DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`),
       imageUrl: tourney.imageUrl,

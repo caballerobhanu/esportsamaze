@@ -25,6 +25,7 @@ import {
   type QualificationRule,
 } from '@/lib/qualification-rules';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { formatMoney } from '@/lib/utils';
 
 export interface TournamentPrizeRank {
   rank: string;
@@ -83,13 +84,7 @@ export function normalizeRankLabel(rank: string): string {
 
 function formatPrizeAmount(amount: number, curr = 'INR') {
   if (amount == null || isNaN(amount)) return '—';
-  if (curr === 'INR') {
-    return `₹${amount.toLocaleString('en-IN')}`;
-  }
-  if (curr === 'USD') {
-    return `$${amount.toLocaleString('en-US')}`;
-  }
-  return `${amount.toLocaleString()} ${curr}`;
+  return formatMoney(amount, curr);
 }
 
 export function EstaticPrizePanel({

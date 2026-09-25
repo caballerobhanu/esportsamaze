@@ -13,6 +13,7 @@ import { fStr, fOpt, fDate, fMonthStart, fMonthEnd, fNum, fSocials, uniqueSlug, 
 import { formatTournamentDates } from '@/lib/tournament-dates';
 import { recordSlugChange } from '@/lib/slug-history';
 import { gameHref, gameSlugOf } from '@/lib/games';
+import { currencyLocale } from '@/lib/utils';
 import { saveUploadedFile } from '@/lib/upload';
 import {
   TOURNAMENT_TIERS,
@@ -1956,7 +1957,7 @@ export default async function AdminTournamentsPage({
                 </td>
                 <td className="py-3 px-3 font-mono font-bold text-xs">
                   {t.currency}{' '}
-                  {t.prizePool ? (t.prizePool / 10000000 >= 1 ? `${(t.prizePool / 10000000).toFixed(1)} Cr` : t.prizePool.toLocaleString()) : '—'}
+                  {t.prizePool ? (t.prizePool / 10000000 >= 1 ? `${(t.prizePool / 10000000).toFixed(1)} Cr` : t.prizePool.toLocaleString(currencyLocale(t.currency))) : '—'}
                 </td>
                 <td className="py-3 px-3 text-center">
                   <span

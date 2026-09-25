@@ -11,7 +11,7 @@ import {
   Crown,
   ArrowRight,
 } from 'lucide-react';
-import { formatDate, CURRENCY_SYMBOLS } from '@/lib/utils';
+import { formatDate, formatMoney } from '@/lib/utils';
 import { formatTournamentDates } from '@/lib/tournament-dates';
 import type { AggregatedTeamStanding } from '@/lib/tournament-math';
 import type { StandingsLogoMode } from '@/lib/standings-config';
@@ -87,9 +87,8 @@ export function EstaticOverviewPanel({
   const latest = completed[0];
   const fraggers = overallFraggers.slice(0, 5);
 
-  const currencySymbol = CURRENCY_SYMBOLS[tournament.currency || 'USD'] ?? `${tournament.currency || 'USD'} `;
   const prizeLabel = tournament.prizePool
-    ? `${currencySymbol}${tournament.prizePool.toLocaleString('en-IN')}`
+    ? formatMoney(tournament.prizePool, tournament.currency || 'USD')
     : null;
 
   // Every link from an event page carries the EVENT's game, not the default one.
@@ -113,7 +112,7 @@ export function EstaticOverviewPanel({
       value: prizeLabel ?? 'TBA',
       sub:
         tournament.usdRate && tournament.prizePool
-          ? `≈ $${Math.round(tournament.prizePool * tournament.usdRate).toLocaleString()} USD`
+          ? `≈ $${Math.round(tournament.prizePool * tournament.usdRate).toLocaleString('en-US')} USD`
           : 'Prize pool to be announced',
     },
     {

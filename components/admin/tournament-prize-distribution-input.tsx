@@ -21,6 +21,7 @@ import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/s
 import { classifyPrizeRow, parseRankRange, prizeRowRange, rankLabel, type PrizeRowKind } from '@/lib/prize-rows';
 import { groupPrizeRowsByStage, parsePrizeSheet } from '@/lib/tournament-scaffold-parse';
 import { TabPasteBox, type TabPastePreview } from '@/components/admin/tab-paste-box';
+import { currencyLocale } from '@/lib/utils';
 
 export interface PrizeRankItem {
   /** PLACEMENT sits on the prize ladder; AWARD is a standalone honour. */
@@ -518,13 +519,13 @@ export function TournamentPrizeDistributionInput({
           const existing = teamEarningsMap.get(rank.teamId);
           if (existing) {
             existing.totalPrize += prizeAmt;
-            existing.stagesWon.push(`${stage.stageName} (${rank.rank}: ${currency} ${prizeAmt.toLocaleString()})`);
+            existing.stagesWon.push(`${stage.stageName} (${rank.rank}: ${currency} ${prizeAmt.toLocaleString(currencyLocale(currency))})`);
           } else {
             teamEarningsMap.set(rank.teamId, {
               teamId: rank.teamId,
               teamName: rank.teamName,
               totalPrize: prizeAmt,
-              stagesWon: [`${stage.stageName} (${rank.rank}: ${currency} ${prizeAmt.toLocaleString()})`],
+              stagesWon: [`${stage.stageName} (${rank.rank}: ${currency} ${prizeAmt.toLocaleString(currencyLocale(currency))})`],
             });
           }
         }
@@ -534,14 +535,14 @@ export function TournamentPrizeDistributionInput({
           const existingP = playerEarningsMap.get(rank.playerId);
           if (existingP) {
             existingP.totalPrize += prizeAmt;
-            existingP.awards.push(`${rank.rank} (${currency} ${prizeAmt.toLocaleString()})`);
+            existingP.awards.push(`${rank.rank} (${currency} ${prizeAmt.toLocaleString(currencyLocale(currency))})`);
           } else {
             playerEarningsMap.set(rank.playerId, {
               playerId: rank.playerId,
               playerName: rank.playerName,
               teamName: rank.teamName,
               totalPrize: prizeAmt,
-              awards: [`${rank.rank} (${currency} ${prizeAmt.toLocaleString()})`],
+              awards: [`${rank.rank} (${currency} ${prizeAmt.toLocaleString(currencyLocale(currency))})`],
             });
           }
         }
@@ -941,7 +942,7 @@ export function TournamentPrizeDistributionInput({
                           #{cIdx + 1} {ce.teamName}
                         </span>
                         <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 shrink-0">
-                          {currency} {ce.totalPrize.toLocaleString()}
+                          {currency} {ce.totalPrize.toLocaleString(currencyLocale(currency))}
                         </span>
                       </div>
                     ))}
@@ -969,7 +970,7 @@ export function TournamentPrizeDistributionInput({
                           )}
                         </div>
                         <span className="font-mono font-black text-purple-600 dark:text-purple-400 shrink-0">
-                          {currency} {pe.totalPrize.toLocaleString()}
+                          {currency} {pe.totalPrize.toLocaleString(currencyLocale(currency))}
                         </span>
                       </div>
                     ))}
