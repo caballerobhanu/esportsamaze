@@ -183,7 +183,9 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
             ({ label, value, icon: Icon }) => (
               <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-2 py-4 sm:gap-1.5 sm:py-5">
                 <Icon className="h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
-                <div className="text-lg font-black tracking-tight sm:text-xl md:text-2xl xl:text-3xl">{value}</div>
+                {/* `text-center`: the stat band centres its numbers, so the prize
+                    pool's second (converted) line has to centre under the first. */}
+                <div className="text-center text-lg font-black tracking-tight sm:text-xl md:text-2xl xl:text-3xl">{value}</div>
                 <span className="text-[9px] font-extrabold uppercase tracking-[.18em] text-slate-400 sm:text-[10px]">{label}</span>
               </div>
             )

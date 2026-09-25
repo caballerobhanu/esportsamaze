@@ -25,9 +25,9 @@ export function HomeStandingsSection({
   gameSlug = DEFAULT_GAME_SLUG,
 }: HomeStandingsSectionProps) {
   return (
-    <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
       {/* Left Column: Official Points Table (8 cols) */}
-      <section id="rankings" className="min-w-0 space-y-4 lg:col-span-8">
+      <section id="rankings" className="flex min-w-0 flex-col gap-4 lg:col-span-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--ed-blue)]/10 text-[var(--ed-blue)]">
@@ -56,7 +56,9 @@ export function HomeStandingsSection({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0b1220]">
+        {/* `flex-1`: the table gives the pair its height, so the fraggers list
+            can stretch to the same bottom edge. */}
+        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-white/10 dark:bg-[#0b1220]">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-800 bg-slate-900 text-white dark:border-slate-800 dark:bg-slate-950">
@@ -167,7 +169,7 @@ export function HomeStandingsSection({
       </section>
 
       {/* Right Column: Top Fraggers (4 cols) */}
-      <section id="rankings-fraggers" className="min-w-0 space-y-4 lg:col-span-4">
+      <section id="rankings-fraggers" className="flex min-w-0 flex-col gap-4 lg:col-span-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
@@ -182,15 +184,16 @@ export function HomeStandingsSection({
           </span>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden dark:border-white/10 dark:bg-[#0b1220]">
-          <div className="divide-y divide-slate-100 dark:divide-white/5">
+        {/* Stretched to the points table's height; the rows share the slack. */}
+        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-white/10 dark:bg-[#0b1220]">
+          <div className="flex flex-1 flex-col divide-y divide-slate-100 dark:divide-white/5">
             {fraggers.length > 0 ? (
               fraggers.slice(0, 5).map((player) => (
                 <div
                   key={player.playerId}
-                  className="p-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
+                  className="flex flex-1 items-center p-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex w-full items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold ${
@@ -226,11 +229,6 @@ export function HomeStandingsSection({
                         {player.matchesPlayed} Matches
                       </div>
                     </div>
-                  </div>
-
-                  <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 dark:border-white/5 pt-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-                    <span>Role: <strong className="font-bold text-slate-900 dark:text-white">{player.role || 'Player'}</strong></span>
-                    <span>Headshots: <strong className="font-bold text-slate-900 dark:text-white">{player.headshots}</strong></span>
                   </div>
                 </div>
               ))
