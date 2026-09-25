@@ -24,6 +24,7 @@ import type {
 import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from '@/lib/standings-config';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { teamMapPoints } from '@/lib/team-stats';
 
 export interface EstaticStatisticsPanelProps {
   playerRows: PlayerPerformanceRow[];
@@ -123,6 +124,12 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     <ArrowDown className="w-3 h-3 text-[#0A5FC4] ml-1 inline shrink-0" />
   );
 }
+
+/**
+ * Sort key prefix for the per-map columns, namespaced so a map named after a row
+ * field can never collide with the column that reads that field.
+ */
+const MAP_SORT_PREFIX = 'map:';
 
 const COLUMN_CONFIG_MAP: Record<
   PlayerStatColumnKey,
@@ -703,6 +710,12 @@ export function EstaticStatisticsPanel({
           const valA = teamPointsMode === 'sum' ? a.totalElimsPoints : teamPointsMode === 'avg' ? a.avgElims : a.maxElims;
           const valB = teamPointsMode === 'sum' ? b.totalElimsPoints : teamPointsMode === 'avg' ? b.avgElims : b.maxElims;
           cmp = valA - valB;
+        } else if (teamSortKey.startsWith(MAP_SORT_PREFIX)) {
+          // Rank by the figure the cell prints, in the points mode it prints it in.
+          const map = teamSortKey.slice(MAP_SORT_PREFIX.length);
+          cmp =
+            teamMapPoints(a.pointsByMap?.[map], teamPointsMode) -
+            teamMapPoints(b.pointsByMap?.[map], teamPointsMode);
         } else {
           const valA = ((a as unknown) as Record<string, number>)[teamSortKey] ?? 0;
           const valB = ((b as unknown) as Record<string, number>)[teamSortKey] ?? 0;
@@ -1542,10 +1555,12 @@ export function EstaticStatisticsPanel({
                     mapsList.map((map) => (
                       <th
                         key={map}
-                        className="hidden md:table-cell py-3.5 px-3 text-center w-20"
+                        className="hidden md:table-cell py-3.5 px-3 text-center cursor-pointer group w-20"
                         title={`Points on ${map}`}
+                        onClick={() => handleTeamSort(MAP_SORT_PREFIX + map)}
                       >
-                        <span className="block max-w-[5rem] truncate mx-auto">{map}</span>
+                        <span className="inline-block max-w-[4.5rem] truncate align-middle">{map}</span>
+                        <SortIcon active={teamSortKey === MAP_SORT_PREFIX + map} dir={teamSortDir} />
                       </th>
                     ))}
                   <th
@@ -1673,15 +1688,7 @@ export function EstaticStatisticsPanel({
                         {/* Per-map points — shown only while every map is in view */}
                         {selectedMap === 'ALL' &&
                           mapsList.map((map) => {
-                            const mapEntry = team.pointsByMap?.[map];
-                            const mapVal =
-                              !mapEntry
-                                ? 0
-                                : teamPointsMode === 'avg'
-                                ? Number((mapEntry.points / (mapEntry.matches || 1)).toFixed(1))
-                                : teamPointsMode === 'max'
-                                ? mapEntry.peak
-                                : mapEntry.points;
+                            const mapVal = teamMapPoints(team.pointsByMap?.[map], teamPointsMode);
                             return (
                               <td
                                 key={map}

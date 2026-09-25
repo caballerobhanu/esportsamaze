@@ -354,3 +354,28 @@ export function formatDuration(seconds: number | null, samples: number): string 
   const minutes = Math.floor(total / 60);
   return `${minutes}:${String(total % 60).padStart(2, '0')}`;
 }
+
+/** A team's record on one map, as the statistics table accumulates it. */
+export interface TeamMapPoints {
+  points: number;
+  matches: number;
+  peak: number;
+}
+
+/**
+ * A team's points on one map, in whichever measure the table is showing.
+ *
+ * Shared by the cell and the column's sort, so the order always matches the number
+ * on screen — a column that ranks by a different figure from the one it prints is
+ * worse than one that cannot be sorted at all. A map the team never played reads as
+ * nothing, and a map with no recorded match does not divide by zero.
+ */
+export function teamMapPoints(
+  entry: TeamMapPoints | undefined | null,
+  mode: 'sum' | 'avg' | 'max'
+): number {
+  if (!entry) return 0;
+  if (mode === 'avg') return Number((entry.points / (entry.matches || 1)).toFixed(1));
+  if (mode === 'max') return entry.peak;
+  return entry.points;
+}

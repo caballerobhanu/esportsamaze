@@ -13,6 +13,7 @@ import {
   hasDetailStats,
   summarisePlayerElims,
   summariseTeamMatches,
+  teamMapPoints,
   type DetailStatField,
 } from '../lib/team-stats';
 
@@ -303,5 +304,29 @@ describe('summarisePlayerElims', () => {
     assert.equal(p2.totalElims, 0);
     assert.equal(p2.avgElims, 0);
     assert.equal(p2.zeroElimShare, 1);
+  });
+});
+
+describe('teamMapPoints', () => {
+  it('follows the points mode the table is showing', () => {
+    const entry = { points: 100, matches: 4, peak: 32 };
+    assert.equal(teamMapPoints(entry, 'sum'), 100);
+    assert.equal(teamMapPoints(entry, 'avg'), 25);
+    assert.equal(teamMapPoints(entry, 'max'), 32);
+  });
+
+  it('reads a map the team never played as nothing', () => {
+    assert.equal(teamMapPoints(undefined, 'sum'), 0);
+    assert.equal(teamMapPoints(null, 'avg'), 0);
+    assert.equal(teamMapPoints(undefined, 'max'), 0);
+  });
+
+  it('does not divide by zero when a map records no match', () => {
+    assert.equal(teamMapPoints({ points: 12, matches: 0, peak: 12 }, 'avg'), 12);
+  });
+
+  it('rounds an average the way the cell prints it, so the sort agrees with the column', () => {
+    // 46 points over 3 matches prints 15.3, so the column must rank by 15.3 too.
+    assert.equal(teamMapPoints({ points: 46, matches: 3, peak: 20 }, 'avg'), 15.3);
   });
 });
