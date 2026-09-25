@@ -1,4 +1,4 @@
-import { getCurrencyUsdRate as getFallbackUsdRate } from '@/lib/tournament-math';
+import { getCurrencyUsdRate as getFallbackUsdRate, tournamentHasEnded } from '@/lib/tournament-math';
 
 // In-memory cache for live rates (revalidated every 24 hours)
 let cachedLiveRates: Record<string, number> | null = null;
@@ -138,4 +138,58 @@ export function resolveCurrencyUsdRate(
     return cachedLiveRates[upper];
   }
   return getFallbackUsdRate(upper);
+}
+
+/** The calendar day a rate is looked up on, e.g. "2026-10-18". */
+function rateDay(endDate: Date | string | null | undefined): string | null {
+  if (!endDate) return null;
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
+  return Number.isNaN(end.getTime()) ? null : end.toISOString().slice(0, 10);
+}
+
+/**
+ * The rate an event's figures are quoted at: the closing day's historical rate
+ * once the event has ended, the live rate until then. The switch happens on the
+ * day after the closing date, with no re-save or scheduled job.
+ */
+export async function eventUsdRate(
+  endDate: Date | string | null | undefined,
+  currency: string | null | undefined
+): Promise<number> {
+  const rates = tournamentHasEnded(endDate)
+    ? await getExchangeRatesForDate(endDate ?? null)
+    : await getLiveExchangeRates();
+  return resolveCurrencyUsdRate(currency || 'USD', rates);
+}
+
+/**
+ * The batch form, for a listing: one live lookup covers every unfinished event
+ * and one historical lookup covers each distinct closing day, so a page of
+ * events costs a fixed number of lookups rather than one per row.
+ */
+export async function eventUsdRates(
+  rows: readonly { endDate: Date | string | null; currency: string | null }[]
+): Promise<number[]> {
+  const liveNeeded = rows.some((row) => !tournamentHasEnded(row.endDate));
+  const days = [
+    ...new Set(
+      rows
+        .filter((row) => tournamentHasEnded(row.endDate))
+        .map((row) => rateDay(row.endDate))
+        .filter((day): day is string => Boolean(day)),
+    ),
+  ];
+
+  const [live, byDay] = await Promise.all([
+    liveNeeded ? getLiveExchangeRates() : Promise.resolve<Record<string, number>>({}),
+    Promise.all(days.map(async (day) => [day, await getExchangeRatesForDate(day)] as const)).then(
+      (entries) => new Map(entries),
+    ),
+  ]);
+
+  return rows.map((row) => {
+    const day = rateDay(row.endDate);
+    const rates = tournamentHasEnded(row.endDate) ? (day ? byDay.get(day) : undefined) : live;
+    return resolveCurrencyUsdRate(row.currency || 'USD', rates);
+  });
 }

@@ -27,7 +27,7 @@ import {
   type TournamentTabId,
 } from '@/lib/standings-config';
 import { countryCodeFor } from '@/lib/countries';
-import { formatMoney } from '@/lib/utils';
+import { eventUsdRate } from '@/lib/currency';
 import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
 import {
   TOURNAMENT_TAB_SEGMENT,
@@ -229,7 +229,6 @@ export interface TournamentContext {
   resolvedRunnerUp: string | null;
   organizerNames: string | null;
   venueLocation: string | null;
-  prizePoolLabel: string;
   backdropWatermark: string | null;
   totalMatchesCount: number;
   /** Places that name a squad. Unfilled seats are not counted here. */
@@ -244,6 +243,13 @@ export const loadTournamentContext = cache(loadTournamentContextUncached);
 async function loadTournamentContextUncached(rawSlug: string): Promise<TournamentContext | null> {
   const tournament = await fetchTournament(rawSlug);
   if (!tournament) return null;
+
+  // The rate every figure on this page is quoted at: the live rate while the
+  // event runs, its closing day's rate once it has finished. Resolved from the
+  // dates rather than read from the column, which only moves when an admin
+  // re-saves — so an event that ended yesterday is locked without anyone
+  // touching it.
+  tournament.usdRate = await eventUsdRate(tournament.endDate, tournament.currency);
 
   const standingsConfig = normalizeStandingsConfig(tournament.standingsConfig);
   const visibleTabs: TournamentTabId[] = standingsConfig.visibleTabs ?? [...ALL_TOURNAMENT_TAB_IDS];
@@ -328,9 +334,6 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
   const venueLocation = firstVenue
     ? `${firstVenue.name}${firstVenue.city ? `, ${firstVenue.city}` : ''}`
     : null;
-  const prizePoolLabel = tournament.prizePool
-    ? formatMoney(tournament.prizePool, tournament.currency || 'USD')
-    : 'TBD';
 
   const fdRecord = tournament.formatDetails as { backdropText?: unknown } | null;
   const customBackdrop = typeof fdRecord?.backdropText === 'string' ? fdRecord.backdropText.trim() : undefined;
@@ -351,7 +354,6 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
     resolvedRunnerUp,
     organizerNames,
     venueLocation,
-    prizePoolLabel,
     backdropWatermark,
     totalMatchesCount: tournament.matches.length,
     namedTeamsCount: tournament.teams.filter((entry) => entry.team !== null).length,

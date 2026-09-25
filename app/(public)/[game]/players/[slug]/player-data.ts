@@ -27,7 +27,8 @@ import {
   type EventMetricIdentity,
   type EventMetricRow,
 } from '@/lib/event-metrics';
-import { getExchangeRatesForDate, resolveCurrencyUsdRate } from '@/lib/currency';
+import { getExchangeRatesForDate, getLiveExchangeRates, resolveCurrencyUsdRate } from '@/lib/currency';
+import { tournamentHasEnded } from '@/lib/tournament-math';
 import { eliminations } from '@/lib/player-stats';
 
 /** The profile identity query — also the source of the `PlayerProfile` type. */
@@ -161,6 +162,7 @@ async function loadPlayerMatchesUncached(playerId: string) {
                     slug: true,
                     tier: true,
                     startDate: true,
+                    endDate: true,
                     currency: true,
                     usdRate: true,
                     prizeDistribution: true,
@@ -191,6 +193,7 @@ export async function loadPlayerCareer(playerId: string) {
             shortName: true,
             slug: true,
             startDate: true,
+            endDate: true,
             currency: true,
             usdRate: true,
             prizeDistribution: true,
@@ -203,7 +206,7 @@ export async function loadPlayerCareer(playerId: string) {
       where: { playerId },
       include: {
         tournament: {
-          select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, startDate: true },
+          select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, startDate: true, endDate: true },
         },
         team: { select: { id: true, name: true, slug: true } },
       },
@@ -382,24 +385,33 @@ export async function loadPlayerKraftonDepth(player: PlayerProfile) {
 
 export type PlayerKraftonDepth = Awaited<ReturnType<typeof loadPlayerKraftonDepth>>;
 
-/** Rate lookup is keyed by the event's start date — historical rates for past events, live for future/undated. */
-function rateKeyFor(startDate: Date | string | null) {
-  if (!startDate) return 'live';
-  const date = startDate instanceof Date ? startDate : new Date(startDate);
-  return Number.isNaN(date.getTime()) ? 'live' : date.toISOString().slice(0, 10);
+/** The calendar day a rate is looked up on, or "live" for an undated event. */
+function rateKeyFor(date: Date | string | null) {
+  if (!date) return 'live';
+  const d = date instanceof Date ? date : new Date(date);
+  return Number.isNaN(d.getTime()) ? 'live' : d.toISOString().slice(0, 10);
 }
 
 /**
- * Converts prize amounts to USD at each event's own start-date rate, memoised
- * per date. A past event must never be re-converted at today's rate, or every
- * historical figure on the profile would silently drift.
+ * Converts prize amounts to USD at the rate each event's own rate day carries.
+ *
+ * An event still running is converted at the live rate; one that has finished
+ * locks to the rate on its closing day, so every historical figure on the
+ * profile is stable and none of them drifts with today's market. Memoised per
+ * day, so a whole career costs one lookup per distinct closing day.
  */
 export async function usdConverter() {
-  const ratesByDate = new Map<string, Record<string, number>>();
-  return async (amount: number, currency: string | null | undefined, startDate: Date | string | null) => {
-    const key = rateKeyFor(startDate ?? null);
-    if (!ratesByDate.has(key)) ratesByDate.set(key, await getExchangeRatesForDate(key === 'live' ? null : key));
-    return amount * resolveCurrencyUsdRate(currency || 'USD', ratesByDate.get(key));
+  const ratesByDay = new Map<string, Record<string, number>>();
+  const ratesFor = async (key: string) => {
+    if (!ratesByDay.has(key)) {
+      ratesByDay.set(key, key === 'live' ? await getLiveExchangeRates() : await getExchangeRatesForDate(key));
+    }
+    return ratesByDay.get(key)!;
+  };
+
+  return async (amount: number, currency: string | null | undefined, endDate: Date | string | null) => {
+    const key = tournamentHasEnded(endDate) ? rateKeyFor(endDate) : 'live';
+    return amount * resolveCurrencyUsdRate(currency || 'USD', await ratesFor(key));
   };
 }
 

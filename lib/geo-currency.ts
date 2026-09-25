@@ -1,5 +1,5 @@
-import { CURRENCIES, getCurrencyUsdRate } from '@/lib/tournament-math';
-import { CURRENCY_SYMBOLS } from '@/lib/utils';
+import { getCurrencyUsdRate, hasCurrencyUsdRate } from '@/lib/tournament-math';
+import { CURRENCY_SYMBOLS, currencyCodeSuffix } from '@/lib/utils';
 
 // Common Timezone to Currency Mapping (Instant, 0ms, zero network requests)
 const TIMEZONE_TO_CURRENCY: Record<string, string> = {
@@ -94,7 +94,32 @@ export function getVisitorLocalCurrency(): string {
 }
 
 /**
- * Formats a prize pool amount into a specific currency.
+ * The currency to show beside an event's own.
+ *
+ * It is the visitor's own currency — except when that is the event's, where USD
+ * stands in (an Indian reading an INR event wants the dollar figure), and when
+ * the event is already in USD an American has nothing left to compare against.
+ *
+ *   event INR + visitor INR → USD      event USD + visitor INR → INR
+ *   event INR + visitor USD → USD      event USD + visitor USD → none
+ */
+export function secondaryCurrencyFor(eventCurrency: string, visitorCurrency: string): string | null {
+  const base = (eventCurrency || 'USD').toUpperCase();
+  const local = (visitorCurrency || 'USD').toUpperCase();
+
+  const preferred = local !== base ? local : base === 'USD' ? null : 'USD';
+  if (!preferred) return null;
+  if (preferred === 'USD' || hasCurrencyUsdRate(preferred)) return preferred;
+
+  // The rate table cannot convert `preferred`, and an unconverted number is
+  // worse than none; USD is always safe.
+  return base === 'USD' ? null : 'USD';
+}
+
+/**
+ * Formats a prize pool amount into a specific currency — symbol and digits
+ * ("₹1,23,456"), never a trailing code unless the symbol alone is ambiguous
+ * (`¥3,000,000 CNY`, because ¥ is also the yen).
  */
 export function formatAmountInCurrency(usdAmount: number, targetCurrency: string): string {
   const code = (targetCurrency || 'USD').toUpperCase();
@@ -110,5 +135,5 @@ export function formatAmountInCurrency(usdAmount: number, targetCurrency: string
     code === 'BDT' ? 'en-BD' :
     'en-US';
 
-  return `${symbol}${localVal.toLocaleString(locale)} ${code}`;
+  return `${symbol}${localVal.toLocaleString(locale)}${currencyCodeSuffix(code)}`;
 }

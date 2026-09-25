@@ -163,6 +163,11 @@ export function getCurrencyUsdRate(code: string): number {
   return match ? match.usdRate : 1.0;
 }
 
+/** Whether the rate table knows this currency — an unknown one converts 1:1, which is a lie. */
+export function hasCurrencyUsdRate(code: string): boolean {
+  return CURRENCIES.some((c) => c.code.toUpperCase() === code.toUpperCase());
+}
+
 export const BGMI_PUBGM_MAPS = [
   'Erangel',
   'Miramar',
@@ -174,20 +179,37 @@ export const BGMI_PUBGM_MAPS = [
   'Livik',
 ] as const;
 
+/** A closing day, in ms — an event runs through its `endDate`, which is stamped at that day's start. */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
- * Derives tournament status from start and end dates.
+ * Whether an event's closing day is behind us.
+ *
+ * `endDate` is stored at the START of the closing day and the event runs through
+ * that whole day, so this turns true the day AFTER the end date: an event ending
+ * 18 Oct is still running through the 18th, and is over on the 19th.
+ */
+export function tournamentHasEnded(endDate: Date | string | null | undefined): boolean {
+  if (!endDate) return true;
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
+  if (Number.isNaN(end.getTime())) return true;
+  return end.getTime() + DAY_MS <= Date.now();
+}
+
+/**
+ * Derives tournament status from start and end dates. The closing day counts as
+ * part of the event — an event ending 18 Oct is still LIVE through the 18th and
+ * only turns COMPLETED on the 19th.
  */
 export function deriveTournamentStatus(
   startDate: Date | string,
   endDate: Date | string
 ): 'UPCOMING' | 'ONGOING' | 'COMPLETED' {
-  const now = new Date().getTime();
+  const now = Date.now();
   const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
 
   if (now < start) return 'UPCOMING';
-  if (now > end) return 'COMPLETED';
-  return 'ONGOING';
+  return tournamentHasEnded(endDate) ? 'COMPLETED' : 'ONGOING';
 }
 
 /**

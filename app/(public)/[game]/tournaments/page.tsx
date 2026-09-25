@@ -6,6 +6,7 @@ import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import { GameLogo } from '@/components/ui/game-capsule';
 import { TournamentsDirectoryExplorer } from '@/components/tournaments/tournaments-directory-explorer';
 import { formatTournamentDates } from '@/lib/tournament-dates';
+import { eventUsdRate, eventUsdRates } from '@/lib/currency';
 import { DirectoryPagination } from '@/components/directory-pagination';
 import { gameHref } from '@/lib/games';
 import { getGameBySlug } from '@/lib/game-queries';
@@ -245,6 +246,14 @@ export default async function TournamentsPage({
       getFeaturedTournament(scope),
     ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // A rate that follows the event rather than a stale column: live while the
+  // event runs, locked to its closing day once it has finished.
+  const [directoryRates, featuredRate] = await Promise.all([
+    eventUsdRates(tournaments),
+    featured ? eventUsdRate(featured.endDate, featured.currency) : Promise.resolve(null),
+  ]);
+  const tournamentsWithRates = tournaments.map((t, i) => ({ ...t, usdRate: directoryRates[i] }));
   const statusCount = (s: string) => statusGroups.find((g) => g.status === s)?._count._all ?? 0;
   const gameCount = (slug: string) => gameGroups.find((g) => g.gameId === games.find((x) => x.slug === slug)?.id)?._count._all ?? 0;
   const tierCount = (t: string) => tierGroups.find((g) => g.tier?.startsWith(t))?._count._all ?? 0;
@@ -356,7 +365,7 @@ export default async function TournamentsPage({
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Total Prize Pool</p>
                   <div className="text-2xl font-black tracking-tight text-[#0A5FC4] dark:text-blue-300">
-                    <PrizePoolBadge amount={featured.prizePool} currency={featured.currency} usdRate={featured.usdRate} />
+                    <PrizePoolBadge amount={featured.prizePool} currency={featured.currency} usdRate={featuredRate} />
                   </div>
                 </div>
 
@@ -374,7 +383,7 @@ export default async function TournamentsPage({
 
         {/* Directory */}
         <TournamentsDirectoryExplorer
-          tournaments={tournaments}
+          tournaments={tournamentsWithRates}
           games={games}
           filters={filters}
           counts={counts}

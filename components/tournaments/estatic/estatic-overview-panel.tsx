@@ -11,7 +11,9 @@ import {
   Crown,
   ArrowRight,
 } from 'lucide-react';
-import { formatDate, formatMoney } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
+import type { ReactNode } from 'react';
 import { formatTournamentDates } from '@/lib/tournament-dates';
 import type { AggregatedTeamStanding } from '@/lib/tournament-math';
 import type { StandingsLogoMode } from '@/lib/standings-config';
@@ -87,10 +89,6 @@ export function EstaticOverviewPanel({
   const latest = completed[0];
   const fraggers = overallFraggers.slice(0, 5);
 
-  const prizeLabel = tournament.prizePool
-    ? formatMoney(tournament.prizePool, tournament.currency || 'USD')
-    : null;
-
   // Every link from an event page carries the EVENT's game, not the default one.
   const gameSlug = tournament.game?.slug || DEFAULT_GAME_SLUG;
 
@@ -105,15 +103,37 @@ export function EstaticOverviewPanel({
     return gameHref(gameSlug, `players/${slug || playerId || encodeURIComponent(ign)}`);
   };
 
-  const facts = [
+  const facts: {
+    icon: typeof Banknote;
+    label: string;
+    value?: string;
+    valueNode?: ReactNode;
+    sub?: string;
+    subNode?: ReactNode;
+  }[] = [
     {
       icon: Banknote,
       label: 'Total Prize Pool',
-      value: prizeLabel ?? 'TBA',
-      sub:
-        tournament.usdRate && tournament.prizePool
-          ? `≈ $${Math.round(tournament.prizePool * tournament.usdRate).toLocaleString('en-US')} USD`
-          : 'Prize pool to be announced',
+      // The badge owns the currency pair: the event's own figure, beside the one
+      // this visitor compares it against.
+      valueNode: (
+        <PrizePoolBadge
+          part="primary"
+          amount={tournament.prizePool}
+          currency={tournament.currency}
+          usdRate={tournament.usdRate}
+        />
+      ),
+      subNode: tournament.prizePool ? (
+        <PrizePoolBadge
+          part="secondary"
+          amount={tournament.prizePool}
+          currency={tournament.currency}
+          usdRate={tournament.usdRate}
+        />
+      ) : (
+        'Prize pool to be announced'
+      ),
     },
     {
       icon: CalendarDays,
@@ -168,11 +188,11 @@ export function EstaticOverviewPanel({
                 </div>
               </div>
               <div className="mt-4 text-xl font-black tracking-tight text-slate-950 dark:text-white">
-                {f.value}
+                {f.valueNode ?? f.value}
               </div>
-              <div className="mt-1 text-xs font-semibold text-slate-400">
-                {f.sub}
-              </div>
+              {(f.subNode ?? f.sub) && (
+                <div className="mt-1 text-xs font-semibold text-slate-400">{f.subNode ?? f.sub}</div>
+              )}
             </div>
           );
         })}
@@ -444,8 +464,20 @@ export function EstaticOverviewPanel({
                   Prize Spotlight
                 </span>
                 <h4 className="mt-1 text-3xl font-black tracking-tight">
-                  {prizeLabel ?? 'TBA'}
+                  <PrizePoolBadge
+                    part="primary"
+                    amount={tournament.prizePool}
+                    currency={tournament.currency}
+                    usdRate={tournament.usdRate}
+                  />
                 </h4>
+                <PrizePoolBadge
+                  part="secondary"
+                  amount={tournament.prizePool}
+                  currency={tournament.currency}
+                  usdRate={tournament.usdRate}
+                  className="mt-1 block text-xs font-semibold text-blue-100/90"
+                />
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm text-amber-300">
                 <Crown className="h-5 w-5" />

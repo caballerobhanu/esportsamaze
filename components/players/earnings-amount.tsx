@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { getVisitorLocalCurrency, formatAmountInCurrency } from '@/lib/geo-currency';
-import { CURRENCY_SYMBOLS } from '@/lib/utils';
+import { getVisitorLocalCurrency, formatAmountInCurrency, secondaryCurrencyFor } from '@/lib/geo-currency';
+import { CURRENCY_SYMBOLS, formatMoney } from '@/lib/utils';
 
 // Client-only value; server snapshot is USD so hydration matches and the
 // visitor-specific rendering kicks in right after hydration.
@@ -52,24 +52,18 @@ export function EarningsAmount({
     );
   }
 
-  // Event rows: event-currency first (same as PrizePoolBadge on the tournaments page)
+  // Event rows: the event's own currency, beside the one this visitor compares
+  // it against (see secondaryCurrencyFor) — not a fixed USD line.
   const base = (native.currency || 'USD').toUpperCase();
-  const symbol = CURRENCY_SYMBOLS[base] ?? `${base} `;
-  const primary = `${symbol}${native.amount.toLocaleString(base === 'INR' ? 'en-IN' : 'en-US')}`;
-  const hasUsdSecondary = base !== 'USD' && amountUsd > 0;
-  const showVisitorLine = visitorCurrency !== 'USD' && visitorCurrency !== base;
+  const primary = formatMoney(native.amount, base);
+  const secondaryCode = secondaryCurrencyFor(base, visitorCurrency);
+  const secondary =
+    secondaryCode && amountUsd > 0 ? `≈ ${formatAmountInCurrency(amountUsd, secondaryCode)}` : null;
 
   return (
     <span className={`inline-flex flex-col leading-tight ${className}`} suppressHydrationWarning>
       <span>{primary}</span>
-      {hasUsdSecondary && (
-        <span className="text-[11px] font-medium text-slate-400">(≈ {usdText} USD)</span>
-      )}
-      {showVisitorLine && (
-        <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-          Local: ≈ {formatAmountInCurrency(amountUsd, visitorCurrency)}
-        </span>
-      )}
+      {secondary && <span className="text-[11px] font-medium text-slate-400">{secondary}</span>}
     </span>
   );
 }

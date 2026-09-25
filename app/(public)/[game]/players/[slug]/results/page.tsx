@@ -66,7 +66,7 @@ export default async function PlayerResultsPage({ params }: { params: Promise<{ 
       rank: tt.finalRank ?? null,
       prizeAmount: prize,
       prizeCurrency: tt.tournament.currency ?? 'USD',
-      prizeUsd: prize > 0 ? await toUsd(prize, tt.tournament.currency, tt.tournament.startDate) : 0,
+      prizeUsd: prize > 0 ? await toUsd(prize, tt.tournament.currency, tt.tournament.endDate) : 0,
       reported: false,
     });
   }

@@ -11,7 +11,32 @@ import {
   calculateTournamentFraggers,
   parseSurvivalSeconds,
   parseWwcd,
+  tournamentHasEnded,
+  deriveTournamentStatus,
 } from '../lib/tournament-math';
+
+test('an event runs through its closing day and is over the day after', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const todayStart = Math.floor(Date.now() / DAY) * DAY; // UTC midnight, today
+
+  // The closing day is part of the event, so a closing day of today is live —
+  // this is what keeps an 18 Oct event live through the 18th.
+  assert.equal(tournamentHasEnded(new Date(todayStart)), false, 'closing day is today');
+  assert.equal(tournamentHasEnded(new Date(todayStart + DAY)), false, 'closing day is tomorrow');
+  // The 19th, for that 18 Oct event.
+  assert.equal(tournamentHasEnded(new Date(todayStart - DAY)), true, 'closing day was yesterday');
+});
+
+test('derived status keeps that same inclusive closing day', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const todayStart = Math.floor(Date.now() / DAY) * DAY;
+  const at = (offsetDays: number) => new Date(todayStart + offsetDays * DAY).toISOString();
+
+  assert.equal(deriveTournamentStatus(at(-5), at(-DAY)), 'COMPLETED', 'closed yesterday');
+  assert.equal(deriveTournamentStatus(at(-5), at(0)), 'ONGOING', 'closing day is today');
+  assert.equal(deriveTournamentStatus(at(-5), at(1)), 'ONGOING', 'closing day is tomorrow');
+  assert.equal(deriveTournamentStatus(at(1), at(5)), 'UPCOMING', 'starts tomorrow');
+});
 
 test('computeTotalPoints sums place, elims and bonus', () => {
   assert.equal(computeTotalPoints({ placePoints: 10, elimsPoints: 8, bonusPoints: 2 }), 20);

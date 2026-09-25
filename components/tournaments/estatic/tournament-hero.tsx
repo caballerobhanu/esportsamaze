@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { TournamentShortName } from '@/components/ui/tournament-name';
+import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
+import type { ReactNode } from 'react';
 import { Crown, Trophy, Users, Layers, Swords } from 'lucide-react';
 import { EditionPagerButtons, EditionSwitcher } from './edition-nav';
 import { formatTournamentDates } from '@/lib/tournament-dates';
@@ -146,10 +148,18 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
 
         {/* Signature Stat Band */}
         <div className="grid grid-cols-2 divide-slate-200 border-t border-slate-200 dark:divide-white/10 dark:border-white/10 md:grid-cols-4 md:divide-x">
-          {[
+          {([
             {
               label: 'Prize Pool',
-              value: ctx.prizePoolLabel,
+              // The badge owns the pair: the event's own currency, then the
+              // visitor's (or USD) — never one unlabelled figure.
+              value: (
+                <PrizePoolBadge
+                  amount={tournament.prizePool}
+                  currency={tournament.currency}
+                  usdRate={tournament.usdRate}
+                />
+              ),
               icon: Trophy,
             },
             {
@@ -169,13 +179,15 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
               value: `${ctx.totalMatchesCount} Matches`,
               icon: Swords,
             },
-          ].map(({ label, value, icon: Icon }) => (
-            <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-2 py-4 sm:gap-1.5 sm:py-5">
-              <Icon className="h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
-              <span className="text-lg font-black tracking-tight sm:text-xl md:text-2xl xl:text-3xl">{value}</span>
-              <span className="text-[9px] font-extrabold uppercase tracking-[.18em] text-slate-400 sm:text-[10px]">{label}</span>
-            </div>
-          ))}
+          ] as { label: string; value: ReactNode; icon: typeof Trophy }[]).map(
+            ({ label, value, icon: Icon }) => (
+              <div key={label} className="flex min-w-0 flex-col items-center gap-1 px-2 py-4 sm:gap-1.5 sm:py-5">
+                <Icon className="h-4 w-4 text-[#0A5FC4] dark:text-blue-300" />
+                <div className="text-lg font-black tracking-tight sm:text-xl md:text-2xl xl:text-3xl">{value}</div>
+                <span className="text-[9px] font-extrabold uppercase tracking-[.18em] text-slate-400 sm:text-[10px]">{label}</span>
+              </div>
+            )
+          )}
         </div>
       </div>
     </section>

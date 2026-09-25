@@ -1,10 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { getVisitorLocalCurrency, formatAmountInCurrency } from '@/lib/geo-currency';
-import { CURRENCY_SYMBOLS } from '@/lib/utils';
+import { formatAmountInCurrency, getVisitorLocalCurrency, secondaryCurrencyFor } from '@/lib/geo-currency';
+import { formatMoney } from '@/lib/utils';
 import { getCurrencyUsdRate } from '@/lib/tournament-math';
-import { Globe, DollarSign } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 
 interface PrizePoolBadgeProps {
   amount?: number | null;
@@ -14,8 +14,25 @@ interface PrizePoolBadgeProps {
   secondaryClassName?: string;
   showIcon?: boolean;
   inline?: boolean;
+  /** Render one half on its own, for cards that style the two lines separately. */
+  part?: 'both' | 'primary' | 'secondary';
 }
 
+const emptySubscribe = () => () => {};
+/** Server snapshot is a US visitor; the client re-renders with the real locale. */
+const getServerCurrency = () => 'USD';
+
+function useVisitorCurrency(): string {
+  return React.useSyncExternalStore(emptySubscribe, getVisitorLocalCurrency, getServerCurrency);
+}
+
+/**
+ * An event's prize pool, with the one figure worth comparing it against.
+ *
+ * The primary is the event's own currency. The secondary is the visitor's —
+ * unless that is the event's own, where USD stands in; a USD event read by an
+ * American has no secondary at all. See `secondaryCurrencyFor` for the table.
+ */
 export function PrizePoolBadge({
   amount = 0,
   currency = 'USD',
@@ -24,39 +41,34 @@ export function PrizePoolBadge({
   secondaryClassName = '',
   showIcon = false,
   inline = false,
+  part = 'both',
 }: PrizePoolBadgeProps) {
-  const [mounted, setMounted] = React.useState(false);
-  const [visitorCurrency, setVisitorCurrency] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    setMounted(true);
-    const localCurr = getVisitorLocalCurrency();
-    setVisitorCurrency(localCurr);
-  }, []);
-
-  if (!amount || amount <= 0) {
-    return <span className={className} suppressHydrationWarning>TBA</span>;
-  }
+  const visitorCurrency = useVisitorCurrency();
 
   const baseCurrency = (currency || 'USD').toUpperCase();
+
+  if (amount == null || amount <= 0) {
+    return part === 'secondary' ? null : <span className={className} suppressHydrationWarning>TBA</span>;
+  }
+
   const rate = usdRate && usdRate > 0 ? usdRate : getCurrencyUsdRate(baseCurrency);
-  const symbol = CURRENCY_SYMBOLS[baseCurrency] ?? `${baseCurrency} `;
-  const primaryFormatted = `${symbol}${amount.toLocaleString(baseCurrency === 'INR' ? 'en-IN' : 'en-US')}`;
+  const primaryFormatted = formatMoney(amount, baseCurrency);
 
   const usdAmount = Math.round(amount * rate);
-  const hasSecondary = baseCurrency !== 'USD' && usdAmount > 0;
-  const secondaryFormatted = hasSecondary ? `≈ $${usdAmount.toLocaleString('en-US')} USD` : null;
+  const secondaryCode = secondaryCurrencyFor(baseCurrency, visitorCurrency);
+  const secondaryFormatted =
+    secondaryCode && usdAmount > 0 ? `≈ ${formatAmountInCurrency(usdAmount, secondaryCode)}` : null;
 
-  // If visitor is in a country with a different currency from both base and USD
-  const isDifferentFromBaseAndUsd =
-    mounted &&
-    visitorCurrency &&
-    visitorCurrency !== 'USD' &&
-    visitorCurrency !== baseCurrency;
+  if (part === 'primary') {
+    return <span className={className} suppressHydrationWarning>{primaryFormatted}</span>;
+  }
+  if (part === 'secondary') {
+    return secondaryFormatted ? (
+      <span className={className} suppressHydrationWarning>{secondaryFormatted}</span>
+    ) : null;
+  }
 
-  const visitorFormatted = isDifferentFromBaseAndUsd
-    ? formatAmountInCurrency(usdAmount, visitorCurrency)
-    : null;
+  const secondaryCls = secondaryClassName || 'text-slate-500 dark:text-slate-400';
 
   if (inline) {
     return (
@@ -64,9 +76,7 @@ export function PrizePoolBadge({
         {showIcon && <DollarSign className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
         <span>{primaryFormatted}</span>
         {secondaryFormatted && (
-          <span className={`text-xs font-normal ${secondaryClassName || 'text-slate-500 dark:text-slate-400'}`}>
-            ({secondaryFormatted})
-          </span>
+          <span className={`text-xs font-normal ${secondaryCls}`}>({secondaryFormatted})</span>
         )}
       </span>
     );
@@ -81,22 +91,10 @@ export function PrizePoolBadge({
 
       {secondaryFormatted && (
         <span
-          className={`text-xs font-semibold tracking-normal block mt-0.5 ${
-            secondaryClassName || 'text-slate-500 dark:text-slate-400'
-          }`}
+          className={`text-xs font-semibold tracking-normal block mt-0.5 ${secondaryCls}`}
           suppressHydrationWarning
         >
           {secondaryFormatted}
-        </span>
-      )}
-
-      {visitorFormatted && (
-        <span
-          suppressHydrationWarning
-          className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5"
-        >
-          <Globe className="w-3 h-3 shrink-0" />
-          <span>Local: ≈ {visitorFormatted}</span>
         </span>
       )}
     </div>

@@ -106,7 +106,7 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
         sub: `${row.team.name}${row.finalRank ? ` · Finish #${row.finalRank}` : ''}`,
         amount: row.prizeWon ?? 0,
         currency: row.tournament.currency,
-        usd: await usdFor(row.prizeWon ?? 0, row.tournament.currency, row.tournament.startDate),
+        usd: await usdFor(row.prizeWon ?? 0, row.tournament.currency, row.tournament.endDate),
         dateKey,
       });
     }
@@ -119,7 +119,7 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
         sub: `${row.team.name} · Individual award`,
         amount: prize.amount,
         currency: row.tournament.currency,
-        usd: await usdFor(prize.amount, row.tournament.currency, row.tournament.startDate),
+        usd: await usdFor(prize.amount, row.tournament.currency, row.tournament.endDate),
         dateKey,
         rewardNote: prize.rewardNote,
       });
@@ -139,7 +139,7 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
         sub: 'Individual award',
         amount: prize.amount,
         currency: tournament.currency,
-        usd: await usdFor(prize.amount, tournament.currency, tournament.startDate),
+        usd: await usdFor(prize.amount, tournament.currency, tournament.endDate),
         dateKey: tournament.startDate?.getTime() ?? 0,
         rewardNote: prize.rewardNote,
       });

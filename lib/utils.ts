@@ -42,6 +42,26 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 /**
+ * Symbols this map gives to more than one currency — `¥` is both JPY and CNY.
+ * Beside one of those, the symbol alone does not say which currency it is, so
+ * the code has to travel with the figure.
+ */
+const AMBIGUOUS_SYMBOLS = (() => {
+  const seen = new Map<string, number>();
+  for (const symbol of Object.values(CURRENCY_SYMBOLS)) {
+    seen.set(symbol, (seen.get(symbol) ?? 0) + 1);
+  }
+  return new Set([...seen].filter(([, count]) => count > 1).map(([symbol]) => symbol));
+})();
+
+/** The code to print after the digits, for a currency whose symbol is ambiguous. */
+export function currencyCodeSuffix(currency?: string | null): string {
+  const code = (currency || 'USD').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
+  return AMBIGUOUS_SYMBOLS.has(symbol) ? ` ${code}` : '';
+}
+
+/**
  * The digit grouping a currency is written in. Rupees group by lakh/crore
  * (`en-IN`: 30,00,000), every other currency here groups in threes
  * (`en-US`: 3,000,000). A USD amount must never render as "$3,00,000".
@@ -59,7 +79,7 @@ export function formatCurrencyNumber(amount: number, currency?: string | null): 
 export function formatMoney(amount: number, currency: string = 'USD'): string {
   const code = (currency || 'USD').toUpperCase();
   const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
-  return `${symbol}${amount.toLocaleString(currencyLocale(code))}`;
+  return `${symbol}${amount.toLocaleString(currencyLocale(code))}${currencyCodeSuffix(code)}`;
 }
 
 /**
