@@ -12,7 +12,7 @@ import { isAdmin } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fMonthStart, fMonthEnd, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
 import { formatTournamentDates } from '@/lib/tournament-dates';
 import { recordSlugChange } from '@/lib/slug-history';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 import { saveUploadedFile } from '@/lib/upload';
 import {
   TOURNAMENT_TIERS,
@@ -1033,7 +1033,7 @@ export default async function AdminTournamentsPage({
         prizePool: true,
         currency: true,
         rankingIncluded: true,
-        game: { select: { name: true } },
+        game: { select: { name: true, slug: true } },
         _count: {
           select: {
             stages: true,
@@ -1974,7 +1974,7 @@ export default async function AdminTournamentsPage({
                 <td className="py-3 px-3 text-right">
                   <span className="inline-flex items-center gap-1.5">
                     <Link
-                      href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${t.slug}`)}
+                      href={gameHref(gameSlugOf(t), `tournaments/${t.slug}`)}
                       target="_blank"
                       className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors"
                       title="View Public Page"

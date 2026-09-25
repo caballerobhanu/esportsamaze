@@ -92,7 +92,10 @@ export function TournamentsDirectoryExplorer({
     const params = new URLSearchParams();
     const merged = { ...filters, ...updates };
     for (const [k, v] of Object.entries(merged)) {
-      if (v && v !== 'ALL') params.set(k, v);
+      // `game` keeps an explicit ALL (otherwise the page falls back to the path
+      // game); every other facet treats ALL as "no filter".
+      if (!v || (v === 'ALL' && k !== 'game')) continue;
+      params.set(k, v);
     }
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
@@ -120,7 +123,8 @@ export function TournamentsDirectoryExplorer({
   const pageHref = (p: number) => {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filters)) {
-      if (v && v !== 'ALL') params.set(k, v);
+      if (!v || (v === 'ALL' && k !== 'game')) continue;
+      params.set(k, v);
     }
     if (p > 1) params.set('page', String(p));
     const qs = params.toString();

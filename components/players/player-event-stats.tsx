@@ -160,7 +160,7 @@ const avgOf = (elims: number, matches: number) => (matches > 0 ? (elims / matche
  * needs a round trip. Every figure comes from the same per-game rows, so the
  * filters can only narrow the set, never change what a figure means.
  */
-export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
+export function PlayerEventStats({ lines, gameSlug = DEFAULT_GAME_SLUG }: { lines: PlayerEventStatLine[]; gameSlug?: string }) {
   const [groupBy, setGroupBy] = React.useState<GroupBy>('event');
   const [grandFinalsOnly, setGrandFinalsOnly] = React.useState(false);
   const [matchType, setMatchType] = React.useState('ALL');
@@ -321,7 +321,7 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
               title={
                 group.tournament ? (
                   <Link
-                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${group.tournament.slug}`)}
+                    href={gameHref(gameSlug, `tournaments/${group.tournament.slug}`)}
                     className="transition-colors hover:text-[#0A5FC4]"
                     title={group.tournament.name}
                   >
@@ -382,7 +382,7 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
                     {group.tournament ? (
                       <>
                         <Link
-                          href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${group.tournament.slug}`)}
+                          href={gameHref(gameSlug, `tournaments/${group.tournament.slug}`)}
                           className="block w-full font-bold transition-colors hover:text-[#0A5FC4]"
                         >
                           <TournamentNameFit
@@ -406,7 +406,7 @@ export function PlayerEventStats({ lines }: { lines: PlayerEventStatLine[] }) {
                     <td className="py-4 pr-3 text-slate-500">
                       {group.teamName ? (
                         group.teamSlug ? (
-                          <Link href={gameHref(DEFAULT_GAME_SLUG, `teams/${group.teamSlug}`)} className="font-bold hover:text-[#0A5FC4]">
+                          <Link href={gameHref(gameSlug, `teams/${group.teamSlug}`)} className="font-bold hover:text-[#0A5FC4]">
                             {group.teamName}
                           </Link>
                         ) : (

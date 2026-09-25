@@ -50,6 +50,8 @@ export interface CalendarStageItem {
 interface TournamentScheduleCalendarProps {
   tournamentName?: string;
   tournamentSlug?: string;
+  /** The event's own game slug, so the scorecard link stays on this game. */
+  gameSlug?: string;
   dateRangeText?: string;
   stages?: CalendarStageItem[];
   matches?: CalendarMatchItem[];
@@ -149,6 +151,7 @@ function getLocalDateKey(d: Date | string): string {
 export function TournamentScheduleCalendar({
   tournamentName = 'Tournament',
   tournamentSlug,
+  gameSlug = DEFAULT_GAME_SLUG,
   dateRangeText,
   stages = [],
   matches = [],
@@ -790,7 +793,7 @@ export function TournamentScheduleCalendar({
                       // Only link to scorecard if it is a REAL database match that is completed or has live data
                       const hasRealScorecard = !isProjected && m.status !== 'SCHEDULED' && Boolean(m.id);
                       const matchUrl = hasRealScorecard && tournamentSlug
-                        ? `${gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournamentSlug}/matches`)}?matchId=${m.id}`
+                        ? `${gameHref(gameSlug, `tournaments/${tournamentSlug}/matches`)}?matchId=${m.id}`
                         : null;
 
                       return (

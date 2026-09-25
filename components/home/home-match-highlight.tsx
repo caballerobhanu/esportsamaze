@@ -20,6 +20,7 @@ export interface HighlightMatchData {
     series?: string | null;
     season?: string | null;
     slug: string;
+    game?: { slug: string } | null;
   };
   stage?: {
     name: string;
@@ -43,7 +44,14 @@ export interface HighlightMatchData {
   }>;
 }
 
-export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null }) {
+export function HomeMatchHighlight({
+  match,
+  gameSlug = DEFAULT_GAME_SLUG,
+}: {
+  match: HighlightMatchData | null;
+  /** The event's own game slug, so the event link stays on this game. */
+  gameSlug?: string;
+}) {
   if (!match) return null;
 
   const isCompleted = match.status === 'COMPLETED';
@@ -55,7 +63,7 @@ export function HomeMatchHighlight({ match }: { match: HighlightMatchData | null
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/80 px-4 py-3 sm:px-5 dark:border-white/10 dark:bg-[#070b14]/50">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
           <Link
-            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${match.tournament.slug}`)}
+            href={gameHref(gameSlug, `tournaments/${match.tournament.slug}`)}
             className="rounded-full bg-[#0A5FC4]/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#0A5FC4] hover:bg-[#0A5FC4]/20 transition-colors dark:text-blue-400"
           >
             {getTournamentShortName(match.tournament)}

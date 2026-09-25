@@ -80,11 +80,13 @@ interface EstaticTeamsPanelProps {
   /** How this tab draws each team: crest, flag, both, or neither. */
   logoMode?: StandingsLogoMode;
   seats?: FieldSeat[];
+  /** The event's own game slug, so qualifier/seed links stay on this game. */
+  gameSlug?: string;
 }
 
 export type TeamSortOption = 'default' | 'name_asc' | 'name_desc';
 
-export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: EstaticTeamsPanelProps) {
+export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM', gameSlug = DEFAULT_GAME_SLUG }: EstaticTeamsPanelProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<TeamSortOption>('default');
   const [expandedTeamIds, setExpandedTeamIds] = useState<Set<string>>(new Set());
@@ -261,7 +263,7 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                       {seat.qualifierName &&
                         (seat.qualifierSlug ? (
                           <Link
-                            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${seat.qualifierSlug}`)}
+                            href={gameHref(gameSlug, `tournaments/${seat.qualifierSlug}`)}
                             className="text-[11px] font-semibold text-[#0A5FC4] hover:underline dark:text-blue-300"
                           >
                             via {seat.qualifierName}
@@ -375,14 +377,14 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                     lightSrc={tt.logoUrl ?? tt.team.logoUrl}
                     darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
                     countryCode={tt.countryCode}
-                    href={gameHref(DEFAULT_GAME_SLUG, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
+                    href={gameHref(gameSlug, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
                     tileClassName="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
                     logoClassName="object-contain p-1.5"
                     fallbackClassName="font-black text-slate-400 text-sm"
                   />
                   <div className="min-w-0">
                     <Link
-                      href={gameHref(DEFAULT_GAME_SLUG, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
+                      href={gameHref(gameSlug, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
                       className="text-base font-black text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block truncate"
                     >
                       {teamDisplayName(tt)}
@@ -395,7 +397,7 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                           seedLabel
                         ) : (
                           <Link
-                            href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tt.seedTournament?.slug}`)}
+                            href={gameHref(gameSlug, `tournaments/${tt.seedTournament?.slug}`)}
                             className="hover:underline"
                           >
                             {seedLabel}
@@ -433,10 +435,10 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM' }: Esta
                       const isStaff = Boolean(m.isStaff || m.staffRole);
                       const staffRole = m.staffRole || (m.isStaff ? m.role : null);
                       const playerUrl = m.slug
-                        ? gameHref(DEFAULT_GAME_SLUG, `players/${m.slug}`)
+                        ? gameHref(gameSlug, `players/${m.slug}`)
                         : m.playerId
-                          ? gameHref(DEFAULT_GAME_SLUG, `players/${m.playerId}`)
-                          : gameHref(DEFAULT_GAME_SLUG, `players/${encodeURIComponent(m.ign)}`);
+                          ? gameHref(gameSlug, `players/${m.playerId}`)
+                          : gameHref(gameSlug, `players/${encodeURIComponent(m.ign)}`);
 
                       return (
                         <Link

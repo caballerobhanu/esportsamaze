@@ -25,10 +25,13 @@ export function EventOverlap({
   labelA,
   labelB,
   rows,
+  gameSlug = DEFAULT_GAME_SLUG,
 }: {
   labelA: string;
   labelB: string;
   rows: CompareEventRow[];
+  /** The comparison's game slug, so event links stay on this game. */
+  gameSlug?: string;
 }) {
   if (rows.length === 0) return null;
 
@@ -62,7 +65,7 @@ export function EventOverlap({
                   </td>
                   <td className="px-4 py-4 text-center">
                     <Link
-                      href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.slug}`)}
+                      href={gameHref(gameSlug, `tournaments/${row.slug}`)}
                       className="mx-auto block max-w-[320px] font-bold transition-colors hover:text-[#0A5FC4]"
                     >
                       <TournamentNameFit

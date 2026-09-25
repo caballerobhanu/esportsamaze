@@ -5,19 +5,18 @@ import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 import { activeTabFromPathname } from '@/lib/nav';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { tournamentHref } from '@/lib/entity-links';
 
 export interface EditionLink {
   slug: string;
   name: string;
   season: string | null;
+  game?: { slug: string | null } | null;
 }
 
 /** Edition link that preserves the active tab (overview = base route). */
-function editionHref(slug: string, activeTab: string): string {
-  return activeTab === 'overview'
-    ? gameHref(DEFAULT_GAME_SLUG, `tournaments/${slug}`)
-    : gameHref(DEFAULT_GAME_SLUG, `tournaments/${slug}/${activeTab}`);
+function editionHref(edition: EditionLink, activeTab: string): string {
+  return tournamentHref(edition, activeTab);
 }
 
 /*
@@ -39,7 +38,7 @@ export function EditionPagerButtons({
     <div className="flex shrink-0 gap-2">
       {prevEdition && (
         <Link
-          href={editionHref(prevEdition.slug, activeTab)}
+          href={editionHref(prevEdition, activeTab)}
           className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
           title={`Previous Edition: ${prevEdition.name}`}
         >
@@ -48,7 +47,7 @@ export function EditionPagerButtons({
       )}
       {nextEdition && (
         <Link
-          href={editionHref(nextEdition.slug, activeTab)}
+          href={editionHref(nextEdition, activeTab)}
           className="rounded-full border border-slate-200 p-2 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10"
           title={`Next Edition: ${nextEdition.name}`}
         >
@@ -74,7 +73,7 @@ export function EditionSwitcher({
     <div className="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-2 text-xs">
       {prevEdition && (
         <Link
-          href={editionHref(prevEdition.slug, activeTab)}
+          href={editionHref(prevEdition, activeTab)}
           className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 font-bold text-slate-700 shadow-xs hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white transition-all group"
           title={prevEdition.name}
         >
@@ -89,7 +88,7 @@ export function EditionSwitcher({
       </span>
       {nextEdition && (
         <Link
-          href={editionHref(nextEdition.slug, activeTab)}
+          href={editionHref(nextEdition, activeTab)}
           className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 font-bold text-slate-700 shadow-xs hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white transition-all group"
           title={nextEdition.name}
         >

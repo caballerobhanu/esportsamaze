@@ -154,6 +154,30 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
   // team by id and by name in one query, falling back to the full name when a team
   // has no tag. The names come only from data already on the page.
   const tableContributions = [...contributions, ...(me?.transferredOutContributions ?? [])];
+
+  // The board is pinned to one game, but a contribution's event may belong to a
+  // sibling game in the same family — so each event link carries its own game.
+  const contributionKeys = [
+    ...new Set(
+      tableContributions
+        .map((c) => c.tournamentSlug || c.tournamentId)
+        .filter((key): key is string => Boolean(key)),
+    ),
+  ];
+  const contributionTournaments = contributionKeys.length
+    ? await prisma.tournament.findMany({
+        where: { OR: [{ slug: { in: contributionKeys } }, { id: { in: contributionKeys } }] },
+        select: { id: true, slug: true, game: { select: { slug: true } } },
+      })
+    : [];
+  const gameByTournamentKey = new Map<string, string>();
+  for (const t of contributionTournaments) {
+    if (!t.game?.slug) continue;
+    gameByTournamentKey.set(t.slug, t.game.slug);
+    gameByTournamentKey.set(t.id, t.game.slug);
+  }
+  const tournamentHrefForKey = (tournamentKey: string) =>
+    gameHref(gameByTournamentKey.get(tournamentKey) || game, `tournaments/${encodeURIComponent(tournamentKey)}`);
   const referencedTeamIds = new Set(
     tableContributions
       .flatMap((c) => [c.teamId, c.transferredFromTeamId])
@@ -458,7 +482,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                           <div>
                             {c.tournamentSlug || c.tournamentId ? (
                               <Link
-                                href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${encodeURIComponent(c.tournamentSlug || c.tournamentId!)}`)}
+                                href={tournamentHrefForKey(c.tournamentSlug || c.tournamentId!)}
                                 className="group/tourneylink inline-flex items-center gap-1 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400"
                                 title={`View tournament: ${c.eventName}`}
                               >
@@ -601,7 +625,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                             <div>
                               {c.tournamentSlug || c.tournamentId ? (
                                 <Link
-                                  href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${encodeURIComponent(c.tournamentSlug || c.tournamentId!)}`)}
+                                  href={tournamentHrefForKey(c.tournamentSlug || c.tournamentId!)}
                                   className="group/tourneylink inline-flex items-center gap-1 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-400"
                                   title={`View tournament: ${c.eventName}`}
                                 >

@@ -222,7 +222,7 @@ export interface TournamentContext {
   tournament: TournamentData;
   standingsConfig: StandingsConfig;
   visibleTabs: TournamentTabId[];
-  editions: { slug: string; name: string; season: string | null; startDate: Date; seriesValue: number | null }[];
+  editions: { slug: string; name: string; season: string | null; startDate: Date; seriesValue: number | null; game: { slug: string } | null }[];
   prevEdition: TournamentContext['editions'][number] | null;
   nextEdition: TournamentContext['editions'][number] | null;
   resolvedWinner: string | null;
@@ -252,7 +252,7 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
   const editions = tournament.series
     ? await prisma.tournament.findMany({
         where: { series: { equals: tournament.series, mode: 'insensitive' } },
-        select: { slug: true, name: true, season: true, startDate: true, seriesValue: true },
+        select: { slug: true, name: true, season: true, startDate: true, seriesValue: true, game: { select: { slug: true } } },
         orderBy: [{ startDate: 'asc' }, { seriesValue: 'asc' }],
       })
     : [];

@@ -391,7 +391,7 @@ export default async function TournamentsPage({
             total={total}
             pageSize={PAGE_SIZE}
             entityPlural="tournaments"
-            params={Object.fromEntries(Object.entries(filters).filter(([, v]) => v && v !== 'ALL'))}
+            params={Object.fromEntries(Object.entries(filters).filter(([k, v]) => v && (v !== 'ALL' || k === 'game')))}
           />
         </div>
       </main>

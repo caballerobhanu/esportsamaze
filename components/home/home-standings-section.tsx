@@ -11,6 +11,8 @@ interface HomeStandingsSectionProps {
   stageName: string;
   standings: TeamStandingEntry[];
   fraggers: PlayerFraggerEntry[];
+  /** The event's own game slug, so the standings link stays on this game. */
+  gameSlug?: string;
 }
 
 /** Compact "tournament pulse": top-8 points table plus top-5 fraggers. */
@@ -20,6 +22,7 @@ export function HomeStandingsSection({
   stageName,
   standings,
   fraggers,
+  gameSlug = DEFAULT_GAME_SLUG,
 }: HomeStandingsSectionProps) {
   return (
     <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
@@ -44,7 +47,7 @@ export function HomeStandingsSection({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Link
-              href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tournamentSlug}/standings`)}
+              href={gameHref(gameSlug, `tournaments/${tournamentSlug}/standings`)}
               className="group flex items-center gap-1.5 text-xs font-bold text-[var(--ed-blue)] hover:underline"
             >
               <span>Full Standings</span>

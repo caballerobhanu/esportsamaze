@@ -47,6 +47,7 @@ export default async function HomePage() {
         orderBy: { sequence: 'asc' },
         select: { id: true, name: true, sequence: true },
       },
+      game: { select: { slug: true } },
     },
   });
 
@@ -83,7 +84,7 @@ export default async function HomePage() {
     },
     orderBy: [{ scheduledAt: 'desc' }, { matchNumber: 'desc' }],
     include: {
-      tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true } },
+      tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, game: { select: { slug: true } } } },
       stage: { select: { id: true, name: true } },
       games: {
         include: {
@@ -121,6 +122,7 @@ export default async function HomePage() {
         series: latestCompletedMatch.tournament.series,
         season: latestCompletedMatch.tournament.season,
         slug: latestCompletedMatch.tournament.slug,
+        game: latestCompletedMatch.tournament.game,
       },
       stage: latestCompletedMatch.stage ? { name: latestCompletedMatch.stage.name } : null,
       winner: topTeam
@@ -150,7 +152,7 @@ export default async function HomePage() {
       where: { status: 'SCHEDULED' },
       orderBy: { scheduledAt: 'asc' },
       include: {
-        tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true } },
+        tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, game: { select: { slug: true } } } },
         stage: { select: { id: true, name: true } },
       },
     });
@@ -170,6 +172,7 @@ export default async function HomePage() {
           series: nextMatch.tournament.series,
           season: nextMatch.tournament.season,
           slug: nextMatch.tournament.slug,
+          game: nextMatch.tournament.game,
         },
         stage: nextMatch.stage ? { name: nextMatch.stage.name } : null,
       };
@@ -201,7 +204,7 @@ export default async function HomePage() {
     legacyVenue: true,
     legacyLocation: true,
     legacyOrganizer: true,
-    game: { select: { name: true } },
+    game: { select: { name: true, slug: true } },
     venues: { include: { venue: true } },
     organizers: { include: { organizer: true } },
   } as const;
@@ -294,6 +297,7 @@ export default async function HomePage() {
         game: {
           select: {
             name: true,
+            slug: true,
             logoUrl: true,
             logoDarkUrl: true,
           },
@@ -331,7 +335,9 @@ export default async function HomePage() {
         <FrontPage lead={lead} stories={stories} />
 
         {/* Latest match result (or next scheduled match) */}
-        {highlightMatch && <HomeMatchHighlight match={highlightMatch} />}
+        {highlightMatch && (
+          <HomeMatchHighlight match={highlightMatch} gameSlug={highlightMatch.tournament.game?.slug} />
+        )}
 
         {/* Points table & fraggers for the ongoing tournament */}
         {liveTournament && (
@@ -341,6 +347,7 @@ export default async function HomePage() {
             stageName={stageName}
             standings={standings}
             fraggers={fraggers}
+            gameSlug={liveTournament.game?.slug}
           />
         )}
 
@@ -380,7 +387,7 @@ export default async function HomePage() {
                 return (
                   <Link
                     key={tourney.id}
-                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`)}
+                    href={gameHref(tourney.game?.slug || DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`)}
                     className="group block rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220]"
                   >
                     <div className="flex flex-col gap-3">

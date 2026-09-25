@@ -76,6 +76,7 @@ export interface ArticleViewData {
     prizePool: number | null;
     startDate: Date | null;
     endDate: Date | null;
+    game?: { slug: string } | null;
   } | null;
   team: {
     name: string;
@@ -784,7 +785,7 @@ export function ArticleView({
                       <h4 className="mt-2 text-sm font-extrabold">{article.tournament.name}</h4>
                     </div>
                     <Link
-                      href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${article.tournament.slug}`)}
+                      href={gameHref(article.tournament.game?.slug || DEFAULT_GAME_SLUG, `tournaments/${article.tournament.slug}`)}
                       className="mt-4 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-[var(--ed-blue)] hover:underline"
                     >
                       Standings & Matches <ArrowRight className="h-3 w-3" />

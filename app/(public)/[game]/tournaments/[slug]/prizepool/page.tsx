@@ -46,6 +46,7 @@ export default async function TournamentPrizePoolPage({
         awardPlayers={data.awardPlayers}
         teams={ctx.tournament.teams}
         results={data.results}
+        gameSlug={ctx.tournament.game?.slug}
       />
     </TournamentTabShell>
   );

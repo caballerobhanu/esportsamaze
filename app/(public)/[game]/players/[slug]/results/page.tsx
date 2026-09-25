@@ -7,7 +7,7 @@ import { EarningsAmount } from '@/components/players/earnings-amount';
 import { TabIntro } from '@/components/seo/tab-intro';
 import { playerResultsIntro } from '@/lib/entity-intros';
 import { TournamentName } from '@/components/ui/tournament-name';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 import {
   loadPlayerCareer,
   loadPlayerContext,
@@ -140,7 +140,7 @@ export default async function PlayerResultsPage({ params }: { params: Promise<{ 
                     <td className="py-4 pr-3">
                       {row.slug ? (
                         <Link
-                          href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.slug}`)}
+                          href={gameHref(gameSlugOf(player), `tournaments/${row.slug}`)}
                           className="font-bold transition-colors hover:text-[#0A5FC4]"
                         >
                           <TournamentName name={row.name} shortName={row.shortName} />
@@ -164,7 +164,7 @@ export default async function PlayerResultsPage({ params }: { params: Promise<{ 
                       {row.teamName ? (
                         row.teamSlug ? (
                           <Link
-                            href={gameHref(DEFAULT_GAME_SLUG, `teams/${row.teamSlug}`)}
+                            href={gameHref(gameSlugOf(player), `teams/${row.teamSlug}`)}
                             className="font-semibold text-slate-600 transition-colors hover:text-[#0A5FC4] dark:text-slate-300"
                           >
                             {row.teamName}

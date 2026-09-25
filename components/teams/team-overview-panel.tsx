@@ -12,7 +12,7 @@ import {
 import { RecentFormStrip } from './recent-form-strip';
 import { TeamStatBand } from './team-stat-band';
 import type { TeamContext, TeamFormPoint, TeamMatchSummaryPayload } from '@/lib/team-data';
-import { DEFAULT_GAME_SLUG, gameHref, gameSlugOf } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 
 export interface KraftonSummary {
   rank: number;
@@ -134,7 +134,7 @@ export function TeamOverviewPanel({
               {recentEvents.map((event) => (
                 <li key={event.id} className="relative">
                   <span className="absolute -left-[27px] top-1.5 h-3 w-3 rounded-full border-2 border-white bg-[#0A5FC4] dark:border-[#0b1220]" />
-                  <Link href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)} className="group block">
+                  <Link href={gameHref(gameSlugOf(team), `tournaments/${event.slug}`)} className="group block">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="line-clamp-2 text-sm font-extrabold transition-colors group-hover:text-[#0A5FC4]">
                         <TournamentName name={event.name} shortName={event.shortName} />

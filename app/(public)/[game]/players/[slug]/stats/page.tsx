@@ -5,6 +5,7 @@ import { PlayerEventStats, type PlayerEventStatLine } from '@/components/players
 import { TabIntro } from '@/components/seo/tab-intro';
 import { playerStatsIntro } from '@/lib/entity-intros';
 import { EventMetrics } from '@/components/ui/event-metrics';
+import { gameSlugOf } from '@/lib/games';
 import { eliminations } from '@/lib/player-stats';
 import { PLAYER_METRIC_COLUMNS } from '@/lib/event-metrics';
 import {
@@ -75,9 +76,14 @@ export default async function PlayerStatsPage({ params }: { params: Promise<{ sl
     <PlayerTabShell slug={slug} activeTab="stats">
       <TabIntro text={intro} />
       <div className="space-y-8">
-        <PlayerEventStats lines={matchStatLines} />
+        <PlayerEventStats lines={matchStatLines} gameSlug={gameSlugOf(context.player)} />
 
-        <EventMetrics rows={eventMetrics} columns={PLAYER_METRIC_COLUMNS} showTeam />
+        <EventMetrics
+          rows={eventMetrics}
+          columns={PLAYER_METRIC_COLUMNS}
+          showTeam
+          gameSlug={gameSlugOf(context.player)}
+        />
       </div>
     </PlayerTabShell>
   );

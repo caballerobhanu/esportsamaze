@@ -133,6 +133,7 @@ interface EstaticFormatPanelProps {
     endDate?: Date | null;
     formatDetails?: any;
     standingsConfig?: any;
+    game?: { slug: string | null } | null;
     matches?: any[];
     teams?: any[];
   };
@@ -658,6 +659,7 @@ ${stageSummary}
           <TournamentScheduleCalendar
             tournamentName={tournamentName}
             tournamentSlug={tournament?.slug}
+            gameSlug={tournament?.game?.slug ?? undefined}
             dateRangeText={dateRangeStr}
             stages={synthesizedStages.map((s) => ({
               id: s.stageId,

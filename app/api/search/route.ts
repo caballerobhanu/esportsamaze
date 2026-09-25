@@ -128,6 +128,9 @@ export async function GET(request: NextRequest) {
         where: {
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
+            { shortName: { contains: q, mode: 'insensitive' } },
+            { series: { contains: q, mode: 'insensitive' } },
+            { season: { contains: q, mode: 'insensitive' } },
             { slug: { contains: q, mode: 'insensitive' } },
             { region: { contains: q, mode: 'insensitive' } },
             { organizers: { some: { organizer: { name: { contains: q, mode: 'insensitive' } } } } },
@@ -142,6 +145,7 @@ export async function GET(request: NextRequest) {
           slug: true,
           imageUrl: true,
           status: true,
+          game: { select: { slug: true } },
         },
         take: limit,
       }),
@@ -226,7 +230,7 @@ export async function GET(request: NextRequest) {
       subtitle: `${tourney.tier} • ${tourney.region || 'Global'}${
         tourney.prizePool ? ` • $${tourney.prizePool.toLocaleString()}` : ''
       }`,
-      href: gameHref(DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`),
+      href: gameHref(tourney.game?.slug || DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`),
       imageUrl: tourney.imageUrl,
       badge: tourney.status,
     }));

@@ -41,6 +41,7 @@ export default async function TournamentTeamsPage({
         teams={data.enrichedTeams}
         seats={data.seats}
         logoMode={ctx.standingsConfig.logoModeBySurface.teams}
+        gameSlug={ctx.tournament.game?.slug}
       />
     </TournamentTabShell>
   );

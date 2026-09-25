@@ -895,7 +895,7 @@ export default async function ComparePage({
                 unit="Elim-Point"
               />
 
-              <EventOverlap labelA={teamA.name} labelB={teamB.name} rows={sharedEvents} />
+              <EventOverlap labelA={teamA.name} labelB={teamB.name} rows={sharedEvents} gameSlug={teamAGame} />
 
               <MapGrid
                 labelA={teamA.name}
@@ -1361,7 +1361,7 @@ export default async function ComparePage({
               unit="Elim"
             />
 
-            <EventOverlap labelA={playerA.ign} labelB={playerB.ign} rows={sharedEvents} />
+            <EventOverlap labelA={playerA.ign} labelB={playerB.ign} rows={sharedEvents} gameSlug={playerAGame} />
 
             <MapGrid
               labelA={playerA.ign}

@@ -17,6 +17,7 @@ interface EventCardData {
   startDate: string;
   endDate: string;
   gameName: string;
+  gameSlug: string;
   logoUrl?: string | null;
   logoDarkUrl?: string | null;
   stageName: string;
@@ -32,7 +33,7 @@ export interface RawTournamentRow {
   endDate: string | Date;
   imageUrl?: string | null;
   imageDarkUrl?: string | null;
-  game: { name: string; logoUrl: string | null; logoDarkUrl: string | null } | null;
+  game: { name: string; slug: string; logoUrl: string | null; logoDarkUrl: string | null } | null;
   stages: { sequence: number; name: string }[];
 }
 
@@ -58,9 +59,12 @@ function normalizeEvent(raw: RawTournamentRow): EventCardData {
     name: raw.name,
     shortName: raw.shortName ?? null,
     status,
-    startDate: String(raw.startDate),
-    endDate: String(raw.endDate),
+    // ISO strings, so the date sorts below are chronological. `String(date)`
+    // ("Tue Sep 22 2026 …") compares by WEEKDAY NAME, which is not an order.
+    startDate: new Date(raw.startDate).toISOString(),
+    endDate: new Date(raw.endDate).toISOString(),
     gameName: raw.game?.name ?? '',
+    gameSlug: raw.game?.slug || DEFAULT_GAME_SLUG,
     logoUrl: raw.imageUrl ?? raw.game?.logoUrl ?? null,
     logoDarkUrl: raw.imageDarkUrl ?? raw.game?.logoDarkUrl ?? null,
     stageName,
@@ -286,7 +290,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
               );
 
               return event.slug ? (
-                <Link key={event.id} href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)} className={cardClasses} title={event.name}>
+                <Link key={event.id} href={gameHref(event.gameSlug, `tournaments/${event.slug}`)} className={cardClasses} title={event.name}>
                   {inner}
                 </Link>
               ) : (

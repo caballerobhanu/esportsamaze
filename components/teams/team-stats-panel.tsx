@@ -1,4 +1,5 @@
 import { Map as MapIcon, Trophy } from 'lucide-react';
+import { gameSlugOf } from '@/lib/games';
 
 import { HeadToHeadBoard } from './head-to-head-board';
 import { PlacementDistribution } from './placement-distribution';
@@ -110,7 +111,11 @@ export function TeamStatsPanel({
             title="Per-tournament record"
             icon={<Trophy className="h-6 w-6 text-slate-300 dark:text-slate-700" />}
           >
-            <TeamPerTournamentTable tournaments={tournaments} tournamentsGF={tournamentsGF} />
+            <TeamPerTournamentTable
+              tournaments={tournaments}
+              tournamentsGF={tournamentsGF}
+              gameSlug={gameSlugOf(team)}
+            />
             <p className="mt-4 max-w-3xl text-[10px] font-bold leading-5 text-slate-400">
               Averages are per game. There is no average-placement column: a mean rank over a
               battle-royale spread averages an ordinal, so the placement histogram above is the
@@ -201,10 +206,15 @@ export function TeamStatsPanel({
       {/* Detailed metrics sit above the head-to-head board: they are the event
           record, where the board is an opponent breakdown. Rendered outside the
           match-data gate so an event with only reported totals still shows. */}
-      <EventMetrics rows={eventMetrics} columns={TEAM_METRIC_COLUMNS} />
+      <EventMetrics rows={eventMetrics} columns={TEAM_METRIC_COLUMNS} gameSlug={gameSlugOf(team)} />
 
       {hasMatchData && (
-        <HeadToHeadBoard rows={headToHead} teamSlug={teamSlug} teamName={team.name} />
+        <HeadToHeadBoard
+          rows={headToHead}
+          teamSlug={teamSlug}
+          teamName={team.name}
+          gameSlug={gameSlugOf(team)}
+        />
       )}
 
       <RelatedTeamsBand rows={related} teamName={team.name} />

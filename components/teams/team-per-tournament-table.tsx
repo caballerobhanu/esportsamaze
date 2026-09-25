@@ -8,7 +8,7 @@ import { TournamentShortName } from '@/components/ui/tournament-name';
 import { formatAverage, formatRate } from '@/lib/team-stats';
 import type { TeamTournamentRow } from '@/lib/team-data';
 import { MobileDataCard } from '@/components/ui/mobile-card';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref } from '@/lib/games';
 
 const th = 'px-4 py-3 text-[10px] font-black uppercase tracking-[.16em] text-slate-400';
 const td = 'px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400';
@@ -23,9 +23,12 @@ const td = 'px-4 py-3 text-xs font-bold text-slate-500 dark:text-slate-400';
 export function TeamPerTournamentTable({
   tournaments,
   tournamentsGF,
+  gameSlug,
 }: {
   tournaments: TeamTournamentRow[];
   tournamentsGF: TeamTournamentRow[];
+  /** The team's own game slug, so event links stay on this game. */
+  gameSlug: string;
 }) {
   const [grandFinalsOnly, setGrandFinalsOnly] = React.useState(false);
 
@@ -60,7 +63,7 @@ export function TeamPerTournamentTable({
             key={row.tournamentId}
             title={
               <Link
-                href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.slug}`)}
+                href={gameHref(gameSlug, `tournaments/${row.slug}`)}
                 className="transition-colors hover:text-[#0A5FC4]"
                 title={row.name}
               >
@@ -107,7 +110,7 @@ export function TeamPerTournamentTable({
               >
                 <td className="px-4 py-3">
                   <Link
-                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.slug}`)}
+                    href={gameHref(gameSlug, `tournaments/${row.slug}`)}
                     className="line-clamp-1 max-w-[240px] font-bold transition-colors hover:text-[#0A5FC4]"
                   >
                     <TournamentShortName name={row.name} shortName={row.shortName} />

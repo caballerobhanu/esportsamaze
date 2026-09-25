@@ -9,7 +9,7 @@ import { playerHonoursIntro } from '@/lib/entity-intros';
 import { EarningsAmount } from '@/components/players/earnings-amount';
 import { flattenPrizeRanks } from '@/lib/standings-config';
 import { TournamentName } from '@/components/ui/tournament-name';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 import {
   loadPlayerCareer,
   loadPlayerContext,
@@ -245,7 +245,7 @@ export default async function PlayerHonoursPage({ params }: { params: Promise<{ 
                     <tr key={line.key} className="text-sm">
                       <td className="py-4 pr-3">
                         <Link
-                          href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${line.tournament.slug}`)}
+                          href={gameHref(gameSlugOf(player), `tournaments/${line.tournament.slug}`)}
                           className="font-bold transition-colors hover:text-[#0A5FC4]"
                         >
                           <TournamentName name={line.tournament.name} shortName={line.tournament.shortName} />

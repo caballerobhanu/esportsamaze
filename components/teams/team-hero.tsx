@@ -32,8 +32,11 @@ function socialLinkHref(key: string, value: string) {
   return `https://${clean}`;
 }
 
-export function teamHref(team: { slug: string | null; tag: string | null; id: string }) {
-  return gameHref(DEFAULT_GAME_SLUG, `teams/${team.slug || team.tag || team.id}`);
+export function teamHref(
+  team: { slug: string | null; tag: string | null; id: string },
+  gameSlug: string = DEFAULT_GAME_SLUG
+) {
+  return gameHref(gameSlug, `teams/${team.slug || team.tag || team.id}`);
 }
 
 /**
@@ -77,7 +80,7 @@ export function TeamHero({
           <div className="flex gap-1.5 sm:gap-2">
             {team.prevTeam && (
               <Link
-                href={teamHref(team.prevTeam)}
+                href={teamHref(team.prevTeam, gameSlugOf(team))}
                 className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Previous team: ${team.prevTeam.name}`}
               >
@@ -86,7 +89,7 @@ export function TeamHero({
             )}
             {team.nextTeam && (
               <Link
-                href={teamHref(team.nextTeam)}
+                href={teamHref(team.nextTeam, gameSlugOf(team))}
                 className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Next team: ${team.nextTeam.name}`}
               >

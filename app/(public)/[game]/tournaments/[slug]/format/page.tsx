@@ -45,6 +45,7 @@ export default async function TournamentFormatPage({
           startDate: ctx.tournament.startDate,
           endDate: ctx.tournament.endDate,
           formatDetails: ctx.tournament.formatDetails,
+          game: ctx.tournament.game ? { slug: ctx.tournament.game.slug } : null,
         }}
         stages={ctx.tournament.stages}
         matches={data.slimMatches}

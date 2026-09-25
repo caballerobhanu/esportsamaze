@@ -23,7 +23,7 @@ import { formatAverage, formatRate, type PlayerElimMetrics } from '@/lib/team-st
 import { parseRoster } from '@/lib/team-roster';
 import type { TeamContext, TeamContextTransfer, TransferDirection } from '@/lib/team-data';
 import { playerHref } from '@/lib/entity-links';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 
 /**
  * Movement types that still earn a badge. JOINED/LEFT merely restate the
@@ -75,7 +75,7 @@ const directionMeta: Record<
  * row's own `type` (which describes the move to the DESTINATION) is never read
  * backwards.
  */
-function TransferTimelineRow({ transfer }: { transfer: TeamContextTransfer }) {
+function TransferTimelineRow({ transfer, gameSlug }: { transfer: TeamContextTransfer; gameSlug: string }) {
   const meta = directionMeta[transfer.direction];
   const DirectionIcon = meta.icon;
   const counterpart = transfer.counterpart;
@@ -132,7 +132,7 @@ function TransferTimelineRow({ transfer }: { transfer: TeamContextTransfer }) {
         </span>
         {counterpart && counterpartSlug ? (
           <Link
-            href={gameHref(DEFAULT_GAME_SLUG, `teams/${counterpartSlug}`)}
+            href={gameHref(gameSlug, `teams/${counterpartSlug}`)}
             className="group flex items-center gap-2"
             title={counterpart.tag ? `${counterpart.name} [${counterpart.tag}]` : counterpart.name}
           >
@@ -374,7 +374,7 @@ export function TeamRosterPanel({
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <Link
-                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${event.slug}`)}
+                    href={gameHref(gameSlugOf(team), `tournaments/${event.slug}`)}
                     className="truncate text-sm font-extrabold transition-colors hover:text-[#0A5FC4]"
                   >
                     <TournamentName name={event.name} shortName={event.shortName} />
@@ -390,9 +390,9 @@ export function TeamRosterPanel({
                     const playerSlug =
                       (entry.playerId && playerIdToSlug[entry.playerId]) || entry.slug || null;
                     const playerHref = playerSlug
-                      ? gameHref(DEFAULT_GAME_SLUG, `players/${playerSlug}`)
+                      ? gameHref(gameSlugOf(team), `players/${playerSlug}`)
                       : entry.playerId
-                        ? gameHref(DEFAULT_GAME_SLUG, `players/${entry.playerId}`)
+                        ? gameHref(gameSlugOf(team), `players/${entry.playerId}`)
                         : null;
                     const chip = (
                       <>
@@ -460,7 +460,7 @@ export function TeamRosterPanel({
           </div>
           <ul className="space-y-2">
             {team.transfers.map((transfer) => (
-              <TransferTimelineRow key={transfer.id} transfer={transfer} />
+              <TransferTimelineRow key={transfer.id} transfer={transfer} gameSlug={gameSlugOf(team)} />
             ))}
           </ul>
         </section>

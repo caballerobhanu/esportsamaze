@@ -21,6 +21,7 @@ import { VIEW_WINDOW_LABELS, VIEW_WINDOWS, isViewWindow } from '@/lib/view-windo
 import { getViewCountSettings } from '@/lib/site-settings';
 import { ConfirmSubmit } from '@/components/admin/confirm-submit';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import prisma from '@/lib/prisma';
 import { resetEntityViews, resetTypeViews, saveViewVisibility, setPageVisibility } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -42,9 +43,10 @@ const chipOff =
 
 const num = (value: number) => value.toLocaleString('en-IN');
 
-const entityHref = (type: PageViewType, slug: string | null, id: string) => {
+const entityHref = (type: PageViewType, slug: string | null, id: string, tournamentGame?: string) => {
   const key = slug || id;
-  if (type === 'TOURNAMENT') return gameHref(DEFAULT_GAME_SLUG, `tournaments/${key}`);
+  // A tournament's public page lives under its own game, not the default one.
+  if (type === 'TOURNAMENT') return gameHref(tournamentGame || DEFAULT_GAME_SLUG, `tournaments/${key}`);
   if (type === 'TEAM') return gameHref(DEFAULT_GAME_SLUG, `teams/${key}`);
   return gameHref(DEFAULT_GAME_SLUG, `players/${key}`);
 };
@@ -156,6 +158,29 @@ export default async function AdminAnalyticsPage({
     getViewCountSettings(),
     getPageViewTable({ entityType, since, query, limit: 200 }),
   ]);
+
+  // Each tournament row links to its own game's public page, so resolve those
+  // events' games in one query rather than assuming the default game.
+  const tournamentKeys = [
+    ...new Set(
+      rows
+        .filter((row) => row.entityType === 'TOURNAMENT')
+        .map((row) => row.slug || row.entityId)
+        .filter((key): key is string => Boolean(key)),
+    ),
+  ];
+  const tournamentGameRows = tournamentKeys.length
+    ? await prisma.tournament.findMany({
+        where: { OR: [{ slug: { in: tournamentKeys } }, { id: { in: tournamentKeys } }] },
+        select: { id: true, slug: true, game: { select: { slug: true } } },
+      })
+    : [];
+  const gameByTournamentKey = new Map<string, string>();
+  for (const t of tournamentGameRows) {
+    if (!t.game?.slug) continue;
+    gameByTournamentKey.set(t.slug, t.game.slug);
+    gameByTournamentKey.set(t.id, t.game.slug);
+  }
 
   // "All time" charts from the first recorded day; a fixed window charts its days.
   const trendDays = since ? Number(rangeKey) : trackedDayCount(firstDay, MAX_TREND_DAYS);
@@ -351,7 +376,12 @@ export default async function AdminAnalyticsPage({
                           {row.label}
                         </Link>
                         <a
-                          href={entityHref(row.entityType, row.slug, row.entityId)}
+                          href={entityHref(
+                            row.entityType,
+                            row.slug,
+                            row.entityId,
+                            gameByTournamentKey.get(row.slug || row.entityId)
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="ml-2 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-[#0A5FC4]"

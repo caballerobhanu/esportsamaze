@@ -33,10 +33,13 @@ export function EventMetrics({
   rows,
   columns,
   showTeam = false,
+  gameSlug = DEFAULT_GAME_SLUG,
 }: {
   rows: EventMetricRow[];
   columns: readonly MetricColumn[];
   showTeam?: boolean;
+  /** The owning entity's game slug, so event/team links stay on this game. */
+  gameSlug?: string;
 }) {
   if (rows.length === 0) return null;
 
@@ -95,7 +98,7 @@ export function EventMetrics({
               <tr key={row.tournamentId} className="text-sm">
                 <td className="py-4 pr-3">
                   <Link
-                    href={gameHref(DEFAULT_GAME_SLUG, `tournaments/${row.tournamentSlug}`)}
+                    href={gameHref(gameSlug, `tournaments/${row.tournamentSlug}`)}
                     className="block w-full font-bold transition-colors hover:text-[#0A5FC4]"
                   >
                     <TournamentNameFit
@@ -115,7 +118,7 @@ export function EventMetrics({
                   <td className="py-4 pr-3 text-slate-500">
                     {row.teamName ? (
                       row.teamSlug ? (
-                        <Link href={gameHref(DEFAULT_GAME_SLUG, `teams/${row.teamSlug}`)} className="font-bold hover:text-[#0A5FC4]">
+                        <Link href={gameHref(gameSlug, `teams/${row.teamSlug}`)} className="font-bold hover:text-[#0A5FC4]">
                           {row.teamName}
                         </Link>
                       ) : (
