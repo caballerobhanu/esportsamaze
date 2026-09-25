@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Plus, Trash2, MapPin, Building, Globe, Check, ChevronDown, Sparkles } from 'lucide-react';
 import { COUNTRIES, POPULAR_REGIONS } from '@/lib/countries';
+import { venueLevel, type VenueLevel } from '@/lib/venues';
 
 export interface VenueOption {
   id?: string;
@@ -74,14 +75,15 @@ export function TournamentVenuesInput({
       {venues.length === 0 && (
         <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 text-center">
           <p className="text-xs text-slate-500 mb-2">
-            No stadiums/venues added yet. (Online events can omit physical stadium venues)
+            No venue added yet — a country on its own is enough. (Online events can omit a physical
+            venue entirely)
           </p>
           <button
             type="button"
             onClick={addVenue}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--ed-blue) hover:brightness-110 text-white text-xs font-bold transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" /> Add Stadium / Venue Entry
+            <Plus className="w-3.5 h-3.5" /> Add Venue / Location
           </button>
         </div>
       )}
@@ -104,7 +106,7 @@ export function TournamentVenuesInput({
           onClick={addVenue}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-(--ed-blue) text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-(--ed-blue) transition-colors"
         >
-          <Plus className="w-3.5 h-3.5" /> + Add Another Stadium / Stage Venue
+          <Plus className="w-3.5 h-3.5" /> + Add Another Venue / Location
         </button>
       )}
     </div>
@@ -132,6 +134,13 @@ function VenueRow({
   const [citySearch, setCitySearch] = React.useState(venue.city);
   const [showCitySuggs, setShowCitySuggs] = React.useState(false);
 
+  // How much is known about the place: a country, a city, or a named stadium.
+  // Read back from the fields, so an edit reopens at the level it was entered at.
+  const [detail, setDetail] = React.useState<VenueLevel>(() => {
+    const level = venueLevel(venue);
+    return level === 'NONE' ? 'VENUE' : level;
+  });
+
   React.useEffect(() => {
     setVenueSearch(venue.name);
   }, [venue.name]);
@@ -139,6 +148,25 @@ function VenueRow({
   React.useEffect(() => {
     setCitySearch(venue.city);
   }, [venue.city]);
+
+  /**
+   * Switching level clears whatever sits above it, so an entry can never keep a
+   * stadium it no longer names. Downgrading also drops the venue id, so the save
+   * keys on the coarser place instead of rewriting a named venue that other
+   * events may share.
+   */
+  const changeDetail = (next: VenueLevel) => {
+    setDetail(next);
+    if (next !== 'VENUE') {
+      setVenueSearch('');
+      onChange('name', '');
+      onChange('id', '');
+    }
+    if (next === 'COUNTRY') {
+      setCitySearch('');
+      onChange('city', '');
+    }
+  };
 
   // Filter stadium suggestions (max 5)
   const venueSuggs = React.useMemo(() => {
@@ -174,7 +202,37 @@ function VenueRow({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      {/* How much is known about where this event is: a country, a city, or a
+          named stadium. Only the fields that level needs are offered. */}
+      <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">Known to</span>
+        {(
+          [
+            ['COUNTRY', 'Country'],
+            ['CITY', 'City + Country'],
+            ['VENUE', 'Stadium / Venue'],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => changeDetail(value)}
+            className={`rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition-colors ${
+              detail === value
+                ? 'bg-(--ed-blue) text-white'
+                : 'bg-slate-100 text-slate-500 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={`grid grid-cols-1 gap-2.5 sm:grid-cols-2 ${
+          detail === 'VENUE' ? 'lg:grid-cols-4' : detail === 'CITY' ? 'lg:grid-cols-3' : 'lg:grid-cols-2'
+        }`}
+      >
         {/* 1. Stage / Identifier Label */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
@@ -190,7 +248,8 @@ function VenueRow({
         </div>
 
         {/* 2. Stadium / Venue Name (Typeahead with max 4-5 suggestions) */}
-        <div className="relative">
+        {detail === 'VENUE' && (
+          <div className="relative">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
             Stadium / Venue Name
           </label>
@@ -240,9 +299,11 @@ function VenueRow({
             </div>
           )}
         </div>
+        )}
 
         {/* 3. City of Venue (Typeahead with max 4-5 suggestions) */}
-        <div className="relative">
+        {detail !== 'COUNTRY' && (
+          <div className="relative">
           <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
             City of Venue
           </label>
@@ -279,6 +340,7 @@ function VenueRow({
             </div>
           )}
         </div>
+        )}
 
         {/* 4. Dropdown of all countries */}
         <div>

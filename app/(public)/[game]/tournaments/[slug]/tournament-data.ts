@@ -27,6 +27,7 @@ import {
   type TournamentTabId,
 } from '@/lib/standings-config';
 import { countryCodeFor } from '@/lib/countries';
+import { venueLine } from '@/lib/venues';
 import { eventUsdRate } from '@/lib/currency';
 import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
 import {
@@ -331,9 +332,7 @@ async function loadTournamentContextUncached(rawSlug: string): Promise<Tournamen
   const organizerNames =
     tournament.organizers.map((o) => o.organizer.name).join(', ') || null;
   const firstVenue = tournament.venues[0]?.venue;
-  const venueLocation = firstVenue
-    ? `${firstVenue.name}${firstVenue.city ? `, ${firstVenue.city}` : ''}`
-    : null;
+  const venueLocation = venueLine(firstVenue);
 
   const fdRecord = tournament.formatDetails as { backdropText?: unknown } | null;
   const customBackdrop = typeof fdRecord?.backdropText === 'string' ? fdRecord.backdropText.trim() : undefined;

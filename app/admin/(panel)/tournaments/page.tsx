@@ -452,7 +452,7 @@ async function saveTournament(formData: FormData) {
       const parsedVenues = JSON.parse(venuesJsonRaw) as Array<{
         id?: string;
         stageName?: string;
-        name: string;
+        name?: string;
         city?: string;
         country?: string;
       }>;
@@ -460,25 +460,34 @@ async function saveTournament(formData: FormData) {
       const seenVenueIds = new Set<string>();
 
       for (const v of parsedVenues) {
-        if (!v.name || !v.name.trim()) continue;
-        const venueName = v.name.trim();
+        // An entry may name a stadium, only a city, or only a country — so the
+        // name is optional, and the place itself is the identity without one.
+        const venueName = v.name?.trim() || '';
+        const venueCity = v.city?.trim() || '';
+        const venueCountry = v.country?.trim() || '';
+        if (!venueName && !venueCity && !venueCountry) continue;
 
-        // Check if venue already exists by id or matching name (case-insensitive)
+        // Check if venue already exists by id, then by the place it names: a
+        // stadium by its name, a nameless entry by its city and country.
         let existingVenue = v.id
           ? await prisma.venue.findUnique({ where: { id: v.id } })
           : null;
 
         if (!existingVenue) {
-          existingVenue = await prisma.venue.findFirst({
-            where: { name: { equals: venueName, mode: 'insensitive' } },
-          });
+          existingVenue = venueName
+            ? await prisma.venue.findFirst({
+                where: { name: { equals: venueName, mode: 'insensitive' } },
+              })
+            : await prisma.venue.findFirst({
+                where: { name: '', city: venueCity || null, country: venueCountry || null },
+              });
         }
 
         let targetVenueId = existingVenue?.id;
 
         if (!targetVenueId) {
           // Auto-create new venue
-          const venueSlug = await uniqueSlug(venueName, async (s) => {
+          const venueSlug = await uniqueSlug(venueName || venueCity || venueCountry, async (s) => {
             const clash = await prisma.venue.findFirst({
               where: { slug: s },
               select: { id: true },
@@ -490,18 +499,19 @@ async function saveTournament(formData: FormData) {
             data: {
               name: venueName,
               slug: venueSlug,
-              city: v.city?.trim() || null,
-              country: v.country?.trim() || null,
+              city: venueCity || null,
+              country: venueCountry || null,
             },
           });
           targetVenueId = createdVenue.id;
-        } else if (v.city || v.country) {
-          // Update city or country if provided
+        } else if (venueCity || venueCountry) {
+          // Keep the place current — but never the name, which a row shared with
+          // other events must not lose to a coarser entry.
           await prisma.venue.update({
             where: { id: targetVenueId },
             data: {
-              ...(v.city ? { city: v.city.trim() } : {}),
-              ...(v.country ? { country: v.country.trim() } : {}),
+              ...(venueCity ? { city: venueCity } : {}),
+              ...(venueCountry ? { country: venueCountry } : {}),
             },
           });
         }

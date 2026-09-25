@@ -12,6 +12,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { venueLabel } from '@/lib/venues';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import type { ReactNode } from 'react';
 import { formatTournamentDates } from '@/lib/tournament-dates';
@@ -92,6 +93,10 @@ export function EstaticOverviewPanel({
   // Every link from an event page carries the EVENT's game, not the default one.
   const gameSlug = tournament.game?.slug || DEFAULT_GAME_SLUG;
 
+  // The venue at whichever level it was entered — a stadium, a city, or a country.
+  const venueEntity = tournament.venues?.[0]?.venue;
+  const venue = venueLabel(venueEntity);
+
   // Profile deep links prefer slugs; team pages also resolve by name, so the
   // encoded name is an honest fallback (never link internal DB ids).
   const teamHref = (teamId: string, fallbackName: string) => {
@@ -144,10 +149,10 @@ export function EstaticOverviewPanel({
     {
       icon: MapPin,
       label: 'Official Venue',
-      value: tournament.venues?.[0]?.venue.name || 'TBA',
-      sub: tournament.venues?.[0]?.venue.city
-        ? tournament.venues[0].venue.city
-        : 'Venue to be announced',
+      value: venue.title,
+      // Nothing recorded yet keeps the old placeholder; a country-only entry has
+      // nothing left to put below it.
+      sub: venue.subtitle ?? (venueEntity ? undefined : 'Venue to be announced'),
     },
     {
       icon: Users,
