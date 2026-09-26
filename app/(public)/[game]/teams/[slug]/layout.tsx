@@ -1,6 +1,8 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { TeamHero } from '@/components/teams/team-hero';
 import { TeamTabNav } from '@/components/teams/team-tab-nav';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 import { fetchEntityStanding } from '@/lib/krafton-data';
 import { loadTeamContext } from '@/lib/team-data';
 import { resolveSlugRedirect } from '@/lib/slug-history';
@@ -46,7 +48,14 @@ export default async function TeamLayout({
 
       <section className="mx-auto max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
         <TeamTabNav game={game} slug={teamSlug} />
+
+        {/* One unit under the tab dock, shared by all five profile tabs. */}
+        <AdSlot placement={AD_PLACEMENTS.pageTop} />
+
         <main className="pb-24 pt-4 lg:pb-14">{children}</main>
+
+        {/* Closing unit for every profile tab. */}
+        <AdSlot placement={AD_PLACEMENTS.pageEnd} />
       </section>
     </div>
   );

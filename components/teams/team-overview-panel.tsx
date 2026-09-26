@@ -11,6 +11,7 @@ import {
 
 import { RecentFormStrip } from './recent-form-strip';
 import { TeamStatBand } from './team-stat-band';
+import { RailSlot } from '@/components/ads/rail-slot';
 import type { TeamContext, TeamFormPoint, TeamMatchSummaryPayload } from '@/lib/team-data';
 import { gameHref, gameSlugOf } from '@/lib/games';
 
@@ -162,6 +163,9 @@ export function TeamOverviewPanel({
             </div>
           )}
         </section>
+
+        {/* One box down: under the events timeline, above the details card. */}
+        <RailSlot />
 
         {/* Team details */}
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">

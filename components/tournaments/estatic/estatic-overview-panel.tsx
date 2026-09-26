@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { venueLabel } from '@/lib/venues';
+import { RailSlot } from '@/components/ads/rail-slot';
 import { PrizePoolBadge } from '@/components/ui/prize-pool-badge';
 import type { ReactNode } from 'react';
 import { formatTournamentDates } from '@/lib/tournament-dates';
@@ -460,6 +461,9 @@ export function EstaticOverviewPanel({
               ))}
             </div>
           </section>
+
+          {/* One box down: under the eliminations leaderboard, above the prize card. */}
+          <RailSlot />
 
           {/* Prize Pool Spotlight Card (Rich Blue Gradient) */}
           <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0A5FC4] via-blue-700 to-indigo-900 p-6 text-white shadow-xl shadow-blue-900/20">

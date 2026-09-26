@@ -26,6 +26,7 @@ export function AdSlot({ placement, className }: { placement: AdPlacement; class
   const { slot, format = 'auto', layout, layoutKey, width, height, minHeight } = placement;
   const insRef = React.useRef<HTMLModElement>(null);
   const pushed = React.useRef(false);
+  const [unfilled, setUnfilled] = React.useState(false);
 
   const isFixed = width != null && height != null;
 
@@ -39,11 +40,32 @@ export function AdSlot({ placement, className }: { placement: AdPlacement; class
     }
   }, [client, slot]);
 
+  /**
+   * AdSense marks the unit "unfilled" when it has no ad to serve, and collapses its
+   * own box to zero height. Our caption and margins would otherwise keep a bare
+   * "Advertisements" label and its spacing on the page, so drop them with it — the
+   * unit itself stays exactly as AdSense left it.
+   */
+  React.useEffect(() => {
+    const ins = insRef.current;
+    if (!ins || typeof MutationObserver === 'undefined') return;
+    const read = () => setUnfilled(ins.getAttribute('data-ad-status') === 'unfilled');
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(ins, { attributes: true, attributeFilter: ['data-ad-status'] });
+    return () => observer.disconnect();
+  }, []);
+
   if (!client || !slot) return null;
 
   return (
-    <div className={cn('my-6 overflow-hidden', className)} aria-label="Advertisements">
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Advertisements</div>
+    <div
+      className={cn(unfilled ? 'my-0' : 'my-6', 'overflow-hidden', className)}
+      aria-label={unfilled ? undefined : 'Advertisements'}
+    >
+      {!unfilled && (
+        <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Advertisements</div>
+      )}
       <ins
         ref={insRef}
         className="adsbygoogle"

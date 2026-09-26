@@ -40,4 +40,26 @@ export const AD_PLACEMENTS: Record<string, AdPlacement> = {
    * element taller than the viewport leaves its bottom unreachable.
    */
   articleRail: { slot: '3202856713', width: 300, height: 250 },
+
+  /**
+   * The units below carry the rest of the site: every tournament, player, team,
+   * compare and rankings page.
+   *
+   * They deliberately reuse the article slots for now. One unit's code may sit on
+   * many pages, so nothing needs creating in AdSense before ads reach those pages;
+   * the cost is that reporting merges the families. Each has its own entry here, so
+   * moving one onto a dedicated unit is a one-line edit.
+   */
+
+  /** Display (responsive). The first unit on a page, under the masthead or tab dock. */
+  pageTop: { slot: '2711902122', format: 'auto', minHeight: 90 },
+  /** Display (responsive). Under the last block of a page. */
+  pageEnd: { slot: '6484635336', format: 'auto', minHeight: 280 },
+  /** Display (fixed). The sidebar unit on the three overview pages, desktop only. */
+  pageRail: { slot: '3202856713', width: 300, height: 250 },
+  /**
+   * Display (responsive). The compare page only, and only once a comparison has
+   * run — the "pick two" card before that is a page with nothing on it.
+   */
+  compareResult: { slot: '6484635336', format: 'auto', minHeight: 280 },
 };

@@ -1,5 +1,7 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { EstaticTabNav } from '@/components/tournaments/estatic/estatic-tab-nav';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 import { TournamentHero } from '@/components/tournaments/estatic/tournament-hero';
 import { resolveSlugRedirect } from '@/lib/slug-history';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
@@ -43,7 +45,14 @@ export default async function TournamentLayout({
       <div className="mx-auto flex w-full max-w-[var(--page-max-width)] flex-1 flex-col px-4 sm:px-6 py-6 sm:py-8 lg:px-8">
         <EstaticTabNav game={game} slug={ctx.slug} visibleTabs={ctx.visibleTabs as string[]} />
 
+        {/* One unit under the tab dock, shared by every tab. The hero above always
+            carries real event data, so this is never the first thing on the page. */}
+        <AdSlot placement={AD_PLACEMENTS.pageTop} />
+
         {children}
+
+        {/* Closing unit for every tab. */}
+        <AdSlot placement={AD_PLACEMENTS.pageEnd} />
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { PlayerHero } from '@/components/players/player-hero';
 import { PlayerTabNav } from '@/components/players/player-tab-nav';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 import { resolveSlugRedirect } from '@/lib/slug-history';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import {
@@ -54,7 +56,14 @@ export default async function PlayerLayout({
 
         <section className="mx-auto max-w-[var(--page-max-width)] px-4 sm:px-6 lg:px-8">
           <PlayerTabNav game={game} slug={slug} />
+
+          {/* One unit under the tab dock, shared by all four profile tabs. */}
+          <AdSlot placement={AD_PLACEMENTS.pageTop} />
+
           <div className="pb-24 pt-4 lg:pb-14">{children}</div>
+
+          {/* Closing unit for every profile tab. */}
+          <AdSlot placement={AD_PLACEMENTS.pageEnd} />
         </section>
       </main>
     </div>

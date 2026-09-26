@@ -20,6 +20,7 @@ import { personJsonLd } from '@/lib/seo';
 import { PageViews } from '@/components/ui/page-views';
 import prisma from '@/lib/prisma';
 import { RecentFormChart } from '@/components/players/recent-form-chart';
+import { RailSlot } from '@/components/ads/rail-slot';
 import { buildCareerHistory, type CareerAppearance } from '@/lib/player-career';
 import { eliminations } from '@/lib/player-stats';
 import { formatDate } from '@/lib/utils';
@@ -320,6 +321,7 @@ export default async function PlayerOverviewPage({ params }: PlayerPageProps) {
 
         {/* Sidebar */}
         <aside className="min-w-0 space-y-8">
+
           {/* Career history — every tenure with periods & durations */}
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
             <div className="mb-6 flex items-center gap-3">
@@ -373,6 +375,9 @@ export default async function PlayerOverviewPage({ params }: PlayerPageProps) {
               </div>
             )}
           </section>
+
+          {/* One box down: under the career history, above the player details card. */}
+          <RailSlot />
 
           <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
             <div className="mb-6 flex items-center gap-3">

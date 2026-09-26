@@ -26,6 +26,8 @@ import { KraftonRulesDialog } from '@/components/rankings/krafton-rules-dialog';
 import { KraftonTransferLedgerDialog } from '@/components/rankings/krafton-transfer-ledger-dialog';
 import { RankOneLeaderboard, RankOneTimeline } from '@/components/rankings/rank-one-panels';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 
 type BoardView = 'standings' | 'timeline' | 'days';
 
@@ -205,6 +207,9 @@ export function RankingsBoardClient({
           <KraftonTransferLedgerDialog transfers={transfers} />
         </div>
       </div>
+
+      {/* One unit under the masthead: the heading and description above are the content. */}
+      <AdSlot placement={AD_PLACEMENTS.pageTop} />
 
       {/* ── Capsule Tab Dock & Historical Status ── */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4 dark:border-white/10">
@@ -716,6 +721,9 @@ export function RankingsBoardClient({
             </tbody>
           </table>
         </div>
+
+        {/* Closing unit: the board above is the page's content. */}
+        <AdSlot placement={AD_PLACEMENTS.pageEnd} />
       </div>
         </>
       )}

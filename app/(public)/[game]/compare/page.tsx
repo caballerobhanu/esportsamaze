@@ -38,6 +38,8 @@ import {
 } from '@/lib/compare-stats';
 import { fetchEntityStanding, type EntityStanding } from '@/lib/krafton-data';
 import { COMPARE_METRIC_COLUMNS, formatSurvivalAverage } from '@/lib/event-metrics';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 import { BenchmarkNote, BenchmarkTable, type BenchmarkRow } from '@/components/compare/benchmark-table';
 import { MapGrid } from '@/components/compare/map-grid';
 import { KraftonRankBand } from '@/components/compare/krafton-rank-band';
@@ -904,6 +906,9 @@ export default async function ComparePage({
                 mapsB={teamMapsB}
                 elimsLabel="Elim Points"
               />
+
+              {/* Results only — the "pick two" card above renders no unit. */}
+              <AdSlot placement={AD_PLACEMENTS.compareResult} />
             </>
           )}
         </div>
@@ -1370,6 +1375,9 @@ export default async function ComparePage({
               mapsB={playerMapsB}
               elimsLabel="Elims"
             />
+
+            {/* Results only — the "pick two" card above renders no unit. */}
+            <AdSlot placement={AD_PLACEMENTS.compareResult} />
           </>
         )}
       </div>

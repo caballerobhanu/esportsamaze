@@ -24,6 +24,8 @@ import type { KraftonBoard } from '@prisma/client';
 import { absoluteUrl, breadcrumbJsonLd, canonical, SITE_NAME } from '@/lib/seo';
 import { JsonLd } from '@/components/seo/json-ld';
 import { DEFAULT_GAME_SLUG, gameHref, RANKINGS_GAME_SLUG } from '@/lib/games';
+import { AdSlot } from '@/components/ads/ad-slot';
+import { AD_PLACEMENTS } from '@/lib/ads';
 
 export const dynamic = 'force-dynamic';
 
@@ -382,6 +384,9 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
             </Link>
           </div>
         </section>
+
+        {/* One unit under the hero: the entity's own standing above is the content. */}
+        <AdSlot placement={AD_PLACEMENTS.pageTop} />
 
         {/* Section: Rank Trend Graph */}
         <div className="mb-10">
@@ -759,6 +764,9 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
             </div>
           </section>
         )}
+
+        {/* Closing unit: the points breakdown and projections above are the content. */}
+        <AdSlot placement={AD_PLACEMENTS.pageEnd} />
       </main>
     </div>
   );

@@ -43,6 +43,7 @@ import { ArticleReactions } from '@/components/news/article-reactions';
 import { BookmarkButton } from '@/components/news/bookmark-button';
 import { serializeJsonLd } from '@/lib/seo';
 import { AdSlot } from '@/components/ads/ad-slot';
+import { RailSlot } from '@/components/ads/rail-slot';
 import { AD_PLACEMENTS } from '@/lib/ads';
 
 /* Shape of the article with its tournament, team, and player relations attached. */
@@ -996,9 +997,9 @@ export function ArticleView({
         <aside className="hidden xl:block">
           <div className="sticky top-24 space-y-4">
             <TableOfContents containerSelector={isHtml ? '.article-body' : '.article-legacy'} />
-            {/* Ad: portrait unit. The rail only exists from xl up, so this is
-                desktop-only by construction. */}
-            {!isPreview && <AdSlot placement={AD_PLACEMENTS.articleRail} />}
+            {/* Ad: portrait unit. Mounted only once the rail is on screen, so no
+                display:none ad unit ever sits in the page. */}
+            {!isPreview && <RailSlot />}
             {mostRead && mostRead.length > 0 && (
               <div className="ed-card p-4">
                 <div className="ed-label mb-3 flex items-center gap-1.5">
