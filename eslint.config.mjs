@@ -12,6 +12,15 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent-tool skill mirrors kept in the repo. Each holds its own copy of the
+    // same skill plus a bundled screenshot script, so linting them reported the
+    // same findings six times over and buried the app's own results.
+    ".agent/**",
+    ".agents/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".qoder/**",
   ]),
 ]);
 
