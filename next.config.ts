@@ -1,13 +1,22 @@
 import type { NextConfig } from "next";
 
+/**
+ * AdSense needs its script and its ad frames allowed explicitly. Google does not
+ * support allowlist CSP for the ad code (support.google.com/adsense/answer/16283098
+ * supports nonce-based strict CSP only) and warns that a list that is too tight
+ * disrupts ad serving — which is exactly what happened here: without these hosts the
+ * browser refused `adsbygoogle.js`, so every unit we render stayed empty. The two
+ * wildcards cover the host churn Google warns about; img-src and connect-src are
+ * already `https:`.
+ */
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.instagram.com https://platform.twitter.com https://*.twimg.com;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.instagram.com https://platform.twitter.com https://*.twimg.com https://*.googlesyndication.com https://*.doubleclick.net https://adservice.google.com https://partner.googleadservices.com https://www.googletagservices.com;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
   img-src 'self' data: blob: https:;
   media-src 'self' https: data:;
-  frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.instagram.com https://instagram.com https://platform.twitter.com https://twitter.com;
+  frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.instagram.com https://instagram.com https://platform.twitter.com https://twitter.com https://*.googlesyndication.com https://*.doubleclick.net https://www.google.com;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
