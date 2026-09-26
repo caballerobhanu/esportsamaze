@@ -42,8 +42,8 @@ export function AdSlot({ placement, className }: { placement: AdPlacement; class
   if (!client || !slot) return null;
 
   return (
-    <div className={cn('my-6 overflow-hidden', className)} aria-label="Advertisement">
-      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Advertisement</div>
+    <div className={cn('my-6 overflow-hidden', className)} aria-label="Advertisements">
+      <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Advertisements</div>
       <ins
         ref={insRef}
         className="adsbygoogle"
