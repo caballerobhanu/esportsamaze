@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Cookie } from 'lucide-react';
+import { useGdprApplies } from '@/lib/use-gdpr';
 
 const CONSENT_KEY = 'ea-cookie-consent';
 
@@ -41,13 +42,20 @@ function writeConsent(value: 'accepted' | 'declined') {
 }
 
 /**
- * Bottom consent card for site preferences and third-party ad cookies.
- * The choice lives in localStorage (`ea-cookie-consent`); for EU/UK traffic,
- * enable Google's certified CMP in the AdSense Privacy & messaging console.
+ * Bottom card for site preferences and third-party ad cookies.
+ *
+ * This is a courtesy notice, not a consent platform. In the EEA, the UK and
+ * Switzerland, Google's certified CMP (deployed from AdSense → Privacy & messaging)
+ * owns consent and produces the TC string AdSense requires — so this card stands
+ * down there to avoid showing two consent dialogs at once. The choice it records
+ * lives in localStorage (`ea-cookie-consent`).
  */
 export function CookieConsent() {
+  const gdprApplies = useGdprApplies();
   const consent = React.useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
+  // `null` means we are still waiting on the CMP; only a definite `false` shows this.
+  if (gdprApplies !== false) return null;
   if (consent !== null) return null;
 
   return (

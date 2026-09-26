@@ -59,8 +59,15 @@ export default function PrivacyPolicyPage() {
         The Site uses cookies and similar technologies. Essential cookies and local storage keep the
         Site working — remembering your theme and your consent choice, for example. Non-essential
         cookies are used for advertising and aggregate measurement, and are set only where we are
-        permitted to set them. Where required by law, we ask for your consent first through the
-        consent banner, and your choice is stored on your device so we do not ask again.
+        permitted to set them. Where required by law, we ask for your consent first, and your
+        choice is stored on your device so we do not ask again.
+      </p>
+      <p>
+        In the EEA, the UK and Switzerland, consent for advertising and other non-essential cookies
+        is collected through a consent management platform certified under the IAB Transparency and
+        Consent Framework — the European regulations message provided through Google AdSense. You
+        can change or withdraw your decision at any time with the &ldquo;Cookie settings&rdquo;
+        link in the footer, which reopens that message.
       </p>
       <p>
         You can clear or block cookies at any time through your browser settings; doing so may reset

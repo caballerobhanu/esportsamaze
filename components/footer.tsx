@@ -7,6 +7,7 @@ import {
   YoutubeIcon,
 } from '@/components/social-icons';
 import { VerticalBrandMark } from '@/components/brand-mark';
+import { CookieSettingsLink } from '@/components/cookie-settings-link';
 
 /**
  * The footer as a stack of soft slabs: a call-to-action bar, a cobalt brand card
@@ -68,7 +69,10 @@ export function Footer() {
                 <p suppressHydrationWarning>
                   © {new Date().getFullYear()} {SITE_NAME} · An eSports Project by Bhanu Pratap
                 </p>
-                <span className="font-semibold tracking-wider uppercase">Beta Phase</span>
+                <div className="flex items-center gap-4">
+                  <CookieSettingsLink className="font-semibold tracking-wider uppercase transition-colors hover:text-[var(--ed-blue)]" />
+                  <span className="font-semibold tracking-wider uppercase">Beta Phase</span>
+                </div>
               </div>
             </div>
           </div>

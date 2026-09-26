@@ -1,26 +1,29 @@
 import type { NextConfig } from "next";
 
 /**
- * AdSense needs its script and its ad frames allowed explicitly. Google does not
- * support allowlist CSP for the ad code (support.google.com/adsense/answer/16283098
- * supports nonce-based strict CSP only) and warns that a list that is too tight
- * disrupts ad serving — which is exactly what happened here: without these hosts the
- * browser refused `adsbygoogle.js`, so every unit we render stayed empty. The two
- * wildcards cover the host churn Google warns about; img-src and connect-src are
- * already `https:`.
+ * AdSense-safe Content Security Policy.
+ *
+ * Google only *supports* nonce-based strict CSP for the ad code, and warns that an
+ * allowlist "may break without notice" as its hosts change — which is how ads got
+ * blocked here once before: the browser refused `adsbygoogle.js` and every unit
+ * stayed empty. Rather than chase host lists (and risk blocking the consent CMP
+ * Google serves from `fundingchoicesmessages.google.com`), this policy allows any
+ * HTTPS origin for the resource types ads use — scripts, frames, styles, fonts,
+ * images, media and connections — and keeps only the directives that cannot affect
+ * ad serving. Net effect: nothing on this site can block AdSense or its creatives.
  */
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.instagram.com https://platform.twitter.com https://*.twimg.com https://*.googlesyndication.com https://*.doubleclick.net https://adservice.google.com https://partner.googleadservices.com https://www.googletagservices.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-  font-src 'self' https://fonts.gstatic.com data:;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https:;
+  style-src 'self' 'unsafe-inline' https:;
+  font-src 'self' data: https:;
   img-src 'self' data: blob: https:;
-  media-src 'self' https: data:;
-  frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.instagram.com https://instagram.com https://platform.twitter.com https://twitter.com https://*.googlesyndication.com https://*.doubleclick.net https://www.google.com;
+  media-src 'self' data: blob: https:;
+  frame-src 'self' https:;
+  connect-src 'self' https:;
   object-src 'none';
   base-uri 'self';
   form-action 'self';
-  connect-src 'self' https:;
 `.replace(/\s{2,}/g, ' ').trim();
 
 const securityHeaders = [
@@ -50,7 +53,9 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+    // No `browsing-topics`: denying the Topics API opts this site out of
+    // interest-based advertising, which is a self-inflicted block on revenue.
+    value: "camera=(), microphone=(), geolocation=()",
   },
 ];
 
