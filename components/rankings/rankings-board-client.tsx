@@ -31,6 +31,28 @@ import { AD_PLACEMENTS } from '@/lib/ads';
 
 type BoardView = 'standings' | 'timeline' | 'days';
 
+/** Rows per page on the standings table. */
+const PAGE_SIZE = 50;
+
+/**
+ * Page numbers to render: the first and last, plus the current one and its
+ * neighbours. A gap is a null, drawn as an ellipsis.
+ */
+function pageWindow(current: number, total: number): (number | null)[] {
+  const wanted = [...new Set([1, total, current, current - 1, current + 1])]
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
+
+  const out: (number | null)[] = [];
+  let previous = 0;
+  for (const p of wanted) {
+    if (previous && p - previous > 1) out.push(null);
+    out.push(p);
+    previous = p;
+  }
+  return out;
+}
+
 /** Sub-views that sit inside each board (Teams / Players). */
 const BOARD_VIEWS: { id: BoardView; label: string; icon: typeof Trophy }[] = [
   { id: 'standings', label: 'Standings', icon: ListOrdered },
@@ -130,6 +152,7 @@ export function RankingsBoardClient({
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filterTier, setFilterTier] = React.useState<'ALL' | 'TOP10' | 'TOP25' | 'MULTI'>('ALL');
   const [boardView, setBoardView] = React.useState<BoardView>('standings');
+  const [page, setPage] = React.useState(1);
 
   // Filtered rows
   const filtered = React.useMemo(() => {
@@ -158,6 +181,13 @@ export function RankingsBoardClient({
     return list;
   }, [ranked, filterTier, searchQuery, logosMap]);
 
+  // The table pages its filtered rows rather than the whole board, so a search that
+  // narrows 228 names to three shows one short page instead of forcing a scroll past
+  // them. Every control that changes the query resets to the first page.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   // Top 5 entities for designer leader cards
   const top5 = ranked.slice(0, 5);
 
@@ -168,6 +198,7 @@ export function RankingsBoardClient({
     } else {
       params.set('date', dateStr);
     }
+    setPage(1);
     router.push(`${gameHref(DEFAULT_GAME_SLUG, 'rankings')}${params.toString() ? `?${params.toString()}` : ''}`);
   };
 
@@ -533,14 +564,20 @@ export function RankingsBoardClient({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             placeholder={isPlayers ? 'Search players by IGN or team name…' : 'Search teams by name…'}
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-8 text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-white"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setPage(1);
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:text-slate-600"
             >
               <X className="h-3.5 w-3.5" />
@@ -561,7 +598,10 @@ export function RankingsBoardClient({
             <button
               key={f.id}
               type="button"
-              onClick={() => setFilterTier(f.id)}
+              onClick={() => {
+                setFilterTier(f.id);
+                setPage(1);
+              }}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
                 filterTier === f.id
                   ? 'bg-[#0A5FC4] text-white shadow-xs dark:bg-blue-600'
@@ -602,7 +642,7 @@ export function RankingsBoardClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {filtered.map((entity) => {
+              {pageRows.map((entity) => {
                 const logo = entity.entityId ? logosMap[entity.entityId] : null;
                 const readableSlug =
                   logo?.slug ||
@@ -722,9 +762,59 @@ export function RankingsBoardClient({
           </table>
         </div>
 
-        {/* Closing unit: the board above is the page's content. */}
-        <AdSlot placement={AD_PLACEMENTS.pageEnd} />
+        {/* Footer of the card, mirroring the header above the table. */}
+        {totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-6 dark:border-white/5 dark:bg-white/[0.02]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+              {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:border-[#0A5FC4] hover:text-[#0A5FC4] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-300"
+              >
+                Prev
+              </button>
+              {pageWindow(currentPage, totalPages).map((p, i) =>
+                p === null ? (
+                  <span key={`gap-${i}`} className="px-1 text-xs font-bold text-slate-400">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPage(p)}
+                    aria-current={p === currentPage ? 'page' : undefined}
+                    className={`min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                      p === currentPage
+                        ? 'bg-[#0A5FC4] text-white shadow-xs dark:bg-blue-600'
+                        : 'border border-slate-200 text-slate-600 hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 dark:text-slate-300'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+              <button
+                type="button"
+                onClick={() => setPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:border-[#0A5FC4] hover:text-[#0A5FC4] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-300"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
+
+      {/* Closing unit: outside the card, as every other placement on the site is. */}
+      <AdSlot placement={AD_PLACEMENTS.pageEnd} />
         </>
       )}
     </div>
