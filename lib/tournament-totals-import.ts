@@ -35,7 +35,7 @@ export const TEAM_TOTAL_COLUMNS: readonly TotalsMetricColumn[] = [
   // A bare "Elims" on a totals sheet is the team's elimination COUNT. The scorecard
   // parser reads its own "Elims (scoring)" column as points, which is why the two
   // sheets are parsed separately.
-  { key: 'finishes', label: 'Finishes (team eliminations)', aliases: ['finishes', 'elims', 'eliminations', 'kills'], integer: true },
+  { key: 'finishes', label: 'Eliminations (team)', aliases: ['finishes', 'elims', 'eliminations', 'kills'], integer: true },
 ];
 
 export const PLAYER_TOTAL_COLUMNS: readonly TotalsMetricColumn[] = [

@@ -35,7 +35,7 @@ export default function AboutPage() {
           with standings, match results, and stage-by-stage progression.
         </li>
         <li>
-          <strong>Player statistics</strong> — finishes, avg eliminations, combat metrics, role
+          <strong>Player statistics</strong> — eliminations, averages, combat metrics, role
           analysis, and career history.
         </li>
         <li>

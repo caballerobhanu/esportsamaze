@@ -921,7 +921,7 @@ export default async function AdminMatchesPage({
             <Swords className="w-5 h-5 text-(--ed-blue)" /> Match &amp; Scorecard Engine
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Record match metadata, team placement/finishes, and deep individual player battle royale statistics.
+            Record match metadata, team placement/eliminations, and deep individual player battle royale statistics.
           </p>
         </div>
         

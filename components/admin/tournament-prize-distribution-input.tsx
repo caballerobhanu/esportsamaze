@@ -127,7 +127,7 @@ const AWARD_PRESETS = [
   { label: '👑 Tournament MVP', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
   { label: '⭐ Fan Favourite Team', type: 'TEAM' as const, rewardType: 'MONEY' as const },
   { label: '🌟 Fan Favourite Player', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
-  { label: '🎯 Top Fragger / Most Kills', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
+  { label: '🎯 Top Fragger / Most Eliminations', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
   { label: '🛡️ Best IGL', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
   { label: '💣 Grenade Master', type: 'PLAYER' as const, rewardType: 'MONEY' as const },
   { label: '⚡ Emerging Player', type: 'PLAYER' as const, rewardType: 'TITLE' as const },

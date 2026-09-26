@@ -163,7 +163,7 @@ export function PlayersManagerTable({ players, deletePlayerAction }: PlayersMana
 
     if (
       !confirm(
-        `Merge "${source?.ign}" into "${target?.ign}"?\n\nAll match statistics, kills, damage, and transfers of "${source?.ign}" will be transferred to "${target?.ign}". "${source?.ign}" will then be deleted.`
+        `Merge "${source?.ign}" into "${target?.ign}"?\n\nAll match statistics, eliminations, damage, and transfers of "${source?.ign}" will be transferred to "${target?.ign}". "${source?.ign}" will then be deleted.`
       )
     ) {
       return;

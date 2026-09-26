@@ -1049,7 +1049,7 @@ export default async function ComparePage({
             label: 'Career Eliminations',
             valA: lifetimeA.elims,
             valB: lifetimeB.elims,
-            format: (v) => `${v ?? 0} Kills`,
+            format: (v) => `${v ?? 0} elims`,
           },
           {
             label: 'Eliminations / Match',

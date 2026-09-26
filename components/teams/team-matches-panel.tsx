@@ -206,7 +206,7 @@ export function TeamMatchesPanel({
                   <th className={TH}>Rank</th>
                   <th className={`${TH} hidden lg:table-cell`}>WWCD</th>
                   <th className={`${TH} hidden lg:table-cell`}>Place</th>
-                  <th className={TH}>Elim</th>
+                  <th className={TH}>Elims</th>
                   <th className={TH}>Total</th>
                 </tr>
               </thead>

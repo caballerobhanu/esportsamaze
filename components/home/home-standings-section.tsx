@@ -68,7 +68,7 @@ export function HomeStandingsSection({
                   <th className="px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300">Played</th>
                   <th className="px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-amber-400">WWCD 🍗</th>
                   <th className="hidden px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 sm:table-cell">Place Pts</th>
-                  <th className="hidden px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 sm:table-cell">Finishes</th>
+                  <th className="hidden px-2 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 sm:table-cell">Elims</th>
                   <th className="px-3 py-3 text-center font-black text-[11px] uppercase tracking-wider text-white bg-white/10">Total Pts</th>
                   <th className="hidden px-3 py-3 text-center font-bold text-[11px] uppercase tracking-wider text-slate-300 md:table-cell">Recent Form</th>
                 </tr>
@@ -138,7 +138,7 @@ export function HomeStandingsSection({
                             {team.matchHistory.slice(-5).map((mh, idx) => (
                               <span
                                 key={idx}
-                                title={`M${mh.matchNumber} (${mh.mapName}): #${mh.rank} (${mh.elimsPoints} K) = ${mh.totalPoints} pts`}
+                                title={`M${mh.matchNumber} (${mh.mapName}): #${mh.rank} (${mh.elimsPoints} elims) = ${mh.totalPoints} pts`}
                                 className={`flex h-4 w-5 items-center justify-center rounded text-[9px] font-bold ${
                                   mh.rank === 1
                                     ? 'bg-amber-400 text-slate-950'
@@ -223,7 +223,7 @@ export function HomeStandingsSection({
 
                     <div className="text-right">
                       <div className="num text-sm font-black text-[#0A5FC4] dark:text-blue-400">
-                        {player.elims} Kills
+                        {player.elims} elims
                       </div>
                       <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                         {player.matchesPlayed} Matches

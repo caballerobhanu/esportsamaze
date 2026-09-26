@@ -364,7 +364,7 @@ export const TOURNAMENT_AVAILABLE_TABS: {
   { id: 'format', label: 'Format', description: 'Rules, scoring matrix, stage schedule, and advancement conditions' },
   { id: 'teams', label: 'Teams', description: 'Participating squads, rosters, country flags, and seed labels' },
   { id: 'prizepool', label: 'Prize Pool', description: 'Total prize distribution, stage rewards, and special awards' },
-  { id: 'statistics', label: 'Statistics', description: 'Player kill leaderboards, damage metrics, and team ratings' },
+  { id: 'statistics', label: 'Statistics', description: 'Player elimination leaderboards, damage metrics, and team ratings' },
 ];
 
 export const ALL_TOURNAMENT_TAB_IDS: TournamentTabId[] = TOURNAMENT_AVAILABLE_TABS.map((t) => t.id);

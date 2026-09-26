@@ -442,7 +442,7 @@ export default async function PlayerOverviewPage({ params }: PlayerPageProps) {
                 </div>
                 <div className="rounded-xl bg-white/10 px-2 py-2.5">
                   <p className="text-base font-black">{standing.finishes}</p>
-                  <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-blue-200">Finishes</p>
+                  <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-blue-200">Elims</p>
                 </div>
               </div>
             ) : (

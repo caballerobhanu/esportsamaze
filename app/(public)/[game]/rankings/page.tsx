@@ -38,7 +38,7 @@ export async function generateMetadata({
     return {
       title: `BGMI KRAFTON Rankings — Player Leaderboard | ${SITE_NAME}`,
       description:
-        'Official KRAFTON ranking points for BGMI players — tier-based event points with MVP, finish and award bonuses, plus rolling decay.',
+        'Official KRAFTON ranking points for BGMI players — tier-based event points with MVP, elimination and award bonuses, plus rolling decay.',
       ...canonical(`${gameHref(game, 'rankings')}?board=players`),
     };
   }

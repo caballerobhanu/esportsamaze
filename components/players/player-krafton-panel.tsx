@@ -158,7 +158,7 @@ export function PlayerKraftonPanel({
                 <tr>
                   <th className="pb-3">Event</th>
                   <th className="pb-3">Team</th>
-                  <th className="pb-3 text-center">Finishes</th>
+                  <th className="pb-3 text-center">Elims</th>
                   <th className="pb-3">Honours</th>
                 </tr>
               </thead>

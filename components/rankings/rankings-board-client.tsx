@@ -487,7 +487,7 @@ export function RankingsBoardClient({
                       <>
                         <div className="flex items-baseline gap-1">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-white/75">
-                            Finishes
+                            Elims
                           </span>
                           <span className="font-mono text-xs font-black text-white/90">
                             {(entity.finishes ?? entity.contributions.reduce((s, c) => s + (c.finishes || 0), 0)).toLocaleString('en-IN')}
@@ -592,7 +592,7 @@ export function RankingsBoardClient({
                 <th className="px-2 py-3 sm:px-5">{isPlayers ? 'Player' : 'Team'}</th>
                 {isPlayers && <th className="hidden sm:table-cell px-5 py-3">Team</th>}
                 <th className="hidden sm:table-cell px-5 py-3 text-center">Events</th>
-                {isPlayers && <th className="px-3 py-3 sm:px-5 text-right">Finishes</th>}
+                {isPlayers && <th className="px-3 py-3 sm:px-5 text-right">Elims</th>}
                 <th className="px-3 py-3 sm:px-5 text-right">Points</th>
               </tr>
             </thead>

@@ -1590,8 +1590,8 @@ export function MatchBatchImporter({
                   <th className="py-2 px-2 text-center">Survival</th>
                   <th className="py-2 px-2 text-center">Healing</th>
                   <th className="py-2 px-2 text-center">Dmg Rec</th>
-                  <th className="py-2 px-2 text-center">Veh Kills</th>
-                  <th className="py-2 px-2 text-center">Nade Kills</th>
+                  <th className="py-2 px-2 text-center">Veh Elims</th>
+                  <th className="py-2 px-2 text-center">Nade Elims</th>
                   <th className="py-2 px-2 text-center">Headshots</th>
                   <th className="py-2 px-2 text-center">Assists</th>
                   <th className="py-2 px-2 text-center">Knocks</th>

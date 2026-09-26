@@ -294,7 +294,7 @@ export function KraftonEntriesManager({
           className="space-y-3 rounded-xl border border-(--ed-blue)/30 bg-(--ed-blue)/5 p-4 dark:border-blue-500/30 dark:bg-blue-950/20"
         >
           <h3 className="text-xs font-black uppercase tracking-wider text-(--ed-blue) dark:text-blue-400">
-            Add New {isTeams ? 'Team Placement' : 'Player Finish & Awards'}
+            Add New {isTeams ? 'Team Placement' : 'Player Eliminations & Awards'}
           </h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
             <div className="col-span-2">
@@ -335,7 +335,7 @@ export function KraftonEntriesManager({
             {!isTeams && (
               <>
                 <div>
-                  <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Finishes</label>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-slate-500">Elims</label>
                   <input
                     type="number"
                     min="0"
@@ -429,13 +429,13 @@ export function KraftonEntriesManager({
             placeholder={
               isTeams
                 ? 'Team SouL\t1\nTeam Apex Gaming\t2\n…'
-                : 'IGN\tTeam\tFinishes\tMVP\tFinalsMVP\tIGL\tSurvivor\tEmerging\nJonathan\tGodLike\t30\t1\t0\t1\t0\t0\n…'
+                : 'IGN\tTeam\tElims\tMVP\tFinalsMVP\tIGL\tSurvivor\tEmerging\nJonathan\tGodLike\t30\t1\t0\t1\t0\t0\n…'
             }
             className="w-full rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-(--ed-blue) dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           />
           <div className="flex items-center justify-between">
             <p className="text-[10px] text-slate-400">
-              {isTeams ? 'Format: Name <TAB> Rank' : 'Format: IGN <TAB> Team <TAB> Finishes <TAB> MVP <TAB> FMVP <TAB> IGL <TAB> Surv <TAB> Emerg'}
+              {isTeams ? 'Format: Name <TAB> Rank' : 'Format: IGN <TAB> Team <TAB> Elims <TAB> MVP <TAB> FMVP <TAB> IGL <TAB> Surv <TAB> Emerg'}
             </p>
             <button
               type="button"
@@ -461,7 +461,7 @@ export function KraftonEntriesManager({
               ) : (
                 <>
                   <th className="px-3 py-2.5 text-left">Team (This Event)</th>
-                  <th className="px-3 py-2.5 text-center">Finishes</th>
+                  <th className="px-3 py-2.5 text-center">Elims</th>
                   <th className="px-3 py-2.5 text-center">MVP</th>
                   <th className="px-3 py-2.5 text-center">FMVP</th>
                   <th className="px-3 py-2.5 text-center">IGL</th>

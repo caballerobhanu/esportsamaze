@@ -199,7 +199,7 @@ export default async function KraftonEventEditorPage({
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white">
-            Player Finishes &amp; Awards ({playerRows.length})
+            Player Eliminations &amp; Awards ({playerRows.length})
           </h2>
         </div>
         <KraftonEntriesManager

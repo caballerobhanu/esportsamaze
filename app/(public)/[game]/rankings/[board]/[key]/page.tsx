@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const build = (entityName: string, canonicalKey: string): Metadata => {
     const path = `/rankings/${boardSegment}/${canonicalKey}`;
     const title = `${entityName} KRAFTON Ranking Points | ${SITE_NAME}`;
-    const description = `KRAFTON ranking points breakdown for ${entityName} — ${boardLabel} points earned at each event, placement and finish bonuses, award bonuses, decay schedule and rank trend.`;
+    const description = `KRAFTON ranking points breakdown for ${entityName} — ${boardLabel} points earned at each event, placement and elimination bonuses, award bonuses, decay schedule and rank trend.`;
     return {
       title,
       description,
@@ -331,7 +331,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                 <div className="flex flex-col items-center justify-center rounded-2xl bg-white/10 p-3 text-center sm:p-4">
                   <p className="text-xl font-black sm:text-2xl">{totalFinishes}</p>
                   <p className="mt-0.5 text-[9px] font-extrabold uppercase tracking-wider text-blue-200 sm:text-[10px]">
-                    GF Finishes
+                    GF Elims
                   </p>
                 </div>
                 <div className="flex flex-col items-center justify-center rounded-2xl bg-white/10 p-3 text-center sm:p-4">
@@ -414,7 +414,7 @@ export default async function RankingDetailPage({ params }: { params: Params }) 
                   <th className="pb-3 text-center">Team Name</th>
                   {isPlayers ? (
                     <>
-                      <th className="pb-3 text-center">Finishes (GF)</th>
+                      <th className="pb-3 text-center">Elims (GF)</th>
                       <th className="pb-3 text-center">Awards</th>
                       <th className="pb-3 text-center">Points Earned</th>
                       <th className="pb-3 text-right">Current Value</th>

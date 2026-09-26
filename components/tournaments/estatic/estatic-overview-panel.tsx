@@ -447,7 +447,7 @@ export function EstaticOverviewPanel({
                   </div>
                   <div className="text-right">
                     <div className="text-base font-black text-rose-600 dark:text-rose-400">
-                      {f.elims} <span className="text-[10px] font-bold text-slate-400 uppercase">kills</span>
+                      {f.elims} <span className="text-[10px] font-bold text-slate-400 uppercase">elims</span>
                     </div>
                     <div className="text-[10px] font-semibold text-slate-400">
                       {f.matchesPlayed && f.matchesPlayed > 0

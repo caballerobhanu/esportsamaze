@@ -560,7 +560,7 @@ export function BulkJsonMatchImporter({
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
           <div>
             <span className="font-bold block">Open Qualifier Isolation Mode Active</span>
-            New teams and players created from this batch will be tagged as unverified. They will record match scorecards and kills accurately, but will not pollute verified pro directories or hijack established pro names.
+            New teams and players created from this batch will be tagged as unverified. They will record match scorecards and eliminations accurately, but will not pollute verified pro directories or hijack established pro names.
           </div>
         </div>
       )}

@@ -180,7 +180,7 @@ export function TournamentPointsSystemInput({
 
         {/* Kill / Finish Points */}
         <div className="md:col-span-4">
-          <label className={labelCls}>Kill / Finish Points Multiplier *</label>
+          <label className={labelCls}>Elimination Points Multiplier *</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -191,9 +191,9 @@ export function TournamentPointsSystemInput({
               onChange={(e) => setKillPoints(parseFloat(e.target.value) || 0)}
               className={inputCls + ' font-mono font-bold'}
             />
-            <span className="text-xs text-slate-500 font-bold shrink-0">pt / kill</span>
+            <span className="text-xs text-slate-500 font-bold shrink-0">pt / elim</span>
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">Default is 1 pt per kill.</p>
+          <p className="text-[10px] text-slate-400 mt-1">Default is 1 pt per elimination.</p>
         </div>
       </div>
 
@@ -207,7 +207,7 @@ export function TournamentPointsSystemInput({
             setSystemDescription(e.target.value);
             if (selectedSystem !== 'CUSTOM') setSelectedSystem('CUSTOM');
           }}
-          placeholder="e.g. 1 pt per kill. WWCD gets 10 pts. Ties broken by total WWCDs, followed by total placement points and last match placement."
+          placeholder="e.g. 1 pt per elimination. WWCD gets 10 pts. Ties broken by total WWCDs, followed by total placement points and last match placement."
           className={inputCls + ' resize-none'}
         />
       </div>
@@ -308,7 +308,7 @@ export function TournamentPointsSystemInput({
               rows={4}
               value={rulesAndTiebreakers}
               onChange={(e) => setRulesAndTiebreakers(e.target.value)}
-              placeholder="e.g. 1. Total WWCD count&#10;2. Total Placement Points&#10;3. Total Finish/Kill Points&#10;4. Best placement in final match of the stage"
+              placeholder="e.g. 1. Total WWCD count&#10;2. Total Placement Points&#10;3. Total Elimination Points&#10;4. Best placement in final match of the stage"
               className={inputCls}
             />
             <p className="mt-1 text-[10px] text-slate-400">

@@ -128,8 +128,8 @@ export function HomeMatchHighlight({
                 </div>
                 <div className="h-7 w-px bg-slate-200 dark:bg-white/10" />
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Finishes</span>
-                  <span className="num font-black text-base text-slate-900 dark:text-white">{match.winner.finishes} K</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Elims</span>
+                  <span className="num font-black text-base text-slate-900 dark:text-white">{match.winner.finishes} elims</span>
                 </div>
                 <div className="h-7 w-px bg-slate-200 dark:bg-white/10" />
                 <div>
@@ -145,7 +145,7 @@ export function HomeMatchHighlight({
                   MVP: <strong className="font-bold text-slate-900 dark:text-white">{match.winner.mvpPlayer}</strong>
                 </span>
                 <span className="num font-bold text-emerald-600 dark:text-emerald-400">
-                  {match.winner.mvpKills} Frags
+                  {match.winner.mvpKills} elims
                 </span>
               </div>
             )}
@@ -164,7 +164,7 @@ export function HomeMatchHighlight({
                   <tr>
                     <th className="py-2.5 px-3 text-center font-bold">#</th>
                     <th className="py-2.5 px-3 font-bold">Team</th>
-                    <th className="py-2.5 px-2 text-center font-bold">Kills</th>
+                    <th className="py-2.5 px-2 text-center font-bold">Elims</th>
                     <th className="py-2.5 px-3 text-right font-bold">Points Added</th>
                   </tr>
                 </thead>

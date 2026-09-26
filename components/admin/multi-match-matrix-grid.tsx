@@ -1082,7 +1082,7 @@ export function MultiMatchMatrixGrid({
 
                           <div className="grid grid-cols-2 gap-1 text-[9px] uppercase tracking-wider text-slate-400 pt-0.5">
                             <span>Rank</span>
-                            <span>Kills</span>
+                            <span>Elims</span>
                           </div>
                         </div>
                       </th>
@@ -1095,7 +1095,7 @@ export function MultiMatchMatrixGrid({
                       <span className="text-[10px] uppercase font-black tracking-wider text-(--ed-blue) dark:text-blue-400 block">
                         Live Standings
                       </span>
-                      <span className="text-[9px] text-slate-400 font-medium">MP · WWCD · Kills · Pts</span>
+                      <span className="text-[9px] text-slate-400 font-medium">MP · WWCD · Elims · Pts</span>
                     </div>
                   </th>
                 </tr>
@@ -1529,7 +1529,7 @@ export function MultiMatchMatrixGrid({
 
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                      Eliminations (Kills)
+                      Eliminations
                     </label>
                     <input
                       type="number"

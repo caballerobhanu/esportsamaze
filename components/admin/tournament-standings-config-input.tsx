@@ -1668,7 +1668,7 @@ export function TournamentStandingsConfigInput({
                 <span className="text-purple-600 dark:text-purple-400 font-extrabold">
                   {config.statisticsConfig?.defaultView === 'teams'
                     ? '🛡️ Team Performance (Map Breakdown & Standings)'
-                    : '👥 Player Performance (Kill Leaders & Fraggers)'}
+                    : '👥 Player Performance (Elimination Leaders & Fraggers)'}
                 </span>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   {config.statisticsConfig?.defaultView === 'teams'

@@ -182,7 +182,7 @@ const DEFAULT_TIEBREAKER_TIERS: TiebreakerTierItem[] = [
   },
   {
     tier: 3,
-    title: 'Total Elimination / Finish Points',
+    title: 'Total Elimination Points',
     description:
       'If still tied, the team with the higher raw eliminations total over the entire stage is awarded the higher rank.',
   },

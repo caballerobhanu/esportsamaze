@@ -451,8 +451,8 @@ export function buildHeroProps(
     standing,
     stats: [
       { label: 'Global Rank', value: standing ? `#${standing.rank}` : '—', accent: true },
-      { label: 'Total Kills', value: games ? totalKills.toLocaleString('en-IN') : '—' },
-      { label: 'Avg Kills / Match', value: avgKills !== null ? avgKills.toFixed(1) : '—' },
+      { label: 'Total Elims', value: games ? totalKills.toLocaleString('en-IN') : '—' },
+      { label: 'Avg Elims / Match', value: avgKills !== null ? avgKills.toFixed(1) : '—' },
       { label: 'Last 20 Avg', value: recentAvg !== null ? recentAvg.toFixed(1) : '—' },
     ],
     prevPlayer: context.prevPlayer,

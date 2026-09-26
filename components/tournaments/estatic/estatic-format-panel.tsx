@@ -530,7 +530,7 @@ export function EstaticFormatPanel({
     const text = `🏆 ${tournamentName} — Official Format Summary
 📅 Schedule: ${dateRangeStr || 'TBD'}
 🎮 Game Mode: ${gameMode}
-⚔️ Elimination Value: +${killPoints} Point per Kill
+⚔️ Elimination Value: +${killPoints} Point per Elimination
 🎯 Points Matrix: ${topPoints}
 
 📋 Tournament Stages:
@@ -572,7 +572,7 @@ ${stageSummary}
       {
         id: 'elimination-reward',
         label: 'Elimination Reward',
-        value: `+${killPoints} Point per Kill`,
+        value: `+${killPoints} Point per Elimination`,
         subtitle: systemName || undefined,
         icon: 'award',
         enabled: true,
@@ -607,7 +607,7 @@ ${stageSummary}
       {
         tier: 3,
         title: 'Total Elimination Points',
-        description: 'Highest fragging and total kills across all scheduled fixtures.',
+        description: 'Highest fragging and total eliminations across all scheduled fixtures.',
       },
       {
         tier: 4,

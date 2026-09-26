@@ -777,7 +777,7 @@ export function EstaticStatisticsPanel({
                 Tournament MVPs &amp; Top Fraggers
               </p>
               <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-                Kill Leaders Podium
+                Elimination Leaders Podium
               </h2>
             </div>
             <div className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-700 dark:text-amber-300">
@@ -812,7 +812,7 @@ export function EstaticStatisticsPanel({
                       {top3Fraggers[0].totalElims}
                     </span>
                     <span className="ml-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Finishes
+                      Elims
                     </span>
                   </div>
                   <div className="text-right">
