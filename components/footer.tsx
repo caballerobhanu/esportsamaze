@@ -1,130 +1,94 @@
 import Link from 'next/link';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { SITE_NAME, SITE_SLOGAN } from '@/lib/seo';
+import {
+  InstagramIcon,
+  TwitterXIcon,
+  FacebookIcon,
+  YoutubeIcon,
+} from '@/components/social-icons';
+import { VerticalBrandMark } from '@/components/brand-mark';
 
-// Universal grey footer — identical in light & dark mode.
+/**
+ * The footer as a stack of soft slabs: a call-to-action bar, a cobalt brand card
+ * beside an index panel, then a row of follow tiles. It replaces the old dense
+ * three-column link list — the surfaces carry the structure, so nothing needs a
+ * divider. Depth stays flat: the slabs are separate tones of paper, no shadows.
+ */
+const FOOTER_LINKS: { label: string; href: string; file?: boolean }[] = [
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+  { label: 'Privacy Policy', href: '/privacy-policy' },
+  { label: 'Terms & Conditions', href: '/terms' },
+  { label: 'Disclaimer', href: '/disclaimer' },
+  { label: 'Saved Stories', href: '/news/saved' },
+  { label: 'RSS Feed', href: '/rss.xml', file: true },
+];
+
+const SOCIALS = [
+  { label: 'Instagram', href: 'https://www.instagram.com/esportsamaze', Icon: InstagramIcon },
+  { label: 'X', href: 'https://x.com/esportsamaze', Icon: TwitterXIcon },
+  { label: 'Facebook', href: 'https://www.facebook.com/esportsamaze', Icon: FacebookIcon },
+  { label: 'YouTube', href: 'https://youtube.com/@esportsamaze', Icon: YoutubeIcon },
+];
+
+const LINK_CLASS =
+  'text-[13px] font-bold tracking-[0.12em] uppercase transition-colors hover:text-[var(--ed-blue)]';
+
 export function Footer() {
   return (
-    <footer className="bg-slate-700 text-slate-200">
-      <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 py-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Brand */}
-          <div className="space-y-3">
-            <Link href="/" className="inline-flex items-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo.svg"
-                alt="eSportsAmaze"
-                className="h-8 w-auto object-contain brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
-              />
-            </Link>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              An eSports Project by{' '}
-              <span className="font-bold text-white">Bhanu Pratap</span>
-            </p>
-            <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">
-              Comprehensive esports data, statistics and tournament coverage — built
-              for the Indian and global esports ecosystem.
-            </p>
+    <footer className="bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
+      <div className="mx-auto w-full max-w-[var(--page-max-width)] px-4 pt-12 pb-10 sm:px-6 sm:pt-16 sm:pb-14 lg:px-8">
+        {/* Brand card + index */}
+        <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <div className="flex min-h-[220px] items-center justify-center rounded-3xl bg-[var(--ed-blue)] px-8 py-12 sm:min-h-[260px] dark:bg-[#041129]">
+            <VerticalBrandMark className="h-28 w-auto max-w-full object-contain brightness-0 invert sm:h-36" />
           </div>
 
-          {/* Pages */}
-          <div className="space-y-2 text-xs">
-            <h4 className="font-bold uppercase tracking-wider text-white text-[11px]">
-              Pages
-            </h4>
-            <ul className="space-y-1.5 text-slate-300">
-              <li>
-                <Link href="/about" className="hover:text-white transition-colors">
-                  About
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="hover:text-white transition-colors">
-                  Contact
-                </Link>
-              </li>
-              <li>
-                <Link href={gameHref(DEFAULT_GAME_SLUG, 'compare')} className="hover:text-white transition-colors">
-                  Head-to-Head Compare
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/privacy-policy"
-                  className="hover:text-white transition-colors"
-                >
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" className="hover:text-white transition-colors">
-                  Terms &amp; Conditions
-                </Link>
-              </li>
-              <li>
-                <Link href="/disclaimer" className="hover:text-white transition-colors">
-                  Disclaimer
-                </Link>
-              </li>
-            </ul>
-          </div>
+          <div className="flex flex-col rounded-3xl bg-[var(--ed-sand)] px-6 py-7 sm:px-9 sm:py-8">
+            <p className="font-display text-2xl leading-[1.05] font-black tracking-tight uppercase sm:text-3xl">
+              {SITE_SLOGAN}
+            </p>
 
-          {/* Explore */}
-          <div className="space-y-2 text-xs">
-            <h4 className="font-bold uppercase tracking-wider text-white text-[11px]">
-              Explore
-            </h4>
-            <ul className="space-y-1.5 text-slate-300">
-              <li>
-                <Link href="/news" className="hover:text-white transition-colors">
-                  News
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/news/saved"
-                  className="hover:text-white transition-colors"
-                >
-                  Saved Stories
-                </Link>
-              </li>
-              <li>
-                <a
-                  href="/rss.xml"
-                  className="hover:text-white transition-colors"
-                  title="RSS feed — latest esports news"
-                >
-                  RSS Feed
-                </a>
-              </li>
-              <li>
-                <Link
-                  href={gameHref(DEFAULT_GAME_SLUG, 'rankings')}
-                  className="hover:text-white transition-colors"
-                >
-                  KRAFTON Rankings
-                </Link>
-              </li>
-              <li>
-                <a
-                  href="https://esportsamaze.in"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition-colors"
-                >
-                  Community Wiki
-                </a>
-              </li>
-            </ul>
+            <div className="mt-auto pt-12">
+              <nav aria-label="Footer" className="flex flex-wrap gap-x-9 gap-y-3.5">
+                {FOOTER_LINKS.map(({ label, href, file }) =>
+                  file ? (
+                    <a key={label} href={href} className={LINK_CLASS} title="RSS feed — latest esports news">
+                      {label}
+                    </a>
+                  ) : (
+                    <Link key={label} href={href} className={LINK_CLASS}>
+                      {label}
+                    </Link>
+                  )
+                )}
+              </nav>
+
+              <div className="mt-8 flex flex-col gap-2 text-[11px] text-[var(--ed-stone)] sm:flex-row sm:items-center sm:justify-between">
+                <p suppressHydrationWarning>
+                  © {new Date().getFullYear()} {SITE_NAME} · An eSports Project by Bhanu Pratap
+                </p>
+                <span className="font-semibold tracking-wider uppercase">Beta Phase</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-8 pt-4 border-t border-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
-          <p suppressHydrationWarning>
-            © {new Date().getFullYear()} eSportsAmaze · An eSports Project by Bhanu
-            Pratap
-          </p>
-          <span>Beta Phase</span>
+        {/* Follow */}
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:mt-5 sm:gap-5 lg:grid-cols-4">
+          {SOCIALS.map(({ label, href, Icon }) => (
+            <a
+              key={label}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={label}
+              aria-label={label}
+              className="flex aspect-[16/9] items-center justify-center rounded-3xl bg-[var(--ed-sand)] text-[var(--ed-blue)] transition-colors hover:bg-[var(--ed-blue)] hover:text-white"
+            >
+              <Icon className="h-8 w-8 sm:h-10 sm:w-10" />
+            </a>
+          ))}
         </div>
       </div>
     </footer>

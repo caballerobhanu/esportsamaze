@@ -7,6 +7,22 @@ export const SITE_NAME = 'eSportsAmaze';
 export const SITE_SLOGAN = 'Where Esports Lives.';
 
 /**
+ * Inboxes for the desk. `general` is the public front door; the rest are routed by
+ * what someone is writing about. Every one of these must actually exist — mail to a
+ * role that was never created bounces silently.
+ */
+export const SITE_EMAILS = {
+  general: 'connect@esportsamaze.com',
+  tips: 'tips@esportsamaze.com',
+  press: 'press@esportsamaze.com',
+  partnerships: 'partnerships@esportsamaze.com',
+  corrections: 'corrections@esportsamaze.com',
+} as const;
+
+/** Public contact address — one source for mailto links, legal pages and settings. */
+export const SITE_CONTACT_EMAIL = SITE_EMAILS.general;
+
+/**
  * Metadata for a route that resolved to no entity — an address naming a player,
  * team, tournament or ranking key that does not exist.
  *

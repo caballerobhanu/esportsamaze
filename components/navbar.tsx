@@ -368,7 +368,7 @@ export function Navbar() {
                 title="Search (Ctrl+K)"
               >
                 <Search className="w-3.5 h-3.5 text-white/70 group-hover:text-white transition-colors" />
-                <span className="hidden lg:inline">Search wiki...</span>
+                <span className="hidden lg:inline">Search teams, players...</span>
                 <kbd className="hidden xl:inline-flex items-center gap-0.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/20 text-white/70 border border-white/10">
                   <span className="text-[9px]">⌘</span>K
                 </kbd>
@@ -492,7 +492,7 @@ export function Navbar() {
             className="relative w-full max-w-2xl bg-white dark:bg-[#0b101c] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden z-10 flex flex-col max-h-[80vh]"
             role="dialog"
             aria-modal="true"
-            aria-label="Search Wiki"
+            aria-label="Search"
           >
             {/* Search Input Bar */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#070b14]/50">

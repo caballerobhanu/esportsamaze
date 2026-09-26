@@ -282,7 +282,7 @@ export default async function TeamsPage({
             <div>
               <div className="kicker inline-flex items-center gap-2 text-[var(--ed-blue)]">
                 <ShieldCheck className="h-3 w-3 text-[var(--ed-blue)]" aria-hidden />
-                Official Team &amp; Roster Wiki
+                Official Team &amp; Roster Database
               </div>
               <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl text-slate-900 dark:text-white">
                 Teams

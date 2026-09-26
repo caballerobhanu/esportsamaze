@@ -217,7 +217,7 @@ export function EstaticFormatPanel({
     return map;
   }, [teams, tournament?.teams]);
 
-  // Synthesize full wiki-style format data for each stage
+  // Synthesize full format data for each stage
   const synthesizedStages: StageFormatData[] = useMemo(() => {
     let rawStages = stages;
     if (rawStages.length === 0 && formatDetails?.stages && Array.isArray(formatDetails.stages)) {

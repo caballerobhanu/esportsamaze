@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { isViewWindow, type ViewWindow } from '@/lib/view-window';
+import { SITE_CONTACT_EMAIL } from '@/lib/seo';
 
 export interface MaintenanceSettings {
   enabled: boolean;
@@ -40,7 +41,7 @@ export const DEFAULT_MAINTENANCE_SETTINGS: MaintenanceSettings = {
   noticeBadge: 'Next-Gen Arena Incoming',
   estimatedEnd: '',
   showCountdown: true,
-  contactEmail: 'support@esportsamaze.com',
+  contactEmail: SITE_CONTACT_EMAIL,
   socialLinks: {
     discord: 'https://discord.gg/esportsamaze',
     twitter: 'https://twitter.com/esportsamaze',
