@@ -7,7 +7,7 @@ import prisma from '@/lib/prisma';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { cache } from 'react';
 import type { Metadata } from 'next';
-import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, canonical, notFoundMetadata, SITE_NAME } from '@/lib/seo';
 import {
   PLAYER_TAB_SEGMENT,
   playerTabDescription,
@@ -53,7 +53,7 @@ export async function playerMetadata(
 ): Promise<Metadata> {
   try {
     const player = await fetchPlayerProfile(slug);
-    if (!player) return { title: `Player Profile | ${SITE_NAME}` };
+    if (!player) return notFoundMetadata('Player');
     if (expectedGame && (player.game?.slug || DEFAULT_GAME_SLUG) !== expectedGame) return {};
 
     const game = player.game?.shortName || player.game?.name || null;

@@ -8,7 +8,7 @@ import {
   RankingsBoardClient,
 } from '@/components/rankings/rankings-board-client';
 
-import { absoluteUrl, breadcrumbJsonLd, canonical, rankedItemListJsonLd, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, breadcrumbJsonLd, canonical, notFoundMetadata, rankedItemListJsonLd, SITE_NAME } from '@/lib/seo';
 import { gameHref, RANKINGS_GAME_SLUG } from '@/lib/games';
 import { notFound } from 'next/navigation';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -30,7 +30,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { game } = await routeParams;
   // The KRAFTON board belongs to one game; any other game's rankings URL is a 404.
-  if (game !== RANKINGS_GAME_SLUG) notFound();
+  if (game !== RANKINGS_GAME_SLUG) return notFoundMetadata('Ranking');
   const params = await searchParams;
   const isPlayers = parseBoard(params) === 'PLAYER';
 

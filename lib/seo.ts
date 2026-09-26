@@ -6,6 +6,24 @@ export const SITE_NAME = 'eSportsAmaze';
 /** Durable positioning line. Lives in schema.org `slogan`, og alt text and socials. */
 export const SITE_SLOGAN = 'Where Esports Lives.';
 
+/**
+ * Metadata for a route that resolved to no entity — an address naming a player,
+ * team, tournament or ranking key that does not exist.
+ *
+ * These routes answer with a soft 404: a loading boundary commits the HTTP status
+ * before the page can, so the response arrives as 200. The page therefore has to
+ * decline the index itself. Calling `notFound()` inside `generateMetadata` does not
+ * do that — it abandons the metadata, leaving the route's own title ("Player
+ * Profile") and an indexable default in place. Return this instead, and let the page
+ * body's `notFound()` render the 404.
+ */
+export function notFoundMetadata(entity: string) {
+  return {
+    title: `${entity} Not Found — ${SITE_NAME}`,
+    robots: { index: false, follow: false },
+  };
+}
+
 export function baseUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');

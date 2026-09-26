@@ -14,7 +14,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { parseRoster } from '@/lib/team-roster';
-import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, canonical, notFoundMetadata, SITE_NAME } from '@/lib/seo';
 import {
   TEAM_TAB_SEGMENT,
   teamTabDescription,
@@ -1454,7 +1454,7 @@ export async function teamMetadata(
   expectedGame?: string
 ): Promise<Metadata> {
   const team = await loadTeamContext(slug);
-  if (!team) return { title: `Team Not Found — ${SITE_NAME}` };
+  if (!team) return notFoundMetadata('Team');
   if (expectedGame && (team.game?.slug || DEFAULT_GAME_SLUG) !== expectedGame) return {};
 
   const label = `${team.name}${team.tag ? ` [${team.tag}]` : ''}`;

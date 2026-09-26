@@ -21,7 +21,7 @@ import prisma from '@/lib/prisma';
 import { RankTrendChart } from '@/components/rankings/rank-trend-chart';
 import { TournamentName } from '@/components/ui/tournament-name';
 import type { KraftonBoard } from '@prisma/client';
-import { absoluteUrl, breadcrumbJsonLd, canonical, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, breadcrumbJsonLd, canonical, notFoundMetadata, SITE_NAME } from '@/lib/seo';
 import { JsonLd } from '@/components/seo/json-ld';
 import { DEFAULT_GAME_SLUG, gameHref, RANKINGS_GAME_SLUG } from '@/lib/games';
 import { AdSlot } from '@/components/ads/ad-slot';
@@ -36,7 +36,7 @@ const isPlayerBoard = (board: string) => board === 'player';
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { game, board: boardParam, key } = await params;
   // Rankings exist only for the game that owns the board.
-  if (game !== RANKINGS_GAME_SLUG) notFound();
+  if (game !== RANKINGS_GAME_SLUG) return notFoundMetadata('Ranking');
   const board: KraftonBoard = isPlayerBoard(boardParam) ? 'PLAYER' : 'TEAM';
   const isPlayers = isPlayerBoard(boardParam);
   const boardSegment = isPlayers ? 'player' : 'team';
@@ -62,6 +62,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
   try {
     const entries = await fetchEntityEntries(board, decodeURIComponent(key));
+    // A key naming no entity is a soft 404, exactly as the body treats it: the
+    // metadata must not invent a profile out of the URL text.
+    if (entries.length === 0) return notFoundMetadata('Ranking');
     const entityName = entries[0]?.entityName || decodeURIComponent(key).replace(/-/g, ' ');
     // Mirror fetchProfileSlug(): a team falls back to its tag when slug is null.
     const slug = await fetchProfileSlug(board, entries[0]?.entityId ?? null);

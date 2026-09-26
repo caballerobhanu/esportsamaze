@@ -29,7 +29,7 @@ import {
 import { countryCodeFor } from '@/lib/countries';
 import { venueLine } from '@/lib/venues';
 import { eventUsdRate } from '@/lib/currency';
-import { absoluteUrl, canonical, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, canonical, notFoundMetadata, SITE_NAME } from '@/lib/seo';
 import {
   TOURNAMENT_TAB_SEGMENT,
   tournamentTabDescription,
@@ -451,7 +451,7 @@ export async function tournamentMetadata(
   } catch {
     /* fall through */
   }
-  return { title: `Tournament Details | ${SITE_NAME}` };
+  return notFoundMetadata('Tournament');
 }
 
 /* ── Shared derived data ── */

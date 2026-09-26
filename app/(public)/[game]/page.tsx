@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getGameBySlug, gamesInFamily, getFamilyBySlug } from '@/lib/game-queries';
 import { gameHref } from '@/lib/games';
-import { baseUrl, canonical } from '@/lib/seo';
+import { baseUrl, canonical, notFoundMetadata } from '@/lib/seo';
 
 const SECTIONS: { segment: string; label: string; blurb: string }[] = [
   { segment: 'tournaments', label: 'Tournaments', blurb: 'Standings, results and formats' },
@@ -19,7 +19,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { game } = await params;
   const found = await getGameBySlug(game);
-  if (!found) return {};
+  if (!found) return notFoundMetadata('Game');
   const label = found.shortName?.trim() || found.name;
   const path = gameHref(found.slug);
   return {
