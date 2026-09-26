@@ -16,10 +16,11 @@ export const KRAFTON_CACHE_TAG = 'krafton-rankings';
 
 /**
  * A rank also steps down with the calendar, and nothing writes on that date — so
- * for this data the TTL, not the tag, is what catches a decay step-down. Daily
- * bounds the staleness to a day; the tag makes an admin's new input visible at once.
+ * for this data the TTL, not the tag, is what catches a decay step-down. Ten minutes
+ * bounds the staleness tightly while still keeping the board computation off every
+ * request; the tag makes an admin's new input visible at once.
  */
-const KRAFTON_REVALIDATE = 86_400;
+const KRAFTON_REVALIDATE = 600;
 
 export async function fetchBoardEntries(board: KraftonBoard): Promise<EntryRow[]> {
   const rows = await prisma.kraftonEntry.findMany({

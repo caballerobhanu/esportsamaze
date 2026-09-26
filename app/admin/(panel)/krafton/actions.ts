@@ -16,8 +16,15 @@ function requireAdmin() {
 function refresh(eventId?: string) {
   revalidatePath('/admin/krafton');
   revalidatePath('/rankings');
+  // Profile ranks come from the same board, and the route caches hold a rendered
+  // copy — clear both, or an entry shows on the board while profiles keep the old
+  // number until their own window expires.
+  revalidatePath('/players/[slug]', 'page');
+  revalidatePath('/teams/[slug]', 'page');
   try {
-    revalidateTag(KRAFTON_CACHE_TAG, 'max');
+    // `expire: 0` rather than 'max': 'max' is stale-while-revalidate, which serves
+    // the old board to the next visitor instead of waiting for the fresh one.
+    revalidateTag(KRAFTON_CACHE_TAG, { expire: 0 });
   } catch {
     // ignore if called outside action context
   }
