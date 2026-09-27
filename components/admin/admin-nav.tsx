@@ -27,6 +27,7 @@ import {
   Home,
   UserCog,
   Trash2,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -39,6 +40,7 @@ const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; capabili
   { href: '/admin/trash', label: 'Trash', icon: Trash2, capability: 'destructive' },
   { href: '/admin/home', label: 'Home Page', icon: Home, capability: 'news' },
   { href: '/admin/news', label: 'News & Articles', icon: Newspaper, capability: 'news' },
+  { href: '/admin/coverage-pack', label: 'Coverage Pack', icon: FileText, capability: 'news' },
   { href: '/admin/comments', label: 'Comments', icon: MessagesSquare, capability: 'comments' },
   { href: '/admin/tags', label: 'Tag Manager', icon: Tags, capability: 'tags' },
   { href: '/admin/media', label: 'Media Library', icon: Images, capability: 'media' },

@@ -90,6 +90,7 @@ const PATH_CAPABILITIES: Array<[string, Capability]> = [
   ['/admin/users', 'users'],
   ['/admin/trash', 'destructive'],
   ['/admin/news', 'news'],
+  ['/admin/coverage-pack', 'news'],
   ['/admin/home', 'news'],
   ['/admin/comments', 'comments'],
   ['/admin/tags', 'tags'],
