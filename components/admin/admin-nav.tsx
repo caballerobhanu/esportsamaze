@@ -25,41 +25,57 @@ import {
   Settings,
   Globe2,
   Home,
+  UserCog,
+  Trash2,
+  type LucideIcon,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/settings', label: 'Site Settings', icon: Settings },
-  { href: '/admin/home', label: 'Home Page', icon: Home },
-  { href: '/admin/news', label: 'News & Articles', icon: Newspaper },
-  { href: '/admin/comments', label: 'Comments', icon: MessagesSquare },
-  { href: '/admin/tags', label: 'Tag Manager', icon: Tags },
-  { href: '/admin/media', label: 'Media Library', icon: Images },
-  { href: '/admin/games', label: 'Games', icon: Gamepad2 },
-  { href: '/admin/analytics', label: 'Page Views', icon: Eye },
-  { href: '/admin/tournaments', label: 'Tournaments', icon: Trophy },
-  { href: '/admin/regions', label: 'Regions', icon: Globe2 },
-  { href: '/admin/matches', label: 'Matches', icon: Swords },
-  { href: '/admin/matches/matrix', label: 'Score Matrix', icon: FileSpreadsheet },
-  { href: '/admin/totals', label: 'Reported Totals', icon: ClipboardList },
-  { href: '/admin/teams', label: 'Teams', icon: Shield },
-  { href: '/admin/players', label: 'Players', icon: Users },
-  { href: '/admin/organizers', label: 'Organizers', icon: LayoutDashboard },
-  { href: '/admin/sponsors', label: 'Sponsors', icon: LayoutDashboard },
-  { href: '/admin/venues', label: 'Venues', icon: LayoutDashboard },
-  { href: '/admin/regions', label: 'Regions', icon: Globe2 },
-  { href: '/admin/transfers', label: 'Transfers', icon: ArrowLeftRight },
-  { href: '/admin/krafton', label: 'KRAFTON Rankings', icon: BarChart3 },
+import type { Capability } from '@/lib/admin-permissions';
+
+const NAV_ITEMS: Array<{ href: string; label: string; icon: LucideIcon; capability: Capability }> = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, capability: 'dashboard' },
+  { href: '/admin/settings', label: 'Site Settings', icon: Settings, capability: 'settings' },
+  { href: '/admin/users', label: 'Users', icon: UserCog, capability: 'users' },
+  { href: '/admin/trash', label: 'Trash', icon: Trash2, capability: 'destructive' },
+  { href: '/admin/home', label: 'Home Page', icon: Home, capability: 'news' },
+  { href: '/admin/news', label: 'News & Articles', icon: Newspaper, capability: 'news' },
+  { href: '/admin/comments', label: 'Comments', icon: MessagesSquare, capability: 'comments' },
+  { href: '/admin/tags', label: 'Tag Manager', icon: Tags, capability: 'tags' },
+  { href: '/admin/media', label: 'Media Library', icon: Images, capability: 'media' },
+  { href: '/admin/games', label: 'Games', icon: Gamepad2, capability: 'data' },
+  { href: '/admin/analytics', label: 'Page Views', icon: Eye, capability: 'analytics' },
+  { href: '/admin/tournaments', label: 'Tournaments', icon: Trophy, capability: 'data' },
+  { href: '/admin/regions', label: 'Regions', icon: Globe2, capability: 'data' },
+  { href: '/admin/matches', label: 'Matches', icon: Swords, capability: 'data' },
+  { href: '/admin/matches/matrix', label: 'Score Matrix', icon: FileSpreadsheet, capability: 'data' },
+  { href: '/admin/totals', label: 'Reported Totals', icon: ClipboardList, capability: 'data' },
+  { href: '/admin/teams', label: 'Teams', icon: Shield, capability: 'data' },
+  { href: '/admin/players', label: 'Players', icon: Users, capability: 'data' },
+  { href: '/admin/organizers', label: 'Organizers', icon: LayoutDashboard, capability: 'data' },
+  { href: '/admin/sponsors', label: 'Sponsors', icon: LayoutDashboard, capability: 'data' },
+  { href: '/admin/venues', label: 'Venues', icon: LayoutDashboard, capability: 'data' },
+  { href: '/admin/transfers', label: 'Transfers', icon: ArrowLeftRight, capability: 'data' },
+  { href: '/admin/krafton', label: 'KRAFTON Rankings', icon: BarChart3, capability: 'data' },
 ];
 
 function isActive(pathname: string, href: string): boolean {
   return href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function NavLinks({
+  pathname,
+  capabilities,
+  onNavigate,
+}: {
+  pathname: string;
+  capabilities: Capability[];
+  onNavigate?: () => void;
+}) {
+  const items = NAV_ITEMS.filter((item) => capabilities.includes(item.capability));
+
   return (
     <nav aria-label="Admin sections" className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const active = isActive(pathname, item.href);
         return (
           <Link
@@ -118,7 +134,13 @@ function LogoutButton({ logout }: { logout: () => Promise<void> }) {
   );
 }
 
-export function AdminSidebar({ logout }: { logout: () => Promise<void> }) {
+export function AdminSidebar({
+  logout,
+  capabilities,
+}: {
+  logout: () => Promise<void>;
+  capabilities: Capability[];
+}) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
 
@@ -168,7 +190,7 @@ export function AdminSidebar({ logout }: { logout: () => Promise<void> }) {
           }`}
         >
           <Brand onClose={() => setOpen(false)} />
-          <NavLinks pathname={pathname} onNavigate={() => setOpen(false)} />
+          <NavLinks pathname={pathname} capabilities={capabilities} onNavigate={() => setOpen(false)} />
           <LogoutButton logout={logout} />
         </aside>
       </div>
@@ -176,7 +198,7 @@ export function AdminSidebar({ logout }: { logout: () => Promise<void> }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-56 flex-col bg-slate-900 text-white">
         <Brand />
-        <NavLinks pathname={pathname} />
+        <NavLinks pathname={pathname} capabilities={capabilities} />
         <LogoutButton logout={logout} />
       </aside>
     </>

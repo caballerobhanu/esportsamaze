@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { NewsEditor } from '@/components/admin/news-editor';
 import { listCategoryValues } from '@/lib/news-queries';
 
@@ -13,7 +13,7 @@ export default async function EditArticlePage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; saved?: string; restored?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   const { id } = await params;
   const { error, saved, restored } = await searchParams;
 

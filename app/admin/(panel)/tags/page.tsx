@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Merge, Pencil, Tags, Trash2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { renameTag, mergeTag, deleteTag } from './actions';
 import { ConfirmSubmitButton } from '@/components/admin/media-actions';
 
@@ -32,7 +32,7 @@ export default async function AdminTagsPage({
 }: {
   searchParams: Promise<{ renamed?: string; merged?: string; deleted?: string; error?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('tags'))) redirect('/admin/login');
   const { renamed, merged, deleted, error } = await searchParams;
 
   const tags = await getTagStats();

@@ -28,6 +28,8 @@ interface TeamsManagerTableProps {
   games: { id: string; name: string }[];
   deleteTeamAction: (formData: FormData) => Promise<void>;
   duplicateTeamAction: (formData: FormData) => Promise<void>;
+  /** Hidden when the viewer cannot delete (only the owner can). */
+  canDelete?: boolean;
 }
 
 export function TeamsManagerTable({
@@ -35,6 +37,7 @@ export function TeamsManagerTable({
   games,
   deleteTeamAction,
   duplicateTeamAction,
+  canDelete = true,
 }: TeamsManagerTableProps) {
   const [search, setSearch] = useState('');
   const [gameFilter, setGameFilter] = useState('ALL');
@@ -338,15 +341,17 @@ export function TeamsManagerTable({
                     </Link>
 
                     {/* Delete */}
-                    <button
-                      type="button"
-                      onClick={() => setTeamToDelete({ id: t.id, name: t.name })}
-                      className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                      title={`Delete team "${t.name}"`}
-                      aria-label={`Delete team "${t.name}"`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => setTeamToDelete({ id: t.id, name: t.name })}
+                        className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        title={`Delete team "${t.name}"`}
+                        aria-label={`Delete team "${t.name}"`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

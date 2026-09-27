@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { computeReadTimeMinutes, computeWordCount, ARTICLE_STATUSES } from '@/lib/news';
@@ -63,7 +63,7 @@ async function snapshotRevision(articleId: string) {
 }
 
 export async function saveArticle(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const title = fStr(formData, 'title').slice(0, 200);
@@ -213,7 +213,7 @@ export async function saveArticle(formData: FormData) {
 
 /** Duplicate an article by ID into a fresh DRAFT copy with all fields preserved. */
 export async function duplicateArticleById(id: string) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   if (!id) redirect('/admin/news');
 
   const source = await prisma.article.findUnique({ where: { id } });
@@ -271,7 +271,7 @@ export async function duplicateArticle(formData: FormData) {
 
 /** Restore a saved revision into the article (snapshots the current state first). */
 export async function restoreRevisionById(id: string, revisionId: string) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   if (!id || !revisionId) redirect('/admin/news');
 
   const revision = await prisma.articleRevision.findUnique({ where: { id: revisionId } });
@@ -310,7 +310,7 @@ export async function restoreRevisionById(id: string, revisionId: string) {
 
 /** Move to trash (soft delete) — public pages stop serving it immediately. */
 export async function deleteArticle(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/news');
@@ -325,7 +325,7 @@ export async function deleteArticle(formData: FormData) {
 /* ── Direct-call variants (id passed as an argument). ── */
 
 export async function toggleFeaturedById(id: string) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   if (!id) redirect('/admin/news');
 
   const article = await prisma.article.findUnique({ where: { id }, select: { featured: true, slug: true } });
@@ -337,7 +337,7 @@ export async function toggleFeaturedById(id: string) {
 }
 
 export async function trashArticleById(id: string) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   if (!id) redirect('/admin/news');
 
   const article = await prisma.article.findUnique({ where: { id }, select: { slug: true } });
@@ -348,7 +348,7 @@ export async function trashArticleById(id: string) {
 }
 
 export async function restoreArticleById(id: string) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   if (!id) redirect('/admin/news?status=TRASHED');
 
   await prisma.article.update({ where: { id }, data: { deletedAt: null } });
@@ -357,7 +357,7 @@ export async function restoreArticleById(id: string) {
 }
 
 export async function purgeArticleById(id: string) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   if (!id) redirect('/admin/news?status=TRASHED');
 
   await prisma.article.delete({ where: { id } });
@@ -367,7 +367,7 @@ export async function purgeArticleById(id: string) {
 
 /** Bulk actions from the admin list: ids[] + action. */
 export async function bulkArticleAction(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
 
   const ids = formData.getAll('ids').map(String).filter(Boolean);
   const action = fStr(formData, 'bulkAction');

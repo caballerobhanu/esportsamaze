@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, MapPin } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, fNum, uniqueSlug } from '@/lib/admin-forms';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slat
 
 async function saveVenue(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
@@ -54,7 +54,7 @@ async function saveVenue(formData: FormData) {
 
 async function deleteVenue(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/venues?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.tournamentVenue.deleteMany({ where: { venueId: id } });

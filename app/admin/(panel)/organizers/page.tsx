@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, Building2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { MediaField } from '@/components/admin/media-field';
@@ -16,7 +16,7 @@ const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slat
 
 async function saveOrganizer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
@@ -66,7 +66,7 @@ async function saveOrganizer(formData: FormData) {
 
 async function deleteOrganizer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/organizers?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.tournamentOrganizer.deleteMany({ where: { organizerId: id } });

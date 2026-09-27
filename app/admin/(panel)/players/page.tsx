@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus, Copy, CheckCircle2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { recordSlugChange } from '@/lib/slug-history';
 import { setRosterMembership } from '@/lib/player-transfers';
@@ -24,7 +24,7 @@ const STAFF_ROLES = ['Head Coach', 'Coach', 'Assistant Coach', 'Analyst', 'Manag
 
 async function savePlayer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const ign = fStr(formData, 'ign');
@@ -97,7 +97,7 @@ async function savePlayer(formData: FormData) {
 
 async function duplicatePlayer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/players');
 
@@ -143,16 +143,11 @@ async function duplicatePlayer(formData: FormData) {
 
 async function deletePlayer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/players?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
-    const attached =
-      (await prisma.transfer.count({ where: { playerId: id } })) +
-      (await prisma.matchPlayerStat.count({ where: { playerId: id } }));
-    if (attached > 0) {
-      redirect('/admin/players?error=linked');
-    }
-    await prisma.player.delete({ where: { id } });
+    // Trash, never destroy: relations are kept, so a restore is lossless.
+    await prisma.player.update({ where: { id }, data: { deletedAt: new Date() } });
   }
   revalidatePath('/admin/players');
   redirect('/admin/players');
@@ -164,6 +159,8 @@ export default async function AdminPlayersPage({
   searchParams: Promise<{ edit?: string; error?: string; saved?: string }>;
 }) {
   const { edit, error, saved } = await searchParams;
+  // Deleting is owner-only; hide the control for anyone else.
+  const canDelete = await hasCapability('destructive');
 
   const [games, teams, players] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
@@ -399,7 +396,11 @@ export default async function AdminPlayersPage({
       </details>
 
       {/* List */}
-      <PlayersManagerTable players={players as any} deletePlayerAction={deletePlayer} />
+      <PlayersManagerTable
+        players={players as any}
+        deletePlayerAction={deletePlayer}
+        canDelete={canDelete}
+      />
     </div>
   );
 }

@@ -3,13 +3,13 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
 import { countReferences } from '@/lib/media-usage';
 import { deleteMediaObject } from '@/lib/media-storage';
 
 export async function updateMediaAlt(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('media'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const alt = fStr(formData, 'alt') || null;
@@ -22,7 +22,7 @@ export async function updateMediaAlt(formData: FormData) {
 
 /** Delete a media asset: refuses while any model still references the file. */
 export async function deleteMedia(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('media'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/media');

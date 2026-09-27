@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { updateHomeCuration } from '@/lib/home-curation';
 
 /**
@@ -15,7 +15,7 @@ export async function saveHomeCuration(input: {
   frontPage: string[];
   editorPicks: string[];
 }): Promise<void> {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
 
   await updateHomeCuration({
     frontPage: input.frontPage ?? [],

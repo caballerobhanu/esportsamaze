@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { syncScheduledArticles } from '@/lib/news-queries';
 import { ARTICLE_CATEGORIES, ARTICLE_STATUSES } from '@/lib/news';
 import {
@@ -77,7 +77,7 @@ export default async function AdminNewsPage({
     duplicated?: string;
   }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
 
   const {
     q: searchQ,

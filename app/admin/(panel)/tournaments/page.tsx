@@ -8,7 +8,7 @@ import prisma from '@/lib/prisma';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { applyRosterMembership } from '@/lib/player-transfers';
 import type { Prisma } from '@prisma/client';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fMonthStart, fMonthEnd, fNum, fSocials, uniqueSlug, fTournamentStatus, fUrl } from '@/lib/admin-forms';
 import { formatTournamentDates } from '@/lib/tournament-dates';
 import { refreshDerivedTournamentStatuses } from '@/lib/tournament-status';
@@ -164,7 +164,7 @@ function squadHasContent(squad: {
 
 async function saveTournament(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
@@ -882,11 +882,17 @@ async function saveTournament(formData: FormData) {
 
 async function deleteTournament(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/tournaments?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
+    const deletedAt = new Date();
     try {
-      await prisma.tournament.delete({ where: { id } });
+      // Trash the event and its matches as one batch, so the whole thing leaves
+      // the site and Admin → Trash restores it together.
+      await prisma.$transaction([
+        prisma.tournament.update({ where: { id }, data: { deletedAt } }),
+        prisma.match.updateMany({ where: { tournamentId: id }, data: { deletedAt } }),
+      ]);
     } catch {
       redirect('/admin/tournaments?error=delete-failed');
     }
@@ -899,7 +905,7 @@ async function deleteTournament(formData: FormData) {
 
 async function duplicateTournament(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/tournaments');
 
@@ -1007,6 +1013,8 @@ export default async function AdminTournamentsPage({
   searchParams: Promise<{ edit?: string; error?: string; field?: string }>;
 }) {
   const { edit, error, field } = await searchParams;
+  // Deleting is owner-only; hide the control for anyone else.
+  const canDelete = await hasCapability('destructive');
 
   // The calendar moves past events between saves, so bring their derived status
   // up to date as the list is opened. Completed and cancelled events are left
@@ -2015,16 +2023,18 @@ export default async function AdminTournamentsPage({
                       }}
                       duplicateTournamentAction={duplicateTournament}
                     />
-                    <form action={deleteTournament}>
-                      <input type="hidden" name="id" value={t.id} />
-                      <button
-                        type="submit"
-                        className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors"
-                        title="Delete Tournament"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
+                    {canDelete && (
+                      <form action={deleteTournament}>
+                        <input type="hidden" name="id" value={t.id} />
+                        <button
+                          type="submit"
+                          className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Delete Tournament"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </form>
+                    )}
                   </span>
                 </td>
               </tr>

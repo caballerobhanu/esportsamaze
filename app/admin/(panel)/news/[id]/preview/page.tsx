@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { getAdjacentArticles, getMostRead, getRelatedArticles } from '@/lib/news-queries';
 import { ArticleView } from '@/components/news/article-view';
 
@@ -18,7 +18,7 @@ export default async function ArticlePreviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   const { id } = await params;
 
   const article = await prisma.article.findUnique({

@@ -5,7 +5,7 @@ import { Pencil, Trash2, Plus, Swords, Crosshair, Trophy, Shield, Users, Flame, 
 import { Combobox } from '@/components/admin/combobox';
 import prisma from '@/lib/prisma';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fNum, fMatchStatus, fUrl, sanitizeUrl } from '@/lib/admin-forms';
 import {
   STAGE_TYPES,
@@ -49,7 +49,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 async function duplicateMatch(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/matches');
 
@@ -114,7 +114,7 @@ async function duplicateMatch(formData: FormData) {
 
 async function updateMatchStatus(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   const status = fMatchStatus(formData, 'status');
   if (id && status) {
@@ -129,7 +129,7 @@ async function updateMatchStatus(formData: FormData) {
 
 async function saveMatch(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const tournamentId = fStr(formData, 'tournamentId');
@@ -263,20 +263,14 @@ async function saveMatch(formData: FormData) {
 
 async function deleteMatch(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/matches?error=forbidden');
   const id = fStr(formData, 'id');
   const tournamentId = fStr(formData, 'tournamentId');
   const stageId = fStr(formData, 'stageId');
   if (id) {
-    await prisma.matchPlayerStat.deleteMany({
-      where: { matchGame: { matchId: id } },
-    });
-    await prisma.matchTeamResult.deleteMany({
-      where: { matchGame: { matchId: id } },
-    });
-    await prisma.matchGame.deleteMany({ where: { matchId: id } });
     try {
-      await prisma.match.delete({ where: { id } });
+      // Trash the match; its scorecard rows are kept so a restore is lossless.
+      await prisma.match.update({ where: { id }, data: { deletedAt: new Date() } });
     } catch {
       redirect('/admin/matches?error=delete-failed');
     }
@@ -294,7 +288,7 @@ async function deleteMatch(formData: FormData) {
 
 async function bulkDeleteMatches(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/matches?error=forbidden');
   const idsRaw = fStr(formData, 'matchIds');
   const tournamentId = fStr(formData, 'tournamentId');
   const stageId = fStr(formData, 'stageId');
@@ -335,7 +329,7 @@ async function bulkDeleteMatches(formData: FormData) {
 
 async function saveTeamResult(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const matchGameId = fStr(formData, 'matchGameId');
   const teamId = fStr(formData, 'teamId');
@@ -429,7 +423,7 @@ async function saveTeamResult(formData: FormData) {
 
 async function deleteTeamResult(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   const matchId = fStr(formData, 'matchId');
   if (id) {
@@ -446,7 +440,7 @@ async function deleteTeamResult(formData: FormData) {
 
 async function savePlayerStat(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const matchGameId = fStr(formData, 'matchGameId');
   const playerId = fStr(formData, 'playerId');
@@ -523,7 +517,7 @@ async function savePlayerStat(formData: FormData) {
 
 async function deletePlayerStat(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   const matchId = fStr(formData, 'matchId');
   if (id) {
@@ -540,7 +534,7 @@ async function deletePlayerStat(formData: FormData) {
 
 async function importBatchTeamResultsAction(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const matchId = fStr(formData, 'matchId');
   const matchGameId = fStr(formData, 'matchGameId');
@@ -634,7 +628,7 @@ async function importBatchTeamResultsAction(formData: FormData) {
 
 async function importBatchPlayerStatsAction(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const matchId = fStr(formData, 'matchId');
   const matchGameId = fStr(formData, 'matchGameId');
@@ -731,6 +725,8 @@ export default async function AdminMatchesPage({
   }>;
 }) {
   const { edit, error, field, tournamentId, stage, stageId, openNew } = await searchParams;
+  // Deleting is owner-only; the delete controls hide for anyone else.
+  const canDelete = await hasCapability('destructive');
 
   const [games, teams, players, editing, preSelectedTourney, allTournamentsLight] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, slug: true } }),
@@ -1215,8 +1211,8 @@ export default async function AdminMatchesPage({
         allTournaments={allTournamentsLight as any}
         currentTournamentId={effectiveTournamentId}
         currentStageId={effectiveStageId}
-        deleteMatchAction={deleteMatch}
-        bulkDeleteMatchesAction={bulkDeleteMatches}
+        deleteMatchAction={canDelete ? deleteMatch : undefined}
+        bulkDeleteMatchesAction={canDelete ? bulkDeleteMatches : undefined}
         duplicateMatchAction={duplicateMatch}
         updateMatchStatusAction={updateMatchStatus}
       />

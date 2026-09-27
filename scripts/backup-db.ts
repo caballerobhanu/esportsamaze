@@ -4,40 +4,41 @@
  */
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
-import prisma from '../lib/prisma';
+// Unfiltered: a backup must include trashed rows too, so a restore can bring them back.
+import { prismaUnfiltered } from '../lib/prisma';
 
 async function main() {
   console.log('Dumping database...');
 
   const snapshot = {
     exportedAt: new Date().toISOString(),
-    gameFamilies: await prisma.gameFamily.findMany(),
-    games: await prisma.game.findMany(),
-    organizers: await prisma.organizer.findMany(),
-    sponsors: await prisma.sponsor.findMany(),
-    venues: await prisma.venue.findMany(),
-    teams: await prisma.team.findMany(),
-    players: await prisma.player.findMany(),
-    transfers: await prisma.transfer.findMany(),
-    tournaments: await prisma.tournament.findMany(),
-    tournamentStages: await prisma.tournamentStage.findMany(),
-    tournamentGroups: await prisma.tournamentGroup.findMany(),
-    tournamentTeams: await prisma.tournamentTeam.findMany(),
-    tournamentOrganizers: await prisma.tournamentOrganizer.findMany(),
-    tournamentSponsors: await prisma.tournamentSponsor.findMany(),
-    tournamentVenues: await prisma.tournamentVenue.findMany(),
-    matches: await prisma.match.findMany(),
-    matchGames: await prisma.matchGame.findMany(),
-    matchTeamResults: await prisma.matchTeamResult.findMany(),
-    matchPlayerStats: await prisma.matchPlayerStat.findMany(),
-    articles: await prisma.article.findMany(),
-    articleRevisions: await prisma.articleRevision.findMany(),
-    comments: await prisma.comment.findMany(),
-    articleReactions: await prisma.articleReaction.findMany(),
-    mediaAssets: await prisma.mediaAsset.findMany(),
-    kraftonEvents: await prisma.kraftonEvent.findMany(),
-    kraftonEntries: await prisma.kraftonEntry.findMany(),
-    kraftonTransfers: await prisma.kraftonTransfer.findMany(),
+    gameFamilies: await prismaUnfiltered.gameFamily.findMany(),
+    games: await prismaUnfiltered.game.findMany(),
+    organizers: await prismaUnfiltered.organizer.findMany(),
+    sponsors: await prismaUnfiltered.sponsor.findMany(),
+    venues: await prismaUnfiltered.venue.findMany(),
+    teams: await prismaUnfiltered.team.findMany(),
+    players: await prismaUnfiltered.player.findMany(),
+    transfers: await prismaUnfiltered.transfer.findMany(),
+    tournaments: await prismaUnfiltered.tournament.findMany(),
+    tournamentStages: await prismaUnfiltered.tournamentStage.findMany(),
+    tournamentGroups: await prismaUnfiltered.tournamentGroup.findMany(),
+    tournamentTeams: await prismaUnfiltered.tournamentTeam.findMany(),
+    tournamentOrganizers: await prismaUnfiltered.tournamentOrganizer.findMany(),
+    tournamentSponsors: await prismaUnfiltered.tournamentSponsor.findMany(),
+    tournamentVenues: await prismaUnfiltered.tournamentVenue.findMany(),
+    matches: await prismaUnfiltered.match.findMany(),
+    matchGames: await prismaUnfiltered.matchGame.findMany(),
+    matchTeamResults: await prismaUnfiltered.matchTeamResult.findMany(),
+    matchPlayerStats: await prismaUnfiltered.matchPlayerStat.findMany(),
+    articles: await prismaUnfiltered.article.findMany(),
+    articleRevisions: await prismaUnfiltered.articleRevision.findMany(),
+    comments: await prismaUnfiltered.comment.findMany(),
+    articleReactions: await prismaUnfiltered.articleReaction.findMany(),
+    mediaAssets: await prismaUnfiltered.mediaAsset.findMany(),
+    kraftonEvents: await prismaUnfiltered.kraftonEvent.findMany(),
+    kraftonEntries: await prismaUnfiltered.kraftonEntry.findMany(),
+    kraftonTransfers: await prismaUnfiltered.kraftonTransfer.findMany(),
   };
 
   const counts: Record<string, number> = {};
@@ -75,4 +76,4 @@ async function main() {
 
 main()
   .catch((e) => { console.error('❌ Backup failed:', e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .finally(async () => { await prismaUnfiltered.$disconnect(); });

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { saveUploadedFile } from '@/lib/upload';
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('media'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

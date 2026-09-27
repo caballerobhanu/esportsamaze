@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { AlertTriangle, CheckCircle2, Copy, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, fDate, fSocials, uniqueSlug } from '@/lib/admin-forms';
 import { recordSlugChange } from '@/lib/slug-history';
 import { setRosterMembership } from '@/lib/player-transfers';
@@ -23,7 +23,7 @@ const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slat
 
 async function saveTeam(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
@@ -111,7 +111,7 @@ async function saveTeam(formData: FormData) {
 
 async function duplicateTeam(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/teams');
 
@@ -147,19 +147,11 @@ async function duplicateTeam(formData: FormData) {
 
 async function deleteTeam(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/teams?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
-    const attached =
-      (await prisma.transfer.count({ where: { teamId: id } })) +
-      (await prisma.tournamentTeam.count({ where: { teamId: id } })) +
-      (await prisma.matchTeamResult.count({ where: { teamId: id } })) +
-      (await prisma.matchPlayerStat.count({ where: { teamId: id } })) +
-      (await prisma.tournament.count({ where: { OR: [{ winnerTeamId: id }, { runnerUpTeamId: id }] } }));
-    if (attached > 0) {
-      redirect('/admin/teams?error=linked');
-    }
-    await prisma.team.delete({ where: { id } });
+    // Trash, never destroy: relations are kept, so a restore is lossless.
+    await prisma.team.update({ where: { id }, data: { deletedAt: new Date() } });
   }
   revalidatePath('/admin/teams');
   redirect('/admin/teams');
@@ -168,7 +160,7 @@ async function deleteTeam(formData: FormData) {
 /** Attach an existing player to this team (already a Player row). */
 async function attachTeamPerson(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const teamId = fStr(formData, 'teamId');
   const playerId = fStr(formData, 'playerId');
   const role = fOpt(formData, 'role');
@@ -193,7 +185,7 @@ async function attachTeamPerson(formData: FormData) {
 /** Create a brand-new person (staff / organisation member) linked to this team. */
 async function createTeamPerson(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const teamId = fStr(formData, 'teamId');
   const ign = fStr(formData, 'ign');
   if (!teamId || !ign) redirect(`/admin/teams?edit=${teamId}&error=person`);
@@ -227,7 +219,7 @@ async function createTeamPerson(formData: FormData) {
 /** Unlink a person from this team (keeps the Player row). */
 async function removeTeamPerson(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const teamId = fStr(formData, 'teamId');
   const playerId = fStr(formData, 'playerId');
   if (teamId && playerId) {
@@ -252,6 +244,8 @@ export default async function AdminTeamsPage({
   }>;
 }) {
   const { edit, error, clashTag, clashName, saved } = await searchParams;
+  // Deleting is owner-only; hide the control for anyone else.
+  const canDelete = await hasCapability('destructive');
 
   const [games, teams] = await Promise.all([
     prisma.game.findMany({ orderBy: { name: 'asc' } }),
@@ -497,6 +491,7 @@ export default async function AdminTeamsPage({
         games={games}
         deleteTeamAction={deleteTeam}
         duplicateTeamAction={duplicateTeam}
+        canDelete={canDelete}
       />
     </div>
   );

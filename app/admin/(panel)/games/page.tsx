@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Pencil, Trash2, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, uniqueSlug } from '@/lib/admin-forms';
 import { saveUploadedFile } from '@/lib/upload';
 import { MediaField } from '@/components/admin/media-field';
@@ -18,7 +18,7 @@ const GENRES = ['BATTLE_ROYALE', 'TACTICAL_FPS', 'MOBA', 'FIGHTING', 'SPORTS'];
 
 async function saveGame(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name');
@@ -82,7 +82,7 @@ async function saveGame(formData: FormData) {
 
 async function deleteGame(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/games?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     const attached =
@@ -102,7 +102,7 @@ async function deleteGame(formData: FormData) {
 /** Create a game family, or rename one when an id is given. */
 async function saveGameFamily(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name').trim();
@@ -131,7 +131,7 @@ async function saveGameFamily(formData: FormData) {
  */
 async function deleteGameFamily(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/games?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     const attached = await prisma.game.count({ where: { familyId: id } });

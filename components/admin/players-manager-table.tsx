@@ -55,9 +55,15 @@ export interface PlayerRowItem {
 interface PlayersManagerTableProps {
   players: PlayerRowItem[];
   deletePlayerAction: (formData: FormData) => Promise<void>;
+  /** Hidden when the viewer cannot delete (only the owner can). */
+  canDelete?: boolean;
 }
 
-export function PlayersManagerTable({ players, deletePlayerAction }: PlayersManagerTableProps) {
+export function PlayersManagerTable({
+  players,
+  deletePlayerAction,
+  canDelete = true,
+}: PlayersManagerTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState('ALL');
@@ -416,15 +422,17 @@ export function PlayersManagerTable({ players, deletePlayerAction }: PlayersMana
                       </Link>
 
                       {/* Single Delete */}
-                      <button
-                        type="button"
-                        onClick={() => setPlayerToDelete({ id: p.id, ign: p.ign })}
-                        className="p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                        title={`Delete ${p.ign}`}
-                        aria-label={`Delete ${p.ign}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => setPlayerToDelete({ id: p.id, ign: p.ign })}
+                          className="p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title={`Delete ${p.ign}`}
+                          aria-label={`Delete ${p.ign}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -480,16 +488,18 @@ export function PlayersManagerTable({ players, deletePlayerAction }: PlayersMana
             </button>
 
             {/* Force Cascade Delete */}
-            <button
-              type="button"
-              disabled={isProcessing}
-              onClick={() => handleBulkDelete(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
-              title="Deletes players and all linked match stats / rankings"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Force Delete ({selectedIds.size})</span>
-            </button>
+            {canDelete && (
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => handleBulkDelete(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                title="Deletes players and all linked match stats / rankings"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Force Delete ({selectedIds.size})</span>
+              </button>
+            )}
           </div>
         </div>
       )}

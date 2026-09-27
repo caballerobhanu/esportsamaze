@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { type StageTemplate } from '@/lib/stage-templates';
 import { deleteStageTemplate, saveStageTemplate } from '@/lib/stage-template-store';
 
@@ -22,7 +22,7 @@ export async function saveStageTemplateAction(
   name: string,
   stagesJson: string,
 ): Promise<StageTemplateActionResult> {
-  if (!(await isAdmin())) return { ok: false, templates: [], error: 'Unauthorized' };
+  if (!(await hasCapability('data'))) return { ok: false, templates: [], error: 'Unauthorized' };
 
   if (!name.trim()) return { ok: false, templates: [], error: 'Give the template a name.' };
 
@@ -42,7 +42,7 @@ export async function saveStageTemplateAction(
 }
 
 export async function deleteStageTemplateAction(id: string): Promise<StageTemplateActionResult> {
-  if (!(await isAdmin())) return { ok: false, templates: [], error: 'Unauthorized' };
+  if (!(await hasCapability('data'))) return { ok: false, templates: [], error: 'Unauthorized' };
 
   const templates = await deleteStageTemplate(id);
   revalidatePath('/admin/tournaments');

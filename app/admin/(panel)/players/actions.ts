@@ -2,13 +2,18 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { rebuildTransferOrigins, setRosterMembership } from '@/lib/player-transfers';
 import { revalidateTransferSurfaces } from '@/lib/revalidate-transfers';
 import { recordSlugChange } from '@/lib/slug-history';
 
-export async function bulkDeletePlayersAction(playerIds: string[], cascade: boolean = false) {
-  if (!(await isAdmin())) {
+/**
+ * Trashes players. The old signature kept a `cascade` flag that destroyed
+ * attached records; a trash never does — the relations are what make a restore
+ * lossless — so the flag is accepted and ignored for callers that still pass it.
+ */
+export async function bulkDeletePlayersAction(playerIds: string[], _cascade: boolean = false) {
+  if (!(await hasCapability('destructive'))) {
     throw new Error('Unauthorized');
   }
 
@@ -17,20 +22,9 @@ export async function bulkDeletePlayersAction(playerIds: string[], cascade: bool
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
-      if (cascade) {
-        // Cascade delete attached records
-        await tx.matchPlayerStat.deleteMany({
-          where: { playerId: { in: playerIds } },
-        });
-        await tx.transfer.deleteMany({
-          where: { playerId: { in: playerIds } },
-        });
-      }
-
-      await tx.player.deleteMany({
-        where: { id: { in: playerIds } },
-      });
+    await prisma.player.updateMany({
+      where: { id: { in: playerIds } },
+      data: { deletedAt: new Date() },
     });
 
     revalidatePath('/admin/players');
@@ -42,7 +36,7 @@ export async function bulkDeletePlayersAction(playerIds: string[], cascade: bool
 }
 
 export async function mergePlayersAction(sourcePlayerId: string, targetPlayerId: string) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -137,7 +131,7 @@ export async function mergePlayersAction(sourcePlayerId: string, targetPlayerId:
 }
 
 export async function togglePlayerVerificationAction(playerId: string, isVerified: boolean) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -177,7 +171,7 @@ export async function togglePlayerVerificationAction(playerId: string, isVerifie
 }
 
 export async function batchVerifyPlayersAction(playerIds: string[]) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -196,7 +190,7 @@ export async function batchVerifyPlayersAction(playerIds: string[]) {
 }
 
 export async function duplicatePlayerAction(playerId: string) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 

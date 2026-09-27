@@ -98,12 +98,16 @@ model Team {
   articles          Article[]
   teamTotals        TournamentTeamTotals[]
   reportedTotals    TournamentPlayerTotals[]
+  // Set when the team is trashed; hidden from every read by the soft-delete
+  // extension (lib/soft-delete.ts). Restorable from Admin → Trash.
+  deletedAt         DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
   @@index([name])
   @@index([tag])
   @@index([gameId])
+  @@index([deletedAt])
 }
 
 model Player {
@@ -138,6 +142,9 @@ model Player {
   matchStats      MatchPlayerStat[]
   reportedTotals  TournamentPlayerTotals[]
   articles        Article[]
+  // Set when the player is trashed; hidden from every read by the soft-delete
+  // extension (lib/soft-delete.ts). Restorable from Admin → Trash.
+  deletedAt       DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -145,6 +152,7 @@ model Player {
   @@index([currentTeamId])
   @@index([gameId])
   @@index([isPlayer, status])
+  @@index([deletedAt])
 }
 
 model Transfer {
@@ -321,6 +329,9 @@ model Tournament {
   games             TournamentGame[]
   matches           Match[]
   articles          Article[]
+  // Set when the event is trashed (its matches are stamped in the same batch);
+  // hidden from every read by the soft-delete extension (lib/soft-delete.ts).
+  deletedAt         DateTime?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
@@ -332,6 +343,7 @@ model Tournament {
   @@index([name])
   @@index([gameId])
   @@index([series])
+  @@index([deletedAt])
 }
 
 model TournamentGame {
@@ -431,6 +443,9 @@ model Match {
   streamUrl          String?
   vods               Json?            // Array of { title, type, language, platform, url }
   games              MatchGame[]
+  // Set when the match is trashed; hidden from every read by the soft-delete
+  // extension (lib/soft-delete.ts). Restorable from Admin → Trash.
+  deletedAt    DateTime?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @default(now()) @updatedAt
 
@@ -438,6 +453,7 @@ model Match {
   @@index([stageId])
   @@index([groupId])
   @@index([status, scheduledAt])
+  @@index([deletedAt])
 }
 
 model MatchGame {
@@ -899,5 +915,24 @@ model SlugHistory {
   changedAt  DateTime @default(now())
 
   @@unique([entityType, oldSlug])
+}
+
+/// A contributor account — separate from the env-password OWNER session.
+///
+/// `roles` holds a subset of EDITOR | DATA, so one person may hold both. There is
+/// no OWNER row: the owner signs in with ADMIN_PASSWORD and holds every
+/// capability implicitly. New table only, so `prisma db push` stays additive.
+model AdminUser {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  displayName  String
+  roles        String[]  @default([])
+  passwordHash String
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([active])
 }
 

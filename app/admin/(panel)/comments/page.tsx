@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { setCommentStatus, deleteComment } from './actions';
 import { ConfirmSubmitButton } from '@/components/admin/media-actions';
 
@@ -38,7 +38,7 @@ export default async function AdminCommentsPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string; updated?: string; deleted?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('comments'))) redirect('/admin/login');
   const { status: statusParam, page: pageParam, updated, deleted } = await searchParams;
   const status = (STATUS_TABS.find((s) => s === statusParam) ?? 'PENDING') as StatusTab;
   const page = Math.max(1, Number(pageParam) || 1);

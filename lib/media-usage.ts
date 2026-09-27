@@ -1,4 +1,6 @@
-import prisma from '@/lib/prisma';
+// Unfiltered on purpose: a trashed entity still references its media, so the
+// library must not delete a file that a restore would need back.
+import { prismaUnfiltered } from '@/lib/prisma';
 
 const BRANDING_SETTINGS_KEY = 'branding_config';
 
@@ -17,28 +19,28 @@ export async function countReferences(filename: string): Promise<number> {
   const contains = { contains: file };
 
   const counts = await Promise.all([
-    prisma.article.count({
+    prismaUnfiltered.article.count({
       where: { OR: [{ content: contains }, { coverImage: contains }, { ogImage: contains }] },
     }),
-    prisma.articleRevision.count({
+    prismaUnfiltered.articleRevision.count({
       where: { OR: [{ content: contains }, { coverImage: contains }, { ogImage: contains }] },
     }),
-    prisma.game.count({
+    prismaUnfiltered.game.count({
       where: { OR: [{ logoUrl: contains }, { logoDarkUrl: contains }, { bannerUrl: contains }] },
     }),
-    prisma.gameFamily.count({ where: { logoUrl: contains } }),
-    prisma.team.count({ where: { OR: [{ logoUrl: contains }, { imageDarkUrl: contains }] } }),
-    prisma.player.count({ where: { avatarUrl: contains } }),
-    prisma.organizer.count({ where: { logoUrl: contains } }),
-    prisma.sponsor.count({ where: { logoUrl: contains } }),
-    prisma.venue.count({ where: { mapUrl: contains } }),
-    prisma.tournament.count({
+    prismaUnfiltered.gameFamily.count({ where: { logoUrl: contains } }),
+    prismaUnfiltered.team.count({ where: { OR: [{ logoUrl: contains }, { imageDarkUrl: contains }] } }),
+    prismaUnfiltered.player.count({ where: { avatarUrl: contains } }),
+    prismaUnfiltered.organizer.count({ where: { logoUrl: contains } }),
+    prismaUnfiltered.sponsor.count({ where: { logoUrl: contains } }),
+    prismaUnfiltered.venue.count({ where: { mapUrl: contains } }),
+    prismaUnfiltered.tournament.count({
       where: { OR: [{ imageUrl: contains }, { imageDarkUrl: contains }, { bannerUrl: contains }] },
     }),
-    prisma.tournamentTeam.count({
+    prismaUnfiltered.tournamentTeam.count({
       where: { OR: [{ logoUrl: contains }, { logoDarkUrl: contains }] },
     }),
-    prisma.siteSetting.count({ where: { key: BRANDING_SETTINGS_KEY, value: contains } }),
+    prismaUnfiltered.siteSetting.count({ where: { key: BRANDING_SETTINGS_KEY, value: contains } }),
   ]);
 
   return counts.reduce((total, count) => total + count, 0);

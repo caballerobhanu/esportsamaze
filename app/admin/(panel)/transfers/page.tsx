@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Copy, Pencil, Trash2, Plus } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fDate } from '@/lib/admin-forms';
 import {
   createTransfer,
@@ -33,7 +33,7 @@ const TYPE_STYLES: Record<string, string> = {
 
 async function saveTransfer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const playerId = fStr(formData, 'playerId');
@@ -73,7 +73,7 @@ async function saveTransfer(formData: FormData) {
 
 async function deleteTransfer(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/transfers?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     try {

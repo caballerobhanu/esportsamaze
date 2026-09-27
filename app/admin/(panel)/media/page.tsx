@@ -14,7 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { deleteMedia, updateMediaAlt } from './actions';
 import { isR2Configured, retrieveMedia } from '@/lib/media-storage';
 import { publicUrlForFilename } from '@/lib/media-url';
@@ -113,7 +113,7 @@ export default async function AdminMediaPage({
     sync?: string;
   }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('media'))) redirect('/admin/login');
   const { q, deleted, inuse, altUpdated, sync } = await searchParams;
 
   const synced = sync === '1' ? await syncMediaAssets(true) : null;

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Copy, Trash2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { saveKraftonEvent, duplicateKraftonEvent, deleteKraftonEvent } from '../actions';
 import { KraftonEntriesManager } from '@/components/admin/krafton-entries-manager';
 
@@ -15,7 +15,7 @@ export default async function KraftonEventEditorPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ saved?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const { id } = await params;
   const { saved } = await searchParams;
 

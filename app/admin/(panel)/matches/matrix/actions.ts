@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import {
   getPlacementPoints,
   computeTotalPoints,
@@ -201,7 +201,7 @@ function parseUniversalDateAndTime(
 export async function bulkUniversalMatchImportAction(
   rows: BulkUniversalRowInput[]
 ): Promise<BulkUniversalImportResult> {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     redirect('/admin/login');
   }
 
@@ -728,7 +728,7 @@ export async function saveMultiMatchMatrixAction(
   tournamentId: string,
   matchesData: MatchMatrixSavePayload[]
 ): Promise<{ success: boolean; message: string; updatedMatchesCount: number }> {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     redirect('/admin/login');
   }
 
@@ -948,7 +948,7 @@ export interface BulkUniversalPlayerImportResult {
 export async function bulkUniversalPlayerMatchImportAction(
   rows: BulkUniversalPlayerRowInput[]
 ): Promise<BulkUniversalPlayerImportResult> {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     redirect('/admin/login');
   }
 
@@ -1903,7 +1903,7 @@ function scheduleMatchTitle(
 export async function bulkScheduleImportAction(
   rows: BulkScheduleRowInput[]
 ): Promise<BulkScheduleImportResult> {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     redirect('/admin/login');
   }
 

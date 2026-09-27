@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import {
   getMaintenanceSettings,
   updateMaintenanceSettings,
@@ -20,7 +20,7 @@ export const metadata = {
 
 async function saveSettingsAction(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('settings'))) {
     redirect('/admin/login');
   }
 
@@ -59,7 +59,7 @@ async function saveSettingsAction(formData: FormData) {
 
 async function toggleMaintenanceAction() {
   'use server';
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('settings'))) {
     redirect('/admin/login');
   }
 
@@ -69,7 +69,7 @@ async function toggleMaintenanceAction() {
 
 async function saveBrandingAction(updates: Partial<BrandingSettings>) {
   'use server';
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('settings'))) {
     redirect('/admin/login');
   }
 
@@ -81,7 +81,7 @@ async function uploadBrandingFileAction(
   target: 'favicon' | 'ogImage'
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   'use server';
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('settings'))) {
     return { success: false, error: 'Unauthorized' };
   }
 
@@ -107,7 +107,7 @@ async function uploadBrandingFileAction(
 }
 
 export default async function AdminSettingsPage() {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('settings'))) {
     redirect('/admin/login');
   }
 

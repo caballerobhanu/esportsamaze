@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { BulkJsonMatchImporter } from '@/components/admin/bulk-json-match-importer';
 import { MultiMatchMatrixGrid, type MatrixTournamentOption } from '@/components/admin/multi-match-matrix-grid';
 
@@ -11,7 +11,7 @@ export default async function AdminMatchMatrixPage({
 }: {
   searchParams: Promise<{ tournamentId?: string; stage?: string; view?: 'json' | 'matrix' }>;
 }) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     redirect('/admin/login');
   }
 

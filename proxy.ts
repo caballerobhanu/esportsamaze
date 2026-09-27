@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { canAccessAdminPath } from '@/lib/admin-permissions';
+import { decodeSessionPayload, type AdminSessionPayload } from '@/lib/admin-session';
+
 /**
  * Auth gate for the admin panel. Runs BEFORE routes render, so unauthenticated
  * requests get a real 307 instead of a streamed page with a client-side
@@ -36,16 +39,21 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-async function isValidSessionToken(token: string, secret: string): Promise<boolean> {
+async function verifySessionToken(token: string, secret: string): Promise<AdminSessionPayload | null> {
   const dot = token.indexOf('.');
-  const iatPart = token.slice(0, dot);
-  const iat = parseInt(iatPart, 36);
-  if (!Number.isFinite(iat) || iat <= 0) return false;
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (nowSec - iat > SESSION_TTL_SECONDS || iat > nowSec + 60) return false;
-  const expected = await hmacHex(`admin-session:${iatPart}`, secret);
+  if (dot <= 0 || dot === token.length - 1) return null;
+
+  const body = token.slice(0, dot);
   const given = token.slice(dot + 1);
-  return safeEqual(given, expected);
+  const expected = await hmacHex(`admin-session:${body}`, secret);
+  if (!safeEqual(given, expected)) return null;
+
+  const payload = decodeSessionPayload(body);
+  if (!payload) return null;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (nowSec - payload.i > SESSION_TTL_SECONDS || payload.i > nowSec + 60) return null;
+  return payload;
 }
 
 /** The dev-only auth secret must be a real secret, not a flag: 16 chars minimum. */
@@ -114,11 +122,11 @@ async function getEdgeAdminSecret(): Promise<string | null> {
     .join('');
 }
 
-async function hasValidSession(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
+async function getSession(token: string | undefined): Promise<AdminSessionPayload | null> {
+  if (!token) return null;
   const secret = await getEdgeAdminSecret();
-  if (!secret) return false;
-  return isValidSessionToken(token, secret);
+  if (!secret) return null;
+  return verifySessionToken(token, secret);
 }
 
 // Tabs that exist as route segments under /tournaments/<slug>/<tab>
@@ -175,38 +183,66 @@ function tournamentTabRedirect(request: NextRequest): NextResponse | null {
 }
 
 const ADMIN_SLUG = process.env.ADMIN_PATH || 'poorvith';
+const STAFF_SLUG = process.env.STAFF_PATH || 'desk';
 
 export async function proxy(request: NextRequest) {
   const tabRedirect = tournamentTabRedirect(request);
   if (tabRedirect) return tabRedirect;
 
   const { pathname } = request.nextUrl;
-  const isAuthed = await hasValidSession(request.cookies.get(COOKIE_NAME)?.value);
+  const session = await getSession(request.cookies.get(COOKIE_NAME)?.value);
+  const roles = session?.r ?? [];
 
-  // 1. Secret admin login route: /poorvith/login
+  // 1. Owner login: /poorvith/login (password only)
   if (pathname === `/${ADMIN_SLUG}/login` || pathname === `/${ADMIN_SLUG}/login/`) {
-    if (isAuthed) {
+    if (session) {
       return NextResponse.redirect(new URL('/admin', request.url));
     }
     return NextResponse.rewrite(new URL('/admin/login', request.url));
   }
 
-  // 2. Secret admin panel routes: /poorvith or /poorvith/*
+  // 2. Staff login: /desk/login (username + password). Always renders its form —
+  //    a deactivated account still holds a signature-valid cookie, and the panel
+  //    layout redirects it back here, so bouncing an authed visitor to /admin
+  //    would spin in a loop.
+  if (pathname === `/${STAFF_SLUG}/login` || pathname === `/${STAFF_SLUG}/login/`) {
+    return NextResponse.rewrite(new URL('/admin/staff-login', request.url));
+  }
+
+  // 3. Owner panel routes: /poorvith or /poorvith/*
   if (pathname === `/${ADMIN_SLUG}` || pathname.startsWith(`/${ADMIN_SLUG}/`)) {
-    if (!isAuthed) {
+    if (!session) {
       return NextResponse.redirect(new URL(`/${ADMIN_SLUG}/login`, request.url));
     }
     const adminPath = pathname.replace(new RegExp(`^\\/${ADMIN_SLUG}`), '/admin');
+    if (!canAccessAdminPath(roles, adminPath)) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
     return NextResponse.rewrite(new URL(`${adminPath}${request.nextUrl.search}`, request.url));
   }
 
-  // 3. Traditional /admin paths
+  // 4. Staff panel routes: /desk or /desk/*
+  if (pathname === `/${STAFF_SLUG}` || pathname.startsWith(`/${STAFF_SLUG}/`)) {
+    if (!session) {
+      return NextResponse.redirect(new URL(`/${STAFF_SLUG}/login`, request.url));
+    }
+    const adminPath = pathname.replace(new RegExp(`^\\/${STAFF_SLUG}`), '/admin');
+    if (!canAccessAdminPath(roles, adminPath)) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
+    return NextResponse.rewrite(new URL(`${adminPath}${request.nextUrl.search}`, request.url));
+  }
+
+  // 5. Traditional /admin paths
   if (pathname === '/admin' || pathname.startsWith('/admin/')) {
     // If not authenticated, return 404 disguise (hide admin completely from public & bots)
-    if (!isAuthed) {
+    if (!session) {
       return NextResponse.rewrite(new URL('/not-found', request.url), { status: 404 });
     }
-    // If authenticated, let the admin through
+    // Signed in but outside its role → back to the dashboard.
+    if (!canAccessAdminPath(roles, pathname)) {
+      return NextResponse.redirect(new URL('/admin', request.url));
+    }
     return NextResponse.next();
   }
 
@@ -214,5 +250,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/poorvith/:path*', '/:game/tournaments/:path*'],
+  // The two secret panel slugs are literals here (the runtime default) — changing
+  // ADMIN_PATH or STAFF_PATH also needs this list updated, as it always has.
+  matcher: ['/admin/:path*', '/poorvith/:path*', '/desk/:path*', '/:game/tournaments/:path*'],
 };

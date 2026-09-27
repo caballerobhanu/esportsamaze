@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Images } from 'lucide-react';
 import type { MediaAsset } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { countReferences } from '@/lib/media-usage';
 import { publicUrlForFilename } from '@/lib/media-url';
 import { deleteMedia } from '../actions';
@@ -32,7 +32,7 @@ export default async function MediaDuplicatesPage({
 }: {
   searchParams: Promise<{ deleted?: string; inuse?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('media'))) redirect('/admin/login');
   const { deleted, inuse } = await searchParams;
 
   const duplicateHashes = (

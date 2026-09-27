@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ArrowLeft, Eye, TrendingUp } from 'lucide-react';
+
+import { hasCapability } from '@/lib/admin-auth';
 
 import {
   PAGE_VIEW_LABELS,
@@ -138,6 +141,8 @@ export default async function AdminAnalyticsPage({
 }: {
   searchParams: Promise<{ range?: string; type?: string; q?: string; entity?: string }>;
 }) {
+  if (!(await hasCapability('analytics'))) redirect('/admin');
+
   const params = await searchParams;
 
   const rangeKey = (RANGES.find((r) => r.key === params.range)?.key ?? '30') as (typeof RANGES)[number]['key'];

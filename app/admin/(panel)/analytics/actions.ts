@@ -1,7 +1,9 @@
 'use server';
 
+import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
+import { hasCapability } from '@/lib/admin-auth';
 import {
   PAGE_VIEW_TYPES,
   resetPageViews,
@@ -11,6 +13,11 @@ import {
 } from '@/lib/page-views';
 import { updateViewCountSettings } from '@/lib/site-settings';
 import { isViewWindow, type ViewWindow } from '@/lib/view-window';
+
+/** Analytics and its settings are owner-only. */
+async function requireAnalytics(): Promise<void> {
+  if (!(await hasCapability('analytics'))) redirect('/admin');
+}
 
 /** The counts are rendered inside the public pages, so purge those too. */
 function revalidateAll(): void {
@@ -26,6 +33,7 @@ function readWindow(raw: FormDataEntryValue | null): ViewWindow | null {
 
 /** Flip which entity TYPES print their view count, and over what window. */
 export async function saveViewVisibility(formData: FormData): Promise<void> {
+  await requireAnalytics();
   await updateViewCountSettings({
     tournaments: formData.get('tournaments') === 'on',
     teams: formData.get('teams') === 'on',
@@ -49,6 +57,7 @@ function readType(raw: FormDataEntryValue | null): PageViewType | null {
  * history and changing what is shown are separate acts.
  */
 export async function resetEntityViews(formData: FormData): Promise<void> {
+  await requireAnalytics();
   const entityType = readType(formData.get('entityType'));
   const entityId = String(formData.get('entityId') || '');
   if (!entityType || !entityId) return;
@@ -59,6 +68,7 @@ export async function resetEntityViews(formData: FormData): Promise<void> {
 
 /** Deletes every recorded view for one entity type. */
 export async function resetTypeViews(formData: FormData): Promise<void> {
+  await requireAnalytics();
   const entityType = readType(formData.get('entityType'));
   if (!entityType) return;
 
@@ -72,6 +82,7 @@ export async function resetTypeViews(formData: FormData): Promise<void> {
  * the same rule.
  */
 export async function setPageVisibility(formData: FormData): Promise<void> {
+  await requireAnalytics();
   const rawType = String(formData.get('entityType') || '');
   const entityId = String(formData.get('entityId') || '');
   const value = String(formData.get('value') || 'auto');

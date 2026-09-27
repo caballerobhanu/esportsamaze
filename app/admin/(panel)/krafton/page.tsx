@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Clock, Copy, Plus, Trash2, Calendar } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import {
   deleteKraftonEvent,
   duplicateKraftonEvent,
@@ -19,7 +19,7 @@ export default async function KraftonAdminPage({
 }: {
   searchParams?: Promise<{ filter?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const { filter = 'all' } = (await searchParams) || {};
 
   const [allEvents, transfers, tournaments] = await Promise.all([

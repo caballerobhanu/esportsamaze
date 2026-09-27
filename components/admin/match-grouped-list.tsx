@@ -91,7 +91,8 @@ interface MatchGroupedListProps {
   allTournaments: TournamentOption[];
   currentTournamentId?: string;
   currentStageId?: string;
-  deleteMatchAction: (formData: FormData) => Promise<void>;
+  /** Omitted for a viewer without the destructive capability — the control hides. */
+  deleteMatchAction?: (formData: FormData) => Promise<void>;
   bulkDeleteMatchesAction?: (formData: FormData) => Promise<void>;
   duplicateMatchAction: (formData: FormData) => Promise<void>;
   updateMatchStatusAction?: (formData: FormData) => Promise<void>;
@@ -975,23 +976,25 @@ export function MatchGroupedList({
                                       </form>
 
                                       {/* Delete */}
-                                      <form action={deleteMatchAction}>
-                                        <input type="hidden" name="id" value={m.id} />
-                                        <input type="hidden" name="tournamentId" value={m.tournamentId} />
-                                        <input type="hidden" name="stageId" value={currentStageId || ''} />
-                                        <button
-                                          type="submit"
-                                          className="p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                          title="Delete Match"
-                                          onClick={(e) => {
-                                            if (!confirm(`Delete "${m.format}"?`)) {
-                                              e.preventDefault();
-                                            }
-                                          }}
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </form>
+                                      {deleteMatchAction && (
+                                        <form action={deleteMatchAction}>
+                                          <input type="hidden" name="id" value={m.id} />
+                                          <input type="hidden" name="tournamentId" value={m.tournamentId} />
+                                          <input type="hidden" name="stageId" value={currentStageId || ''} />
+                                          <button
+                                            type="submit"
+                                            className="p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                            title="Delete Match"
+                                            onClick={(e) => {
+                                              if (!confirm(`Delete "${m.format}"?`)) {
+                                                e.preventDefault();
+                                              }
+                                            }}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </form>
+                                      )}
                                     </div>
                                   </td>
                                 </tr>

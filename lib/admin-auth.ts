@@ -1,5 +1,18 @@
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import crypto from 'crypto';
+
+import prisma from '@/lib/prisma';
+import {
+  capabilitiesForRoles,
+  type AdminRole,
+  type Capability,
+} from '@/lib/admin-permissions';
+import {
+  decodeSessionPayload,
+  encodeSessionPayload,
+  OWNER_USER_ID,
+  type AdminSessionPayload,
+} from '@/lib/admin-session';
 
 const COOKIE_NAME = 'ea_admin';
 const SESSION_TTL_SECONDS = 60 * 60 * 24; // 24 hours
@@ -70,38 +83,49 @@ function getAdminSecret(): string {
 }
 
 // ---------------------------------------------------------------- session token
-// HMAC-signed `iat.signature` pair instead of a deterministic hash of the
-// secret: every login issues a fresh token (rotation), tokens expire with the
-// session (revocation window), and the cookie no longer doubles as a
+// HMAC-signed `<base64url(payload)>.<signature>` pair instead of a deterministic
+// hash of the secret: every login issues a fresh token (rotation), tokens expire
+// with the session (revocation window), and the cookie no longer doubles as a
 // password-equivalent verifiable offline.
 //
-// The same HMAC scheme is re-implemented with Web Crypto in proxy.ts (edge
-// runtime) — keep the two in sync.
+// The payload carries the account id and roles so the edge gate can scope a
+// request without a database read. The same scheme is re-implemented with Web
+// Crypto in proxy.ts (edge runtime) — keep the two in sync. Both share
+// lib/admin-session.ts for the payload encoding.
 function hmacHex(data: string, key: string): string {
   return crypto.createHmac('sha256', key).update(data).digest('hex');
 }
 
-export function createSessionToken(secret: string, issuedAtSec: number): string {
-  const iatPart = issuedAtSec.toString(36);
-  return `${iatPart}.${hmacHex(`admin-session:${iatPart}`, secret)}`;
+export function createSessionToken(secret: string, payload: AdminSessionPayload): string {
+  const body = encodeSessionPayload(payload);
+  return `${body}.${hmacHex(`admin-session:${body}`, secret)}`;
 }
 
-export function verifySessionToken(token: string, secret: string, nowSec: number): boolean {
+/** Verifies the signature and the age; returns the payload, or null. */
+export function verifySessionToken(
+  token: string,
+  secret: string,
+  nowSec: number
+): AdminSessionPayload | null {
   const dot = token.indexOf('.');
-  if (dot <= 0 || dot === token.length - 1) return false;
-  const iatPart = token.slice(0, dot);
+  if (dot <= 0 || dot === token.length - 1) return null;
+
+  const body = token.slice(0, dot);
   const sig = token.slice(dot + 1);
-  const iat = parseInt(iatPart, 36);
-  if (!Number.isFinite(iat) || iat <= 0) return false;
-  if (nowSec - iat > SESSION_TTL_SECONDS || iat > nowSec + 60) return false;
-  const expected = hmacHex(`admin-session:${iatPart}`, secret);
+  const expected = hmacHex(`admin-session:${body}`, secret);
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  const payload = decodeSessionPayload(body);
+  if (!payload) return null;
+  if (nowSec - payload.i > SESSION_TTL_SECONDS || payload.i > nowSec + 60) return null;
+  return payload;
 }
 
 // Hash both sides to fixed-length digests before comparing so the response
-// timing leaks nothing about the password (including its length).
+// timing leaks nothing about the password (including its length). This is the
+// OWNER password only — contributor accounts use lib/admin-password.ts.
 export function verifyPassword(input: string): boolean {
   if (!input) return false;
   const expected = process.env.ADMIN_PASSWORD;
@@ -164,20 +188,71 @@ export function clearFailedLogins(ip: string): void {
 
 // ---------------------------------------------------------------- session
 
-export async function isAdmin(): Promise<boolean> {
+export interface AdminSession {
+  /** AdminUser id, or OWNER_USER_ID for the env-password owner. */
+  userId: string;
+  roles: AdminRole[];
+}
+
+function toContributorRoles(roles: readonly string[]): AdminRole[] {
+  return roles.filter((role): role is AdminRole => role === 'EDITOR' || role === 'DATA');
+}
+
+/**
+ * The signed-in account, or null.
+ *
+ * A contributor's row must still exist and be active, so deactivating an account
+ * (or deleting it) revokes access on the very next request. The owner has no row.
+ */
+export async function getAdminSession(): Promise<AdminSession | null> {
   try {
     const store = await cookies();
     const token = store.get(COOKIE_NAME)?.value;
-    if (!token) return false;
-    return verifySessionToken(token, getAdminSecret(), Math.floor(Date.now() / 1000));
+    if (!token) return null;
+
+    const payload = verifySessionToken(token, getAdminSecret(), Math.floor(Date.now() / 1000));
+    if (!payload) return null;
+
+    if (payload.u === OWNER_USER_ID) {
+      return { userId: OWNER_USER_ID, roles: ['OWNER'] };
+    }
+
+    const user = await prisma.adminUser.findUnique({
+      where: { id: payload.u },
+      select: { id: true, roles: true, active: true },
+    });
+    if (!user || !user.active) return null;
+
+    return { userId: user.id, roles: toContributorRoles(user.roles ?? []) };
   } catch {
-    return false;
+    return null;
   }
 }
 
-export async function grantAdminSession(): Promise<void> {
+/** Any valid session, whatever its roles. Used for "is an admin looking?" UI. */
+export async function isAdmin(): Promise<boolean> {
+  return (await getAdminSession()) !== null;
+}
+
+export function capabilitiesForSession(session: AdminSession): Set<Capability> {
+  return capabilitiesForRoles(session.roles);
+}
+
+/** Whether the signed-in account may use a capability. No session → false. */
+export async function hasCapability(capability: Capability): Promise<boolean> {
+  const session = await getAdminSession();
+  if (!session) return false;
+  if (capability === 'dashboard') return true;
+  return capabilitiesForRoles(session.roles).has(capability);
+}
+
+export async function grantAdminSession(roles: AdminRole[], userId: string): Promise<void> {
   const store = await cookies();
-  const token = createSessionToken(getAdminSecret(), Math.floor(Date.now() / 1000));
+  const token = createSessionToken(getAdminSecret(), {
+    u: userId,
+    r: roles,
+    i: Math.floor(Date.now() / 1000),
+  });
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',

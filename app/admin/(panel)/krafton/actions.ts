@@ -4,13 +4,13 @@ import { redirect } from 'next/navigation';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { KRAFTON_CACHE_TAG } from '@/lib/krafton-data';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
 import { parsePlayerPaste, parseTeamPaste } from '@/lib/krafton-standings';
 import type { KraftonBoard } from '@prisma/client';
 
 function requireAdmin() {
-  return isAdmin();
+  return hasCapability('data');
 }
 
 function refresh(eventId?: string) {
@@ -104,7 +104,7 @@ export async function duplicateKraftonEvent(formData: FormData) {
 }
 
 export async function deleteKraftonEvent(formData: FormData) {
-  if (!(await requireAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/krafton?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.kraftonEvent.delete({ where: { id } });
@@ -248,7 +248,7 @@ export async function saveKraftonTransfer(formData: FormData) {
 }
 
 export async function deleteKraftonTransfer(formData: FormData | string) {
-  if (!(await requireAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/krafton?error=forbidden');
   const id = typeof formData === 'string' ? formData : fStr(formData, 'id');
   if (id) {
     try {

@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
 
 const COMMENT_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
@@ -24,7 +24,7 @@ function safeReturnStatus(formData: FormData): string {
 }
 
 export async function setCommentStatus(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('comments'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const status = fStr(formData, 'status');
@@ -45,7 +45,7 @@ export async function setCommentStatus(formData: FormData) {
 }
 
 export async function deleteComment(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('comments'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   if (!id) redirect('/admin/comments');

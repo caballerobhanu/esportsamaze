@@ -2,7 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { revalidatePath } from 'next/cache';
 
 /**
@@ -47,7 +47,7 @@ function detail<T>(value: T | null | undefined): T | null | undefined {
 }
 
 export async function updateInlineTeamResultAction(input: InlineTeamResultUpdateInput) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -83,7 +83,7 @@ export async function updateInlineTeamResultAction(input: InlineTeamResultUpdate
 }
 
 export async function batchUpdateTeamResultsAction(inputs: InlineTeamResultUpdateInput[]) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -120,7 +120,7 @@ export async function batchUpdateTeamResultsAction(inputs: InlineTeamResultUpdat
 }
 
 export async function updateInlinePlayerStatAction(input: InlinePlayerStatUpdateInput) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -153,7 +153,7 @@ export async function updateInlinePlayerStatAction(input: InlinePlayerStatUpdate
 }
 
 export async function batchUpdatePlayerStatsAction(inputs: InlinePlayerStatUpdateInput[]) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -186,7 +186,7 @@ export async function batchUpdatePlayerStatsAction(inputs: InlinePlayerStatUpdat
 }
 
 export async function deleteInlineTeamResultAction(id: string) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -200,7 +200,7 @@ export async function deleteInlineTeamResultAction(id: string) {
 }
 
 export async function deleteInlinePlayerStatAction(id: string) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('data'))) {
     throw new Error('Unauthorized');
   }
 
@@ -214,7 +214,7 @@ export async function deleteInlinePlayerStatAction(id: string) {
 }
 
 export async function purgeTournamentMatchesAction(tournamentId: string, stageId?: string | null) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('destructive'))) {
     throw new Error('Unauthorized');
   }
 

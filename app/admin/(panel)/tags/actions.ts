@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
 
 function revalidateTags(affectedSlugs: string[]) {
@@ -38,7 +38,7 @@ function normalizeTag(t: string): string {
 }
 
 export async function renameTag(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('tags'))) redirect('/admin/login');
 
   const from = normalizeTag(fStr(formData, 'from'));
   const to = normalizeTag(fStr(formData, 'to'));
@@ -53,7 +53,7 @@ export async function renameTag(formData: FormData) {
 }
 
 export async function mergeTag(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('tags'))) redirect('/admin/login');
 
   const from = normalizeTag(fStr(formData, 'from'));
   const to = normalizeTag(fStr(formData, 'to'));
@@ -67,7 +67,7 @@ export async function mergeTag(formData: FormData) {
 }
 
 export async function deleteTag(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('tags'))) redirect('/admin/login');
 
   const from = normalizeTag(fStr(formData, 'from'));
   if (!from) redirect('/admin/tags?error=invalid');

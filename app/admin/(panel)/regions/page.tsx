@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Globe2, Plus, Trash2 } from 'lucide-react';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr, uniqueSlug } from '@/lib/admin-forms';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ const labelCls = 'block text-[11px] font-bold uppercase tracking-wider text-slat
 
 async function saveRegion(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const id = fStr(formData, 'id');
   const name = fStr(formData, 'name').trim();
@@ -43,7 +43,7 @@ async function saveRegion(formData: FormData) {
 
 async function deleteRegion(formData: FormData) {
   'use server';
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/regions?error=forbidden');
   const id = fStr(formData, 'id');
   if (id) {
     await prisma.region.delete({ where: { id } }).catch(() => undefined);
@@ -58,7 +58,7 @@ export default async function AdminRegionsPage({
 }: {
   searchParams: Promise<{ edit?: string; saved?: string; error?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
   const { edit, saved, error } = await searchParams;
 
   const regions = await prisma.region.findMany({

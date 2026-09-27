@@ -14,7 +14,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { fStr } from '@/lib/admin-forms';
 import { parsePlayerTotalsPaste, parseTeamTotalsPaste } from '@/lib/tournament-totals-import';
 import { sliceKey, type AggregateScopeValue } from '@/lib/tournament-totals';
@@ -51,7 +51,7 @@ async function hasChildren(
 }
 
 export async function saveReportedTotals(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('data'))) redirect('/admin/login');
 
   const tournamentId = fStr(formData, 'tournamentId');
   const kind = fStr(formData, 'kind') === 'PLAYER' ? 'PLAYER' : 'TEAM';
@@ -176,7 +176,7 @@ export async function saveReportedTotals(formData: FormData) {
 }
 
 export async function deleteReportedTotals(formData: FormData) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('destructive'))) redirect('/admin/totals?error=forbidden');
 
   const tournamentId = fStr(formData, 'tournamentId');
   const id = fStr(formData, 'id');

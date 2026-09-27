@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { publicUrlForFilename } from '@/lib/media-url';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +10,7 @@ const PAGE_SIZE = 60;
 
 /** List registered media assets for the admin picker/library. */
 export async function GET(req: NextRequest) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('media'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
  * shared asset, so the next editor to use that image inherits it.
  */
 export async function PATCH(req: NextRequest) {
-  if (!(await isAdmin())) {
+  if (!(await hasCapability('media'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

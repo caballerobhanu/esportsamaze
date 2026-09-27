@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { Newspaper } from 'lucide-react';
-import { isAdmin } from '@/lib/admin-auth';
+import { hasCapability } from '@/lib/admin-auth';
 import { NewsEditor } from '@/components/admin/news-editor';
 import { listCategoryValues } from '@/lib/news-queries';
 
@@ -11,7 +11,7 @@ export default async function NewArticlePage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  if (!(await isAdmin())) redirect('/admin/login');
+  if (!(await hasCapability('news'))) redirect('/admin/login');
   const { error } = await searchParams;
   const categoryOptions = await listCategoryValues();
 

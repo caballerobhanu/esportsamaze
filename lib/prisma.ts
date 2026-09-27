@@ -3,6 +3,8 @@ import path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
+import { softDeleteExtension } from '@/lib/soft-delete';
+
 // Fallback to load .env / .env.production when invoked from standalone scripts (outside Next.js)
 if (!process.env.DATABASE_URL && typeof process !== 'undefined' && !process.env.NEXT_RUNTIME) {
   for (const file of ['.env.production', '.env.local', '.env']) {
@@ -44,8 +46,28 @@ function createPrismaClient() {
   });
 }
 
-export const prisma = createPrismaClient();
+// One pool, reused across dev hot reloads. The extension below is a thin wrapper
+// over this client, so rebuilding it costs nothing.
+const base = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = base;
+
+/**
+ * The client every read path should use: hides trashed tournaments, teams,
+ * players and matches automatically (see lib/soft-delete.ts).
+ *
+ * Cast back to `PrismaClient` on purpose. Prisma types an extended client with
+ * its own model delegates, which stop being assignable to `Prisma.TransactionClient`
+ * — and helpers all over this codebase take a `tx`. Keeping the base type means
+ * every existing call site (and `$transaction(async (tx) => …)`) still type-checks,
+ * while the runtime filter is unchanged.
+ */
+export const prisma = base.$extends(softDeleteExtension) as unknown as PrismaClient;
+
+/**
+ * The raw client — sees trashed rows too. Only the trash/restore/purge layer, the
+ * media-usage reference counter and the data-dump/repair scripts should use this.
+ */
+export const prismaUnfiltered = base;
 
 export default prisma;
