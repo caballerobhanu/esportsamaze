@@ -105,6 +105,8 @@ interface ArticleViewProps {
   adjacent: { prev: { slug: string; title: string } | null; next: { slug: string; title: string } | null };
   /** Admin-only preview mode: skips view ping/JSON-LD and shows a banner. */
   isPreview?: boolean;
+  /** Site-wide switch: hide this article's view count from visitors. */
+  showViewCount?: boolean;
   mostRead?: ArticleCardSelectData[];
   jsonLd?: Record<string, unknown>;
   faqJsonLd?: Record<string, unknown> | null;
@@ -374,6 +376,7 @@ export function ArticleView({
   relatedArticles,
   adjacent,
   isPreview = false,
+  showViewCount = true,
   mostRead,
   jsonLd,
   faqJsonLd,
@@ -607,10 +610,12 @@ export function ArticleView({
               <Clock className="h-3.5 w-3.5" />
               {article.readTimeMinutes} min read
             </span>
-            <span className="ed-label flex items-center gap-1 text-[11px]">
-              <Eye className="h-3.5 w-3.5" />
-              {article.views.toLocaleString('en-IN')} views
-            </span>
+            {showViewCount && (
+              <span className="ed-label flex items-center gap-1 text-[11px]">
+                <Eye className="h-3.5 w-3.5" />
+                {article.views.toLocaleString('en-IN')} views
+              </span>
+            )}
             {(commentCount ?? 0) > 0 && (
               <span className="ed-label flex items-center gap-1 text-[11px]">
                 <MessageSquare className="h-3.5 w-3.5" />

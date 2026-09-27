@@ -441,7 +441,8 @@ export default async function AdminAnalyticsPage({
         <h2 className="text-sm font-black uppercase tracking-tight">Show counts to visitors</h2>
         <p className="mt-1 max-w-2xl text-xs text-slate-500 dark:text-slate-400">
           The default for every page of a type. A single page can override this in the table above —
-          “Auto” clears that override and follows whatever is set here.
+          “Auto” clears that override and follows whatever is set here. News articles share one
+          switch for the whole site.
         </p>
 
         <form action={saveViewVisibility} className="mt-4 space-y-3">
@@ -478,6 +479,22 @@ export default async function AdminAnalyticsPage({
               </label>
             </div>
           ))}
+
+          <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 dark:border-white/5">
+            <label className="flex min-w-[160px] items-center gap-2.5 text-sm font-bold">
+              {/* News articles are a single site-wide switch: they carry no
+                  per-page override and no view window, unlike the types above. */}
+              <input
+                key={`box-articles-${visibility.articles}`}
+                type="checkbox"
+                name="articles"
+                defaultChecked={visibility.articles}
+                className="h-4 w-4 rounded border-slate-300 text-[#0A5FC4] focus:ring-[#0A5FC4]"
+              />
+              News articles
+            </label>
+          </div>
+
           <button
             type="submit"
             className="cursor-pointer rounded-lg bg-[#0A5FC4] px-4 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-blue-600"

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { formatArticleDateShort, getCategoryMeta, rankedCategoryPills, timeAgo } from '@/lib/news';
 import { getCategoryCounts, getMostRead, getTagCounts, listPublishedArticles } from '@/lib/news-queries';
+import { getViewCountSettings } from '@/lib/site-settings';
 import { baseUrl, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { CoverImage } from '@/components/news/cover-image';
 import { NewsCategoryPills } from '@/components/news/news-category-pills';
@@ -59,11 +60,12 @@ export default async function NewsHubPage({
   const page = Math.max(1, Number(pageParam) || 1);
   const isFiltered = Boolean(searchQuery || filterTag);
 
-  const [{ articles, total, totalPages }, categoryCounts, tags, mostRead] = await Promise.all([
+  const [{ articles, total, totalPages }, categoryCounts, tags, mostRead, viewSettings] = await Promise.all([
     listPublishedArticles({ q: searchQuery, tag: filterTag, page, perPage: PER_PAGE }),
     getCategoryCounts(),
     getTagCounts(14),
     !isFiltered ? getMostRead(30, 5) : Promise.resolve([]),
+    getViewCountSettings(),
   ]);
 
   // A page past the last one is a soft-404; don't serve an empty 200 for it.
@@ -317,7 +319,8 @@ export default async function NewsHubPage({
                         {a.title}
                       </span>
                       <span className="ed-label mt-1 block text-[10px]">
-                        {a.views.toLocaleString('en-IN')} views · {a.readTimeMinutes} min read
+                        {viewSettings.articles && `${a.views.toLocaleString('en-IN')} views · `}
+                        {a.readTimeMinutes} min read
                       </span>
                     </span>
                   </Link>

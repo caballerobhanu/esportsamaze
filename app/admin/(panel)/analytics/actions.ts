@@ -30,6 +30,7 @@ export async function saveViewVisibility(formData: FormData): Promise<void> {
     tournaments: formData.get('tournaments') === 'on',
     teams: formData.get('teams') === 'on',
     players: formData.get('players') === 'on',
+    articles: formData.get('articles') === 'on',
     tournamentWindow: readWindow(formData.get('tournamentWindow')) ?? 'LIFETIME',
     teamWindow: readWindow(formData.get('teamWindow')) ?? 'LIFETIME',
     playerWindow: readWindow(formData.get('playerWindow')) ?? 'LIFETIME',

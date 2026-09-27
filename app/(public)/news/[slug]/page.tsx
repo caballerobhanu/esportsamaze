@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { categoryCrumbs, categorySlug, computeWordCount, getCategoryMeta, isVisibleArticle } from '@/lib/news';
 import { getAdjacentArticles, getMostRead, getRelatedArticles } from '@/lib/news-queries';
+import { getViewCountSettings } from '@/lib/site-settings';
 import { absoluteUrl, breadcrumbJsonLd, faqPageJsonLd, newsArticleJsonLd } from '@/lib/seo';
 import { ArticleView } from '@/components/news/article-view';
 
@@ -127,7 +128,7 @@ export default async function ArticleDetailPage({
     notFound();
   }
 
-  const [relatedArticles, adjacent, mostRead, comments, commentCount] = await Promise.all([
+  const [relatedArticles, adjacent, mostRead, comments, commentCount, viewSettings] = await Promise.all([
     getRelatedArticles(article.slug, article.category, 3).catch(() => []),
     getAdjacentArticles(article.publishedAt).catch(() => ({ prev: null, next: null })),
     getMostRead(30, 5).catch(() => []),
@@ -138,6 +139,7 @@ export default async function ArticleDetailPage({
       select: { id: true, authorName: true, body: true, createdAt: true },
     }).catch(() => []),
     prisma.comment.count({ where: { articleId: article.id, status: 'APPROVED' } }).catch(() => 0),
+    getViewCountSettings(),
   ]);
 
   const categoryMeta = getCategoryMeta(article.category);
@@ -196,6 +198,7 @@ export default async function ArticleDetailPage({
       breadcrumbs={breadcrumbs}
       comments={comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() }))}
       commentCount={commentCount}
+      showViewCount={viewSettings.articles}
     />
   );
 }

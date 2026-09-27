@@ -133,6 +133,8 @@ export interface ViewCountSettings {
   tournaments: boolean;
   teams: boolean;
   players: boolean;
+  /** News article counts: one switch for the whole site — articles have no per-page override. */
+  articles: boolean;
   /** Which window each type's public count covers unless a page overrides it. */
   tournamentWindow: ViewWindow;
   teamWindow: ViewWindow;
@@ -144,6 +146,7 @@ export const DEFAULT_VIEW_COUNT_SETTINGS: ViewCountSettings = {
   tournaments: false,
   teams: false,
   players: false,
+  articles: false,
   tournamentWindow: 'LIFETIME',
   teamWindow: 'LIFETIME',
   playerWindow: 'LIFETIME',
@@ -164,6 +167,7 @@ export async function getViewCountSettings(): Promise<ViewCountSettings> {
       tournaments: parsed.tournaments ?? false,
       teams: parsed.teams ?? false,
       players: parsed.players ?? false,
+      articles: parsed.articles ?? false,
       tournamentWindow: isViewWindow(parsed.tournamentWindow) ? parsed.tournamentWindow : 'LIFETIME',
       teamWindow: isViewWindow(parsed.teamWindow) ? parsed.teamWindow : 'LIFETIME',
       playerWindow: isViewWindow(parsed.playerWindow) ? parsed.playerWindow : 'LIFETIME',
