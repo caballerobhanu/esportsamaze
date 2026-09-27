@@ -16,7 +16,8 @@ import { SectionHeading } from '@/components/home/section-heading';
 import { TournamentName } from '@/components/ui/tournament-name';
 import prisma from '@/lib/prisma';
 import { computeTournamentStandings, computeTournamentFraggers, type TeamStandingEntry, type PlayerFraggerEntry } from '@/lib/match-standings';
-import { getFrontPageArticles, type ArticleCardData } from '@/lib/news-queries';
+import { articleCardInclude, getFrontPageArticles, publishedVisibility, type ArticleCardData } from '@/lib/news-queries';
+import { getHomeCuration } from '@/lib/home-curation';
 import type { Metadata } from 'next';
 import { canonical, itemListJsonLd, serializeJsonLd } from '@/lib/seo';
 import { formatDate, formatPrizePool, cn } from '@/lib/utils';
@@ -240,7 +241,11 @@ export default async function HomePage() {
     prisma.player.count({ where: { isPlayer: true } }).catch(() => 0),
   ]);
 
-  // 7. Editorial pool feeding every magazine block (lead, latest, picks, brief)
+  // 7. Editorial pool. The wire is automatic (featured first, then newest); the
+  // desk-curated Front Page and Editor's Picks are placed on top of it, and the
+  // wire backfills any slot a curated story cannot fill (unpublished, or no
+  // cover — both blocks are photographic). An empty curation reproduces the
+  // automatic layout.
   let pool: ArticleCardData[] = [];
   try {
     pool = await getFrontPageArticles(24);
@@ -248,38 +253,48 @@ export default async function HomePage() {
     console.error('Failed to fetch articles for homepage:', err);
   }
 
-  const lead = pool.find((a) => a.coverImage) ?? pool[0] ?? null;
-  const usedIds = new Set<string>(lead ? [lead.id] : []);
-
-  const stories = pool.filter((a) => !usedIds.has(a.id) && a.coverImage).slice(0, 4);
-  stories.forEach((a) => usedIds.add(a.id));
-
-  // The Brief takes priority on unique stories; picks fill from what's left
-  // and may backfill from earlier stories so the photographic band still
-  // renders on a small editorial pool.
-  const brief = pool.filter((a) => !usedIds.has(a.id)).slice(0, 10);
-  brief.forEach((a) => usedIds.add(a.id));
-
-  let picks = pool.filter((a) => !usedIds.has(a.id) && a.coverImage);
-  if (picks.length < 3) {
-    picks = [
-      ...picks,
-      ...pool.filter(
-        (a) =>
-          a.coverImage &&
-          a.id !== lead?.id &&
-          !stories.some((s) => s.id === a.id) &&
-          !picks.some((p) => p.id === a.id)
-      ),
-    ];
-  }
-  const editorPicks: ArticleCardData[] = [];
-  for (const article of picks) {
-    if (editorPicks.length >= 3) break;
-    if (!editorPicks.some((p) => p.id === article.id)) {
-      editorPicks.push(article);
+  const curation = await getHomeCuration();
+  const curatedIds = [...curation.frontPage, ...curation.editorPicks];
+  let curated: ArticleCardData[] = [];
+  if (curatedIds.length > 0) {
+    try {
+      curated = await prisma.article.findMany({
+        where: { id: { in: curatedIds }, ...publishedVisibility() },
+        include: articleCardInclude,
+      });
+    } catch (err) {
+      console.error('Failed to fetch curated homepage articles:', err);
     }
   }
+  const curatedById = new Map(curated.map((a) => [a.id, a]));
+
+  const usedIds = new Set<string>();
+  // Fill a section: the curated ids first (in order), then the wire backfill.
+  const place = (list: ArticleCardData[], ids: string[], limit: number) => {
+    for (const id of ids) {
+      if (list.length >= limit) break;
+      const article = curatedById.get(id);
+      if (!article || usedIds.has(article.id) || !article.coverImage) continue;
+      list.push(article);
+      usedIds.add(article.id);
+    }
+    for (const article of pool) {
+      if (list.length >= limit) break;
+      if (usedIds.has(article.id) || !article.coverImage) continue;
+      list.push(article);
+      usedIds.add(article.id);
+    }
+  };
+
+  const frontPage: ArticleCardData[] = [];
+  place(frontPage, curation.frontPage, 5);
+  const editorPicks: ArticleCardData[] = [];
+  place(editorPicks, curation.editorPicks, 3);
+
+  const brief = pool.filter((a) => !usedIds.has(a.id)).slice(0, 10);
+
+  const lead = frontPage[0] ?? null;
+  const stories = frontPage.slice(1, 5);
 
   // 8. Circuit Tournaments & Krafton Rankings pre-computed on server (SSR)
   const [circuitTournaments] = await Promise.all([
