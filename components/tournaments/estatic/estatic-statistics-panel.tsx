@@ -23,6 +23,7 @@ import type {
 } from './panel-types';
 import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from '@/lib/standings-config';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { teamMapPoints } from '@/lib/team-stats';
 
@@ -1183,18 +1184,18 @@ export function EstaticStatisticsPanel({
             {daysList.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Day:</span>
-                <select
-                  value={selectedDay}
-                  onChange={(e) => setSelectedDay(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                >
-                  <option value="ALL">All Days ({daysList.length} Total)</option>
-                  {daysList.map((d) => (
-                    <option key={d} value={d}>
-                      Day {d}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-44">
+                  <SearchableSelect
+                    size="sm"
+                    showSearch={false}
+                    options={[
+                      { value: 'ALL', label: `All Days (${daysList.length} Total)` },
+                      ...daysList.map((d) => ({ value: d, label: `Day ${d}` })),
+                    ]}
+                    value={selectedDay}
+                    onChange={(v) => setSelectedDay(v)}
+                  />
+                </div>
               </div>
             )}
 
