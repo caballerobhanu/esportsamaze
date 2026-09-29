@@ -25,6 +25,7 @@ export function EditorsPicks({ articles }: { articles: ArticleCardData[] }) {
           <Link
             key={article.id}
             href={`/news/${article.slug}`}
+            prefetch={false}
             className="group relative block aspect-[4/3] w-full min-w-[82%] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-lg dark:border-white/10 dark:bg-slate-900 sm:min-w-[58%] lg:aspect-[3/4] lg:min-w-0"
           >
             <CoverImage

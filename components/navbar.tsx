@@ -292,7 +292,7 @@ export function Navbar() {
               </button>
               <span className="lg:hidden shrink-0 w-px h-5 bg-white/25 mx-3" aria-hidden="true" />
 
-              <Link href="/" className="flex min-w-0 items-center group">
+              <Link href="/" prefetch={false} className="flex min-w-0 items-center group">
                 <img
                   src="/logo.svg"
                   alt="eSportsAmaze"
@@ -304,7 +304,7 @@ export function Navbar() {
             {/* ZONE 2 — primary links, clustered just after the wordmark */}
             <nav className="hidden min-w-0 items-center gap-x-7 lg:ml-7 lg:flex">
               {NAV_ITEMS.map((item) => (
-                <Link key={item.label} href={item.href} className={NAV_LINK_CLASS}>
+                <Link key={item.label} href={item.href} prefetch={false} className={NAV_LINK_CLASS}>
                   {item.label}
                 </Link>
               ))}
@@ -335,6 +335,7 @@ export function Navbar() {
                         <Link
                           key={item.label}
                           href={item.href}
+                          prefetch={false}
                           onClick={() => setMoreOpen(false)}
                           className={MORE_LINK_CLASS}
                         >
@@ -432,6 +433,7 @@ export function Navbar() {
                   <Link
                     key={item.label}
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setMobileDrawerOpen(false)}
                     className={DRAWER_LINK_CLASS}
                   >
@@ -449,6 +451,7 @@ export function Navbar() {
                     <Link
                       key={item.label}
                       href={item.href}
+                      prefetch={false}
                       onClick={() => setMobileDrawerOpen(false)}
                       className={DRAWER_LINK_CLASS}
                     >

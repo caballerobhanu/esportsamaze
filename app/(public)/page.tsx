@@ -403,6 +403,7 @@ export default async function HomePage() {
                   <Link
                     key={tourney.id}
                     href={gameHref(tourney.game?.slug || DEFAULT_GAME_SLUG, `tournaments/${tourney.slug}`)}
+                    prefetch={false}
                     className="group block rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220]"
                   >
                     <div className="flex flex-col gap-3">
@@ -525,6 +526,7 @@ export default async function HomePage() {
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Link
                               href={playerHref({ slug: move.player.slug, ign: move.player.ign })}
+                              prefetch={false}
                               className="font-black text-sm text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 truncate"
                             >
                               {move.player.ign}
@@ -551,6 +553,7 @@ export default async function HomePage() {
                           {move.fromTeam ? (
                             <Link
                               href={teamHref({ slug: move.fromTeam.slug, tag: move.fromTeam.tag, name: move.fromTeam.name })}
+                              prefetch={false}
                               className="transition-colors hover:text-slate-900 dark:hover:text-white truncate max-w-[140px] sm:max-w-[180px]"
                             >
                               {move.fromTeam.name}
@@ -566,6 +569,7 @@ export default async function HomePage() {
                           ) : move.team ? (
                             <Link
                               href={teamHref({ slug: move.team.slug, tag: move.team.tag, name: move.team.name })}
+                              prefetch={false}
                               className="font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300 truncate max-w-[140px] sm:max-w-[180px]"
                             >
                               {move.team.name}

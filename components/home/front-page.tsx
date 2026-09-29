@@ -39,7 +39,7 @@ export function FrontPage({
           <div className="min-w-0 lg:col-span-6">
             {lead && (
               <article>
-                <Link href={`/news/${lead.slug}`} className="group block">
+                <Link href={`/news/${lead.slug}`} prefetch={false} className="group block">
                   <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-slate-900 shadow-xs">
                     <CoverImage
                       src={lead.coverImage}
@@ -76,7 +76,7 @@ export function FrontPage({
             <div className="grid min-w-0 gap-6 sm:grid-cols-2 lg:col-span-6 lg:gap-5">
               {stories.map((article) => (
                 <article key={article.id}>
-                  <Link href={`/news/${article.slug}`} className="group flex h-full flex-col gap-3">
+                  <Link href={`/news/${article.slug}`} prefetch={false} className="group flex h-full flex-col gap-3">
                     <div className="relative aspect-[16/9] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-slate-900 shadow-xs">
                       <CoverImage
                         src={article.coverImage}

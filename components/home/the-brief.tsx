@@ -28,6 +28,7 @@ export function TheBrief({ articles }: { articles: ArticleCardData[] }) {
             <Link
               key={article.id}
               href={`/news/${article.slug}`}
+              prefetch={false}
               className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#0A5FC4] hover:shadow-md dark:border-white/10 dark:bg-[#0b1220]"
             >
               <div className="space-y-3">

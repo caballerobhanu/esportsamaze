@@ -290,7 +290,7 @@ export function EventsSection({ initialTournaments = [] }: { initialTournaments?
               );
 
               return event.slug ? (
-                <Link key={event.id} href={gameHref(event.gameSlug, `tournaments/${event.slug}`)} className={cardClasses} title={event.name}>
+                <Link key={event.id} href={gameHref(event.gameSlug, `tournaments/${event.slug}`)} prefetch={false} className={cardClasses} title={event.name}>
                   {inner}
                 </Link>
               ) : (
