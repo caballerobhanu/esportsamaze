@@ -1,6 +1,8 @@
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { getSiteSettingModel } from '@/lib/site-settings';
+import { HOME_CURATION_TAG } from '@/lib/cache-tags';
+import { cachedRead } from '@/lib/cached-read';
 
 /**
  * Server-only storage for the home-page news curation.
@@ -45,7 +47,7 @@ function normaliseIds(value: unknown, max: number): string[] {
   return ids;
 }
 
-export async function getHomeCuration(): Promise<HomeNewsCuration> {
+async function readHomeCuration(): Promise<HomeNewsCuration> {
   try {
     const model = getSiteSettingModel();
     if (!model) return DEFAULT_HOME_CURATION;
@@ -63,6 +65,16 @@ export async function getHomeCuration(): Promise<HomeNewsCuration> {
     return DEFAULT_HOME_CURATION;
   }
 }
+
+/**
+ * The curation the home page renders. Cached because it is read on every home
+ * page request; `updateHomeCuration` purges the tag so the desk sees its own
+ * board on the next load.
+ */
+export const getHomeCuration = cachedRead(readHomeCuration, 'home-curation:read', {
+  tags: [HOME_CURATION_TAG],
+  revalidate: 300,
+});
 
 /** Replaces the curation outright (the board submits the full lists, in order). */
 export async function updateHomeCuration(next: HomeNewsCuration): Promise<HomeNewsCuration> {
@@ -83,6 +95,9 @@ export async function updateHomeCuration(next: HomeNewsCuration): Promise<HomeNe
 
   try {
     revalidatePath('/');
+    // `expire: 0` rather than 'max': 'max' is stale-while-revalidate, which would
+    // show the old board to the next visitor instead of waiting for the new one.
+    revalidateTag(HOME_CURATION_TAG, { expire: 0 });
   } catch {
     // May be called outside request context during tests
   }

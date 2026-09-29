@@ -1,7 +1,9 @@
 import prisma from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { isViewWindow, type ViewWindow } from '@/lib/view-window';
 import { SITE_CONTACT_EMAIL } from '@/lib/seo';
+import { SITE_SETTINGS_TAG } from '@/lib/cache-tags';
+import { cachedRead } from '@/lib/cached-read';
 
 export interface MaintenanceSettings {
   enabled: boolean;
@@ -59,7 +61,17 @@ export function getSiteSettingModel() {
   return (prisma as any).siteSetting;
 }
 
-export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
+/*
+ * Each accessor is an uncached core plus a cached wrapper.
+ *
+ * The public read sits in the request path of every public page — the layout reads
+ * maintenance settings twice, once for metadata and once for the body — so it is
+ * cached. The core stays uncached for three reasons: the mutators build their
+ * read-modify-write on it (so a stale entry can never be written back over a
+ * newer one), `cachedRead` falls through to it outside a request context, and it
+ * documents the query the cache is standing in for.
+ */
+async function readMaintenanceSettings(): Promise<MaintenanceSettings> {
   try {
     const model = getSiteSettingModel();
     if (!model) return DEFAULT_MAINTENANCE_SETTINGS;
@@ -88,10 +100,16 @@ export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
   }
 }
 
+export const getMaintenanceSettings = cachedRead(
+  readMaintenanceSettings,
+  'site-settings:maintenance',
+  { tags: [SITE_SETTINGS_TAG], revalidate: 300 }
+);
+
 export async function updateMaintenanceSettings(
   updates: Partial<MaintenanceSettings>
 ): Promise<MaintenanceSettings> {
-  const current = await getMaintenanceSettings();
+  const current = await readMaintenanceSettings();
   const merged: MaintenanceSettings = {
     ...current,
     ...updates,
@@ -118,6 +136,10 @@ export async function updateMaintenanceSettings(
   // Revalidate the public layout cache so changes take effect immediately
   try {
     revalidatePath('/', 'layout');
+    // `expire: 0` rather than 'max': 'max' is stale-while-revalidate, which serves
+    // the old settings to the next visitor instead of waiting for the fresh ones.
+    // The maintenance gate in particular must engage on the very next request.
+    revalidateTag(SITE_SETTINGS_TAG, { expire: 0 });
   } catch {
     // May be called outside request context during tests
   }
@@ -154,7 +176,7 @@ export const DEFAULT_VIEW_COUNT_SETTINGS: ViewCountSettings = {
 
 const VIEW_COUNT_SETTINGS_KEY = 'view_count_visibility';
 
-export async function getViewCountSettings(): Promise<ViewCountSettings> {
+async function readViewCountSettings(): Promise<ViewCountSettings> {
   try {
     const model = getSiteSettingModel();
     if (!model) return DEFAULT_VIEW_COUNT_SETTINGS;
@@ -178,10 +200,16 @@ export async function getViewCountSettings(): Promise<ViewCountSettings> {
   }
 }
 
+export const getViewCountSettings = cachedRead(
+  readViewCountSettings,
+  'site-settings:view-counts',
+  { tags: [SITE_SETTINGS_TAG], revalidate: 300 }
+);
+
 export async function updateViewCountSettings(
   updates: Partial<ViewCountSettings>
 ): Promise<ViewCountSettings> {
-  const merged = { ...(await getViewCountSettings()), ...updates };
+  const merged = { ...(await readViewCountSettings()), ...updates };
 
   const model = getSiteSettingModel();
   if (model) {
@@ -194,6 +222,8 @@ export async function updateViewCountSettings(
 
   try {
     revalidatePath('/', 'layout');
+    // `expire: 0` rather than 'max' — see the note in updateMaintenanceSettings.
+    revalidateTag(SITE_SETTINGS_TAG, { expire: 0 });
   } catch {
     // May be called outside request context during tests
   }
@@ -213,7 +243,7 @@ export const DEFAULT_BRANDING_SETTINGS: BrandingSettings = {
 
 const BRANDING_SETTINGS_KEY = 'branding_config';
 
-export async function getBrandingSettings(): Promise<BrandingSettings> {
+async function readBrandingSettings(): Promise<BrandingSettings> {
   try {
     const model = getSiteSettingModel();
     if (!model) return DEFAULT_BRANDING_SETTINGS;
@@ -237,10 +267,16 @@ export async function getBrandingSettings(): Promise<BrandingSettings> {
   }
 }
 
+export const getBrandingSettings = cachedRead(
+  readBrandingSettings,
+  'site-settings:branding',
+  { tags: [SITE_SETTINGS_TAG], revalidate: 3600 }
+);
+
 export async function updateBrandingSettings(
   updates: Partial<BrandingSettings>
 ): Promise<BrandingSettings> {
-  const current = await getBrandingSettings();
+  const current = await readBrandingSettings();
   const merged: BrandingSettings = {
     ...current,
     ...updates,
@@ -262,6 +298,8 @@ export async function updateBrandingSettings(
 
   try {
     revalidatePath('/', 'layout');
+    // `expire: 0` rather than 'max' — see the note in updateMaintenanceSettings.
+    revalidateTag(SITE_SETTINGS_TAG, { expire: 0 });
   } catch {
     // May be called outside request context during tests
   }

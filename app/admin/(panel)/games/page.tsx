@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { Pencil, Trash2, Plus } from 'lucide-react';
+import { GAMES_TAG } from '@/lib/cache-tags';
 import prisma from '@/lib/prisma';
 import { hasCapability } from '@/lib/admin-auth';
 import { fStr, fOpt, uniqueSlug } from '@/lib/admin-forms';
@@ -77,6 +78,11 @@ async function saveGame(formData: FormData) {
   }
 
   revalidatePath('/admin/games');
+  // Games and families are cached (lib/game-queries.ts), so every write here has to
+  // purge the tag too — a new game that never reaches the nav switcher is a silent
+  // failure, and `expire: 0` makes the next load wait for the fresh list rather than
+  // serving the old one.
+  revalidateTag(GAMES_TAG, { expire: 0 });
   redirect('/admin/games');
 }
 
@@ -96,6 +102,11 @@ async function deleteGame(formData: FormData) {
     await prisma.game.delete({ where: { id } });
   }
   revalidatePath('/admin/games');
+  // Games and families are cached (lib/game-queries.ts), so every write here has to
+  // purge the tag too — a new game that never reaches the nav switcher is a silent
+  // failure, and `expire: 0` makes the next load wait for the fresh list rather than
+  // serving the old one.
+  revalidateTag(GAMES_TAG, { expire: 0 });
   redirect('/admin/games');
 }
 
@@ -121,6 +132,11 @@ async function saveGameFamily(formData: FormData) {
   else await prisma.gameFamily.create({ data });
 
   revalidatePath('/admin/games');
+  // Games and families are cached (lib/game-queries.ts), so every write here has to
+  // purge the tag too — a new game that never reaches the nav switcher is a silent
+  // failure, and `expire: 0` makes the next load wait for the fresh list rather than
+  // serving the old one.
+  revalidateTag(GAMES_TAG, { expire: 0 });
   redirect('/admin/games?saved=family');
 }
 
@@ -139,6 +155,11 @@ async function deleteGameFamily(formData: FormData) {
     await prisma.gameFamily.delete({ where: { id } });
   }
   revalidatePath('/admin/games');
+  // Games and families are cached (lib/game-queries.ts), so every write here has to
+  // purge the tag too — a new game that never reaches the nav switcher is a silent
+  // failure, and `expire: 0` makes the next load wait for the fresh list rather than
+  // serving the old one.
+  revalidateTag(GAMES_TAG, { expire: 0 });
   redirect('/admin/games?saved=family-deleted');
 }
 

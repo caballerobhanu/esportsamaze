@@ -1,8 +1,9 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import prisma from '@/lib/prisma';
+import { GAMES_TAG } from '@/lib/cache-tags';
 import { revalidateTournamentPages } from '@/lib/revalidate-tournament';
 import { hasCapability } from '@/lib/admin-auth';
 import {
@@ -1041,12 +1042,18 @@ export async function bulkUniversalPlayerMatchImportAction(
         : ([] as PlayerIdentity[]),
     ]);
 
+    // A game to hang the imported rows on. Only created when the database has none
+    // at all — and because the game list is cached (lib/game-queries.ts), creating one
+    // here has to purge the tag, or it stays invisible to the nav switcher.
+    const existingDefaultGame =
+      (await prisma.game.findFirst({ where: { slug: 'bgmi' } })) || (await prisma.game.findFirst());
     const defaultGame =
-      (await prisma.game.findFirst({ where: { slug: 'bgmi' } })) ||
-      (await prisma.game.findFirst()) ||
+      existingDefaultGame ||
       (await prisma.game.create({
         data: { name: 'Battlegrounds Mobile India', slug: 'bgmi', genre: 'BATTLE_ROYALE' },
       }));
+
+    if (!existingDefaultGame) revalidateTag(GAMES_TAG, { expire: 0 });
 
     let totalCreatedMatches = 0;
     let totalUpdatedMatches = 0;
