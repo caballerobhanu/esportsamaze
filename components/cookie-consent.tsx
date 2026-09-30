@@ -71,7 +71,7 @@ export function CookieConsent() {
       <p className="mt-1.5 text-xs leading-relaxed text-[var(--ed-stone)]">
         We use local storage for site preferences and serve ads through Google AdSense, whose
         partners may use cookies to personalize ads. See our{' '}
-        <Link href="/privacy-policy" className="font-semibold text-[var(--ed-blue)] underline underline-offset-2">
+        <Link href="/privacy-policy" prefetch={false} className="font-semibold text-[var(--ed-blue)] underline underline-offset-2">
           Privacy Policy
         </Link>
         .
