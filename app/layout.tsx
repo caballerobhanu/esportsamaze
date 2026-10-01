@@ -89,12 +89,20 @@ export default function RootLayout({
         {adsenseClient && <meta name="google-adsense-account" content={adsenseClient} />}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: siteJsonLd }} />
+        {/*
+          `beforeInteractive` so `adsbygoogle.js` — and with it Google's certified
+          CMP, which registers `window.__tcfapi` — is fetched ahead of hydration.
+          Ad units only mount after hydration, so the TC string exists before any
+          ad request; with `afterInteractive` the tag could still be in flight when
+          the first unit pushed. Per Next.js docs this is the strategy for consent
+          managers, and it does not block hydration.
+        */}
         {adsenseClient && (
           <Script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
             crossOrigin="anonymous"
-            strategy="afterInteractive"
+            strategy="beforeInteractive"
           />
         )}
         <ThemeProvider defaultTheme="light">
