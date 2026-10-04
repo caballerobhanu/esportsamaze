@@ -41,6 +41,7 @@ export function TeamOverviewPanel({
 }) {
   const titles = team.won.length;
   const runnerUp = team.runnerUp.length;
+  const thirdPlace = team.tournaments.filter((event) => event.finalRank === 3).length;
   const rosterCount = team.players.filter((player) => player.isPlayer).length;
 
   const recentEvents = [...team.tournaments].sort(
@@ -86,9 +87,9 @@ export function TeamOverviewPanel({
             <Trophy className="h-6 w-6 shrink-0 text-amber-400" />
           </div>
 
-          {titles > 0 || runnerUp > 0 ? (
+          {titles > 0 || runnerUp > 0 || thirdPlace > 0 ? (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-amber-300/50 bg-amber-400/10 p-5">
                   <p className="text-3xl font-black tracking-tight text-amber-600 dark:text-amber-300">
                     {titles}
@@ -105,6 +106,14 @@ export function TeamOverviewPanel({
                     Runner-up finish{runnerUp === 1 ? '' : 'es'}
                   </p>
                 </div>
+                <div className="rounded-2xl border border-amber-700/30 bg-amber-700/5 p-5 dark:border-amber-600/30 dark:bg-amber-600/10">
+                  <p className="text-3xl font-black tracking-tight text-amber-700 dark:text-amber-500">
+                    {thirdPlace}
+                  </p>
+                  <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[.16em] text-amber-700/80 dark:text-amber-500/80">
+                    Third-place finish{thirdPlace === 1 ? '' : 'es'}
+                  </p>
+                </div>
               </div>
               <Link
                 href={gameHref(gameSlugOf(team), `teams/${team.slug || team.id}/titles`)}
@@ -115,7 +124,7 @@ export function TeamOverviewPanel({
             </>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400 dark:border-white/10">
-              No championship or runner-up finishes on record yet.
+              No podium finishes (1st&ndash;3rd) on record yet.
             </div>
           )}
         </section>

@@ -500,6 +500,21 @@ export const loadTeamContext = unstable_cache(
     // The reported-only events are appended out of order, so re-sort the whole set.
     tournaments.sort((a, b) => (b.startedAtMs ?? 0) - (a.startedAtMs ?? 0));
 
+    // A championship is recorded two ways and the admin enters them in different
+    // editors: the team's own event row (`finalRank` 1/2, which the trophy cabinet
+    // podium reads) and the tournament's winner/runner-up relation. Union them so a
+    // finish recorded in either place counts, keyed by event so a row carrying both
+    // is still only counted once.
+    const championships = new Map<string, { id: string; name: string; slug: string }>();
+    const runnerUpFinishes = new Map<string, { id: string; name: string; slug: string }>();
+    for (const event of tournaments) {
+      const place = { id: event.tournamentId, name: event.name, slug: event.slug };
+      if (event.finalRank === 1) championships.set(event.tournamentId, place);
+      else if (event.finalRank === 2) runnerUpFinishes.set(event.tournamentId, place);
+    }
+    for (const t of team.tournamentsWon) championships.set(t.id, { id: t.id, name: t.name, slug: t.slug });
+    for (const t of team.tournamentsRunnerUp) runnerUpFinishes.set(t.id, { id: t.id, name: t.name, slug: t.slug });
+
     const socials = (team.socialLinks ?? {}) as Record<string, unknown>;
 
     return {
@@ -533,8 +548,8 @@ export const loadTeamContext = unstable_cache(
         isPlayer: player.isPlayer,
       })),
       tournaments,
-      won: team.tournamentsWon.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
-      runnerUp: team.tournamentsRunnerUp.map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
+      won: [...championships.values()],
+      runnerUp: [...runnerUpFinishes.values()],
       transfers: [
         ...moveRows,
         // Admin-recorded moves that the rosters do not already imply.
