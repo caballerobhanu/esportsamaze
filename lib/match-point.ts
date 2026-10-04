@@ -10,6 +10,13 @@
 
 import { stageKey, type MatchPointRule, type MatchPointThresholdMode, type StandingsMatchLite } from './standings-config';
 
+/** The match in which a team first reached the threshold (its cumulative went >= the threshold). */
+export interface MatchPointReach {
+  matchId: string;
+  matchNumber: number;
+  day: string;
+}
+
 export interface MatchPointResult {
   applies: boolean;
   threshold: number | null;
@@ -23,6 +30,8 @@ export interface MatchPointResult {
   decisiveMatchNumber: number | null;
   /** Teams at/above the threshold on the points shown (current cumulative). */
   onMatchPointTeamIds: string[];
+  /** teamId → the match in which they first reached the threshold. */
+  reachedMatchByTeam: Record<string, MatchPointReach>;
   /** The stage is finished: every match completed, or the match limit reached. */
   complete: boolean;
 }
@@ -39,6 +48,7 @@ const EMPTY: MatchPointResult = {
   decisiveMatchId: null,
   decisiveMatchNumber: null,
   onMatchPointTeamIds: [],
+  reachedMatchByTeam: {},
   complete: false,
 };
 
@@ -136,6 +146,7 @@ export function computeMatchPoint(
 
   /* ── walk the stage in order ── */
   const running = new Map<string, number>(Object.entries(base));
+  const reachedMatchByTeam: Record<string, MatchPointReach> = {};
   let championTeamId: string | null = null;
   let championVia: 'SMASH' | 'POINTS' | null = null;
   let decisiveMatchId: string | null = null;
@@ -157,7 +168,15 @@ export function computeMatchPoint(
     }
 
     for (const r of match.results) {
-      running.set(r.teamId, (running.get(r.teamId) ?? 0) + (r.totalPoints || 0));
+      const next = (running.get(r.teamId) ?? 0) + (r.totalPoints || 0);
+      running.set(r.teamId, next);
+      if (next >= threshold && !reachedMatchByTeam[r.teamId]) {
+        reachedMatchByTeam[r.teamId] = {
+          matchId: match.id,
+          matchNumber: match.overallMatchNumber ?? match.matchNumber ?? i + 1,
+          day: String(match.day),
+        };
+      }
     }
   }
 
@@ -188,6 +207,7 @@ export function computeMatchPoint(
     decisiveMatchId,
     decisiveMatchNumber,
     onMatchPointTeamIds,
+    reachedMatchByTeam,
     complete,
   };
 }

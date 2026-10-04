@@ -70,6 +70,8 @@ test('a team at/above the threshold that then wins is champion ("not the same ma
   assert.equal(res.championTeamId, 'A');
   assert.equal(res.championVia, 'SMASH');
   assert.equal(res.decisiveMatchNumber, 6);
+  // A crossed the threshold in match 5 and won it in match 6 — different matches.
+  assert.equal(res.reachedMatchByTeam.A?.matchNumber, 5);
 });
 
 test('match limit reached with no smash crowns the points leader', () => {

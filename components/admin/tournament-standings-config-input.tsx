@@ -1083,7 +1083,7 @@ function BonusRulesEditor({
     list.includes(name) ? list.filter((s) => s !== name) : [...list, name];
 
   const stageChips = (selected: string[], onToggle: (name: string) => void, activeCls: string) => (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1">
       {stageNames.map((name) => {
         const active = selected.includes(name);
         return (
@@ -1091,10 +1091,10 @@ function BonusRulesEditor({
             key={name}
             type="button"
             onClick={() => onToggle(name)}
-            className={`rounded-lg border px-2 py-1 text-[11px] font-bold transition ${
+            className={`rounded-md px-2 py-1 text-[11px] font-bold transition-colors ${
               active
                 ? activeCls
-                : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+                : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
             }`}
           >
             {name}
@@ -1174,7 +1174,7 @@ function BonusRulesEditor({
 
           <div>
             <label className={labelCls}>Days — leave empty for every day (relative day numbers)</label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {Array.from({ length: 12 }, (_, i) => i + 1).map((dayNum) => {
                 const active = (rule.days ?? []).includes(dayNum);
                 return (
@@ -1189,10 +1189,10 @@ function BonusRulesEditor({
                           : [...current, dayNum].sort((a, b) => a - b),
                       });
                     }}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
+                    className={`rounded-md px-2 py-1 text-[11px] font-bold transition-colors ${
                       active
-                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                        : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
                     }`}
                   >
                     Day {dayNum}
@@ -1207,7 +1207,7 @@ function BonusRulesEditor({
             {stageChips(
               rule.sourceStages,
               (name) => update(idx, { sourceStages: toggleStage(rule.sourceStages, name) }),
-              'border-[#0A5FC4] bg-[#0A5FC4]/10 text-[#0A5FC4]',
+              'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/25 dark:text-blue-300',
             )}
           </div>
 
@@ -1216,7 +1216,7 @@ function BonusRulesEditor({
             {stageChips(
               rule.targetStages,
               (name) => update(idx, { targetStages: toggleStage(rule.targetStages, name) }),
-              'border-amber-500 bg-amber-400/15 text-amber-700 dark:text-amber-300',
+              'bg-amber-400/15 text-amber-700 dark:text-amber-300',
             )}
           </div>
 
@@ -1272,7 +1272,7 @@ function MatchPointEditor({
     checkpointDay: 2,
     matchLimit: null,
   };
-  const update = (patch: Partial<MatchPointRule>) => onChange({ ...base, enabled: true });
+  const update = (patch: Partial<MatchPointRule>) => onChange({ ...base, ...patch, enabled: true });
   const numberField = (
     value: number | null | undefined,
     onSet: (v: number | undefined) => void,

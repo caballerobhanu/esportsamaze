@@ -19,7 +19,6 @@ import {
   HelpCircle,
   Clock,
   ArrowRight,
-  Target,
 } from 'lucide-react';
 import { TournamentScheduleCalendar } from '../tournament-schedule-calendar';
 import {
@@ -29,6 +28,7 @@ import {
   type StageGroupSquad,
 } from '../tournament-stage-format-card';
 import { pendingSeatLabel, resolvePendingTeamId } from '@/lib/stage-groups';
+import type { MatchPointRule } from '@/lib/standings-config';
 
 /** The shape of a roster entry as an editor writes it, before normalisation. */
 interface RosterEntryLike {
@@ -466,6 +466,13 @@ export function EstaticFormatPanel({
         }
       }
 
+      // Match point / smash rule callout for the stage it applies to.
+      const mp = standingsConfig?.matchPoint;
+      const matchPointNote =
+        mp?.enabled && mp.showFormatRules && sameStageName(mp.stage, stage.name)
+          ? matchPointNoteText(mp)
+          : null;
+
       return {
         stageId: stage.id,
         sequence: stage.sequence || sIdx + 1,
@@ -506,6 +513,7 @@ export function EstaticFormatPanel({
             }))
           : rules,
         groups,
+        matchPointNote,
       };
     });
   }, [stages, matches, teamMap, standingsConfig, formatDetails, groupRankings]);
@@ -885,41 +893,27 @@ ${stageSummary}
           </div>
         )}
       </section>
-
-      {/* Match Point / Smash Rule */}
-      {standingsConfig?.matchPoint?.enabled && standingsConfig.matchPoint.showFormatRules && (
-        <section className="rounded-3xl border border-amber-400/40 bg-amber-400/5 p-6 shadow-sm dark:border-amber-400/30 dark:bg-[#0b1220] sm:p-8">
-          <div className="mb-4 flex items-center gap-3">
-            <Target className="h-5 w-5 text-amber-500" />
-            <h3 className="text-xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
-              {standingsConfig.matchPoint.label}
-            </h3>
-          </div>
-          <div className="space-y-2 text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-            <p>
-              The{' '}
-              <strong className="font-black text-slate-900 dark:text-white">
-                {standingsConfig.matchPoint.thresholdLabel}
-              </strong>{' '}
-              {standingsConfig.matchPoint.thresholdMode === 'FIXED'
-                ? `is fixed at ${standingsConfig.matchPoint.fixedThreshold} points.`
-                : `is set at the end of Day ${standingsConfig.matchPoint.checkpointDay} — the top team's points plus ${standingsConfig.matchPoint.leaderOffset}.`}
-            </p>
-            <p>
-              A team must reach the {standingsConfig.matchPoint.thresholdLabel} and then win a match
-              — not the same match in which it reaches it — to be crowned champion. The event can
-              therefore end with a champion who is not top of the points table.
-            </p>
-            <p>
-              {standingsConfig.matchPoint.matchLimit
-                ? `The stage runs to ${standingsConfig.matchPoint.matchLimit} matches; if no team wins by then, the points leader is champion.`
-                : 'Play continues until a team wins.'}
-            </p>
-          </div>
-        </section>
-      )}
     </div>
   );
+}
+
+function sameStageName(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const ka = norm(a);
+  const kb = norm(b);
+  return Boolean(ka && kb) && (ka === kb || ka.includes(kb) || kb.includes(ka));
+}
+
+/** Auto-generated wording for the match point / smash rule, from its config. */
+function matchPointNoteText(rule: MatchPointRule): string {
+  const threshold =
+    rule.thresholdMode === 'FIXED'
+      ? `a fixed ${rule.fixedThreshold} points`
+      : `the top team's points at the end of Day ${rule.checkpointDay} plus ${rule.leaderOffset}`;
+  const limit = rule.matchLimit
+    ? `The stage runs to ${rule.matchLimit} matches; if no team wins by then, the points leader is champion.`
+    : 'Play continues until a team wins.';
+  return `${rule.label}: the ${rule.thresholdLabel} is ${threshold}. A team must reach the ${rule.thresholdLabel} and then win a match — not the same match it reaches it in — to be crowned champion. ${limit}`;
 }
 
 function getOrdinal(n: number): string {

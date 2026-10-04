@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Flame,
   AlertCircle,
+  Target,
 } from 'lucide-react';
 import { ThemeLogo } from './estatic/theme-logo';
 import type { PendingSeatSource } from '@/lib/stage-groups';
@@ -105,6 +106,8 @@ export interface StageFormatData {
   description?: string | null;
   rules: StageAdvancementRule[];
   groups: Record<string, StageGroupSquad[]>;
+  /** Match point / smash rule explanation, shown as a callout when this stage uses one. */
+  matchPointNote?: string | null;
 }
 
 interface TournamentStageFormatCardProps {
@@ -328,6 +331,16 @@ export function TournamentStageFormatCard({
       {/* ── EXPANDED BODY: ADVANCEMENT RULES + GROUP DRAW ── */}
       {isExpanded && (
         <div className="space-y-6 p-6">
+          {/* ── MATCH POINT / SMASH RULE ── */}
+          {stage.matchPointNote && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-400/40 bg-amber-400/10 p-4 dark:border-amber-400/30 dark:bg-amber-400/[0.06]">
+              <Target className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                {stage.matchPointNote}
+              </p>
+            </div>
+          )}
+
           {/* ── ADVANCEMENT & ELIMINATION PROTOCOL ── */}
           {stage.rules.length > 0 && (
             <div>

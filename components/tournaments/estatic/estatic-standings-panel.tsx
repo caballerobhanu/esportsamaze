@@ -819,6 +819,22 @@ export function EstaticStandingsPanel({
     return COLOR_MAP[colorKey] || COLOR_MAP.blue;
   };
 
+  // Match-point threshold line: shown only in points order so the line falls between the right
+  // rows. Teams level with the threshold count as above it.
+  const mpThreshold = matchPoint?.result.threshold ?? null;
+  const showThresholdLine = Boolean(
+    matchPoint && mpThreshold !== null && (sortKey === 'rank' || sortKey === 'totalPoints'),
+  );
+  const aboveThresholdCount = showThresholdLine
+    ? sortedStandings.filter((t) => t.totalPoints >= (mpThreshold as number)).length
+    : 0;
+  const visibleStandingColumnCount =
+    2 + // rank + squad
+    (['mp', 'wwcd', 'elims', 'place', 'bonus', 'total', 'form'] as const).filter((k) =>
+      visibleColumns.has(k),
+    ).length +
+    (headstart.rule ? 1 : 0);
+
   return (
     <div className="space-y-5">
       {/* ============ NAVIGATION & STAGE SELECTOR ============ */}
@@ -1132,8 +1148,8 @@ export function EstaticStandingsPanel({
       {matchPoint && matchPoint.result.threshold !== null && (
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-xs shadow-sm dark:border-amber-400/30 dark:bg-amber-400/[0.06]">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
-              <Target className="h-3 w-3" /> {matchPoint.rule.label}
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+              <Target className="h-3.5 w-3.5" /> {matchPoint.rule.label}
             </span>
             <span className="font-black text-amber-700 dark:text-amber-300">
               {matchPoint.rule.thresholdLabel}: {matchPoint.result.threshold}
@@ -1159,17 +1175,17 @@ export function EstaticStandingsPanel({
       {sourceBonus && (
         <div className="space-y-3">
           {sourceBonus.rule.showPeriodStandings && sourceBonus.computation.periods.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-              <span className="mr-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                {sourceBonus.rule.label}:
+            <div className="flex flex-wrap items-center gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+              <span className="px-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                {sourceBonus.rule.label}
               </span>
               <button
                 type="button"
                 onClick={() => setActivePeriodKey(null)}
-                className={`rounded-xl px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer ${
                   activePeriodKey === null
-                    ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25'
-                    : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                    ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/25 dark:text-blue-300'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
                 }`}
               >
                 Overall
@@ -1179,10 +1195,10 @@ export function EstaticStandingsPanel({
                   key={p.key}
                   type="button"
                   onClick={() => setActivePeriodKey(p.key)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider transition-colors cursor-pointer ${
                     activePeriodKey === p.key
-                      ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25'
-                      : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                      ? 'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/25 dark:text-blue-300'
+                      : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
                   }`}
                 >
                   {p.label}
@@ -1305,7 +1321,7 @@ export function EstaticStandingsPanel({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/10">
-              {sortedStandings.map((team) => {
+              {sortedStandings.map((team, idx) => {
                 const meta = teams[team.teamId];
                 const cleanName = meta?.displayName || meta?.name || team.teamName;
                 const teamTag = meta?.tag || cleanName.slice(0, 4).toUpperCase();
@@ -1323,18 +1339,34 @@ export function EstaticStandingsPanel({
 
                 const form = (formByTeam.get(team.teamId) ?? []).slice(-5).reverse();
                 const isChampion = Boolean(matchPoint && team.teamId === matchPoint.result.championTeamId);
+                const reachedMatch = matchPoint?.result.reachedMatchByTeam[team.teamId] ?? null;
+
+                const thresholdLine = showThresholdLine ? (
+                  <tr aria-hidden>
+                    <td colSpan={visibleStandingColumnCount} className="px-4 py-1.5">
+                      <div className="flex items-center gap-3">
+                        <span className="h-px flex-1 bg-amber-400/50" />
+                        <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                          {matchPoint?.rule.thresholdLabel}: {mpThreshold} pts
+                        </span>
+                        <span className="h-px flex-1 bg-amber-400/50" />
+                      </div>
+                    </td>
+                  </tr>
+                ) : null;
 
                 return (
-                  <tr
-                    key={team.teamId}
-                    className={`group text-xs sm:text-sm transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5 ${
-                      isChampion
-                        ? 'bg-amber-400/[0.08]'
-                        : isPrec
-                        ? 'bg-blue-50/20 dark:bg-blue-950/10'
-                        : ''
-                    }`}
-                  >
+                  <React.Fragment key={team.teamId}>
+                    {showThresholdLine && aboveThresholdCount === 0 && idx === 0 && thresholdLine}
+                    <tr
+                      className={`group text-xs sm:text-sm transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5 ${
+                        isChampion
+                          ? 'bg-amber-400/[0.08]'
+                          : isPrec
+                          ? 'bg-blue-50/20 dark:bg-blue-950/10'
+                          : ''
+                      }`}
+                    >
                     {/* Rank Badge with left border accent */}
                     <td
                       className={`py-2.5 sm:py-3 pl-3 sm:pl-5 text-center font-black transition-colors border-l-[3px] sm:border-l-4 ${
@@ -1423,17 +1455,36 @@ export function EstaticStandingsPanel({
 
                           {/* Champion (match point / smash rule) */}
                           {isChampion && matchPoint && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 shadow-sm shadow-amber-400/25">
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
+                              title={
+                                matchPoint.result.championVia === 'SMASH' && matchPoint.result.decisiveMatchNumber != null
+                                  ? `Won via ${matchPoint.rule.label} in Match ${matchPoint.result.decisiveMatchNumber}`
+                                  : 'Champion on points'
+                              }
+                            >
                               <Crown className="h-3 w-3 shrink-0" />
-                              {matchPoint.result.championVia === 'POINTS' ? 'Champion · points' : 'Champion'}
+                              {matchPoint.result.championVia === 'POINTS'
+                                ? 'Champion · points'
+                                : matchPoint.result.decisiveMatchNumber != null
+                                ? `Champion · M${matchPoint.result.decisiveMatchNumber}`
+                                : 'Champion'}
                             </span>
                           )}
 
-                          {/* On match point */}
+                          {/* On match point — with the match they reached the threshold in */}
                           {!isChampion && matchPoint && onMatchPointSet.has(team.teamId) && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
+                              title={
+                                reachedMatch
+                                  ? `Reached the ${matchPoint.rule.thresholdLabel} in Match ${reachedMatch.matchNumber} (Day ${reachedMatch.day})`
+                                  : undefined
+                              }
+                            >
                               <Target className="h-3 w-3 shrink-0" />
                               On {matchPoint.rule.thresholdLabel}
+                              {reachedMatch ? ` · M${reachedMatch.matchNumber}` : ''}
                             </span>
                           )}
                         </div>
@@ -1539,6 +1590,8 @@ export function EstaticStandingsPanel({
                       </td>
                     )}
                   </tr>
+                    {showThresholdLine && aboveThresholdCount > 0 && idx === aboveThresholdCount - 1 && thresholdLine}
+                  </React.Fragment>
                 );
               })}
             </tbody>
