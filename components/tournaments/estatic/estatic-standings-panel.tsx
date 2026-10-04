@@ -18,7 +18,7 @@ import {
   EyeOff,
   Scale,
 } from 'lucide-react';
-import { calculateTournamentStandings, type AggregatedTeamStanding } from '@/lib/tournament-math';
+import { calculateTournamentStandings, compareTeamStandings, type AggregatedTeamStanding } from '@/lib/tournament-math';
 import {
   getStageConfig,
   zoneForRank,
@@ -33,10 +33,13 @@ import {
   type StandingsStageSummary,
   type StandingsCustomTab,
   type StandingsNavigationItem,
+  type StageBonusRule,
   type ZoneRule,
   type ZoneColor,
 } from '@/lib/standings-config';
+import { computeStageBonus, headstartFor, type BonusComputation } from '@/lib/stage-bonus';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
+import { BonusBreakdown } from './estatic-bonus-table';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 
@@ -177,6 +180,42 @@ interface PrecedenceQualification {
   sourceTabName: string;
 }
 
+/** A standings row for a team carried in by headstart that has not played the stage yet. */
+function emptyStandingFor(teamId: string, meta?: StandingsTeamMeta): AggregatedTeamStanding {
+  return {
+    teamId,
+    teamName: meta?.displayName || meta?.name || '',
+    tag: meta?.tag || '',
+    logoUrl: meta?.logoUrl ?? undefined,
+    logoDarkUrl: meta?.logoDarkUrl ?? undefined,
+    rank: 0,
+    matchesPlayed: 0,
+    wwcd: 0,
+    placementPoints: 0,
+    eliminationPoints: 0,
+    bonusPoints: 0,
+    totalPoints: 0,
+    totalDamage: 0,
+    totalHealing: 0,
+    totalDamageReceived: 0,
+    longestElim: 0,
+    headshots: 0,
+    assists: 0,
+    knockouts: 0,
+    vehicleElims: 0,
+    grenadeElims: 0,
+    smokesUsed: 0,
+    grenadesUsed: 0,
+    molotovsUsed: 0,
+    flashUsed: 0,
+    airdrops: 0,
+    rescues: 0,
+    distDrove: 0,
+    distWalk: 0,
+    utilitiesTotal: 0,
+  };
+}
+
 export function EstaticStandingsPanel({
   stages,
   matches,
@@ -242,6 +281,13 @@ export function EstaticStandingsPanel({
   const [sortKey, setSortKey] = React.useState<SortKey>('rank');
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc');
   const [hidePrecedenceQualified, setHidePrecedenceQualified] = React.useState(false);
+  // Which bonus period (day / window) the source stage is drilled into; null = cumulative.
+  const [activePeriodKey, setActivePeriodKey] = React.useState<string | null>(null);
+
+  // A period drill-down is scoped to the stage it was made on.
+  React.useEffect(() => {
+    setActivePeriodKey(null);
+  }, [activeId]);
 
   // Find active navigation item
   const activeNavItem: StandingsNavigationItem | undefined = React.useMemo(() => {
@@ -571,24 +617,65 @@ export function EstaticStandingsPanel({
     return { days, maps, groups };
   }, [scopeMatches]);
 
-  const isFiltered = Boolean(day || map || group);
+  // The stage this table is currently showing, if it is a single named stage (not a
+  // custom/overall aggregate) — what a bonus rule's source/target names are matched against.
+  const activeStageName = React.useMemo(() => {
+    if (activeCustomTab) return null;
+    if (activeNavItem) {
+      if (activeNavItem.type === 'OVERALL') return null;
+      return (activeNavItem.stageName || activeNavItem.label || '').trim() || null;
+    }
+    if (activeId === 'OVERALL') return null;
+    return activeId;
+  }, [activeCustomTab, activeNavItem, activeId]);
+
+  // Bonus breakdown for the source stage (period tables + the per-team grid), when the
+  // active stage is a rule's source and the rule asks for it.
+  const sourceBonus = React.useMemo<{ rule: StageBonusRule; computation: BonusComputation } | null>(() => {
+    const stageKeyName = activeStageName?.trim().toLowerCase();
+    const rule = (config.bonusRules ?? []).find(
+      (r) => stageKeyName && r.sourceStages.some((s) => s.trim().toLowerCase() === stageKeyName),
+    );
+    if (!rule || (!rule.showPeriodStandings && !rule.showBonusTable)) return null;
+    return { rule, computation: computeStageBonus(rule, matches) };
+  }, [config.bonusRules, matches, activeStageName]);
+
+  // The period the source stage is drilled into, if any (only when the rule opts in).
+  const activePeriod = React.useMemo(() => {
+    if (!sourceBonus?.rule.showPeriodStandings || !activePeriodKey) return null;
+    return sourceBonus.computation.periods.find((p) => p.key === activePeriodKey) ?? null;
+  }, [sourceBonus, activePeriodKey]);
+
+  const isFiltered = Boolean(day || map || group || activePeriod);
+
+  // Headstart carried into this stage. Only the un-filtered stage view folds it in — a
+  // filtered or period-drilled view stays pure match points.
+  const headstart = React.useMemo(() => {
+    const rules = config.bonusRules ?? [];
+    if (rules.length === 0 || !activeStageName || isFiltered) {
+      return { byTeam: {} as Record<string, number>, rule: null };
+    }
+    return headstartFor(rules, matches, activeStageName);
+  }, [config.bonusRules, matches, activeStageName, isFiltered]);
+
   const effectiveZones = React.useMemo(() => {
     return isFiltered ? [] : (stageCfg.zones || []);
   }, [isFiltered, stageCfg.zones]);
 
-  const filteredMatches = React.useMemo(
-    () =>
-      scopeMatches.filter(
-        (m) =>
-          (!day || m.day === day) &&
-          (!map || m.mapName === map) &&
-          (!group || m.groupName === group)
-      ),
-    [scopeMatches, day, map, group]
-  );
+  const filteredMatches = React.useMemo(() => {
+    const periodIds = activePeriod ? new Set(activePeriod.matches.map((pm) => pm.id)) : null;
+    return scopeMatches.filter(
+      (m) =>
+        (!day || m.day === day) &&
+        (!map || m.mapName === map) &&
+        (!group || m.groupName === group) &&
+        (!periodIds || periodIds.has(m.id)),
+    );
+  }, [scopeMatches, day, map, group, activePeriod]);
 
   const baseStandings = React.useMemo(() => {
-    let raw = calculateTournamentStandings(filteredMatches.flatMap((m) => m.results));
+    let raw: (AggregatedTeamStanding & { headstartPoints?: number })[] =
+      calculateTournamentStandings(filteredMatches.flatMap((m) => m.results));
 
     // Exclude teams eliminated in earlier stages!
     if (eliminatedTeamIds.size > 0) {
@@ -600,9 +687,26 @@ export function EstaticStandingsPanel({
       raw = raw.filter((t) => !precedenceQualifications.has(t.teamId));
     }
 
-    // Re-rank after exclusions
+    // Carry the headstart: seed teams the target stage has not seen yet, fold the bonus
+    // into each total, and re-sort so the carried points drive the order.
+    const hsByTeam = headstart.byTeam;
+    if (Object.keys(hsByTeam).length > 0) {
+      const present = new Set(raw.map((t) => t.teamId));
+      for (const teamId of Object.keys(hsByTeam)) {
+        if (present.has(teamId) || eliminatedTeamIds.has(teamId)) continue;
+        raw.push(emptyStandingFor(teamId, teams[teamId]));
+      }
+      raw = raw.map((t) => ({
+        ...t,
+        headstartPoints: hsByTeam[t.teamId] ?? 0,
+        totalPoints: t.totalPoints + (hsByTeam[t.teamId] ?? 0),
+      }));
+      raw.sort(compareTeamStandings);
+    }
+
+    // Re-rank after exclusions and any carry
     return raw.map((t, idx) => ({ ...t, rank: idx + 1 }));
-  }, [filteredMatches, eliminatedTeamIds, hidePrecedenceQualified, precedenceQualifications]);
+  }, [filteredMatches, eliminatedTeamIds, hidePrecedenceQualified, precedenceQualifications, headstart, teams]);
 
   // Form entries
   const formByTeam = React.useMemo(() => {
@@ -1007,6 +1111,54 @@ export function EstaticStandingsPanel({
         </div>
       )}
 
+      {/* ============ BONUS PERIODS (source stage) ============ */}
+      {sourceBonus && (
+        <div className="space-y-3">
+          {sourceBonus.rule.showPeriodStandings && sourceBonus.computation.periods.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
+              <span className="mr-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                {sourceBonus.rule.label}:
+              </span>
+              <button
+                type="button"
+                onClick={() => setActivePeriodKey(null)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
+                  activePeriodKey === null
+                    ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25'
+                    : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                }`}
+              >
+                Overall
+              </button>
+              {sourceBonus.computation.periods.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setActivePeriodKey(p.key)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all cursor-pointer ${
+                    activePeriodKey === p.key
+                      ? 'bg-[#0A5FC4] text-white shadow-md shadow-blue-500/25'
+                      : 'border border-slate-200 bg-slate-50 text-slate-600 hover:border-[#0A5FC4] dark:border-white/10 dark:bg-white/5 dark:text-slate-300'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {sourceBonus.rule.showBonusTable && (
+            <BonusBreakdown
+              periods={sourceBonus.computation.periods}
+              byTeamPeriod={sourceBonus.computation.byTeamPeriod}
+              byTeam={sourceBonus.computation.byTeam}
+              teams={teams}
+              label={sourceBonus.rule.label}
+            />
+          )}
+        </div>
+      )}
+
       {/* ============ STANDINGS TABLE ============ */}
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
         <div className="overflow-x-auto">
@@ -1078,6 +1230,16 @@ export function EstaticStandingsPanel({
                     <span className="inline-flex items-center gap-0.5">
                       Bonus {sortKey === 'bonusPoints' && (sortDir === 'asc' ? '▲' : '▼')}
                     </span>
+                  </th>
+                )}
+
+                {/* Headstart carry — only when a bonus rule targets this stage */}
+                {headstart.rule && (
+                  <th
+                    className="hidden lg:table-cell py-2.5 sm:py-3.5 px-2 text-center"
+                    title={headstart.rule.label}
+                  >
+                    Headstart
                   </th>
                 )}
 
@@ -1251,6 +1413,20 @@ export function EstaticStandingsPanel({
                     {visibleColumns.has('bonus') && (
                       <td className="hidden lg:table-cell py-2 sm:py-3 text-center font-bold text-slate-600 dark:text-slate-300">
                         {team.bonusPoints || 0}
+                      </td>
+                    )}
+
+                    {/* Headstart carry */}
+                    {headstart.rule && (
+                      <td
+                        className="hidden lg:table-cell py-2 sm:py-3 px-2 text-center font-black text-amber-600 dark:text-amber-300"
+                        title={headstart.rule.label}
+                      >
+                        {team.headstartPoints ? (
+                          `+${team.headstartPoints}`
+                        ) : (
+                          <span className="font-bold text-slate-400">—</span>
+                        )}
                       </td>
                     )}
 

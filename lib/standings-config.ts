@@ -101,6 +101,40 @@ export interface StandingsCustomTab {
   hidePrecedenceQualified?: boolean;
 }
 
+export type BonusPeriod = 'DAY' | 'DAY_WINDOW' | 'STAGE';
+
+/**
+ * A period-based bonus / headstart rule.
+ *
+ * Within the source stage(s), the matches are split into periods — each day, a window of days,
+ * or the whole stage. Each period is ranked, and `awards` (points for 1st, 2nd, 3rd …) go to its
+ * top teams. The accumulated total is added into the target stage's standings, e.g. a Grand
+ * Finals headstart carried from a circuit stage's daily bonuses.
+ */
+export interface StageBonusRule {
+  id: string;
+  /** Public label, e.g. "Circuit Day Bonus" / "Weekend Bonus". */
+  label: string;
+  /** Stage names whose matches form the periods (usually one). */
+  sourceStages: string[];
+  period: BonusPeriod;
+  /** DAY_WINDOW only: how many consecutive days make one window. */
+  windowDays?: number;
+  /**
+   * Restrict the rule to specific match days of the source stage(s), by relative day number
+   * (1-based). Empty/absent means every day counts. E.g. [3,4,5] or [1,3,5].
+   */
+  days?: number[];
+  /** Points for 1st, 2nd, 3rd … e.g. [3, 2, 1]. */
+  awards: number[];
+  /** Stages the accumulated bonus is added into, e.g. ["Grand Finals"]. */
+  targetStages: string[];
+  /** Render one standings table per period under the source stage. */
+  showPeriodStandings?: boolean;
+  /** Render the per-team × per-period bonus grid for the source stage. */
+  showBonusTable?: boolean;
+}
+
 export interface StandingsNavigationItem {
   id: string;
   type: 'STAGE' | 'CUSTOM_TAB' | 'OVERALL';
@@ -386,6 +420,8 @@ export interface StandingsConfig {
   tabGroups?: StandingsTabGroup[];
   statisticsConfig?: StatisticsConfig;
   visibleTabs?: TournamentTabId[];
+  /** Period-based bonus / headstart rules (see {@link StageBonusRule}). */
+  bonusRules?: StageBonusRule[];
 }
 
 /** Every surface starts on the crest alone: no tournament shows a flag until it is asked to. */
@@ -604,6 +640,51 @@ export function normalizeCustomTabs(v: unknown): StandingsCustomTab[] {
   return list;
 }
 
+export function normalizeBonusRules(v: unknown): StageBonusRule[] {
+  const list: StageBonusRule[] = [];
+  for (let idx = 0; idx < asArray(v).length; idx++) {
+    const raw = asArray(v)[idx];
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const sourceStages = asArray(r?.sourceStages).map((s) => String(s).trim()).filter(Boolean);
+    const targetStages = asArray(r?.targetStages).map((s) => String(s).trim()).filter(Boolean);
+    const awards = asArray(r?.awards)
+      .map((n) => Number(n))
+      .filter((n) => Number.isFinite(n) && n >= 0);
+    // A rule with no source or no awards cannot award anything — drop it.
+    if (sourceStages.length === 0 || awards.length === 0) continue;
+
+    const period: BonusPeriod = (['DAY', 'DAY_WINDOW', 'STAGE'] as const).includes(r?.period as BonusPeriod)
+      ? (r.period as BonusPeriod)
+      : 'DAY';
+    const id = String(r?.id || `bonus-${idx + 1}`).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
+    const label = String(r?.label || '').trim() || `${sourceStages[0]} bonus`;
+    const windowDays = Number(r?.windowDays);
+    const days = [...new Set(
+      asArray(r?.days)
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n >= 1)
+        .map((n) => Math.floor(n)),
+    )].sort((a, b) => a - b);
+
+    list.push({
+      id,
+      label,
+      sourceStages,
+      period,
+      ...(period === 'DAY_WINDOW' && Number.isFinite(windowDays) && windowDays >= 1
+        ? { windowDays: Math.floor(windowDays) }
+        : {}),
+      ...(days.length > 0 ? { days } : {}),
+      awards,
+      targetStages,
+      ...(r?.showPeriodStandings === true ? { showPeriodStandings: true } : {}),
+      ...(r?.showBonusTable === true ? { showBonusTable: true } : {}),
+    });
+  }
+  return list;
+}
+
 export function normalizeTabGroups(v: unknown): StandingsTabGroup[] {
   const list: StandingsTabGroup[] = [];
   for (let gIdx = 0; gIdx < asArray(v).length; gIdx++) {
@@ -766,6 +847,7 @@ export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
     tabGroups: normalizeTabGroups(src.tabGroups),
     statisticsConfig: normalizeStatisticsConfig(src.statisticsConfig),
     visibleTabs: normalizeVisibleTabs(src.visibleTabs),
+    bonusRules: normalizeBonusRules(src.bonusRules),
   };
 
   const stages = (src.stages && typeof src.stages === 'object' ? src.stages : {}) as Record<string, unknown>;

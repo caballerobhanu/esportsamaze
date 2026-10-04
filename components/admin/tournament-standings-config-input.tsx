@@ -22,6 +22,8 @@ import {
   type StandingsCustomTab,
   type StandingsTabGroup,
   type StandingsNavigationItem,
+  type StageBonusRule,
+  type BonusPeriod,
   type ZoneRule,
   type ZoneColor,
   ZONE_COLOR_OPTIONS,
@@ -1050,6 +1052,204 @@ function TabGroupsEditor({
   );
 }
 
+/** Editor for the period-based bonus / headstart rules (`config.bonusRules`). */
+function BonusRulesEditor({
+  rules,
+  stageNames,
+  onChange,
+}: {
+  rules: StageBonusRule[];
+  stageNames: string[];
+  onChange: (rules: StageBonusRule[]) => void;
+}) {
+  const update = (idx: number, patchRule: Partial<StageBonusRule>) =>
+    onChange(rules.map((r, i) => (i === idx ? { ...r, ...patchRule } : r)));
+  const remove = (idx: number) => onChange(rules.filter((_, i) => i !== idx));
+  const add = () =>
+    onChange([
+      ...rules,
+      {
+        id: `bonus-${Date.now().toString(36)}`,
+        label: 'Bonus',
+        sourceStages: [],
+        period: 'DAY',
+        awards: [3, 2, 1],
+        targetStages: [],
+      },
+    ]);
+  const toggleStage = (list: string[], name: string) =>
+    list.includes(name) ? list.filter((s) => s !== name) : [...list, name];
+
+  const stageChips = (selected: string[], onToggle: (name: string) => void, activeCls: string) => (
+    <div className="flex flex-wrap gap-1.5">
+      {stageNames.map((name) => {
+        const active = selected.includes(name);
+        return (
+          <button
+            key={name}
+            type="button"
+            onClick={() => onToggle(name)}
+            className={`rounded-lg border px-2 py-1 text-[11px] font-bold transition ${
+              active
+                ? activeCls
+                : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {name}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {rules.length === 0 && <p className="text-[11px] text-slate-500">No bonus rules yet.</p>}
+
+      {rules.map((rule, idx) => (
+        <div
+          key={rule.id}
+          className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              className={inputCls}
+              value={rule.label}
+              placeholder="Rule label, e.g. Circuit Day Bonus"
+              onChange={(e) => update(idx, { label: e.target.value })}
+            />
+            <button
+              type="button"
+              onClick={() => remove(idx)}
+              className="rounded-lg border border-rose-300 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-950/40"
+              aria-label="Remove rule"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls}>Period</label>
+              <select
+                className={inputCls}
+                value={rule.period}
+                onChange={(e) => update(idx, { period: e.target.value as BonusPeriod })}
+              >
+                <option value="DAY">Each day</option>
+                <option value="DAY_WINDOW">Window of days</option>
+                <option value="STAGE">Whole stage</option>
+              </select>
+            </div>
+            {rule.period === 'DAY_WINDOW' && (
+              <div>
+                <label className={labelCls}>Days per window</label>
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  value={rule.windowDays ?? 2}
+                  onChange={(e) => update(idx, { windowDays: Math.max(1, Number(e.target.value) || 1) })}
+                />
+              </div>
+            )}
+            <div>
+              <label className={labelCls}>Awards (1st, 2nd, 3rd …)</label>
+              <input
+                className={inputCls}
+                value={rule.awards.join(', ')}
+                onChange={(e) =>
+                  update(idx, {
+                    awards: e.target.value
+                      .split(',')
+                      .map((s) => Number(s.trim()))
+                      .filter((n) => Number.isFinite(n) && n >= 0),
+                  })
+                }
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Days — leave empty for every day (relative day numbers)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((dayNum) => {
+                const active = (rule.days ?? []).includes(dayNum);
+                return (
+                  <button
+                    key={dayNum}
+                    type="button"
+                    onClick={() => {
+                      const current = rule.days ?? [];
+                      update(idx, {
+                        days: current.includes(dayNum)
+                          ? current.filter((d) => d !== dayNum)
+                          : [...current, dayNum].sort((a, b) => a - b),
+                      });
+                    }}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-bold transition ${
+                      active
+                        ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                        : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Day {dayNum}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Source stages (their matches form the periods)</label>
+            {stageChips(
+              rule.sourceStages,
+              (name) => update(idx, { sourceStages: toggleStage(rule.sourceStages, name) }),
+              'border-[#0A5FC4] bg-[#0A5FC4]/10 text-[#0A5FC4]',
+            )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Target stages (the accumulated bonus is added here)</label>
+            {stageChips(
+              rule.targetStages,
+              (name) => update(idx, { targetStages: toggleStage(rule.targetStages, name) }),
+              'border-amber-500 bg-amber-400/15 text-amber-700 dark:text-amber-300',
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={Boolean(rule.showPeriodStandings)}
+                onChange={(e) => update(idx, { showPeriodStandings: e.target.checked })}
+              />
+              Show a standings table per period
+            </label>
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={Boolean(rule.showBonusTable)}
+                onChange={(e) => update(idx, { showBonusTable: e.target.checked })}
+              />
+              Show the bonus breakdown grid
+            </label>
+          </div>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={add}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/40 px-3 py-2 text-xs font-bold text-[#0A5FC4] hover:bg-blue-500/10"
+      >
+        <Plus className="h-3.5 w-3.5" /> Add bonus / headstart rule
+      </button>
+    </div>
+  );
+}
+
 export function TournamentStandingsConfigInput({
   initialConfig,
   stageNames,
@@ -1587,6 +1787,25 @@ export function TournamentStandingsConfigInput({
           </p>
         </div>
         <ZonesEditor zones={config.zones} stageNames={stageNames} onChange={(zones) => patch({ zones })} />
+      </div>
+
+      {/* ── Bonus / Headstart Rules ── */}
+      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+        <div>
+          <h4 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+            Bonus / Headstart Rules
+          </h4>
+          <p className="text-[11px] text-slate-500">
+            Award points to the top teams over a period — each day, a window of days, or the whole
+            stage — and carry the accumulated total into a target stage&rsquo;s standings (e.g. a
+            circuit&rsquo;s daily bonuses become Grand Finals headstart).
+          </p>
+        </div>
+        <BonusRulesEditor
+          rules={config.bonusRules ?? []}
+          stageNames={stageNames}
+          onChange={(bonusRules) => patch({ bonusRules })}
+        />
       </div>
 
       <TabPasteBox
