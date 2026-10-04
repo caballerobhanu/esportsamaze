@@ -17,6 +17,8 @@ import {
   Eye,
   EyeOff,
   Scale,
+  Crown,
+  Target,
 } from 'lucide-react';
 import { calculateTournamentStandings, compareTeamStandings, type AggregatedTeamStanding } from '@/lib/tournament-math';
 import {
@@ -38,6 +40,7 @@ import {
   type ZoneColor,
 } from '@/lib/standings-config';
 import { computeStageBonus, headstartFor, type BonusComputation } from '@/lib/stage-bonus';
+import { computeMatchPoint } from '@/lib/match-point';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { BonusBreakdown } from './estatic-bonus-table';
 import { SearchableSelect } from '@/components/ui/searchable-select';
@@ -658,6 +661,20 @@ export function EstaticStandingsPanel({
     return headstartFor(rules, matches, activeStageName);
   }, [config.bonusRules, matches, activeStageName, isFiltered]);
 
+  // Match point / smash rule, when this stage is the one it applies to. `scopeMatches` is the
+  // active stage's own matches, so the engine reports `applies: false` on any other stage.
+  const matchPoint = React.useMemo(() => {
+    const rule = config.matchPoint;
+    if (!rule?.enabled || isFiltered) return null;
+    const result = computeMatchPoint(rule, scopeMatches, { basePoints: headstart.byTeam });
+    return result.applies ? { rule, result } : null;
+  }, [config.matchPoint, isFiltered, scopeMatches, headstart]);
+
+  const onMatchPointSet = React.useMemo(
+    () => new Set(matchPoint?.result.onMatchPointTeamIds ?? []),
+    [matchPoint],
+  );
+
   const effectiveZones = React.useMemo(() => {
     return isFiltered ? [] : (stageCfg.zones || []);
   }, [isFiltered, stageCfg.zones]);
@@ -1111,6 +1128,33 @@ export function EstaticStandingsPanel({
         </div>
       )}
 
+      {/* ============ MATCH POINT / SMASH RULE ============ */}
+      {matchPoint && matchPoint.result.threshold !== null && (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-xs shadow-sm dark:border-amber-400/30 dark:bg-amber-400/[0.06]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950">
+              <Target className="h-3 w-3" /> {matchPoint.rule.label}
+            </span>
+            <span className="font-black text-amber-700 dark:text-amber-300">
+              {matchPoint.rule.thresholdLabel}: {matchPoint.result.threshold}
+            </span>
+            <span className="text-slate-500 dark:text-slate-400">
+              {matchPoint.result.thresholdSource === 'LEADER_PLUS'
+                ? `set at the end of Day ${matchPoint.rule.checkpointDay} — the leader's ${matchPoint.result.leaderPoints} pts + ${matchPoint.rule.leaderOffset}`
+                : 'fixed threshold'}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-500 dark:text-slate-400">
+            <span>Reach it, then win a match (not the same match) to be champion.</span>
+            <span>
+              {matchPoint.rule.matchLimit
+                ? `Up to ${matchPoint.rule.matchLimit} matches; otherwise the points leader wins.`
+                : 'Play continues until a team wins.'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ============ BONUS PERIODS (source stage) ============ */}
       {sourceBonus && (
         <div className="space-y-3">
@@ -1278,12 +1322,17 @@ export function EstaticStandingsPanel({
                   : null;
 
                 const form = (formByTeam.get(team.teamId) ?? []).slice(-5).reverse();
+                const isChampion = Boolean(matchPoint && team.teamId === matchPoint.result.championTeamId);
 
                 return (
                   <tr
                     key={team.teamId}
                     className={`group text-xs sm:text-sm transition-colors hover:bg-slate-50/80 dark:hover:bg-white/5 ${
-                      isPrec ? 'bg-blue-50/20 dark:bg-blue-950/10' : ''
+                      isChampion
+                        ? 'bg-amber-400/[0.08]'
+                        : isPrec
+                        ? 'bg-blue-50/20 dark:bg-blue-950/10'
+                        : ''
                     }`}
                   >
                     {/* Rank Badge with left border accent */}
@@ -1369,6 +1418,22 @@ export function EstaticStandingsPanel({
                             >
                               <Scale className="w-2.5 h-2.5 shrink-0" />
                               <span className="truncate">{team.tiebreaker.shortBadge}</span>
+                            </span>
+                          )}
+
+                          {/* Champion (match point / smash rule) */}
+                          {isChampion && matchPoint && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-950 shadow-sm shadow-amber-400/25">
+                              <Crown className="h-3 w-3 shrink-0" />
+                              {matchPoint.result.championVia === 'POINTS' ? 'Champion · points' : 'Champion'}
+                            </span>
+                          )}
+
+                          {/* On match point */}
+                          {!isChampion && matchPoint && onMatchPointSet.has(team.teamId) && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                              <Target className="h-3 w-3 shrink-0" />
+                              On {matchPoint.rule.thresholdLabel}
                             </span>
                           )}
                         </div>

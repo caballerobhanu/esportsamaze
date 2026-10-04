@@ -24,6 +24,8 @@ import {
   type StandingsNavigationItem,
   type StageBonusRule,
   type BonusPeriod,
+  type MatchPointRule,
+  type MatchPointThresholdMode,
   type ZoneRule,
   type ZoneColor,
   ZONE_COLOR_OPTIONS,
@@ -1250,6 +1252,137 @@ function BonusRulesEditor({
   );
 }
 
+/** Editor for the match point / smash rule win condition (`config.matchPoint`). */
+function MatchPointEditor({
+  rule,
+  stageNames,
+  onChange,
+}: {
+  rule?: MatchPointRule;
+  stageNames: string[];
+  onChange: (rule: MatchPointRule | undefined) => void;
+}) {
+  const base: MatchPointRule = rule ?? {
+    enabled: true,
+    label: 'Smash Rule',
+    thresholdLabel: 'Smash Point',
+    stage: stageNames[0] ?? '',
+    thresholdMode: 'LEADER_PLUS',
+    leaderOffset: 10,
+    checkpointDay: 2,
+    matchLimit: null,
+  };
+  const update = (patch: Partial<MatchPointRule>) => onChange({ ...base, enabled: true });
+  const numberField = (
+    value: number | null | undefined,
+    onSet: (v: number | undefined) => void,
+    placeholder?: string,
+  ) => (
+    <input
+      type="number"
+      className={inputCls}
+      value={value ?? ''}
+      placeholder={placeholder}
+      onChange={(e) => onSet(e.target.value.trim() === '' ? undefined : Number(e.target.value))}
+    />
+  );
+
+  return (
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+        <input
+          type="checkbox"
+          checked={Boolean(rule?.enabled)}
+          onChange={(e) => (e.target.checked ? onChange({ ...base, enabled: true }) : onChange(undefined))}
+        />
+        This event is decided by a match point / smash rule
+      </label>
+
+      {rule?.enabled && (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Name (shown on the site)</label>
+              <input
+                className={inputCls}
+                value={base.label}
+                placeholder="Smash Rule"
+                onChange={(e) => update({ label: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Threshold name</label>
+              <input
+                className={inputCls}
+                value={base.thresholdLabel}
+                placeholder="Smash Point"
+                onChange={(e) => update({ thresholdLabel: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Stage</label>
+              <select className={inputCls} value={base.stage} onChange={(e) => update({ stage: e.target.value })}>
+                {stageNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Threshold source</label>
+              <select
+                className={inputCls}
+                value={base.thresholdMode}
+                onChange={(e) => update({ thresholdMode: e.target.value as MatchPointThresholdMode })}
+              >
+                <option value="LEADER_PLUS">Leader&rsquo;s points + offset</option>
+                <option value="FIXED">Fixed value</option>
+              </select>
+            </div>
+
+            {base.thresholdMode === 'LEADER_PLUS' ? (
+              <>
+                <div>
+                  <label className={labelCls}>Offset added to the leader</label>
+                  {numberField(base.leaderOffset, (v) => update({ leaderOffset: v }), '10')}
+                </div>
+                <div>
+                  <label className={labelCls}>Set after day</label>
+                  {numberField(base.checkpointDay, (v) => update({ checkpointDay: v }), '2')}
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className={labelCls}>Fixed threshold</label>
+                {numberField(base.fixedThreshold, (v) => update({ fixedThreshold: v }), '50')}
+              </div>
+            )}
+
+            <div>
+              <label className={labelCls}>Wins count from day (blank = auto)</label>
+              {numberField(base.eligibleFromDay, (v) => update({ eligibleFromDay: v }), 'auto')}
+            </div>
+            <div>
+              <label className={labelCls}>Match limit (blank = none)</label>
+              {numberField(base.matchLimit ?? undefined, (v) => update({ matchLimit: v ?? null }), 'e.g. 18')}
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={Boolean(base.showFormatRules)}
+              onChange={(e) => update({ showFormatRules: e.target.checked })}
+            />
+            Show these rules on the Format tab
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TournamentStandingsConfigInput({
   initialConfig,
   stageNames,
@@ -1805,6 +1938,24 @@ export function TournamentStandingsConfigInput({
           rules={config.bonusRules ?? []}
           stageNames={stageNames}
           onChange={(bonusRules) => patch({ bonusRules })}
+        />
+      </div>
+
+      {/* ── Match Point / Smash Rule ── */}
+      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3">
+        <div>
+          <h4 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200">
+            Match Point / Smash Rule
+          </h4>
+          <p className="text-[11px] text-slate-500">
+            A win condition: reach a points threshold, then win a match to be crowned champion —
+            even if not #1 on points. Shown on the Format and Standings tabs.
+          </p>
+        </div>
+        <MatchPointEditor
+          rule={config.matchPoint}
+          stageNames={stageNames}
+          onChange={(matchPoint) => patch({ matchPoint })}
         />
       </div>
 

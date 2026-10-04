@@ -135,6 +135,35 @@ export interface StageBonusRule {
   showBonusTable?: boolean;
 }
 
+export type MatchPointThresholdMode = 'LEADER_PLUS' | 'FIXED';
+
+/**
+ * A "match point" / "smash rule" win condition: teams play toward a points threshold, and a team
+ * at/above it that then wins a match is crowned champion — even if it is not #1 on points.
+ */
+export interface MatchPointRule {
+  enabled: boolean;
+  /** The mechanic's name on the site, e.g. "Smash Rule" / "Match Point". */
+  label: string;
+  /** The threshold's name, e.g. "Smash Point" / "Match Point". */
+  thresholdLabel: string;
+  /** The single stage this applies to (the finals). */
+  stage: string;
+  thresholdMode: MatchPointThresholdMode;
+  /** LEADER_PLUS: points added to the leader's checkpoint total. */
+  leaderOffset?: number;
+  /** FIXED: the threshold value. */
+  fixedThreshold?: number;
+  /** LEADER_PLUS: relative day whose end sets the threshold (2 = after Day 2). */
+  checkpointDay?: number;
+  /** First relative day a win can seal it. Default: LEADER_PLUS → checkpointDay+1; FIXED → 1. */
+  eligibleFromDay?: number;
+  /** Total matches in the stage; null = unlimited (play until someone wins). */
+  matchLimit?: number | null;
+  /** Render the rules card on the Format tab. */
+  showFormatRules?: boolean;
+}
+
 export interface StandingsNavigationItem {
   id: string;
   type: 'STAGE' | 'CUSTOM_TAB' | 'OVERALL';
@@ -422,6 +451,8 @@ export interface StandingsConfig {
   visibleTabs?: TournamentTabId[];
   /** Period-based bonus / headstart rules (see {@link StageBonusRule}). */
   bonusRules?: StageBonusRule[];
+  /** The match point / smash rule win condition, if the event uses one. */
+  matchPoint?: MatchPointRule;
 }
 
 /** Every surface starts on the crest alone: no tournament shows a flag until it is asked to. */
@@ -685,6 +716,39 @@ export function normalizeBonusRules(v: unknown): StageBonusRule[] {
   return list;
 }
 
+export function normalizeMatchPointRule(v: unknown): MatchPointRule | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const r = v as Record<string, unknown>;
+  if (r.enabled !== true) return undefined;
+  const stage = String(r.stage || '').trim();
+  if (!stage) return undefined;
+
+  const mode: MatchPointThresholdMode = r.thresholdMode === 'FIXED' ? 'FIXED' : 'LEADER_PLUS';
+  const num = (x: unknown): number | undefined => {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const leaderOffset = num(r.leaderOffset);
+  const fixedThreshold = num(r.fixedThreshold);
+  const checkpointDay = num(r.checkpointDay);
+  const eligibleFromDay = num(r.eligibleFromDay);
+  const matchLimitRaw = num(r.matchLimit);
+
+  return {
+    enabled: true,
+    label: String(r.label || '').trim() || 'Match Point',
+    thresholdLabel: String(r.thresholdLabel || '').trim() || 'Match Point',
+    stage,
+    thresholdMode: mode,
+    ...(leaderOffset !== undefined ? { leaderOffset } : {}),
+    ...(fixedThreshold !== undefined ? { fixedThreshold } : {}),
+    ...(checkpointDay !== undefined ? { checkpointDay } : {}),
+    ...(eligibleFromDay !== undefined ? { eligibleFromDay } : {}),
+    matchLimit: matchLimitRaw && matchLimitRaw > 0 ? Math.floor(matchLimitRaw) : null,
+    ...(r.showFormatRules === true ? { showFormatRules: true } : {}),
+  };
+}
+
 export function normalizeTabGroups(v: unknown): StandingsTabGroup[] {
   const list: StandingsTabGroup[] = [];
   for (let gIdx = 0; gIdx < asArray(v).length; gIdx++) {
@@ -848,6 +912,7 @@ export function normalizeStandingsConfig(raw: unknown): StandingsConfig {
     statisticsConfig: normalizeStatisticsConfig(src.statisticsConfig),
     visibleTabs: normalizeVisibleTabs(src.visibleTabs),
     bonusRules: normalizeBonusRules(src.bonusRules),
+    matchPoint: normalizeMatchPointRule(src.matchPoint),
   };
 
   const stages = (src.stages && typeof src.stages === 'object' ? src.stages : {}) as Record<string, unknown>;

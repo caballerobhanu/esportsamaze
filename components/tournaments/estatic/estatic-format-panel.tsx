@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Clock,
   ArrowRight,
+  Target,
 } from 'lucide-react';
 import { TournamentScheduleCalendar } from '../tournament-schedule-calendar';
 import {
@@ -884,6 +885,39 @@ ${stageSummary}
           </div>
         )}
       </section>
+
+      {/* Match Point / Smash Rule */}
+      {standingsConfig?.matchPoint?.enabled && standingsConfig.matchPoint.showFormatRules && (
+        <section className="rounded-3xl border border-amber-400/40 bg-amber-400/5 p-6 shadow-sm dark:border-amber-400/30 dark:bg-[#0b1220] sm:p-8">
+          <div className="mb-4 flex items-center gap-3">
+            <Target className="h-5 w-5 text-amber-500" />
+            <h3 className="text-xl font-black uppercase tracking-tight text-slate-950 dark:text-white">
+              {standingsConfig.matchPoint.label}
+            </h3>
+          </div>
+          <div className="space-y-2 text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+            <p>
+              The{' '}
+              <strong className="font-black text-slate-900 dark:text-white">
+                {standingsConfig.matchPoint.thresholdLabel}
+              </strong>{' '}
+              {standingsConfig.matchPoint.thresholdMode === 'FIXED'
+                ? `is fixed at ${standingsConfig.matchPoint.fixedThreshold} points.`
+                : `is set at the end of Day ${standingsConfig.matchPoint.checkpointDay} — the top team's points plus ${standingsConfig.matchPoint.leaderOffset}.`}
+            </p>
+            <p>
+              A team must reach the {standingsConfig.matchPoint.thresholdLabel} and then win a match
+              — not the same match in which it reaches it — to be crowned champion. The event can
+              therefore end with a champion who is not top of the points table.
+            </p>
+            <p>
+              {standingsConfig.matchPoint.matchLimit
+                ? `The stage runs to ${standingsConfig.matchPoint.matchLimit} matches; if no team wins by then, the points leader is champion.`
+                : 'Play continues until a team wins.'}
+            </p>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
