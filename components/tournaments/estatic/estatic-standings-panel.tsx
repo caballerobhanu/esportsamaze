@@ -1146,28 +1146,19 @@ export function EstaticStandingsPanel({
 
       {/* ============ MATCH POINT / SMASH RULE ============ */}
       {matchPoint && matchPoint.result.threshold !== null && (
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 text-xs shadow-sm dark:border-amber-400/30 dark:bg-amber-400/[0.06]">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
-              <Target className="h-3.5 w-3.5" /> {matchPoint.rule.label}
-            </span>
-            <span className="font-black text-amber-700 dark:text-amber-300">
-              {matchPoint.rule.thresholdLabel}: {matchPoint.result.threshold}
-            </span>
-            <span className="text-slate-500 dark:text-slate-400">
-              {matchPoint.result.thresholdSource === 'LEADER_PLUS'
-                ? `set at the end of Day ${matchPoint.rule.checkpointDay} — the leader's ${matchPoint.result.leaderPoints} pts + ${matchPoint.rule.leaderOffset}`
-                : 'fixed threshold'}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-500 dark:text-slate-400">
-            <span>Reach it, then win a match (not the same match) to be champion.</span>
-            <span>
-              {matchPoint.rule.matchLimit
-                ? `Up to ${matchPoint.rule.matchLimit} matches; otherwise the points leader wins.`
-                : 'Play continues until a team wins.'}
-            </span>
-          </div>
+        <div className="border-l-2 border-[#0A5FC4] pl-4">
+          <p className="text-sm font-black text-[#0A5FC4] dark:text-blue-300">
+            {matchPoint.rule.label}: {matchPoint.rule.thresholdLabel} {matchPoint.result.threshold} pts
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            {matchPoint.result.thresholdSource === 'LEADER_PLUS'
+              ? `Set at the end of Day ${matchPoint.rule.checkpointDay} — the leader's ${matchPoint.result.leaderPoints} pts plus ${matchPoint.rule.leaderOffset}. `
+              : 'Fixed threshold. '}
+            A team must reach it, then win a match — not the same match it reaches it in — to be champion.
+            {matchPoint.rule.matchLimit
+              ? ` Up to ${matchPoint.rule.matchLimit} matches, otherwise the points leader wins.`
+              : ' Play continues until a team wins.'}
+          </p>
         </div>
       )}
 
@@ -1345,11 +1336,11 @@ export function EstaticStandingsPanel({
                   <tr aria-hidden>
                     <td colSpan={visibleStandingColumnCount} className="px-4 py-1.5">
                       <div className="flex items-center gap-3">
-                        <span className="h-px flex-1 bg-amber-400/50" />
-                        <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                        <span className="h-px flex-1 bg-[#0A5FC4]/40" />
+                        <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
                           {matchPoint?.rule.thresholdLabel}: {mpThreshold} pts
                         </span>
-                        <span className="h-px flex-1 bg-amber-400/50" />
+                        <span className="h-px flex-1 bg-[#0A5FC4]/40" />
                       </div>
                     </td>
                   </tr>
@@ -1392,7 +1383,7 @@ export function EstaticStandingsPanel({
 
                     {/* Squad & Qualification Badge */}
                     <td className="py-2.5 sm:py-3 pl-2 sm:pl-4 pr-2">
-                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <TeamMark
                           mode={config.logoModeBySurface.standings}
                           name={cleanName}
@@ -1404,11 +1395,11 @@ export function EstaticStandingsPanel({
                           logoClassName="object-contain p-0.5 sm:p-1"
                           fallbackClassName="text-[9px] sm:text-xs font-black text-slate-400"
                         />
-                        <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
                           {/* Mobile: Short tag */}
                           <Link
                             href={teamHref}
-                            className="font-black text-xs text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block sm:hidden uppercase tracking-wide"
+                            className="block min-w-0 flex-1 truncate text-xs font-black uppercase tracking-wide text-slate-900 transition-colors hover:text-[#0A5FC4] sm:hidden dark:text-white"
                             title={cleanName}
                           >
                             {teamTag}
@@ -1416,32 +1407,47 @@ export function EstaticStandingsPanel({
                           {/* Desktop: Full squad name */}
                           <Link
                             href={teamHref}
-                            className="hidden sm:block font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors truncate"
+                            className="hidden min-w-0 flex-1 truncate font-extrabold text-slate-900 transition-colors hover:text-[#0A5FC4] sm:block dark:text-white"
                           >
                             {cleanName}
                           </Link>
 
-                          {/* Outline Qualification Badge matching exact image */}
+                          {/* Status badges pinned to the right edge so they line up across rows. */}
+                          <div className="ml-auto flex shrink-0 items-center gap-2">
+                          {/* Qualification badges — compact icon/dot on mobile, full on desktop. */}
                           {isPrec && zStyle && (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border ${zStyle.bgSoft} ${zStyle.text}`}
-                            >
-                              <ShieldCheck className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{assignment.precedenceLabel}</span>
-                            </span>
+                            <>
+                              <span
+                                className={`inline-flex sm:hidden ${zStyle.text}`}
+                                title={assignment.precedenceLabel}
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                              </span>
+                              <span
+                                className={`hidden items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider sm:inline-flex ${zStyle.bgSoft} ${zStyle.text}`}
+                              >
+                                <ShieldCheck className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{assignment.precedenceLabel}</span>
+                              </span>
+                            </>
                           )}
                           {!isPrec && zone && zStyle && (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border ${zStyle.bgSoft} ${zStyle.text}`}
-                            >
-                              <span className="truncate">{zone.label}</span>
-                            </span>
+                            <>
+                              <span className="inline-flex items-center sm:hidden" title={zone.label}>
+                                <span className={`h-2 w-2 rounded-full ${zStyle.dot}`} />
+                              </span>
+                              <span
+                                className={`hidden items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider sm:inline-flex ${zStyle.bgSoft} ${zStyle.text}`}
+                              >
+                                <span className="truncate">{zone.label}</span>
+                              </span>
+                            </>
                           )}
 
-                          {/* Tiebreaker Explanation Badge */}
+                          {/* Tiebreaker Explanation Badge — desktop only, so it never wraps the name on mobile */}
                           {config.showTiebreakers && team.tiebreaker?.isTied && (
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-tight border cursor-help shadow-2xs transition-transform hover:scale-105 ${
+                              className={`hidden items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-tight border cursor-help shadow-2xs transition-transform hover:scale-105 sm:inline-flex ${
                                 team.tiebreaker.won
                                   ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300'
                                   : 'bg-amber-500/15 border-amber-500/35 text-amber-700 dark:text-amber-300'
@@ -1453,40 +1459,61 @@ export function EstaticStandingsPanel({
                             </span>
                           )}
 
-                          {/* Champion (match point / smash rule) */}
+                          {/* Champion — crown only on mobile, full on desktop. */}
                           {isChampion && matchPoint && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
-                              title={
-                                matchPoint.result.championVia === 'SMASH' && matchPoint.result.decisiveMatchNumber != null
-                                  ? `Won via ${matchPoint.rule.label} in Match ${matchPoint.result.decisiveMatchNumber}`
-                                  : 'Champion on points'
-                              }
-                            >
-                              <Crown className="h-3 w-3 shrink-0" />
-                              {matchPoint.result.championVia === 'POINTS'
-                                ? 'Champion · points'
-                                : matchPoint.result.decisiveMatchNumber != null
-                                ? `Champion · M${matchPoint.result.decisiveMatchNumber}`
-                                : 'Champion'}
-                            </span>
+                            <>
+                              <span
+                                className="inline-flex text-amber-500 sm:hidden"
+                                title={`Champion${matchPoint.result.championVia === 'POINTS' ? ' (on points)' : ''}`}
+                              >
+                                <Crown className="h-3.5 w-3.5 shrink-0" />
+                              </span>
+                              <span
+                                className="hidden items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600 sm:inline-flex dark:text-amber-300"
+                                title={
+                                  matchPoint.result.championVia === 'SMASH' && matchPoint.result.decisiveMatchNumber != null
+                                    ? `Won via ${matchPoint.rule.label} in Match ${matchPoint.result.decisiveMatchNumber}`
+                                    : 'Champion on points'
+                                }
+                              >
+                                <Crown className="h-3 w-3 shrink-0" />
+                                {matchPoint.result.championVia === 'POINTS'
+                                  ? 'Champion · points'
+                                  : matchPoint.result.decisiveMatchNumber != null
+                                  ? `Champion · M${matchPoint.result.decisiveMatchNumber}`
+                                  : 'Champion'}
+                              </span>
+                            </>
                           )}
 
-                          {/* On match point — with the match they reached the threshold in */}
+                          {/* On match point — icon only on mobile, text on desktop. */}
                           {!isChampion && matchPoint && onMatchPointSet.has(team.teamId) && (
-                            <span
-                              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-300"
-                              title={
-                                reachedMatch
-                                  ? `Reached the ${matchPoint.rule.thresholdLabel} in Match ${reachedMatch.matchNumber} (Day ${reachedMatch.day})`
-                                  : undefined
-                              }
-                            >
-                              <Target className="h-3 w-3 shrink-0" />
-                              On {matchPoint.rule.thresholdLabel}
-                              {reachedMatch ? ` · M${reachedMatch.matchNumber}` : ''}
-                            </span>
+                            <>
+                              <span
+                                className="inline-flex text-[#0A5FC4] sm:hidden dark:text-blue-300"
+                                title={
+                                  reachedMatch
+                                    ? `Reached the ${matchPoint.rule.thresholdLabel} in Match ${reachedMatch.matchNumber}`
+                                    : `On ${matchPoint.rule.thresholdLabel}`
+                                }
+                              >
+                                <Target className="h-3.5 w-3.5 shrink-0" />
+                              </span>
+                              <span
+                                className="hidden items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#0A5FC4] sm:inline-flex dark:text-blue-300"
+                                title={
+                                  reachedMatch
+                                    ? `Reached the ${matchPoint.rule.thresholdLabel} in Match ${reachedMatch.matchNumber} (Day ${reachedMatch.day})`
+                                    : undefined
+                                }
+                              >
+                                <Target className="h-3 w-3 shrink-0" />
+                                On {matchPoint.rule.thresholdLabel}
+                                {reachedMatch ? ` · M${reachedMatch.matchNumber}` : ''}
+                              </span>
+                            </>
                           )}
+                          </div>
                         </div>
                       </div>
                     </td>
