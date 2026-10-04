@@ -51,6 +51,7 @@ export default async function TournamentStatisticsPage({
           mapsList={data.uniqueMapsList}
           daysList={data.uniqueDaysList}
           stageGroups={data.stageGroupsMap}
+          stageTeams={data.stageTeams}
           logoMode={ctx.standingsConfig.logoModeBySurface.statistics}
           defaultView={ctx.standingsConfig.statisticsConfig?.defaultView}
           defaultTeamPointsMode={ctx.standingsConfig.statisticsConfig?.defaultTeamPointsMode}

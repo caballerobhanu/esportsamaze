@@ -41,7 +41,7 @@ import { classifyPrizeRow } from '@/lib/prize-rows';
 import { parseQualificationRules } from '@/lib/qualification-rules';
 import type { MetricAggregate } from '@/lib/player-stats';
 import type { StageGroup, TeamPerformanceRow, PlayerPerformanceRow } from '@/components/tournaments/estatic/panel-types';
-import { groupRankingKey } from '@/lib/stage-groups';
+import { groupRankingKey, resolvePendingTeamId, type PendingSeatSource } from '@/lib/stage-groups';
 
 /* ── The one big fetch (moved verbatim from the former single page) ── */
 
@@ -1052,6 +1052,65 @@ function hasPendingSeats(formatDetails: unknown): boolean {
   return false;
 }
 
+/**
+ * Stage label → the teams competing in it, for the Statistics tab's quick-add-by-stage.
+ *
+ * The declared draw wins, so a stage that has not been played yet (Grand Finals, say) still
+ * names its field — its pending seats are resolved against the previous stages' standings.
+ * Actual match results are layered on top, which covers match-only stages and fills any gap.
+ */
+function buildStageParticipants(
+  ctx: TournamentContext,
+  matchesByStage: Map<string, TournamentData['matches']>
+): Record<string, string[]> {
+  const byStage = new Map<string, Set<string>>();
+  const add = (stage: string, teamId: string | null | undefined) => {
+    if (!stage || !teamId) return;
+    const set = byStage.get(stage);
+    if (set) set.add(teamId);
+    else byStage.set(stage, new Set([teamId]));
+  };
+
+  const stageFormats =
+    (
+      ctx.tournament.formatDetails as {
+        stageFormats?: Record<string, { groups?: Record<string, unknown> }>;
+      } | null
+    )?.stageFormats ?? {};
+  const groupRankings = hasPendingSeats(ctx.tournament.formatDetails) ? buildGroupRankings(ctx) : {};
+
+  // A declared draw is keyed by stage id, or by stage name when the stage has no row yet.
+  const ingest = (label: string, declared?: { groups?: Record<string, unknown> }) => {
+    if (!declared?.groups) return;
+    for (const squads of Object.values(declared.groups)) {
+      if (!Array.isArray(squads)) continue;
+      for (const squad of squads as { teamId?: string | null; source?: PendingSeatSource }[]) {
+        add(label, squad?.teamId ?? resolvePendingTeamId(squad?.source, groupRankings));
+      }
+    }
+  };
+
+  const stageIds = new Set(ctx.tournament.stages.map((stage) => stage.id));
+  for (const stage of ctx.tournament.stages) {
+    ingest(stage.name, stageFormats[stage.id] ?? stageFormats[stage.name]);
+  }
+  for (const [key, declared] of Object.entries(stageFormats)) {
+    if (!stageIds.has(key)) ingest(key, declared);
+  }
+
+  for (const [stage, matches] of matchesByStage) {
+    for (const m of matches) {
+      for (const g of m.games) {
+        for (const tr of g.teamResults) add(stage, tr.teamId);
+      }
+    }
+  }
+
+  const out: Record<string, string[]> = {};
+  for (const [stage, ids] of byStage) out[stage] = [...ids];
+  return out;
+}
+
 export function buildFormatData(ctx: TournamentContext) {
   const formatRules = (ctx.tournament.formatDetails ?? {}) as {
     featuredStage?: string;
@@ -1361,6 +1420,9 @@ export function buildStatisticsData(ctx: TournamentContext) {
     stageGroupsMap[s] = grps;
   }
 
+  // Stage → participating team ids, so the team filter can quick-add a whole stage's field.
+  const stageTeams = buildStageParticipants(ctx, matchesByStage);
+
   return {
     playerRowsList,
     teamPerformanceRows,
@@ -1368,6 +1430,7 @@ export function buildStatisticsData(ctx: TournamentContext) {
     uniqueMapsList,
     uniqueDaysList,
     stageGroupsMap,
+    stageTeams,
   };
 }
 

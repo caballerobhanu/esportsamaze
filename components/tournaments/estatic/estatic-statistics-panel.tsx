@@ -13,7 +13,6 @@ import {
   ArrowDown,
   ArrowUpDown,
   Sparkles,
-  Crown,
   Award,
 } from 'lucide-react';
 import type {
@@ -24,6 +23,7 @@ import type {
 import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from '@/lib/standings-config';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { TeamMultiSelect } from '@/components/ui/team-multi-select';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { teamMapPoints } from '@/lib/team-stats';
 
@@ -34,6 +34,8 @@ export interface EstaticStatisticsPanelProps {
   mapsList: string[];
   daysList?: string[];
   stageGroups?: Record<string, string[]>;
+  /** Stage label → team ids, for the quick-add-by-stage affordance in the team filter. */
+  stageTeams?: Record<string, string[]>;
   logoMode?: StandingsLogoMode;
   defaultView?: 'players' | 'teams';
   defaultTeamPointsMode?: TeamPointsMode;
@@ -363,6 +365,7 @@ export function EstaticStatisticsPanel({
   mapsList = [],
   daysList = [],
   stageGroups,
+  stageTeams,
   defaultView = 'players',
   defaultTeamPointsMode = 'sum',
   adminPlayerColumns,
@@ -378,6 +381,9 @@ export function EstaticStatisticsPanel({
   const [selectedRole, setSelectedRole] = React.useState<string>('ALL');
   const [selectedGroup, setSelectedGroup] = React.useState<string>('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
+  // Team filter — an axis of its own: the stage filter narrows matches, this narrows teams.
+  const [selectedTeamIds, setSelectedTeamIds] = React.useState<string[]>([]);
+  const selectedTeamSet = React.useMemo(() => new Set(selectedTeamIds), [selectedTeamIds]);
 
   const activeColumns: PlayerStatColumnKey[] = React.useMemo(() => {
     if (adminPlayerColumns && adminPlayerColumns.length > 0) {
@@ -422,6 +428,33 @@ export function EstaticStatisticsPanel({
     }
     return Array.from(set);
   }, [playerRows]);
+
+  // Team-filter options: one row per team in the stats, sorted by name.
+  const teamOptions = React.useMemo(() => {
+    const seen = new Map<
+      string,
+      { value: string; label: string; subtitle: string | null; imageUrl: string | null }
+    >();
+    for (const t of teamRows) {
+      if (!t.teamId || seen.has(t.teamId)) continue;
+      seen.set(t.teamId, {
+        value: t.teamId,
+        label: t.teamName,
+        subtitle: t.teamTag ?? null,
+        imageUrl: t.teamLogo ?? null,
+      });
+    }
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [teamRows]);
+
+  // Quick-add buckets: one per stage, limited to teams the stats actually know about.
+  const stageTeamGroups = React.useMemo(() => {
+    if (!stageTeams) return [];
+    const known = new Set(teamOptions.map((option) => option.value));
+    return Object.entries(stageTeams)
+      .map(([label, ids]) => ({ label, values: ids.filter((id) => known.has(id)) }))
+      .filter((group) => group.values.length > 0);
+  }, [stageTeams, teamOptions]);
 
   // Groups the selected stages cover. Only shown once a specific stage is picked —
   // "All Stages" spans every lobby, so it stays group-free — and a single-lobby
@@ -489,6 +522,8 @@ export function EstaticStatisticsPanel({
 
     return playerRows
       .map((p) => {
+        // Team axis applies to every path, including the unfiltered fast path below.
+        if (selectedTeamSet.size > 0 && !selectedTeamSet.has(p.teamId ?? '')) return null;
         const isAllStages = selectedStages.length === 0;
         const isAllMaps = selectedMap === 'ALL';
         const isAllDays = selectedDay === 'ALL';
@@ -609,7 +644,7 @@ export function EstaticStatisticsPanel({
         }
         return playerSortDir === 'desc' ? -cmp : cmp;
       });
-  }, [playerRows, teamElimsByMatch, selectedStages, selectedMap, selectedDay, selectedRole, selectedGroup, searchQuery, playerSortKey, playerSortDir, customPlayerColumns]);
+  }, [playerRows, teamElimsByMatch, selectedStages, selectedMap, selectedDay, selectedRole, selectedGroup, selectedTeamSet, searchQuery, playerSortKey, playerSortDir, customPlayerColumns]);
 
   // Filtered Teams aggregation based on Multi-Stage / Map / Day / Search
   const filteredTeams = React.useMemo(() => {
@@ -638,6 +673,8 @@ export function EstaticStatisticsPanel({
 
     return teamRows
       .map((t) => {
+        // Team axis applies to every path, including the unfiltered fast path below.
+        if (selectedTeamSet.size > 0 && !selectedTeamSet.has(t.teamId)) return null;
         const isAllStages = selectedStages.length === 0;
         const isAllMaps = selectedMap === 'ALL';
         const isAllDays = selectedDay === 'ALL';
@@ -727,25 +764,7 @@ export function EstaticStatisticsPanel({
         }
         return teamSortDir === 'desc' ? -cmp : cmp;
       });
-  }, [teamRows, selectedStages, selectedMap, selectedDay, selectedGroup, searchQuery, teamSortKey, teamSortDir, teamPointsMode]);
-
-  // Top 3 Tournament Fraggers Spotlight
-  const top3Fraggers = React.useMemo(() => {
-    return [...playerRows]
-      .sort((a, b) => b.totalElims - a.totalElims || b.totalDamage - a.totalDamage)
-      .slice(0, 3);
-  }, [playerRows]);
-
-  // Top 3 Tournament Teams Spotlight
-  const top3Teams = React.useMemo(() => {
-    return [...teamRows]
-      .sort((a, b) => {
-        const valA = teamPointsMode === 'sum' ? a.totalPoints : teamPointsMode === 'avg' ? a.avgTotalPoints : a.maxTotalPoints;
-        const valB = teamPointsMode === 'sum' ? b.totalPoints : teamPointsMode === 'avg' ? b.avgTotalPoints : b.maxTotalPoints;
-        return valB - valA || b.wwcdCount - a.wwcdCount || b.totalElimsPoints - a.totalElimsPoints;
-      })
-      .slice(0, 3);
-  }, [teamRows, teamPointsMode]);
+  }, [teamRows, selectedStages, selectedMap, selectedDay, selectedGroup, selectedTeamSet, searchQuery, teamSortKey, teamSortDir, teamPointsMode]);
 
   const handlePlayerSort = (key: string) => {
     if (playerSortKey === key) {
@@ -767,294 +786,6 @@ export function EstaticStatisticsPanel({
 
   return (
     <div className="space-y-7">
-      {/* ============ TOP FRAGGERS PODIUM SPOTLIGHT (When viewing Player Performance) ============ */}
-      {activeTab === 'players' && top3Fraggers.length >= 3 && (
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,95,196,.08),transparent_65%)]" />
-          
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-                Tournament MVPs &amp; Top Fraggers
-              </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-                Elimination Leaders Podium
-              </h2>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-700 dark:text-amber-300">
-              <Crown className="h-3.5 w-3.5" />
-              <span>Overall Tournament Leaders</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* #1 Gold - Highlighted */}
-            {top3Fraggers[0] && (
-              <div className="relative flex flex-col justify-between sm:order-2 rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-sm font-black text-slate-950 shadow-md shadow-amber-400/40">
-                    #1
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                    <Crown className="h-3 w-3" /> MVP Leader
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-black text-slate-950 dark:text-white">
-                    {top3Fraggers[0].ign}
-                  </h3>
-                  <p className="text-xs font-extrabold text-[#0A5FC4] dark:text-blue-300">
-                    {top3Fraggers[0].teamName}
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-amber-400/30 pt-3">
-                  <div>
-                    <span className="text-3xl font-black text-[#0A5FC4] dark:text-blue-300">
-                      {top3Fraggers[0].totalElims}
-                    </span>
-                    <span className="ml-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Elims
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-base font-extrabold text-slate-900 dark:text-white">
-                      {top3Fraggers[0].avgElims.toFixed(2)}
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Avg/M
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* #2 Silver */}
-            {top3Fraggers[1] && (
-              <div className="relative flex flex-col justify-between sm:order-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
-                    #2
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    {top3Fraggers[1].matchesPlayed} Matches
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
-                    {top3Fraggers[1].ign}
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {top3Fraggers[1].teamName}
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {top3Fraggers[1].totalElims}
-                    </span>
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Elims
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Fraggers[1].avgElims.toFixed(2)}
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Avg/M
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* #3 Bronze */}
-            {top3Fraggers[2] && (
-              <div className="relative flex flex-col justify-between sm:order-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-700/20 text-xs font-black text-amber-700 dark:text-amber-400">
-                    #3
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    {top3Fraggers[2].matchesPlayed} Matches
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
-                    {top3Fraggers[2].ign}
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {top3Fraggers[2].teamName}
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {top3Fraggers[2].totalElims}
-                    </span>
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Elims
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Fraggers[2].avgElims.toFixed(2)}
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Avg/M
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ============ TOP TEAMS CHAMPIONS PODIUM SPOTLIGHT (When viewing Team Performance) ============ */}
-      {activeTab === 'teams' && top3Teams.length >= 3 && (
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(10,95,196,.08),transparent_65%)]" />
-          
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#0A5FC4] dark:text-blue-300">
-                Tournament Leaders &amp; Top Squads
-              </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white">
-                Team Performance Podium
-              </h2>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-black text-blue-700 dark:text-blue-300">
-              <Crown className="h-3.5 w-3.5" />
-              <span>Overall Team Standings</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {/* #1 Gold - Highlighted */}
-            {top3Teams[0] && (
-              <div className="relative flex flex-col justify-between sm:order-2 rounded-2xl border-2 border-amber-400/80 bg-gradient-to-b from-amber-400/10 via-amber-400/5 to-transparent p-5 shadow-md shadow-amber-400/10 dark:border-amber-400/50">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400 text-sm font-black text-slate-950 shadow-md shadow-amber-400/40">
-                    #1
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                    <Crown className="h-3 w-3" /> Team Leader
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-black text-slate-950 dark:text-white">
-                    {top3Teams[0].teamName}
-                  </h3>
-                  <p className="text-xs font-extrabold text-[#0A5FC4] dark:text-blue-300">
-                    {top3Teams[0].winRate}% Win Rate · {top3Teams[0].wwcdCount} WWCDs
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-amber-400/30 pt-3">
-                  <div>
-                    <span className="text-3xl font-black text-[#0A5FC4] dark:text-blue-300">
-                      {teamPointsMode === 'sum' ? top3Teams[0].totalPoints : teamPointsMode === 'avg' ? top3Teams[0].avgTotalPoints : top3Teams[0].maxTotalPoints}
-                    </span>
-                    <span className="ml-1 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Pts ({teamPointsMode.toUpperCase()})
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-base font-extrabold text-slate-900 dark:text-white">
-                      {top3Teams[0].totalPlacePoints}P / {top3Teams[0].totalElimsPoints}E
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Place / Elims
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* #2 Silver */}
-            {top3Teams[1] && (
-              <div className="relative flex flex-col justify-between sm:order-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-xs font-black text-slate-800 dark:bg-slate-700 dark:text-slate-200">
-                    #2
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    {top3Teams[1].matchesPlayed} Matches · {top3Teams[1].wwcdCount} WWCD
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
-                    {top3Teams[1].teamName}
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {top3Teams[1].winRate}% Win Rate · {top3Teams[1].totalElimsPoints} Elims
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {teamPointsMode === 'sum' ? top3Teams[1].totalPoints : teamPointsMode === 'avg' ? top3Teams[1].avgTotalPoints : top3Teams[1].maxTotalPoints}
-                    </span>
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Points ({teamPointsMode.toUpperCase()})
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Teams[1].totalPlacePoints} Place / {top3Teams[1].totalElimsPoints} Elims
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Split
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* #3 Bronze */}
-            {top3Teams[2] && (
-              <div className="relative flex flex-col justify-between sm:order-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 dark:border-white/10 dark:bg-white/5 transition-all hover:border-[#0A5FC4]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-700/20 text-xs font-black text-amber-700 dark:text-amber-400">
-                    #3
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    {top3Teams[2].matchesPlayed} Matches · {top3Teams[2].wwcdCount} WWCD
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-xl font-black text-slate-950 dark:text-white">
-                    {top3Teams[2].teamName}
-                  </h3>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                    {top3Teams[2].winRate}% Win Rate · {top3Teams[2].totalElimsPoints} Elims
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-slate-200/80 pt-3 dark:border-white/10">
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {teamPointsMode === 'sum' ? top3Teams[2].totalPoints : teamPointsMode === 'avg' ? top3Teams[2].avgTotalPoints : top3Teams[2].maxTotalPoints}
-                    </span>
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Points ({teamPointsMode.toUpperCase()})
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {top3Teams[2].totalPlacePoints} Place / {top3Teams[2].totalElimsPoints} Elims
-                    </span>
-                    <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                      Split
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* ============ ESTATIC VIEW SWITCHER CARDS ============ */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Player View Button */}
@@ -1180,6 +911,23 @@ export function EstaticStatisticsPanel({
         {/* Map, Day, Role & Points Mode Controls */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-3 dark:border-white/10 text-xs">
           <div className="flex flex-wrap items-center gap-3">
+            {/* Team Filter — pick a set of teams; quick-add a whole stage's field. */}
+            {teamOptions.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="shrink-0 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  Teams:
+                </span>
+                <div className="w-48">
+                  <TeamMultiSelect
+                    options={teamOptions}
+                    value={selectedTeamIds}
+                    onChange={setSelectedTeamIds}
+                    quickSelectGroups={stageTeamGroups}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Day Dropdown */}
             {daysList.length > 0 && (
               <div className="flex items-center gap-1.5">
