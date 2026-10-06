@@ -46,6 +46,15 @@ npx prisma db push --accept-data-loss
 # and the wiki behind it is frozen, so new tournaments do not add pages. If you
 # ever need to refresh them:
 #   npx tsx scripts/build-legacy-redirects.ts
+# Turbopack leaves `.segments/todo-remove-fake-segment` directories behind when a
+# build is interrupted; the next build then fails with ENOTEMPTY when it tries to
+# rmdir one. Clear them first — this only touches regenerable build artifacts, and
+# `|| true` keeps a failed cleanup from aborting the deploy under `set -e`.
+if find .next -type d -name 'todo-remove-fake-segment' -print -quit 2>/dev/null | grep -q .; then
+    echo ">>> Clearing stale Turbopack segment artifacts from a previous build..."
+    find .next -type d -name '*.segments' -prune -exec rm -rf {} + 2>/dev/null || true
+fi
+
 echo ">>> [6/7] Building Next.js production bundle..."
 npm run build
 
