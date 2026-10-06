@@ -13,7 +13,8 @@ import {
   teamMetadata,
 } from '@/lib/team-data';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
+export const revalidate = 180;
 
 interface TeamRosterPageProps {
   params: Promise<{ game: string; slug: string }>;

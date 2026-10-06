@@ -15,6 +15,7 @@ import {
   usdConverter,
 } from '../player-data';
 
+export const dynamic = 'force-static';
 export const revalidate = 180;
 
 export async function generateMetadata({ params }: { params: Promise<{ game: string; slug: string }> }) {

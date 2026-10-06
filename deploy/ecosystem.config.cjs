@@ -9,8 +9,8 @@ module.exports = {
       exec_mode: 'cluster',
       autorestart: true,
       watch: false,
-      max_memory_restart: '1500M',
-      node_args: '--max-old-space-size=1536',
+      max_memory_restart: '2600M',
+      node_args: '--max-old-space-size=2048',
       time: true,
       env: {
         NODE_ENV: 'production',

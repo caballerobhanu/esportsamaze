@@ -39,6 +39,7 @@ interface PlayerPageProps {
 }
 type SocialMap = Record<string, string>;
 
+export const dynamic = 'force-static';
 export const revalidate = 180;
 
 const socialIcons: Record<string, typeof Globe> = {

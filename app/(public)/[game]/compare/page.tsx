@@ -16,6 +16,7 @@ import {
   Crosshair,
 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ComparePicksPinger } from '@/components/compare/compare-picks-pinger';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
 import { sameFamily } from '@/lib/game-queries';
 import {
@@ -30,7 +31,6 @@ import {
   getTeamCompareResults,
   getPlayerCompareEvents,
   getTeamCompareEvents,
-  recordComparePicks,
   type CompareEventEntry,
   type CompareMetricValue,
   type CompareMetrics,
@@ -245,21 +245,18 @@ export default async function ComparePage({
     const slugA = params.teamA || '';
     const slugB = params.teamB || '';
 
-    // Track explicit comparisons for the "most compared" default lists —
-    // never count views where a side fell back to the default.
-    if (params.teamA && params.teamB && params.teamA !== params.teamB) {
-      const [pa, pb] = await Promise.all([
-        getTeamCompareProfile(params.teamA),
-        getTeamCompareProfile(params.teamB),
-      ]);
-      const ids = [pa?.id, pb?.id].filter(Boolean) as string[];
-      if (ids.length > 0) await recordComparePicks('TEAM', ids);
-    }
+    // Counting an explicit comparison is a client beacon now (ComparePicksPinger
+    // below) — a render-time upsert fired on every GET, crawler hits included.
 
     const [teamA, teamB] = await Promise.all([
       slugA ? getTeamCompareProfile(slugA) : null,
       slugB ? getTeamCompareProfile(slugB) : null,
     ]);
+
+    const comparePickIds =
+      params.teamA && params.teamB && params.teamA !== params.teamB
+        ? ([teamA?.id, teamB?.id].filter(Boolean) as string[])
+        : [];
 
     const teamAGame = teamA?.game?.slug || DEFAULT_GAME_SLUG;
     const teamBGame = teamB?.game?.slug || DEFAULT_GAME_SLUG;
@@ -466,6 +463,7 @@ export default async function ComparePage({
 
     return (
       <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
+        <ComparePicksPinger type="TEAM" ids={comparePickIds} />
         <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 space-y-8 lg:px-8">
           {/* Header Banner */}
           <div className="space-y-4">
@@ -922,20 +920,18 @@ export default async function ComparePage({
   const slugA = params.playerA || '';
   const slugB = params.playerB || '';
 
-  // Track explicit comparisons for the "most compared" default lists.
-  if (params.playerA && params.playerB && params.playerA !== params.playerB) {
-    const [pa, pb] = await Promise.all([
-      getPlayerCompareProfile(params.playerA),
-      getPlayerCompareProfile(params.playerB),
-    ]);
-    const ids = [pa?.id, pb?.id].filter(Boolean) as string[];
-    if (ids.length > 0) await recordComparePicks('PLAYER', ids);
-  }
+  // Counting an explicit comparison is a client beacon now (ComparePicksPinger
+  // below) — a render-time upsert fired on every GET, crawler hits included.
 
   const [playerA, playerB] = await Promise.all([
     slugA ? getPlayerCompareProfile(slugA) : null,
     slugB ? getPlayerCompareProfile(slugB) : null,
   ]);
+
+  const comparePickIds =
+    params.playerA && params.playerB && params.playerA !== params.playerB
+      ? ([playerA?.id, playerB?.id].filter(Boolean) as string[])
+      : [];
 
   const playerAGame = playerA?.game?.slug || DEFAULT_GAME_SLUG;
   const playerBGame = playerB?.game?.slug || DEFAULT_GAME_SLUG;
@@ -1076,6 +1072,7 @@ export default async function ComparePage({
 
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-950 selection:bg-[#0A5FC4] selection:text-white dark:bg-[#070b14] dark:text-white py-6 sm:py-8">
+      <ComparePicksPinger type="PLAYER" ids={comparePickIds} />
       <div className="max-w-[var(--page-max-width)] w-full mx-auto px-4 sm:px-6 space-y-8 lg:px-8">
         {/* Header Banner */}
         <div className="space-y-4">

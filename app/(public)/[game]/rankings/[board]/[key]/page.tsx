@@ -27,7 +27,8 @@ import { DEFAULT_GAME_SLUG, gameHref, RANKINGS_GAME_SLUG } from '@/lib/games';
 import { AdSlot } from '@/components/ads/ad-slot';
 import { AD_PLACEMENTS } from '@/lib/ads';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
+export const revalidate = 600;
 
 type Params = Promise<{ game: string; board: string; key: string }>;
 

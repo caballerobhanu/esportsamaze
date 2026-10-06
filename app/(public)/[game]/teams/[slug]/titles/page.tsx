@@ -9,7 +9,8 @@ import { collectTeamAwards } from '@/lib/team-awards';
 import { buildPlayerSlugMaps, collectLineupPlayerIds } from '@/lib/team-roster';
 import { loadLineupPlayers, loadTeamContext, teamMetadata } from '@/lib/team-data';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-static';
+export const revalidate = 180;
 
 interface TeamTitlesPageProps {
   params: Promise<{ game: string; slug: string }>;

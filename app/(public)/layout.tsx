@@ -1,15 +1,10 @@
-import { cookies } from 'next/headers';
 import type { Metadata } from 'next';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
 import { CookieConsent } from '@/components/cookie-consent';
 import { BackToTop } from '@/components/ui/back-to-top';
-import { isAdmin } from '@/lib/admin-auth';
 import { getMaintenanceSettings } from '@/lib/site-settings';
 import { MaintenanceView } from '@/components/maintenance/maintenance-view';
-import { AdminMaintenanceBanner } from '@/components/maintenance/admin-banner';
-
-export const dynamic = 'force-dynamic';
 
 /*
  * While the gate is up, every public route serves the placeholder — so none of
@@ -28,46 +23,27 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Shared chrome for every public page. Admin routes live outside this group
 // and keep their own panel layout.
+//
+// This layout reads NO cookies on purpose. It used to call isAdmin() and read
+// the `ea_preview_live` cookie to give an admin a live-preview toggle — but a
+// cookies() read anywhere in the tree opts the whole route out of the route
+// cache, so every public URL was a full server render on each request. Under a
+// crawler flood that is exactly what saturates the workers. The maintenance
+// value below is cached (unstable_cache, tag SITE_SETTINGS_TAG) and toggling it
+// calls revalidatePath('/', 'layout'), so the gate still flips on the next
+// request without reading a cookie. The admin toggle lives in the admin panel,
+// which is outside this layout.
 export default async function PublicLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isAdministrator = await isAdmin();
   const maintenance = await getMaintenanceSettings();
 
-  // When maintenance / coming soon mode is enabled:
+  // When maintenance / coming soon mode is enabled, every visitor sees the
+  // placeholder without site chrome.
   if (maintenance.enabled) {
-    // 1. Regular public visitors see the maintenance screen without site chrome
-    if (!isAdministrator) {
-      return <MaintenanceView settings={maintenance} />;
-    }
-
-    // 2. Administrators: check if they explicitly toggled live preview mode
-    const cookieStore = await cookies();
-    const previewLive = cookieStore.get('ea_preview_live')?.value === '1';
-
-    // If admin is previewing live site, show live site with top warning banner
-    if (previewLive) {
-      return (
-        <div className="min-h-screen flex flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
-          <AdminMaintenanceBanner settings={maintenance} onMaintenancePage={false} />
-          <Navbar />
-          {children}
-          <Footer />
-          <CookieConsent />
-          <BackToTop />
-        </div>
-      );
-    }
-
-    // Otherwise by default, admin sees the exact maintenance screen with an admin control bar
-    return (
-      <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-        <AdminMaintenanceBanner settings={maintenance} onMaintenancePage={true} />
-        <MaintenanceView settings={maintenance} />
-      </div>
-    );
+    return <MaintenanceView settings={maintenance} />;
   }
 
   // Normal live site when maintenance is disabled

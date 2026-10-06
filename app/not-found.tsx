@@ -1,14 +1,18 @@
 import type { Metadata } from 'next';
 import { Navbar } from '@/components/navbar';
 import { Footer } from '@/components/footer';
-import { isAdmin } from '@/lib/admin-auth';
 import { getMaintenanceSettings } from '@/lib/site-settings';
 import { MaintenanceView } from '@/components/maintenance/maintenance-view';
-import { AdminMaintenanceBanner } from '@/components/maintenance/admin-banner';
 import { NotFoundPoster } from '@/components/not-found-poster';
 
-export const dynamic = 'force-dynamic';
-
+/*
+ * This file is the root segment's not-found boundary, so it is part of EVERY
+ * route's render tree — not just the 404 route. It therefore must not read
+ * cookies (via isAdmin() or AdminMaintenanceBanner), because a cookies() call
+ * reachable from the root segment opts every route in the app out of static/ISR
+ * rendering. The gate below is driven only by the cached settings value; the
+ * admin toggle lives in the admin panel.
+ */
 export const metadata: Metadata = {
   title: 'Page Not Found — eSportsAmaze',
   // notFound() currently renders with HTTP 200: a loading.tsx boundary streams
@@ -18,23 +22,11 @@ export const metadata: Metadata = {
 };
 
 export default async function NotFound() {
-  const isAdministrator = await isAdmin();
   const maintenance = await getMaintenanceSettings();
 
-  // If maintenance mode is active:
+  // If maintenance mode is active, the placeholder replaces the 404 for everyone.
   if (maintenance.enabled) {
-    if (!isAdministrator) {
-      return <MaintenanceView settings={maintenance} />;
-    }
-
-    return (
-      <div className="min-h-screen flex flex-col bg-[var(--ed-canvas)] text-[var(--ed-ink)] transition-colors">
-        <AdminMaintenanceBanner settings={maintenance} onMaintenancePage={false} />
-        <Navbar />
-        <NotFoundPoster />
-        <Footer />
-      </div>
-    );
+    return <MaintenanceView settings={maintenance} />;
   }
 
   return (
