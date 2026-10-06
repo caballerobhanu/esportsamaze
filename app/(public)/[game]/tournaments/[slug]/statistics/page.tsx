@@ -58,9 +58,11 @@ export default async function TournamentStatisticsPage({
           adminPlayerColumns={ctx.standingsConfig.statisticsConfig?.playerColumns}
           customPlayerColumns={ctx.standingsConfig.statisticsConfig?.customPlayerColumns}
           showPlayerRole={ctx.standingsConfig.statisticsConfig?.showPlayerRole}
+          showPlayerStats={ctx.standingsConfig.statisticsConfig?.showPlayerStats}
+          gameSlug={ctx.tournament.game?.slug}
         />
 
-        <EstaticReportedTotals teams={reported.teams} players={reported.players} />
+        <EstaticReportedTotals teams={reported.teams} players={reported.players} gameSlug={ctx.tournament.game?.slug} />
       </div>
     </TournamentTabShell>
   );

@@ -43,6 +43,11 @@ export interface EstaticStatisticsPanelProps {
   customPlayerColumns?: CustomPlayerColumn[];
   /** Show each player's role beside their name. Off by default: the role pills already filter. */
   showPlayerRole?: boolean;
+  /** Offer the player leaderboard view. Off hides it and opens on team statistics instead,
+      for events that never record player data. Defaults to on. */
+  showPlayerStats?: boolean;
+  /** The game whose team/player pages these links must point at. Falls back to the default game. */
+  gameSlug?: string;
 }
 
 function computeCustomColumnValue(
@@ -371,10 +376,12 @@ export function EstaticStatisticsPanel({
   adminPlayerColumns,
   customPlayerColumns,
   showPlayerRole = false,
+  showPlayerStats = true,
   logoMode = 'TEAM',
+  gameSlug = DEFAULT_GAME_SLUG,
 }: EstaticStatisticsPanelProps) {
   // Navigation & view states
-  const [activeTab, setActiveTab] = React.useState<'players' | 'teams'>(defaultView);
+  const [activeTab, setActiveTab] = React.useState<'players' | 'teams'>(showPlayerStats ? defaultView : 'teams');
   const [selectedStages, setSelectedStages] = React.useState<string[]>([]);
   const [selectedMap, setSelectedMap] = React.useState<string>('ALL');
   const [selectedDay, setSelectedDay] = React.useState<string>('ALL');
@@ -409,10 +416,16 @@ export function EstaticStatisticsPanel({
   const [teamPointsMode, setTeamPointsMode] = React.useState<TeamPointsMode>(defaultTeamPointsMode);
 
   React.useEffect(() => {
+    // The players view is not offered when the event records no player data, so the
+    // tab stays on teams however the landing preference was stored.
+    if (!showPlayerStats) {
+      setActiveTab('teams');
+      return;
+    }
     if (defaultView) {
       setActiveTab(defaultView);
     }
-  }, [defaultView]);
+  }, [defaultView, showPlayerStats]);
 
   React.useEffect(() => {
     if (defaultTeamPointsMode) {
@@ -787,9 +800,10 @@ export function EstaticStatisticsPanel({
   return (
     <div className="space-y-7">
       {/* ============ ESTATIC VIEW SWITCHER CARDS ============ */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* Player View Button */}
-        <button
+      <div className={`grid grid-cols-1 gap-4 ${showPlayerStats ? 'sm:grid-cols-2' : ''}`}>
+        {/* Player View Button — hidden when the event records no player data */}
+        {showPlayerStats && (
+          <button
           type="button"
           onClick={() => setActiveTab('players')}
           className={`flex items-center justify-between rounded-3xl border p-6 text-left transition-all duration-200 cursor-pointer ${
@@ -827,6 +841,7 @@ export function EstaticStatisticsPanel({
             {playerRows.length} Players
           </span>
         </button>
+        )}
 
         {/* Team View Button */}
         <button
@@ -1085,7 +1100,7 @@ export function EstaticStatisticsPanel({
       {/* ============ ESTATIC LEADERBOARD TABLE ============ */}
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#0b1220]">
         <div className="overflow-x-auto">
-          {activeTab === 'players' ? (
+          {showPlayerStats && activeTab === 'players' ? (
             /* ============ PLAYERS LEADERBOARD ============ */
             <table className="w-full text-left border-collapse">
               <thead>
@@ -1179,7 +1194,7 @@ export function EstaticStatisticsPanel({
                           />
                           <div>
                             <Link
-                              href={gameHref(DEFAULT_GAME_SLUG, `players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`)}
+                              href={gameHref(gameSlug, `players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`)}
                               className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                             >
                               {player.ign}
@@ -1389,7 +1404,7 @@ export function EstaticStatisticsPanel({
                             />
                             <div>
                               <Link
-                                href={gameHref(DEFAULT_GAME_SLUG, `teams/${team.teamSlug || encodeURIComponent(team.teamName)}`)}
+                                href={gameHref(gameSlug, `teams/${team.teamSlug || encodeURIComponent(team.teamName)}`)}
                                 className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                               >
                                 {team.teamName}

@@ -35,24 +35,50 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  // 1. Featured Tournament: ONLY live/ongoing tournaments (status = 'ONGOING') with completed matches
-  const liveTournament = await prisma.tournament.findFirst({
+  // 1. Latest Completed Match — drives the highlight card, and its event drives
+  //    the standings, so a result and the table always describe the same event,
+  //    whatever its status.
+  const latestCompletedMatch = await prisma.match.findFirst({
     where: {
-      status: 'ONGOING',
-      matches: { some: { status: 'COMPLETED' } },
+      status: 'COMPLETED',
+      games: { some: { teamResults: { some: {} } } },
     },
-    orderBy: { startDate: 'desc' },
+    orderBy: [{ scheduledAt: 'desc' }, { matchNumber: 'desc' }],
     include: {
-      stages: {
-        where: { matches: { some: { status: 'COMPLETED' } } },
-        orderBy: { sequence: 'asc' },
-        select: { id: true, name: true, sequence: true },
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          shortName: true,
+          series: true,
+          season: true,
+          slug: true,
+          game: { select: { slug: true } },
+          stages: {
+            where: { matches: { some: { status: 'COMPLETED' } } },
+            orderBy: { sequence: 'asc' },
+            select: { id: true, name: true, sequence: true },
+          },
+        },
       },
-      game: { select: { slug: true } },
+      stage: { select: { id: true, name: true } },
+      games: {
+        include: {
+          teamResults: {
+            include: { team: { select: { id: true, name: true, slug: true, tag: true, logoUrl: true } } },
+            orderBy: { rank: 'asc' },
+          },
+          playerStats: {
+            include: { player: { select: { id: true, ign: true } }, team: { select: { name: true, tag: true } } },
+            orderBy: [{ kills: 'desc' }, { damage: 'desc' }],
+          },
+        },
+      },
     },
   });
 
-  // 2. Compute Standings and Top Fraggers for the LAST completed stage of the LIVE tournament
+  // 2. Standings and Top Fraggers for the last completed stage of that same event.
+  const liveTournament = latestCompletedMatch?.tournament ?? null;
   const lastCompletedStage =
     liveTournament && liveTournament.stages.length > 0
       ? liveTournament.stages[liveTournament.stages.length - 1]
@@ -77,30 +103,7 @@ export default async function HomePage() {
     }
   }
 
-  // 3. Latest Completed Match (or next scheduled match) for Highlight Card
-  const latestCompletedMatch = await prisma.match.findFirst({
-    where: {
-      status: 'COMPLETED',
-      games: { some: { teamResults: { some: {} } } },
-    },
-    orderBy: [{ scheduledAt: 'desc' }, { matchNumber: 'desc' }],
-    include: {
-      tournament: { select: { id: true, name: true, shortName: true, series: true, season: true, slug: true, game: { select: { slug: true } } } },
-      stage: { select: { id: true, name: true } },
-      games: {
-        include: {
-          teamResults: {
-            include: { team: { select: { id: true, name: true, slug: true, tag: true, logoUrl: true } } },
-            orderBy: { rank: 'asc' },
-          },
-          playerStats: {
-            include: { player: { select: { id: true, ign: true } }, team: { select: { name: true, tag: true } } },
-            orderBy: [{ kills: 'desc' }, { damage: 'desc' }],
-          },
-        },
-      },
-    },
-  });
+  // 3. Build the highlight card (or fall back to the next scheduled match).
 
   let highlightMatch: HighlightMatchData | null = null;
 

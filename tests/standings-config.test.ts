@@ -6,6 +6,7 @@ import {
   latestPlayedStageName,
   logoModesFromConfig,
   navEntryForStage,
+  normalizeStatisticsConfig,
 } from '../lib/standings-config';
 
 /** The shape stored in `Tournament.standingsConfig` — the choice sits one level down. */
@@ -54,6 +55,21 @@ test('an unrecognised value for one tab falls back without disturbing the others
   assert.equal(modes.standings, DEFAULT_SURFACE_LOGO_MODE);
   assert.equal(modes.teams, 'BOTH');
   assert.equal(modes.overview, 'COUNTRY');
+});
+
+/* ── the player leaderboard toggle ── */
+
+test('the statistics tab shows player data unless an event turns it off', () => {
+  // Absent must read as on: a config saved before this toggle existed keeps its players view.
+  for (const absent of [undefined, null, {}, { defaultView: 'players' }]) {
+    assert.equal(normalizeStatisticsConfig(absent).showPlayerStats, true);
+  }
+});
+
+test('only an explicit false hides the player leaderboard', () => {
+  assert.equal(normalizeStatisticsConfig({ showPlayerStats: false }).showPlayerStats, false);
+  // Anything else, including a truthy non-boolean, stays visible.
+  assert.equal(normalizeStatisticsConfig({ showPlayerStats: 'no' }).showPlayerStats, true);
 });
 
 /* ── which tab opens ── */

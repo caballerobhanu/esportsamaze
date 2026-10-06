@@ -2007,6 +2007,28 @@ export function TournamentStandingsConfigInput({
           </div>
         </div>
 
+        {/* Player statistics availability — off for events that never record player rows */}
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={config.statisticsConfig?.showPlayerStats !== false}
+            onChange={(e) => {
+              const show = e.target.checked;
+              patch({
+                statisticsConfig: {
+                  ...config.statisticsConfig,
+                  showPlayerStats: show,
+                  // The players view is only a valid landing tab while it is shown.
+                  ...(show ? {} : { defaultView: 'teams' as const }),
+                },
+              });
+              if (!show) setStatsConfigTab('teams');
+            }}
+            className="rounded text-purple-600 focus:ring-purple-500"
+          />
+          <span>Show player statistics (Player Performance view)</span>
+        </label>
+
         {/* Default View Selector */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -2025,7 +2047,7 @@ export function TournamentStandingsConfigInput({
                 setStatsConfigTab(val);
               }}
             >
-              <option value="players">👥 Player Performance (Fraggers Table)</option>
+              <option value="players" disabled={config.statisticsConfig?.showPlayerStats === false}>👥 Player Performance (Fraggers Table)</option>
               <option value="teams">🛡️ Team Performance (Map Breakdown &amp; Metrics)</option>
             </select>
           </div>

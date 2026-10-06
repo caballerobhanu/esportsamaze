@@ -225,12 +225,14 @@ export function EstaticStandingsPanel({
   teams,
   config,
   overallTopFragger,
+  gameSlug = DEFAULT_GAME_SLUG,
 }: {
   stages: StandingsStageSummary[];
   matches: StandingsMatchLite[];
   teams: Record<string, StandingsTeamMeta>;
   config: StandingsConfig;
   overallTopFragger?: { ign: string; teamName: string; kills: number } | null;
+  gameSlug?: string;
 }) {
   const tabGroups = React.useMemo(() => config.tabGroups || [], [config.tabGroups]);
   const hasTabGroups = tabGroups.length > 0;
@@ -1318,7 +1320,7 @@ export function EstaticStandingsPanel({
                 const teamTag = meta?.tag || cleanName.slice(0, 4).toUpperCase();
                 // Prefer the team slug; the public team page also resolves by
                 // name, so an encoded name is a safe fallback (never the DB id).
-                const teamHref = gameHref(DEFAULT_GAME_SLUG, `teams/${meta?.slug || encodeURIComponent(cleanName)}`);
+                const teamHref = gameHref(gameSlug, `teams/${meta?.slug || encodeURIComponent(cleanName)}`);
                 const assignment = teamAssignedZones.get(team.teamId);
                 const isPrec = assignment?.isPrecedence;
                 const zone = assignment?.zone || null;

@@ -16,6 +16,7 @@ import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
  */
 export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
   const { tournament } = ctx;
+  const game = tournament.game?.slug || DEFAULT_GAME_SLUG;
 
   return (
     <section className="relative overflow-hidden border-b border-slate-200 bg-white dark:border-white/10 dark:bg-[#0b1220]">
@@ -33,7 +34,7 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
           <div className="flex min-w-0 items-center gap-2 text-[11px] font-extrabold uppercase tracking-[.18em] text-slate-400 dark:text-slate-500">
             <Link href="/" className="shrink-0 hover:text-[#0A5FC4]">Home</Link>
             <span className="shrink-0">/</span>
-            <Link href={gameHref(DEFAULT_GAME_SLUG, 'tournaments')} className="shrink-0 hover:text-[#0A5FC4]">Tournaments</Link>
+            <Link href={gameHref(game, 'tournaments')} className="shrink-0 hover:text-[#0A5FC4]">Tournaments</Link>
             <span className="shrink-0">/</span>
             <span className="truncate text-[#0A5FC4] dark:text-blue-300">
               <TournamentShortName name={tournament.name} shortName={tournament.shortName} />

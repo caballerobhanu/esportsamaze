@@ -391,6 +391,9 @@ export interface StatisticsConfig {
   defaultTeamPointsMode?: 'sum' | 'avg' | 'max';
   /** Show a player's role beside their name. Off by default: the role pills already filter. */
   showPlayerRole?: boolean;
+  /** Whether the statistics tab offers the player leaderboard. Turn it off for events that
+      never record player data, so an empty "0 Players" view is not shown to visitors. */
+  showPlayerStats?: boolean;
 }
 
 /** Public surfaces that each choose how a team is drawn: crest, flag, both, or neither. */
@@ -863,6 +866,7 @@ export function normalizeStatisticsConfig(v: unknown): StatisticsConfig {
     customPlayerColumns: customPlayerColumns.length > 0 ? customPlayerColumns : undefined,
     defaultTeamPointsMode,
     showPlayerRole: s.showPlayerRole === true,
+    showPlayerStats: s.showPlayerStats !== false,
   };
 }
 

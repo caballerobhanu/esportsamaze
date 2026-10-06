@@ -55,12 +55,14 @@ export default async function TournamentStandingsPage({
           matches={data.standingsMatches}
           teams={data.teamsMeta}
           config={ctx.standingsConfig}
+          gameSlug={ctx.tournament.game?.slug}
         />
       ) : (
         <EstaticReportedStandings
           teams={reported.teams}
           logoMode={ctx.standingsConfig.logoModeBySurface.standings}
           columns={ctx.standingsConfig.columns}
+          gameSlug={ctx.tournament.game?.slug}
         />
       )}
     </TournamentTabShell>
