@@ -10,7 +10,11 @@ import {
   generateTournamentStaticParams,
 } from '../tournament-data';
 
-export const revalidate = 180;
+// Standings are the tab people refresh during a live event. A short window here
+// keeps the edge copy close to live; every other tab stays at 180s. Admin saves
+// already call revalidatePath, so this only bounds how long the *edge* may serve
+// a copy that was cached just before an edit.
+export const revalidate = 30;
 
 export async function generateStaticParams() {
   return generateTournamentStaticParams();

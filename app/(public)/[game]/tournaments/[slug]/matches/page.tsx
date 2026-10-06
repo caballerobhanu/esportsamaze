@@ -9,7 +9,11 @@ import {
   generateTournamentStaticParams,
 } from '../tournament-data';
 
-export const revalidate = 180;
+// Matches and standings are the two tabs that change during a live event (a new
+// match adds a row here and reshuffles standings), so both use a short edge
+// window. Admin saves already call revalidatePath; this only bounds how long the
+// edge may serve a copy cached just before an edit. Other tabs stay at 180s.
+export const revalidate = 30;
 
 export async function generateStaticParams() {
   return generateTournamentStaticParams();
