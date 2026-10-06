@@ -53,6 +53,79 @@ If lint is ever wired into CI, it will fail immediately. That is a deliberate tr
 
 **Decision 2026-09-19: leave the rule as-is and purge the changed URL by hand in Cloudflare.** First hit by this: swapping `app/favicon.ico` looked like a failed deploy for hours, while origin served the new bytes correctly the whole time.
 
+## Caching & ISR — public pages are cached (2026-10-06)
+
+On 2026-10-06 a ~30 rps distributed crawler saturated all three Next workers, because every
+public page was a **full server render per request**. The public site is now static/ISR.
+**Read this before changing any `app/(public)` route.**
+
+**The one rule: a `cookies()`/`headers()` call anywhere in a route's tree forces that route —
+and the whole app, if it is high enough — to render dynamically.** Two things bit us:
+
+- **`app/not-found.tsx` is the 404 boundary for EVERY route.** Its `isAdmin()` (→ `cookies()`)
+  therefore opted the *entire app* out of static/ISR — this, not the public layout, was why
+  every route showed `ƒ`. Keep it free of `cookies()`/`headers()`. Do **not** re-add
+  `isAdmin()` or `AdminMaintenanceBanner` there. (`components/maintenance/admin-banner.tsx`
+  is deleted — it was the last `cookies()` importer outside `lib/admin-auth.ts`.)
+- **`app/(public)/layout.tsx` reads no cookies.** The maintenance gate is driven purely by
+  the cached `getMaintenanceSettings()` (`unstable_cache`, tag `SITE_SETTINGS_TAG`, 300s;
+  toggling calls `revalidatePath('/', 'layout')` + `revalidateTag`). **Behaviour change:**
+  admins no longer get an in-page "live preview" banner during maintenance — toggle from
+  `/admin/settings`.
+
+**A dynamic route needs `force-static` (or a `generateStaticParams` returning at least `[]`)
+to be ISR.** `export const revalidate` alone is **not** enough on a route with dynamic params
+and no `generateStaticParams` — Next 16 renders it on demand (`ƒ`, revalidate ignored). That
+is why the team/player profile tabs and the rankings breakdown carry **both**
+`dynamic = 'force-static'` and `revalidate`. Do not remove `force-static` assuming
+`revalidate` covers it.
+
+**Intentionally `ƒ` (dynamic):** anything reading `searchParams` — the list pages
+(`[game]/players`, `[game]/teams`, `[game]/rankings`, `[game]/tournaments`, `/news` and its
+category/tag/author pages), `/compare`, `[game]/teams/[slug]/matches`,
+`[game]/tournaments/[slug]/preview`, plus `/admin/*` and `/api/*`.
+
+**Revalidate windows:** home 120s; news articles, team/player profiles and most tournament
+tabs 180s; **standings and matches 30s** (they move during a live event); rankings breakdown 600s.
+
+**How to check:** `npm run build` prints every route as `○` (static), `●` (SSG) or `ƒ`
+(dynamic). A page you expect to be cached must not be `ƒ`.
+
+**Render must stay side-effect-free.** The compare page used to `ComparePick.upsert` on every
+GET; it is now a client beacon (`components/compare/compare-picks-pinger.tsx` →
+`POST /api/compare/picks`). To count something, use a beacon like `page-view-pinger.tsx`, never
+a write during render.
+
+### Cloudflare edge caching (set 2026-10-06)
+
+- **Cache Rule `Cache public HTML`** caches anonymous HTML — excludes `/admin`, `/poorvith`,
+  `/desk`, `/api/`, `/_next/`, any path containing `.`, and requests carrying the `ea_admin`
+  or `ea_preview_live` cookie. **Edge TTL = "Use cache-control header if present, bypass if
+  not"** — honours the origin's `s-maxage`, and does not cache the `no-store` dynamic pages.
+- **Browser Cache TTL = "Respect Existing Headers"** (Caching → Configuration). Cloudflare
+  defaults this to 4 hours, which would make a visitor's browser hold a page for 4h regardless
+  of ISR. **Do not let it revert.**
+- `revalidatePath`/`revalidateTag` clear **Next's caches only** — not nginx's 30s micro-cache,
+  not Cloudflare's edge, not a visitor's browser. So after an admin save the worst case is:
+  nginx ≤30s; edge ≤30s (standings/matches) or ≤180s (other tabs).
+- **Under Attack mode is OFF** (Security Level could not be set to "High" — not where expected
+  in the dashboard; optional). Re-enable Under Attack from the zone Overview if a flood returns.
+
+### Turbopack `.next` leftover that wedges a build (2026-10-06)
+
+An interrupted `next build` leaves `.next/**/*.segments/todo-remove-fake-segment` directories
+behind; the next build then fails with `ENOTEMPTY` when it `rmdir`s a non-empty one. They also
+regenerate over time, which is normal. `deploy/update.sh` now clears them right before
+`npm run build` (only when present, `|| true` so a failed cleanup can never abort the deploy).
+If a build still fails with `ENOTEMPTY`:
+```bash
+find .next -type d -name '*.segments' -prune -exec rm -rf {} +
+```
+
+**PM2 memory:** `deploy/ecosystem.config.cjs` uses `max_memory_restart: '2600M'` and
+`--max-old-space-size=2048`. The old 1500M cap made workers restart-loop under load
+(`pm2.log`: `exceeds --max-memory-restart`). Do not lower it.
+
 ## Scheduled jobs
 
 Cron entries belong in **`/etc/cron.d/esportsamaze`** (that directory requires a user field), not the root crontab.
@@ -98,4 +171,4 @@ Columns are never dropped (additive-only schema), so some of what remains is int
 
 ## How these facts were established
 
-`tsc --noEmit`, `npm test`, `npx eslint .`, `prisma migrate status`, `pm2 list`, `ls /var/backups/esportsamaze`, `grep server_name /etc/nginx/sites-available/esportsamaze.com`, and `grep -oE '^[A-Za-z0-9_]+=' .env` (key names only — never dump values).
+`tsc --noEmit`, `npm test`, `npx eslint .`, `prisma migrate status`, `pm2 list`, `ls /var/backups/esportsamaze`, `grep server_name /etc/nginx/sites-available/esportsamaze.com`, and `grep -oE '^[A-Za-z0-9_]+=' .env` (key names only — never dump values). The caching facts above add: the `npm run build` route table (`○`/`●`/`ƒ`), and `curl -sI` / `curl -D -` for `Cache-Control: s-maxage` and `cf-cache-status`.
