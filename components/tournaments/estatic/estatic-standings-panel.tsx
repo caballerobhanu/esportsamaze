@@ -45,6 +45,7 @@ import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-ma
 import { BonusBreakdown } from './estatic-bonus-table';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { gameHref, gameSlugOf } from '@/lib/games';
+import { formatShortDate } from '@/lib/utils';
 
 type SortKey =
   | 'rank'
@@ -617,7 +618,14 @@ export function EstaticStandingsPanel({
     const days = [...new Set(scopeMatches.map((m) => m.day))].sort((a, b) => Number(a) - Number(b));
     const maps = [...new Set(scopeMatches.map((m) => m.mapName).filter((v): v is string => !!v))].sort();
     const groups = [...new Set(scopeMatches.map((m) => m.groupName).filter((v): v is string => !!v))].sort();
-    return { days, maps, groups };
+    // Label each day by the calendar date it was played. The day value is a relative calendar
+    // offset from the stage's first match, so a weekends-only stage reads as Sep 5, Sep 6 … rather
+    // than the misleading "D1, D2, D8, D9" the raw offset would print.
+    const dayLabels = new Map<string, string>();
+    for (const m of scopeMatches) {
+      if (!dayLabels.has(m.day)) dayLabels.set(m.day, formatShortDate(m.scheduledAt));
+    }
+    return { days, maps, groups, dayLabels };
   }, [scopeMatches]);
 
   // The stage this table is currently showing, if it is a single named stage (not a
@@ -660,6 +668,15 @@ export function EstaticStandingsPanel({
     }
     return headstartFor(rules, matches, activeStageName);
   }, [config.bonusRules, matches, activeStageName, isFiltered]);
+
+  // A manual headstart has no source stage to attach its grid to, so show the breakdown grid on
+  // the target stage instead. It is a stage-level explainer, so it stays put under a day/map filter.
+  const manualHeadstart = React.useMemo(() => {
+    if (!activeStageName) return null;
+    const { rule } = headstartFor(config.bonusRules ?? [], matches, activeStageName);
+    if (!rule || rule.mode !== 'MANUAL' || !rule.showBonusTable) return null;
+    return { rule, computation: computeStageBonus(rule, matches) };
+  }, [config.bonusRules, matches, activeStageName]);
 
   // Match point / smash rule, when this stage is the one it applies to. `scopeMatches` is the
   // active stage's own matches, so the engine reports `applies: false` on any other stage.
@@ -1042,7 +1059,7 @@ export function EstaticStandingsPanel({
                       onClick={() => setDay(day === d ? '' : d)}
                       className={`rounded-lg px-2 py-0.5 text-xs font-bold transition cursor-pointer ${day === d ? 'bg-[#0A5FC4] text-white' : 'bg-slate-100 text-slate-600 dark:bg-white/5 dark:text-slate-400'}`}
                     >
-                      D{d}
+                      {options.dayLabels.get(d) ?? `D${d}`}
                     </button>
                   ))}
                 </div>
@@ -1627,6 +1644,17 @@ export function EstaticStandingsPanel({
           </table>
         </div>
       </div>
+
+      {/* ============ BONUS BREAKDOWN (manual headstart, target stage) ============ */}
+      {manualHeadstart && (
+        <BonusBreakdown
+          periods={manualHeadstart.computation.periods}
+          byTeamPeriod={manualHeadstart.computation.byTeamPeriod}
+          byTeam={manualHeadstart.computation.byTeam}
+          teams={teams}
+          label={manualHeadstart.rule.label}
+        />
+      )}
     </div>
   );
 }

@@ -630,14 +630,16 @@ export const loadTeamMatchSummary = unstable_cache(
       by: ['rank'],
       where: { teamId },
       _count: { _all: true },
-      _sum: { totalPoints: true, placePoints: true, elimsPoints: true },
+      _sum: { placePoints: true, elimsPoints: true },
     });
 
     const rankGroups = groups
       .map((group) => ({
         rank: group.rank,
         games: group._count._all,
-        points: group._sum.totalPoints ?? 0,
+        // A carried stat counts only earned points: placement + eliminations. Bonus is a
+        // tournament artifact (a per-match bonus or a headstart carry), never a team's own.
+        points: (group._sum.placePoints ?? 0) + (group._sum.elimsPoints ?? 0),
         placePoints: group._sum.placePoints ?? 0,
         elimsPoints: group._sum.elimsPoints ?? 0,
       }))
@@ -789,7 +791,7 @@ export const loadTeamTournamentStats = unstable_cache(
              SUM(CASE WHEN r."wwcd" THEN 1 ELSE 0 END)::int AS wins,
              SUM(CASE WHEN r."rank" BETWEEN 1 AND 5 THEN 1 ELSE 0 END)::int AS top_five,
              SUM(r."placePoints")::int AS place_points,
-             SUM(r."totalPoints")::int AS points,
+             (SUM(r."placePoints") + SUM(r."elimsPoints"))::int AS points,
              SUM(r."elimsPoints")::int AS elims_points
       FROM "MatchTeamResult" r
       JOIN "MatchGame" g ON g.id = r."matchGameId"
@@ -895,7 +897,7 @@ export const loadTeamMapStats = unstable_cache(
              SUM(CASE WHEN r."wwcd" THEN 1 ELSE 0 END)::int AS wins,
              SUM(CASE WHEN r."rank" BETWEEN 1 AND 5 THEN 1 ELSE 0 END)::int AS top_five,
              SUM(r."placePoints")::int AS place_points,
-             SUM(r."totalPoints")::int AS points,
+             (SUM(r."placePoints") + SUM(r."elimsPoints"))::int AS points,
              COUNT(r."damage")::int AS damage_samples,
              COALESCE(SUM(r."damage"), 0)::float8 AS damage_sum,
              COUNT(r."survivalTime")::int AS survival_samples,
@@ -992,9 +994,9 @@ export const loadTeamHeadToHead = unstable_cache(
       WITH shared AS (
         SELECT o."teamId" AS opponent_id,
                o."rank" AS opp_rank,
-               o."totalPoints" AS opp_points,
+               (o."placePoints" + o."elimsPoints") AS opp_points,
                me."rank" AS my_rank,
-               me."totalPoints" AS my_points,
+               (me."placePoints" + me."elimsPoints") AS my_points,
                m."scheduledAt" AS scheduled_at,
                m."overallMatchNumber" AS overall_match_number,
                g."sequence" AS sequence
@@ -1418,7 +1420,13 @@ export const loadTeamEventMetrics = unstable_cache(
           placePoints: row.placePoints,
           elimsPoints: row.elimsPoints,
           bonusPoints: row.bonusPoints,
-          totalPoints: row.totalPoints,
+          // "Total" is the team's earned points, so a reported slice that records place and
+          // elims counts those; bonus stays in its own column and is never folded in. Only a
+          // slice that never split the two falls back to the stored total.
+          totalPoints:
+            row.placePoints !== null || row.elimsPoints !== null
+              ? (row.placePoints ?? 0) + (row.elimsPoints ?? 0)
+              : row.totalPoints,
         },
       })),
     );

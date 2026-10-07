@@ -324,14 +324,15 @@ export default async function ComparePage({
         if (r.wwcd) lifetimeA.wwcd += 1;
         lifetimeA.placePoints += r.placePoints;
         lifetimeA.elims += r.elimsPoints;
-        lifetimeA.totalPoints += r.totalPoints;
+        // Carried "Total Points" is earned points only — placement + eliminations, no bonus.
+        lifetimeA.totalPoints += r.placePoints + r.elimsPoints;
       }
       for (const r of resultsB) {
         lifetimeB.matches += 1;
         if (r.wwcd) lifetimeB.wwcd += 1;
         lifetimeB.placePoints += r.placePoints;
         lifetimeB.elims += r.elimsPoints;
-        lifetimeB.totalPoints += r.totalPoints;
+        lifetimeB.totalPoints += r.placePoints + r.elimsPoints;
       }
 
       const mapB = new Map(resultsB.map((r) => [r.matchGameId, r]));
@@ -345,8 +346,8 @@ export default async function ComparePage({
           if (rB.wwcd) teamBWwcdInShared++;
           teamAElimsInShared += rA.elimsPoints;
           teamBElimsInShared += rB.elimsPoints;
-          teamAPointsInShared += rA.totalPoints;
-          teamBPointsInShared += rB.totalPoints;
+          teamAPointsInShared += rA.placePoints + rA.elimsPoints;
+          teamBPointsInShared += rB.placePoints + rB.elimsPoints;
         }
       }
     }

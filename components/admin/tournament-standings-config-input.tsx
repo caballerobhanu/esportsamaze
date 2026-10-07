@@ -24,6 +24,9 @@ import {
   type StandingsNavigationItem,
   type StageBonusRule,
   type BonusPeriod,
+  type BonusRuleMode,
+  type ManualBonusEntry,
+  type ManualBonusPeriod,
   type MatchPointRule,
   type MatchPointThresholdMode,
   type ZoneRule,
@@ -35,6 +38,7 @@ import {
 } from '@/lib/standings-config';
 import { parseStandingsZoneSheet, planZoneFiling, type ParsedZoneRow } from '@/lib/standings-zone-parse';
 import { TabPasteBox, type TabPastePreview } from '@/components/admin/tab-paste-box';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import {
   Sparkles,
   Trash2,
@@ -1058,10 +1062,12 @@ function TabGroupsEditor({
 function BonusRulesEditor({
   rules,
   stageNames,
+  teams,
   onChange,
 }: {
   rules: StageBonusRule[];
   stageNames: string[];
+  teams: { id: string; name: string; tag?: string | null }[];
   onChange: (rules: StageBonusRule[]) => void;
 }) {
   const update = (idx: number, patchRule: Partial<StageBonusRule>) =>
@@ -1081,6 +1087,58 @@ function BonusRulesEditor({
     ]);
   const toggleStage = (list: string[], name: string) =>
     list.includes(name) ? list.filter((s) => s !== name) : [...list, name];
+
+  // Switching a rule back to COMPUTED keeps its awards list non-empty so it survives normalization.
+  const setMode = (idx: number, mode: BonusRuleMode) => {
+    const rule = rules[idx];
+    if (mode === 'MANUAL') {
+      update(idx, {
+        mode: 'MANUAL',
+        showPeriodStandings: false,
+        manualPeriods:
+          rule.manualPeriods && rule.manualPeriods.length > 0
+            ? rule.manualPeriods
+            : [{ label: 'Day 1', entries: [] }],
+      });
+    } else {
+      update(idx, {
+        mode: undefined,
+        awards: rule.awards.length > 0 ? rule.awards : [3, 2, 1],
+        manualPeriods: [],
+      });
+    }
+  };
+
+  const patchPeriods = (idx: number, fn: (periods: ManualBonusPeriod[]) => ManualBonusPeriod[]) =>
+    update(idx, { manualPeriods: fn(rules[idx].manualPeriods ?? []) });
+
+  const addManualPeriod = (idx: number) =>
+    patchPeriods(idx, (periods) => [...periods, { label: `Day ${periods.length + 1}`, entries: [] }]);
+  const updateManualPeriod = (idx: number, pIdx: number, patch: Partial<ManualBonusPeriod>) =>
+    patchPeriods(idx, (periods) => periods.map((p, i) => (i === pIdx ? { ...p, ...patch } : p)));
+  const removeManualPeriod = (idx: number, pIdx: number) =>
+    patchPeriods(idx, (periods) => periods.filter((_, i) => i !== pIdx));
+  const addManualEntry = (idx: number, pIdx: number) =>
+    patchPeriods(idx, (periods) =>
+      periods.map((p, i) => (i === pIdx ? { ...p, entries: [...p.entries, { teamId: '', points: 0 }] } : p)),
+    );
+  const updateManualEntry = (idx: number, pIdx: number, entryIdx: number, patch: Partial<ManualBonusEntry>) =>
+    patchPeriods(idx, (periods) =>
+      periods.map((p, i) =>
+        i === pIdx
+          ? { ...p, entries: p.entries.map((e, j) => (j === entryIdx ? { ...e, ...patch } : e)) }
+          : p,
+      ),
+    );
+  const removeManualEntry = (idx: number, pIdx: number, entryIdx: number) =>
+    patchPeriods(idx, (periods) =>
+      periods.map((p, i) => (i === pIdx ? { ...p, entries: p.entries.filter((_, j) => j !== entryIdx) } : p)),
+    );
+
+  const teamOptions: SearchableSelectOption[] = React.useMemo(
+    () => teams.map((t) => ({ value: t.id, label: t.name, subtitle: t.tag ?? null })),
+    [teams],
+  );
 
   const stageChips = (selected: string[], onToggle: (name: string) => void, activeCls: string) => (
     <div className="flex flex-wrap gap-1">
@@ -1108,7 +1166,9 @@ function BonusRulesEditor({
     <div className="space-y-3">
       {rules.length === 0 && <p className="text-[11px] text-slate-500">No bonus rules yet.</p>}
 
-      {rules.map((rule, idx) => (
+      {rules.map((rule, idx) => {
+        const isManual = rule.mode === 'MANUAL';
+        return (
         <div
           key={rule.id}
           className="space-y-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
@@ -1132,84 +1192,186 @@ function BonusRulesEditor({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className={labelCls}>Period</label>
+              <label className={labelCls}>Award type</label>
               <select
                 className={inputCls}
-                value={rule.period}
-                onChange={(e) => update(idx, { period: e.target.value as BonusPeriod })}
+                value={isManual ? 'MANUAL' : 'COMPUTED'}
+                onChange={(e) => setMode(idx, e.target.value as BonusRuleMode)}
               >
-                <option value="DAY">Each day</option>
-                <option value="DAY_WINDOW">Window of days</option>
-                <option value="STAGE">Whole stage</option>
+                <option value="COMPUTED">From match results (rank the periods)</option>
+                <option value="MANUAL">Fixed points (no match data)</option>
               </select>
             </div>
-            {rule.period === 'DAY_WINDOW' && (
-              <div>
-                <label className={labelCls}>Days per window</label>
-                <input
-                  type="number"
-                  min={1}
-                  className={inputCls}
-                  value={rule.windowDays ?? 2}
-                  onChange={(e) => update(idx, { windowDays: Math.max(1, Number(e.target.value) || 1) })}
-                />
-              </div>
-            )}
-            <div>
-              <label className={labelCls}>Awards (1st, 2nd, 3rd …)</label>
-              <input
-                className={inputCls}
-                value={rule.awards.join(', ')}
-                onChange={(e) =>
-                  update(idx, {
-                    awards: e.target.value
-                      .split(',')
-                      .map((s) => Number(s.trim()))
-                      .filter((n) => Number.isFinite(n) && n >= 0),
-                  })
-                }
-              />
-            </div>
           </div>
 
-          <div>
-            <label className={labelCls}>Days — leave empty for every day (relative day numbers)</label>
-            <div className="flex flex-wrap gap-1">
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((dayNum) => {
-                const active = (rule.days ?? []).includes(dayNum);
-                return (
+          {isManual ? (
+            <div className="space-y-3">
+              <p className="text-[11px] text-slate-500">
+                Each period is one column in the breakdown (e.g. a ladder day). The points sum into
+                the target stage&rsquo;s headstart.
+              </p>
+              {(rule.manualPeriods ?? []).map((period, pIdx) => (
+                <div
+                  key={pIdx}
+                  className="space-y-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700"
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      className={inputCls}
+                      value={period.label}
+                      placeholder="Period label, e.g. Ladder Day 1"
+                      onChange={(e) => updateManualPeriod(idx, pIdx, { label: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeManualPeriod(idx, pIdx)}
+                      className="shrink-0 rounded-lg border border-rose-300 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-950/40"
+                      aria-label="Remove period"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {period.entries.length === 0 && (
+                    <p className="text-[11px] text-slate-500">No teams yet — add one.</p>
+                  )}
+                  {period.entries.map((entry, entryIdx) => (
+                    <div key={entryIdx} className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <SearchableSelect
+                          options={teamOptions}
+                          value={entry.teamId}
+                          size="admin"
+                          placeholder="Select a team…"
+                          searchPlaceholder="Type team name or tag…"
+                          onChange={(val) => updateManualEntry(idx, pIdx, entryIdx, { teamId: val })}
+                        />
+                      </div>
+                      <div className="w-24 shrink-0">
+                        <input
+                          type="number"
+                          min={0}
+                          className={inputCls}
+                          value={entry.points}
+                          onChange={(e) =>
+                            updateManualEntry(idx, pIdx, entryIdx, {
+                              points: Math.max(0, Number(e.target.value) || 0),
+                            })
+                          }
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeManualEntry(idx, pIdx, entryIdx)}
+                        className="shrink-0 rounded-lg border border-rose-300 p-2 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:hover:bg-rose-950/40"
+                        aria-label="Remove team"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+
                   <button
-                    key={dayNum}
                     type="button"
-                    onClick={() => {
-                      const current = rule.days ?? [];
-                      update(idx, {
-                        days: current.includes(dayNum)
-                          ? current.filter((d) => d !== dayNum)
-                          : [...current, dayNum].sort((a, b) => a - b),
-                      });
-                    }}
-                    className={`rounded-md px-2 py-1 text-[11px] font-bold transition-colors ${
-                      active
-                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-                        : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
-                    }`}
+                    onClick={() => addManualEntry(idx, pIdx)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/40 px-3 py-2 text-xs font-bold text-[#0A5FC4] hover:bg-blue-500/10"
                   >
-                    Day {dayNum}
+                    <Plus className="h-3.5 w-3.5" /> Add team
                   </button>
-                );
-              })}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addManualPeriod(idx)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/40 px-3 py-2 text-xs font-bold text-[#0A5FC4] hover:bg-blue-500/10"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add period
+              </button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className={labelCls}>Period</label>
+                  <select
+                    className={inputCls}
+                    value={rule.period}
+                    onChange={(e) => update(idx, { period: e.target.value as BonusPeriod })}
+                  >
+                    <option value="DAY">Each day</option>
+                    <option value="DAY_WINDOW">Window of days</option>
+                    <option value="STAGE">Whole stage</option>
+                  </select>
+                </div>
+                {rule.period === 'DAY_WINDOW' && (
+                  <div>
+                    <label className={labelCls}>Days per window</label>
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputCls}
+                      value={rule.windowDays ?? 2}
+                      onChange={(e) => update(idx, { windowDays: Math.max(1, Number(e.target.value) || 1) })}
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className={labelCls}>Awards (1st, 2nd, 3rd …)</label>
+                  <input
+                    className={inputCls}
+                    value={rule.awards.join(', ')}
+                    onChange={(e) =>
+                      update(idx, {
+                        awards: e.target.value
+                          .split(',')
+                          .map((s) => Number(s.trim()))
+                          .filter((n) => Number.isFinite(n) && n >= 0),
+                      })
+                    }
+                  />
+                </div>
+              </div>
 
-          <div>
-            <label className={labelCls}>Source stages (their matches form the periods)</label>
-            {stageChips(
-              rule.sourceStages,
-              (name) => update(idx, { sourceStages: toggleStage(rule.sourceStages, name) }),
-              'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/25 dark:text-blue-300',
-            )}
-          </div>
+              <div>
+                <label className={labelCls}>Days — leave empty for every day (relative day numbers)</label>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((dayNum) => {
+                    const active = (rule.days ?? []).includes(dayNum);
+                    return (
+                      <button
+                        key={dayNum}
+                        type="button"
+                        onClick={() => {
+                          const current = rule.days ?? [];
+                          update(idx, {
+                            days: current.includes(dayNum)
+                              ? current.filter((d) => d !== dayNum)
+                              : [...current, dayNum].sort((a, b) => a - b),
+                          });
+                        }}
+                        className={`rounded-md px-2 py-1 text-[11px] font-bold transition-colors ${
+                          active
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white'
+                        }`}
+                      >
+                        Day {dayNum}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Source stages (their matches form the periods)</label>
+                {stageChips(
+                  rule.sourceStages,
+                  (name) => update(idx, { sourceStages: toggleStage(rule.sourceStages, name) }),
+                  'bg-[#0A5FC4]/10 text-[#0A5FC4] dark:bg-[#0A5FC4]/25 dark:text-blue-300',
+                )}
+              </div>
+            </>
+          )}
 
           <div>
             <label className={labelCls}>Target stages (the accumulated bonus is added here)</label>
@@ -1221,14 +1383,16 @@ function BonusRulesEditor({
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
-              <input
-                type="checkbox"
-                checked={Boolean(rule.showPeriodStandings)}
-                onChange={(e) => update(idx, { showPeriodStandings: e.target.checked })}
-              />
-              Show a standings table per period
-            </label>
+            {!isManual && (
+              <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={Boolean(rule.showPeriodStandings)}
+                  onChange={(e) => update(idx, { showPeriodStandings: e.target.checked })}
+                />
+                Show a standings table per period
+              </label>
+            )}
             <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"
@@ -1239,7 +1403,8 @@ function BonusRulesEditor({
             </label>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <button
         type="button"
@@ -1387,10 +1552,12 @@ export function TournamentStandingsConfigInput({
   initialConfig,
   stageNames,
   stagesInfo = [],
+  teams = [],
 }: {
   initialConfig: unknown;
   stageNames: string[];
   stagesInfo?: AdminStageDetail[];
+  teams?: { id: string; name: string; tag?: string | null }[];
 }) {
   const [config, setConfig] = React.useState<StandingsConfig>(() => normalizeStandingsConfig(initialConfig));
 
@@ -1931,12 +2098,15 @@ export function TournamentStandingsConfigInput({
           <p className="text-[11px] text-slate-500">
             Award points to the top teams over a period — each day, a window of days, or the whole
             stage — and carry the accumulated total into a target stage&rsquo;s standings (e.g. a
-            circuit&rsquo;s daily bonuses become Grand Finals headstart).
+            circuit&rsquo;s daily bonuses become Grand Finals headstart). For an event that publishes
+            only a points table (no match data to rank), switch a rule to <b>Fixed points</b> and type
+            each team&rsquo;s award in directly.
           </p>
         </div>
         <BonusRulesEditor
           rules={config.bonusRules ?? []}
           stageNames={stageNames}
+          teams={teams}
           onChange={(bonusRules) => patch({ bonusRules })}
         />
       </div>

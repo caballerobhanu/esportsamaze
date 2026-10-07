@@ -106,7 +106,7 @@ export function detailStatSqlPredicate(alias: string): string {
 export interface RankGroup {
   rank: number;
   games: number;
-  /** Summed `totalPoints` for this rank bucket. */
+  /** Summed earned points for this rank bucket — placement + eliminations, bonus excluded. */
   points: number;
   /** Summed `placePoints` for this rank bucket. */
   placePoints: number;
@@ -134,7 +134,7 @@ export interface TeamMatchSummary {
    * placement histogram exists to show.
    */
   avgPlacePoints: number | null;
-  /** Mean total points per game (`totalPoints / games`). */
+  /** Mean earned points per game (`totalPoints / games`) — placement + elims, bonus excluded. */
   avgTotalPoints: number | null;
   /** Mean elimination points per game (`elimsPoints / games`). */
   avgElimsPoints: number | null;

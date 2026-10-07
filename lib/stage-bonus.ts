@@ -108,11 +108,49 @@ export function groupBonusPeriods(
   }));
 }
 
+/**
+ * MANUAL rule: the typed-in points are the bonus. There is no match data to rank, so the
+ * `matches` argument is ignored and each typed period becomes one column of the grid.
+ */
+function manualBonus(rule: StageBonusRule): BonusComputation {
+  const byTeam: Record<string, number> = {};
+  const byTeamPeriod: Record<string, Record<string, number>> = {};
+  const periods: BonusPeriodResult[] = [];
+
+  (rule.manualPeriods ?? []).forEach((period, pIdx) => {
+    const key = `p${pIdx + 1}`;
+    const winners: BonusPeriodResult['winners'] = [];
+
+    [...period.entries]
+      .filter((entry) => entry.teamId && Number.isFinite(entry.points) && entry.points > 0)
+      .sort((a, b) => b.points - a.points)
+      .forEach((entry, i) => {
+        byTeam[entry.teamId] = (byTeam[entry.teamId] ?? 0) + entry.points;
+        const perPeriod = byTeamPeriod[entry.teamId] ?? (byTeamPeriod[entry.teamId] = {});
+        perPeriod[key] = (perPeriod[key] ?? 0) + entry.points;
+        winners.push({ teamId: entry.teamId, rank: i + 1, points: entry.points });
+      });
+
+    periods.push({
+      key,
+      label: period.label || `Period ${pIdx + 1}`,
+      dayFrom: '',
+      dayTo: '',
+      matches: [],
+      winners,
+    });
+  });
+
+  return { byTeam, periods, byTeamPeriod };
+}
+
 /** Rank every period and award the rule's points to its top teams. */
 export function computeStageBonus(
   rule: StageBonusRule,
   matches: readonly StandingsMatchLite[]
 ): BonusComputation {
+  if (rule.mode === 'MANUAL') return manualBonus(rule);
+
   const byTeam: Record<string, number> = {};
   const byTeamPeriod: Record<string, Record<string, number>> = {};
   const periods: BonusPeriodResult[] = [];

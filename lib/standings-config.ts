@@ -104,18 +104,46 @@ export interface StandingsCustomTab {
 export type BonusPeriod = 'DAY' | 'DAY_WINDOW' | 'STAGE';
 
 /**
+ * How a bonus rule produces its points.
+ *
+ * COMPUTED (the default) ranks match results; MANUAL carries points that were typed in, for an
+ * event that publishes only a points table and has no match data to rank (a non-streamed ladder).
+ */
+export type BonusRuleMode = 'COMPUTED' | 'MANUAL';
+
+/** A fixed points award for one team under a MANUAL rule. */
+export interface ManualBonusEntry {
+  teamId: string;
+  points: number;
+}
+
+/**
+ * One typed-in slice of a MANUAL rule — a ladder day, say. Each period is a column in the
+ * breakdown grid; the entries across all periods sum to the headstart carried into the target.
+ */
+export interface ManualBonusPeriod {
+  /** Column label in the breakdown grid, e.g. "Ladder Day 1". */
+  label: string;
+  entries: ManualBonusEntry[];
+}
+
+/**
  * A period-based bonus / headstart rule.
  *
  * Within the source stage(s), the matches are split into periods — each day, a window of days,
  * or the whole stage. Each period is ranked, and `awards` (points for 1st, 2nd, 3rd …) go to its
  * top teams. The accumulated total is added into the target stage's standings, e.g. a Grand
  * Finals headstart carried from a circuit stage's daily bonuses.
+ *
+ * A MANUAL rule skips all of that and carries `manualPoints` as-is — no source stage, no matches.
  */
 export interface StageBonusRule {
   id: string;
   /** Public label, e.g. "Circuit Day Bonus" / "Weekend Bonus". */
   label: string;
-  /** Stage names whose matches form the periods (usually one). */
+  /** COMPUTED ranks source matches; MANUAL carries fixed points. Defaults to COMPUTED. */
+  mode?: BonusRuleMode;
+  /** Stage names whose matches form the periods (usually one). Unused when MANUAL. */
   sourceStages: string[];
   period: BonusPeriod;
   /** DAY_WINDOW only: how many consecutive days make one window. */
@@ -125,13 +153,15 @@ export interface StageBonusRule {
    * (1-based). Empty/absent means every day counts. E.g. [3,4,5] or [1,3,5].
    */
   days?: number[];
-  /** Points for 1st, 2nd, 3rd … e.g. [3, 2, 1]. */
+  /** Points for 1st, 2nd, 3rd … e.g. [3, 2, 1]. Unused when MANUAL. */
   awards: number[];
+  /** MANUAL only: the fixed points, one labelled slice per column (e.g. a ladder day each). */
+  manualPeriods?: ManualBonusPeriod[];
   /** Stages the accumulated bonus is added into, e.g. ["Grand Finals"]. */
   targetStages: string[];
-  /** Render one standings table per period under the source stage. */
+  /** Render one standings table per period under the source stage. Unused when MANUAL. */
   showPeriodStandings?: boolean;
-  /** Render the per-team × per-period bonus grid for the source stage. */
+  /** Render the per-team bonus grid (under the source stage, or the target stage when MANUAL). */
   showBonusTable?: boolean;
 }
 
@@ -674,25 +704,60 @@ export function normalizeCustomTabs(v: unknown): StandingsCustomTab[] {
   return list;
 }
 
+/** Fixed awards for a MANUAL rule: one valid entry per team, points as typed. */
+function normalizeManualBonusEntries(v: unknown): ManualBonusEntry[] {
+  const list: ManualBonusEntry[] = [];
+  const seen = new Set<string>();
+  for (const item of asArray(v)) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    const teamId = String(row?.teamId ?? '').trim();
+    const points = Number(row?.points);
+    if (!teamId || seen.has(teamId) || !Number.isFinite(points) || points < 0) continue;
+    seen.add(teamId);
+    list.push({ teamId, points });
+  }
+  return list;
+}
+
+/** MANUAL periods: labelled columns, each with valid entries; a period with none is dropped. */
+function normalizeManualBonusPeriods(v: unknown): ManualBonusPeriod[] {
+  const list: ManualBonusPeriod[] = [];
+  for (let idx = 0; idx < asArray(v).length; idx++) {
+    const raw = asArray(v)[idx];
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const entries = normalizeManualBonusEntries(r?.entries);
+    if (entries.length === 0) continue;
+    const label = String(r?.label ?? '').trim() || `Period ${idx + 1}`;
+    list.push({ label, entries });
+  }
+  return list;
+}
+
 export function normalizeBonusRules(v: unknown): StageBonusRule[] {
   const list: StageBonusRule[] = [];
   for (let idx = 0; idx < asArray(v).length; idx++) {
     const raw = asArray(v)[idx];
     if (!raw || typeof raw !== 'object') continue;
     const r = raw as Record<string, unknown>;
+    const mode: BonusRuleMode = r?.mode === 'MANUAL' ? 'MANUAL' : 'COMPUTED';
     const sourceStages = asArray(r?.sourceStages).map((s) => String(s).trim()).filter(Boolean);
     const targetStages = asArray(r?.targetStages).map((s) => String(s).trim()).filter(Boolean);
     const awards = asArray(r?.awards)
       .map((n) => Number(n))
       .filter((n) => Number.isFinite(n) && n >= 0);
-    // A rule with no source or no awards cannot award anything — drop it.
-    if (sourceStages.length === 0 || awards.length === 0) continue;
+    const manualPeriods = mode === 'MANUAL' ? normalizeManualBonusPeriods(r?.manualPeriods) : [];
+    // A rule that can award nothing is dropped: a manual rule needs a populated period, a
+    // computed one a source stage and an awards list.
+    const canAward = mode === 'MANUAL' ? manualPeriods.length > 0 : sourceStages.length > 0 && awards.length > 0;
+    if (!canAward) continue;
 
     const period: BonusPeriod = (['DAY', 'DAY_WINDOW', 'STAGE'] as const).includes(r?.period as BonusPeriod)
       ? (r.period as BonusPeriod)
       : 'DAY';
     const id = String(r?.id || `bonus-${idx + 1}`).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
-    const label = String(r?.label || '').trim() || `${sourceStages[0]} bonus`;
+    const label = String(r?.label || '').trim() || `${sourceStages[0] ?? 'Headstart'} bonus`;
     const windowDays = Number(r?.windowDays);
     const days = [...new Set(
       asArray(r?.days)
@@ -704,6 +769,7 @@ export function normalizeBonusRules(v: unknown): StageBonusRule[] {
     list.push({
       id,
       label,
+      ...(mode === 'MANUAL' ? { mode } : {}),
       sourceStages,
       period,
       ...(period === 'DAY_WINDOW' && Number.isFinite(windowDays) && windowDays >= 1
@@ -711,6 +777,7 @@ export function normalizeBonusRules(v: unknown): StageBonusRule[] {
         : {}),
       ...(days.length > 0 ? { days } : {}),
       awards,
+      ...(manualPeriods.length > 0 ? { manualPeriods } : {}),
       targetStages,
       ...(r?.showPeriodStandings === true ? { showPeriodStandings: true } : {}),
       ...(r?.showBonusTable === true ? { showBonusTable: true } : {}),

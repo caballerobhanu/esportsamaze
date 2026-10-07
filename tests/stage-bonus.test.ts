@@ -183,3 +183,78 @@ test('normalizeBonusRules drops rules that cannot award anything', () => {
   assert.deepEqual(normalizeBonusRules([{ sourceStages: ['X'] }]), []); // no awards
   assert.deepEqual(normalizeBonusRules(null), []);
 });
+
+/* ── manual headstart ───────────────────────────────────────────────────── */
+
+const manualRule = (over: Partial<StageBonusRule> = {}): StageBonusRule => ({
+  id: 'm1',
+  label: 'Ladder Headstart',
+  mode: 'MANUAL',
+  sourceStages: [],
+  period: 'DAY',
+  awards: [],
+  manualPeriods: [
+    { label: 'Ladder Day 1', entries: [{ teamId: 'A', points: 10 }, { teamId: 'B', points: 8 }] },
+    { label: 'Ladder Day 2', entries: [{ teamId: 'B', points: 10 }, { teamId: 'C', points: 8 }] },
+    { label: 'Ladder Day 3', entries: [{ teamId: 'A', points: 6 }, { teamId: 'D', points: 0 }] },
+  ],
+  targetStages: ['Main'],
+  ...over,
+});
+
+test('a MANUAL rule carries the fixed points without any matches, summed per team', () => {
+  const out = computeStageBonus(manualRule(), []);
+  // A = 10 + 6 = 16, B = 8 + 10 = 18, C = 8, D's zero-point entry carries nothing.
+  assert.deepEqual(out.byTeam, { A: 16, B: 18, C: 8 });
+  assert.equal(out.periods.length, 3);
+  assert.deepEqual(out.periods.map((p) => p.label), ['Ladder Day 1', 'Ladder Day 2', 'Ladder Day 3']);
+  // The grid keeps each ladder day as its own column.
+  assert.deepEqual(out.byTeamPeriod.A, { p1: 10, p3: 6 });
+  assert.deepEqual(out.byTeamPeriod.B, { p1: 8, p2: 10 });
+});
+
+test('headstartFor resolves a MANUAL rule and totals the carry', () => {
+  const target = headstartFor([manualRule()], [], 'Main');
+  assert.deepEqual(target.byTeam, { A: 16, B: 18, C: 8 });
+  assert.equal(target.rule?.id, 'm1');
+
+  const none = headstartFor([manualRule()], [], 'Somewhere Else');
+  assert.equal(none.rule, null);
+  assert.deepEqual(none.byTeam, {});
+});
+
+test('normalizeBonusRules keeps a MANUAL rule and de-dupes its entries', () => {
+  const rules = normalizeBonusRules([
+    {
+      mode: 'MANUAL',
+      label: 'Ladder',
+      targetStages: ['Main'],
+      manualPeriods: [
+        {
+          label: 'Ladder Day 1',
+          entries: [
+            { teamId: 'A', points: 10 },
+            { teamId: 'A', points: 5 },
+            { teamId: '', points: 3 },
+          ],
+        },
+        { label: 'Empty day', entries: [] },
+      ],
+    },
+  ]);
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0].mode, 'MANUAL');
+  // The duplicate and blank entries drop, and the empty period drops with them.
+  assert.deepEqual(rules[0].manualPeriods, [
+    { label: 'Ladder Day 1', entries: [{ teamId: 'A', points: 10 }] },
+  ]);
+});
+
+test('normalizeBonusRules drops a MANUAL rule with no populated period', () => {
+  assert.deepEqual(
+    normalizeBonusRules([
+      { mode: 'MANUAL', targetStages: ['Main'], manualPeriods: [{ label: 'Empty', entries: [] }] },
+    ]),
+    [],
+  );
+});

@@ -1819,6 +1819,7 @@ export default async function AdminTournamentsPage({
                 initialConfig={editing?.standingsConfig}
                 stageNames={stageNames}
                 stagesInfo={stagesInfo}
+                teams={teams}
               />
             </div>
           </div>
