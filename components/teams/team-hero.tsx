@@ -80,7 +80,7 @@ export function TeamHero({
           <div className="flex gap-1.5 sm:gap-2">
             {team.prevTeam && (
               <Link
-                href={teamHref(team.prevTeam, gameSlugOf(team))}
+                href={teamHref(team.prevTeam, gameSlugOf(team.prevTeam))}
                 className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Previous team: ${team.prevTeam.name}`}
               >
@@ -89,7 +89,7 @@ export function TeamHero({
             )}
             {team.nextTeam && (
               <Link
-                href={teamHref(team.nextTeam, gameSlugOf(team))}
+                href={teamHref(team.nextTeam, gameSlugOf(team.nextTeam))}
                 className="rounded-full border border-slate-200 p-1.5 text-slate-500 transition hover:border-[#0A5FC4] hover:text-[#0A5FC4] dark:border-white/10 sm:p-2"
                 aria-label={`Next team: ${team.nextTeam.name}`}
               >

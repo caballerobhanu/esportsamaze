@@ -28,6 +28,8 @@ export interface PrizeResultRow {
   name: string;
   tag: string | null;
   slug: string | null;
+  /** The team's own game slug — a cross-game guest links to its real profile. */
+  gameSlug: string | null;
   logoUrl: string | null;
   logoDarkUrl: string | null;
   /** Resolved from the event's country override, then the team's region — what a flag mode draws. */
@@ -59,6 +61,8 @@ export interface PrizeResultSource {
     imageDarkUrl?: string | null;
     /** The team's region, used for a flag when the event entered no country. */
     region?: string | null;
+    /** The team's own game, so a cross-game guest links to its real profile. */
+    game?: { slug?: string | null } | null;
   } | null;
 }
 
@@ -144,6 +148,7 @@ export function buildPrizeResults(
           name: entry.displayName || team.displayName || team.name,
           tag: entry.shortName || team.tag || null,
           slug: team.slug || null,
+          gameSlug: team.game?.slug ?? null,
           logoUrl: entry.logoUrl || team.logoUrl || null,
           logoDarkUrl: entry.logoDarkUrl || team.imageDarkUrl || null,
           countryCode: countryCodeFor(entry.country ?? team.region ?? null),

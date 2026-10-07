@@ -118,6 +118,7 @@ export default async function TournamentOverviewPage({
           resolvedRunnerUp={ctx.resolvedRunnerUp}
           teamsMeta={data.teamsMeta}
           playerSlugById={data.playerSlugById}
+          playerGameSlugById={data.playerGameSlugById}
         />
       </main>
     </>

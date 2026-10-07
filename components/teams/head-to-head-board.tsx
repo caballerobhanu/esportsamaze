@@ -80,7 +80,7 @@ function HeadToHeadTable({
                 )}
               >
                 <td className="px-2 py-3 lg:px-4">
-                  <Link href={gameHref(gameSlug, `teams/${opponentSlug}`)} className="group flex items-center gap-3">
+                  <Link href={gameHref(row.gameSlug || gameSlug, `teams/${opponentSlug}`)} className="group flex items-center gap-3">
                     <TeamCrest name={row.name} lightSrc={row.logoUrl} darkSrc={row.imageDarkUrl} />
                     <span className="min-w-0">
                       <span className="hidden truncate font-extrabold transition-colors group-hover:text-[#0A5FC4] lg:block">

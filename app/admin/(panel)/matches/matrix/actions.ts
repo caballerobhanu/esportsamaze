@@ -598,7 +598,9 @@ export async function bulkUniversalMatchImportAction(
               name: teamRaw.trim(),
               tag: autoTag,
               slug: cleanStr(teamRaw).replace(/\s+/g, '-'),
-              gameId: defaultGame.id,
+              // The event's game, not the hard-coded default: a team created by a
+              // PUBGM event's sheet is a PUBGM team, and its players must inherit that.
+              gameId: matchedTourney.gameId || defaultGame.id,
               isVerified: !isQualifier,
               status: isQualifier ? 'UNVERIFIED' : 'ACTIVE',
             },
@@ -1000,7 +1002,7 @@ export async function bulkUniversalPlayerMatchImportAction(
       )
     );
 
-    type TeamIdentity = { id: string; name: string; tag: string | null; slug: string | null };
+    type TeamIdentity = { id: string; name: string; tag: string | null; slug: string | null; gameId: string | null };
     type PlayerIdentity = { id: string; ign: string; currentTeamId?: string | null };
 
     const [allTournaments, allTeams, allPlayers] = await Promise.all([
@@ -1026,7 +1028,7 @@ export async function bulkUniversalPlayerMatchImportAction(
                 ...rawTeamNames.slice(0, 50).map((n) => ({ name: { contains: n, mode: 'insensitive' as const } })),
               ],
             },
-            select: { id: true, name: true, tag: true, slug: true },
+            select: { id: true, name: true, tag: true, slug: true, gameId: true },
           })
         : ([] as TeamIdentity[]),
       rawPlayerIgns.length > 0
@@ -1414,6 +1416,7 @@ export async function bulkUniversalPlayerMatchImportAction(
 
         if (!matchedTeam) {
           // Same as the team-scorecard path: creating a page is expected, and never silent.
+          // The event's game, not the hard-coded default, so its players inherit it too.
           const lookAlike = findLookAlike(teamRaw.trim(), allTeams, cleanStr);
           const autoTag = teamRaw.length <= 5 ? teamRaw.toUpperCase() : teamRaw.slice(0, 3).toUpperCase();
           matchedTeam = await tx.team.create({
@@ -1421,7 +1424,7 @@ export async function bulkUniversalPlayerMatchImportAction(
               name: teamRaw.trim(),
               tag: autoTag,
               slug: cleanStr(teamRaw).replace(/\s+/g, '-'),
-              gameId: defaultGame.id,
+              gameId: matchedTourney.gameId || defaultGame.id,
               isVerified: !isQualifier,
               status: isQualifier ? 'UNVERIFIED' : 'ACTIVE',
             },
@@ -1591,7 +1594,12 @@ export async function bulkUniversalPlayerMatchImportAction(
               ign: playerRaw.trim(),
               slug: pSlug,
               role: defaultPlayerRole,
-              gameId: defaultGame.id,
+              // The player belongs to the game of the squad they were imported under
+              // (a PUBGM guest on a PUBGM team is a PUBGM player), not the hard-coded
+              // default — otherwise the player's own game and the team's disagree and
+              // the profile link 404s. A team with no game (or none to inherit) keeps
+              // the default, matching the team page's own canonical game.
+              gameId: matchedTeam.gameId ?? defaultGame.id,
               isVerified: shouldVerifyPlayer,
               status: shouldVerifyPlayer ? 'ACTIVE' : 'UNVERIFIED',
             },

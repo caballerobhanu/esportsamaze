@@ -158,8 +158,8 @@ export interface TeamContext {
   won: { id: string; name: string; slug: string }[];
   runnerUp: { id: string; name: string; slug: string }[];
   transfers: TeamContextTransfer[];
-  prevTeam: { id: string; slug: string | null; tag: string | null; name: string } | null;
-  nextTeam: { id: string; slug: string | null; tag: string | null; name: string } | null;
+  prevTeam: { id: string; slug: string | null; tag: string | null; name: string; game: { slug: string } | null } | null;
+  nextTeam: { id: string; slug: string | null; tag: string | null; name: string; game: { slug: string } | null } | null;
 }
 
 /** Legacy-friendly lookup: a team is reachable by slug, tag, name, displayName or id. */
@@ -279,12 +279,12 @@ export const loadTeamContext = unstable_cache(
       prisma.team.findFirst({
         where: { name: { lt: team.name } },
         orderBy: { name: 'desc' },
-        select: { id: true, slug: true, tag: true, name: true },
+        select: { id: true, slug: true, tag: true, name: true, game: { select: { slug: true } } },
       }),
       prisma.team.findFirst({
         where: { name: { gt: team.name } },
         orderBy: { name: 'asc' },
-        select: { id: true, slug: true, tag: true, name: true },
+        select: { id: true, slug: true, tag: true, name: true, game: { select: { slug: true } } },
       }),
     ]);
 
@@ -294,13 +294,13 @@ export const loadTeamContext = unstable_cache(
         prisma.team.findFirst({
           where: { id: { not: team.id } },
           orderBy: { name: 'desc' },
-          select: { id: true, slug: true, tag: true, name: true },
+          select: { id: true, slug: true, tag: true, name: true, game: { select: { slug: true } } },
         }),
       nextCandidate ??
         prisma.team.findFirst({
           where: { id: { not: team.id } },
           orderBy: { name: 'asc' },
-          select: { id: true, slug: true, tag: true, name: true },
+          select: { id: true, slug: true, tag: true, name: true, game: { select: { slug: true } } },
         }),
     ]);
 
@@ -602,10 +602,10 @@ export const loadTeamContext = unstable_cache(
           }),
       ].sort((a, b) => b.dateMs - a.dateMs),
       prevTeam: prevTeam
-        ? { id: prevTeam.id, slug: prevTeam.slug, tag: prevTeam.tag, name: prevTeam.name }
+        ? { id: prevTeam.id, slug: prevTeam.slug, tag: prevTeam.tag, name: prevTeam.name, game: prevTeam.game }
         : null,
       nextTeam: nextTeam
-        ? { id: nextTeam.id, slug: nextTeam.slug, tag: nextTeam.tag, name: nextTeam.name }
+        ? { id: nextTeam.id, slug: nextTeam.slug, tag: nextTeam.tag, name: nextTeam.name, game: nextTeam.game }
         : null,
     };
   },
@@ -935,6 +935,8 @@ export interface HeadToHeadRow {
   slug: string | null;
   logoUrl: string | null;
   imageDarkUrl: string | null;
+  /** The opponent's own game slug — a cross-game rival links to its real profile. */
+  gameSlug: string | null;
   faced: number;
   /**
    * Games finished AHEAD of this opponent. Rank-based, NOT a WWCD count: a
@@ -975,6 +977,7 @@ export const loadTeamHeadToHead = unstable_cache(
         slug: string | null;
         logo_url: string | null;
         image_dark_url: string | null;
+        game_slug: string | null;
         faced: number;
         wins: number;
         losses: number;
@@ -1013,6 +1016,7 @@ export const loadTeamHeadToHead = unstable_cache(
                  s.sequence DESC
       )
       SELECT s.opponent_id, t.name, t.tag, t.slug, t."logoUrl" AS logo_url, t."imageDarkUrl" AS image_dark_url,
+             gm.slug AS game_slug,
              COUNT(*)::int AS faced,
              SUM(CASE WHEN s.my_rank < s.opp_rank THEN 1 ELSE 0 END)::int AS wins,
              SUM(CASE WHEN s.my_rank > s.opp_rank THEN 1 ELSE 0 END)::int AS losses,
@@ -1024,8 +1028,9 @@ export const loadTeamHeadToHead = unstable_cache(
              MAX(lm.opp_rank)::int AS last_opp_rank
       FROM shared s
       JOIN "Team" t ON t.id = s.opponent_id
+      LEFT JOIN "Game" gm ON gm.id = t."gameId"
       LEFT JOIN last_meet lm ON lm.opponent_id = s.opponent_id
-      GROUP BY s.opponent_id, t.name, t.tag, t.slug, t."logoUrl", t."imageDarkUrl"
+      GROUP BY s.opponent_id, t.name, t.tag, t.slug, t."logoUrl", t."imageDarkUrl", gm.slug
       ORDER BY faced DESC, wins DESC, t.name ASC
     `);
 
@@ -1036,6 +1041,7 @@ export const loadTeamHeadToHead = unstable_cache(
       slug: row.slug,
       logoUrl: row.logo_url,
       imageDarkUrl: row.image_dark_url,
+      gameSlug: row.game_slug,
       faced: row.faced,
       wins: row.wins,
       losses: row.losses,

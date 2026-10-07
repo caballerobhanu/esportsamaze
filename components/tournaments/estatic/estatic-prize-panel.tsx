@@ -51,7 +51,7 @@ export interface EstaticPrizePanelProps {
   currency?: string | null;
   qualificationRules?: QualificationRule[];
   /** Players named on an award, so a player's honour can lead with their face. */
-  awardPlayers?: Array<{ id: string; ign: string; slug: string | null; avatarUrl: string | null }>;
+  awardPlayers?: Array<{ id: string; ign: string; slug: string | null; avatarUrl: string | null; game?: { slug: string } | null }>;
   teams?: any[];
   /** Per-team finishes; takes over the table when an event has been ranked. */
   results?: PrizeResultRow[];
@@ -120,6 +120,7 @@ export function EstaticPrizePanel({
         logoUrl?: string | null;
         imageDarkUrl?: string | null;
         countryCode?: string | null;
+        gameSlug?: string | null;
       }
     >();
 
@@ -140,6 +141,8 @@ export function EstaticPrizePanel({
           // The event's country override wins over the team's own region, the same
           // order the standings and Teams tabs resolve it in.
           countryCode: countryCodeFor(item.country ?? t.region ?? null),
+          // The team's own game, so a cross-game guest links to its real profile.
+          gameSlug: t.game?.slug ?? null,
         };
         if (t.id) map.set(t.id, data);
         if (item.teamId) map.set(item.teamId, data);
@@ -226,6 +229,7 @@ export function EstaticPrizePanel({
         name: meta?.displayName || meta?.name || row.teamName || key,
         tag: meta?.tag || null,
         slug: meta?.slug || null,
+        gameSlug: meta?.gameSlug ?? null,
         logoUrl: meta?.logoUrl || null,
         logoDarkUrl: meta?.imageDarkUrl || null,
         countryCode: meta?.countryCode ?? null,
@@ -731,7 +735,7 @@ export function EstaticPrizePanel({
                             fallbackClassName="text-[10px] font-black text-slate-500 dark:text-slate-400"
                           />
                           <Link
-                            href={gameHref(gameSlug, `teams/${row.slug || encodeURIComponent(row.name)}`)}
+                            href={gameHref(row.gameSlug || DEFAULT_GAME_SLUG, `teams/${row.slug || encodeURIComponent(row.name)}`)}
                             className="min-w-0 font-bold text-slate-900 transition-colors hover:text-[#0A5FC4] dark:text-white dark:hover:text-blue-300"
                           >
                             <span className="hidden sm:inline">{row.name}</span>
@@ -1005,10 +1009,10 @@ export function EstaticPrizePanel({
                 : meta?.displayName || meta?.name || row.teamName || '—';
               const recipientHref = isPlayerAward
                 ? player?.slug
-                  ? gameHref(gameSlug, `players/${player.slug}`)
+                  ? gameHref(player.game?.slug || DEFAULT_GAME_SLUG, `players/${player.slug}`)
                   : null
                 : meta?.slug
-                  ? gameHref(gameSlug, `teams/${meta.slug}`)
+                  ? gameHref(meta.gameSlug || DEFAULT_GAME_SLUG, `teams/${meta.slug}`)
                   : null;
 
               // One variant only, so a player's single photo shows in both themes.

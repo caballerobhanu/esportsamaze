@@ -38,7 +38,7 @@ async function fetchPlayerProfile(slug: string) {
     where: {
       OR: [{ slug }, { slug: decoded }, { ign: { equals: decoded, mode: 'insensitive' } }, { id: slug }],
     },
-    include: { currentTeam: true, game: true },
+    include: { currentTeam: { include: { game: { select: { slug: true } } } }, game: true },
   });
 }
 
@@ -88,8 +88,8 @@ export async function playerMetadata(
 
 export interface PlayerContext {
   player: PlayerProfile;
-  prevPlayer: { slug: string | null; ign: string } | null;
-  nextPlayer: { slug: string | null; ign: string } | null;
+  prevPlayer: { slug: string | null; ign: string; game: { slug: string } | null } | null;
+  nextPlayer: { slug: string | null; ign: string; game: { slug: string } | null } | null;
 }
 
 /* Request-scoped memos: the [slug] layout renders the hero and the page renders
@@ -103,10 +103,10 @@ async function loadPlayerContextUncached(slug: string): Promise<PlayerContext | 
 
   const [prevPlayer, nextPlayer] = await Promise.all([
     prisma.player
-      .findFirst({ where: { id: { lt: player.id } }, orderBy: { id: 'desc' }, select: { slug: true, ign: true } })
+      .findFirst({ where: { id: { lt: player.id } }, orderBy: { id: 'desc' }, select: { slug: true, ign: true, game: { select: { slug: true } } } })
       .catch(() => null),
     prisma.player
-      .findFirst({ where: { id: { gt: player.id } }, orderBy: { id: 'asc' }, select: { slug: true, ign: true } })
+      .findFirst({ where: { id: { gt: player.id } }, orderBy: { id: 'asc' }, select: { slug: true, ign: true, game: { select: { slug: true } } } })
       .catch(() => null),
   ]);
 

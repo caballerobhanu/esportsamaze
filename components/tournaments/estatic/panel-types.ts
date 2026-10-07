@@ -89,6 +89,8 @@ export type TeamPointsMode = 'sum' | 'avg' | 'max';
 export interface TeamPerformanceRow {
   teamId: string;
   teamSlug?: string | null;
+  /** The team's own game slug — a cross-game guest links to its real profile. */
+  gameSlug?: string | null;
   teamName: string;
   teamTag?: string | null;
   teamLogo?: string | null;
@@ -144,6 +146,8 @@ export interface TeamPerformanceRow {
 export interface PlayerPerformanceRow {
   playerId: string;
   playerSlug?: string | null;
+  /** The player's own game slug — a cross-game guest links to its real profile. */
+  gameSlug?: string | null;
   ign: string;
   teamId?: string | null;
   teamSlug?: string | null;

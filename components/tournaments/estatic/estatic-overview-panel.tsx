@@ -23,7 +23,7 @@ import type { MatchLite } from './panel-types';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { KickoffTime } from '@/components/ui/kickoff';
 import { TournamentSponsors } from '@/components/tournaments/tournament-sponsors';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { DEFAULT_GAME_SLUG, gameHref, gameSlugOf } from '@/lib/games';
 
 interface OverviewMatchLite extends MatchLite {
   stageType?: string | null;
@@ -40,6 +40,7 @@ export function EstaticOverviewPanel({
   teamsToShow,
   teamsMeta,
   playerSlugById,
+  playerGameSlugById,
   logoMode = 'TEAM',
 }: {
   tournament: {
@@ -80,8 +81,10 @@ export function EstaticOverviewPanel({
   teamsToShow?: number | null;
   resolvedWinner?: string | null;
   resolvedRunnerUp?: string | null;
-  teamsMeta?: Record<string, { slug?: string | null; name?: string | null; countryCode?: string | null }>;
+  teamsMeta?: Record<string, { slug?: string | null; name?: string | null; countryCode?: string | null; gameSlug?: string | null }>;
   playerSlugById?: Record<string, string | null>;
+  /** playerId → the player's own game slug, so a cross-game guest links correctly. */
+  playerGameSlugById?: Record<string, string | null>;
   /** How this tab draws each team: crest, flag, both, or neither. */
   logoMode?: StandingsLogoMode;
 }) {
@@ -91,7 +94,9 @@ export function EstaticOverviewPanel({
   const latest = completed[0];
   const fraggers = overallFraggers.slice(0, 5);
 
-  // Every link from an event page carries the EVENT's game, not the default one.
+  // The event's game is what the tournament-tab links carry. Entity links are
+  // different: a team or player profile lives under that entity's OWN game, so a
+  // cross-game guest (a PUBGM team in a BGMI event) links to its real page.
   const gameSlug = tournament.game?.slug || DEFAULT_GAME_SLUG;
 
   // The venue at whichever level it was entered — a stadium, a city, or a country.
@@ -102,11 +107,11 @@ export function EstaticOverviewPanel({
   // encoded name is an honest fallback (never link internal DB ids).
   const teamHref = (teamId: string, fallbackName: string) => {
     const meta = teamsMeta?.[teamId];
-    return gameHref(gameSlug, `teams/${meta?.slug || encodeURIComponent(meta?.name || fallbackName)}`);
+    return gameHref(gameSlugOf({ gameSlug: meta?.gameSlug }), `teams/${meta?.slug || encodeURIComponent(meta?.name || fallbackName)}`);
   };
   const playerHref = (playerId: string, ign: string) => {
     const slug = playerSlugById?.[playerId];
-    return gameHref(gameSlug, `players/${slug || playerId || encodeURIComponent(ign)}`);
+    return gameHref(gameSlugOf({ gameSlug: playerGameSlugById?.[playerId] }), `players/${slug || playerId || encodeURIComponent(ign)}`);
   };
 
   const facts: {

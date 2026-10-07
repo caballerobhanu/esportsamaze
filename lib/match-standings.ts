@@ -5,6 +5,8 @@ export interface TeamStandingEntry {
   teamId: string;
   teamName: string;
   teamSlug: string | null;
+  /** The team's own game slug, so a cross-game guest links to its real profile. */
+  teamGameSlug: string | null;
   tag: string | null;
   logoUrl: string | null;
   rank: number;
@@ -54,7 +56,7 @@ export async function computeTournamentStandings(
   const teamResults = await prisma.matchTeamResult.findMany({
     where,
     include: {
-      team: { select: { id: true, name: true, slug: true, tag: true, logoUrl: true } },
+      team: { select: { id: true, name: true, slug: true, tag: true, logoUrl: true, game: { select: { slug: true } } } },
       matchGame: {
         select: {
           match: { select: { matchNumber: true, mapName: true, groupName: true } },
@@ -68,6 +70,7 @@ export async function computeTournamentStandings(
     teamId: string;
     teamName: string;
     teamSlug: string | null;
+    teamGameSlug: string | null;
     tag: string | null;
     logoUrl: string | null;
     matchesPlayed: number;
@@ -91,6 +94,7 @@ export async function computeTournamentStandings(
       teamId: r.teamId,
       teamName: r.team?.name ?? 'Unknown',
       teamSlug: r.team?.slug ?? null,
+      teamGameSlug: r.team?.game?.slug ?? null,
       tag: r.team?.tag ?? null,
       logoUrl: r.team?.logoUrl ?? null,
       matchesPlayed: 0,
@@ -153,6 +157,8 @@ export interface PlayerFraggerEntry {
   playerId: string;
   ign: string;
   playerSlug: string | null;
+  /** The player's own game slug, so a cross-game guest links to its real profile. */
+  playerGameSlug: string | null;
   avatarUrl: string | null;
   role: string | null;
   teamName: string;
@@ -189,7 +195,7 @@ export async function computeTournamentFraggers(
   const playerStats = await prisma.matchPlayerStat.findMany({
     where,
     include: {
-      player: { select: { id: true, ign: true, slug: true, avatarUrl: true } },
+      player: { select: { id: true, ign: true, slug: true, avatarUrl: true, game: { select: { slug: true } } } },
       team: { select: { id: true, name: true, tag: true } },
     },
     orderBy: { matchGame: { match: { matchNumber: 'asc' } } },
@@ -199,6 +205,7 @@ export async function computeTournamentFraggers(
     playerId: string;
     ign: string;
     playerSlug: string | null;
+    playerGameSlug: string | null;
     avatarUrl: string | null;
     role: string | null;
     teamName: string;
@@ -220,6 +227,7 @@ export async function computeTournamentFraggers(
       playerId: s.playerId,
       ign: s.player?.ign ?? 'Unknown',
       playerSlug: s.player?.slug ?? null,
+      playerGameSlug: s.player?.game?.slug ?? null,
       avatarUrl: s.player?.avatarUrl ?? null,
       role: s.role ?? null,
       teamName: s.team?.name ?? '',

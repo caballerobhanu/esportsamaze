@@ -24,7 +24,7 @@ import type { StandingsLogoMode, PlayerStatColumnKey, CustomPlayerColumn } from 
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { TeamMultiSelect } from '@/components/ui/team-multi-select';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 import { teamMapPoints } from '@/lib/team-stats';
 
 export interface EstaticStatisticsPanelProps {
@@ -46,8 +46,6 @@ export interface EstaticStatisticsPanelProps {
   /** Offer the player leaderboard view. Off hides it and opens on team statistics instead,
       for events that never record player data. Defaults to on. */
   showPlayerStats?: boolean;
-  /** The game whose team/player pages these links must point at. Falls back to the default game. */
-  gameSlug?: string;
 }
 
 function computeCustomColumnValue(
@@ -378,7 +376,6 @@ export function EstaticStatisticsPanel({
   showPlayerRole = false,
   showPlayerStats = true,
   logoMode = 'TEAM',
-  gameSlug = DEFAULT_GAME_SLUG,
 }: EstaticStatisticsPanelProps) {
   // Navigation & view states
   const [activeTab, setActiveTab] = React.useState<'players' | 'teams'>(showPlayerStats ? defaultView : 'teams');
@@ -1194,7 +1191,7 @@ export function EstaticStatisticsPanel({
                           />
                           <div>
                             <Link
-                              href={gameHref(gameSlug, `players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`)}
+                              href={gameHref(gameSlugOf(player), `players/${player.playerSlug || player.playerId || encodeURIComponent(player.ign)}`)}
                               className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                             >
                               {player.ign}
@@ -1404,7 +1401,7 @@ export function EstaticStatisticsPanel({
                             />
                             <div>
                               <Link
-                                href={gameHref(gameSlug, `teams/${team.teamSlug || encodeURIComponent(team.teamName)}`)}
+                                href={gameHref(gameSlugOf(team), `teams/${team.teamSlug || encodeURIComponent(team.teamName)}`)}
                                 className="font-extrabold text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block"
                               >
                                 {team.teamName}

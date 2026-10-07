@@ -80,12 +80,16 @@ async function fetchTournament(rawSlug: string) {
                 slug: true,
                 logoUrl: true,
                 imageDarkUrl: true,
+                game: { select: { slug: true } },
               },
             },
           },
         },
         playerTotals: {
-          include: { player: { select: { id: true, ign: true, slug: true } }, team: { select: { name: true } } },
+          include: {
+            player: { select: { id: true, ign: true, slug: true, game: { select: { slug: true } } } },
+            team: { select: { name: true } },
+          },
         },
         teams: {
           orderBy: [{ finalRank: 'asc' }, { seed: 'asc' }],
@@ -109,6 +113,7 @@ async function fetchTournament(rawSlug: string) {
                 logoUrl: true,
                 imageDarkUrl: true,
                 region: true,
+                game: { select: { slug: true } },
               },
             },
           },
@@ -155,6 +160,7 @@ async function fetchTournament(rawSlug: string) {
                         slug: true,
                         logoUrl: true,
                         imageDarkUrl: true,
+                        game: { select: { slug: true } },
                       },
                     },
                   },
@@ -188,6 +194,7 @@ async function fetchTournament(rawSlug: string) {
                         id: true,
                         ign: true,
                         slug: true,
+                        game: { select: { slug: true } },
                       },
                     },
                     team: {
@@ -466,6 +473,9 @@ export function buildTeamsMeta(ctx: TournamentContext): Record<string, Standings
     teamsMeta[tt.teamId] = {
       name: tt.team.name,
       slug: tt.team.slug,
+      // The team's own game, so a cross-game guest links to its real profile
+      // rather than the event's game (which the team route 404s under).
+      gameSlug: tt.team.game?.slug ?? null,
       displayName: tt.displayName ?? tt.team.displayName,
       tag: tt.shortName ?? tt.team.tag,
       logoUrl: tt.logoUrl ?? tt.team.logoUrl,
@@ -480,6 +490,7 @@ export function buildTeamsMeta(ctx: TournamentContext): Record<string, Standings
           teamsMeta[r.teamId] = {
             name: r.team.name,
             slug: r.team.slug,
+            gameSlug: r.team.game?.slug ?? null,
             tag: r.team.tag,
             logoUrl: r.team.logoUrl,
           };
@@ -512,6 +523,21 @@ export function buildPlayerSlugById(ctx: TournamentContext): Record<string, stri
     }
   }
   return playerSlugById;
+}
+
+/** playerId → the player's own game slug, so a cross-game guest links to its real profile. */
+export function buildPlayerGameSlugById(ctx: TournamentContext): Record<string, string | null> {
+  const playerGameSlugById: Record<string, string | null> = {};
+  for (const m of ctx.tournament.matches) {
+    for (const g of m.games) {
+      for (const ps of g.playerStats) {
+        if (ps.player && !(ps.playerId in playerGameSlugById)) {
+          playerGameSlugById[ps.playerId] = ps.player.game?.slug ?? null;
+        }
+      }
+    }
+  }
+  return playerGameSlugById;
 }
 
 function groupMatchesByStage(ctx: TournamentContext): Map<string, TournamentData['matches']> {
@@ -700,6 +726,7 @@ export function buildOverviewData(ctx: TournamentContext) {
     overviewMatches,
     teamsMeta: buildTeamsMeta(ctx),
     playerSlugById: buildPlayerSlugById(ctx),
+    playerGameSlugById: buildPlayerGameSlugById(ctx),
   };
 }
 
@@ -788,6 +815,8 @@ export interface ReportedTeamTotal {
   displayName: string | null;
   tag: string | null;
   slug: string | null;
+  /** The team's own game slug — a guest from another game links to its real profile. */
+  gameSlug: string | null;
   logoUrl: string | null;
   logoDarkUrl: string | null;
   /** Resolved from the squad's event override, then its team region — what a flag mode draws. */
@@ -810,6 +839,8 @@ export interface ReportedPlayerTotal {
   playerId: string;
   ign: string;
   slug: string | null;
+  /** The player's own game slug — a guest from another game links to its real profile. */
+  gameSlug: string | null;
   teamName: string | null;
   matches: number | null;
   playerElims: number | null;
@@ -875,6 +906,7 @@ export function buildReportedTotals(ctx: TournamentContext) {
       displayName: squad?.displayName ?? record?.displayName ?? null,
       tag: squad?.shortName ?? record?.tag ?? null,
       slug: record?.slug ?? null,
+      gameSlug: record?.game?.slug ?? squad?.team?.game?.slug ?? null,
       logoUrl: squad?.logoUrl ?? record?.logoUrl ?? null,
       logoDarkUrl: squad?.logoDarkUrl ?? record?.imageDarkUrl ?? null,
       countryCode: countryCodeFor(squad?.country ?? squad?.team?.region ?? null),
@@ -913,6 +945,7 @@ export function buildReportedTotals(ctx: TournamentContext) {
       playerId,
       ign: row?.player?.ign ?? playerId,
       slug: row?.player?.slug ?? null,
+      gameSlug: row?.player?.game?.slug ?? null,
       teamName: row?.team?.name ?? null,
       matches: event.metrics.matches?.value ?? null,
       playerElims: event.metrics.playerElims?.value ?? null,
@@ -1251,7 +1284,7 @@ export async function buildPrizeData(ctx: TournamentContext) {
     awardPlayerIds.length > 0
       ? await prisma.player.findMany({
           where: { id: { in: awardPlayerIds } },
-          select: { id: true, ign: true, slug: true, avatarUrl: true },
+          select: { id: true, ign: true, slug: true, avatarUrl: true, game: { select: { slug: true } } },
         })
       : [];
 
@@ -1319,6 +1352,7 @@ export function buildStatisticsData(ctx: TournamentContext) {
           playerMap.set(pId, {
             playerId: pId,
             playerSlug: pSlug,
+            gameSlug: ps.player.game?.slug ?? null,
             ign: ps.player.ign,
             teamId: ps.teamId,
             teamSlug: tSlug,
@@ -1515,6 +1549,7 @@ function buildTeamsAndPerformance(
     teamPerformanceMap.set(tt.teamId, {
       teamId: tt.teamId,
       teamSlug: tt.team?.slug || null,
+      gameSlug: tt.team?.game?.slug ?? null,
       teamName: tt.displayName || tt.team?.name || 'Unknown Squad',
       teamTag: tt.shortName || tt.team?.tag || null,
       teamLogo: tt.logoUrl || tt.team?.logoUrl || null,
@@ -1553,6 +1588,7 @@ function buildTeamsAndPerformance(
           teamPerformanceMap.set(tr.teamId, {
             teamId: tr.teamId,
             teamSlug: tr.team?.slug || null,
+            gameSlug: tr.team?.game?.slug ?? null,
             teamName: tr.team?.name || 'Unknown Squad',
             teamTag: tr.team?.tag || null,
             teamLogo: tr.team?.logoUrl || null,

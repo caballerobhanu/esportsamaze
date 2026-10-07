@@ -44,7 +44,7 @@ import { computeMatchPoint } from '@/lib/match-point';
 import { TEAM_CHIP_BOX, TEAM_CHIP_FILL, TeamMark } from '@/components/ui/team-mark';
 import { BonusBreakdown } from './estatic-bonus-table';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 
 type SortKey =
   | 'rank'
@@ -225,14 +225,12 @@ export function EstaticStandingsPanel({
   teams,
   config,
   overallTopFragger,
-  gameSlug = DEFAULT_GAME_SLUG,
 }: {
   stages: StandingsStageSummary[];
   matches: StandingsMatchLite[];
   teams: Record<string, StandingsTeamMeta>;
   config: StandingsConfig;
   overallTopFragger?: { ign: string; teamName: string; kills: number } | null;
-  gameSlug?: string;
 }) {
   const tabGroups = React.useMemo(() => config.tabGroups || [], [config.tabGroups]);
   const hasTabGroups = tabGroups.length > 0;
@@ -1320,7 +1318,9 @@ export function EstaticStandingsPanel({
                 const teamTag = meta?.tag || cleanName.slice(0, 4).toUpperCase();
                 // Prefer the team slug; the public team page also resolves by
                 // name, so an encoded name is a safe fallback (never the DB id).
-                const teamHref = gameHref(gameSlug, `teams/${meta?.slug || encodeURIComponent(cleanName)}`);
+                // The link carries the team's OWN game: a cross-game guest's
+                // profile lives under its own game, not the event's.
+                const teamHref = gameHref(gameSlugOf({ gameSlug: meta?.gameSlug }), `teams/${meta?.slug || encodeURIComponent(cleanName)}`);
                 const assignment = teamAssignedZones.get(team.teamId);
                 const isPrec = assignment?.isPrecedence;
                 const zone = assignment?.zone || null;

@@ -1093,6 +1093,8 @@ export interface StandingsMatchLite {
 export interface StandingsTeamMeta {
   name: string;
   slug?: string | null;
+  /** The team's own game slug — a cross-game guest links to its real profile. */
+  gameSlug?: string | null;
   displayName?: string | null;
   tag?: string | null;
   logoUrl?: string | null;

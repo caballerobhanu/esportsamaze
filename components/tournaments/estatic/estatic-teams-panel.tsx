@@ -47,6 +47,8 @@ interface EnrichedTournamentTeam {
     logoUrl?: string | null;
     imageDarkUrl?: string | null;
     region?: string | null;
+    /** The team's own game — a cross-game guest links to its real profile. */
+    game?: { slug?: string | null } | null;
   };
 }
 
@@ -362,6 +364,9 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM', gameSl
           const seedLabel =
             tt.seedLabel ||
             (tt.seedTournament?.name ? `Seeded via ${tt.seedTournament.name}` : null);
+          // Team and roster links carry the team's OWN game: a cross-game guest's
+          // profile lives under its own game, not the event's.
+          const teamGame = tt.team.game?.slug || DEFAULT_GAME_SLUG;
 
           return (
             <div
@@ -377,14 +382,14 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM', gameSl
                     lightSrc={tt.logoUrl ?? tt.team.logoUrl}
                     darkSrc={tt.logoDarkUrl ?? tt.team.imageDarkUrl}
                     countryCode={tt.countryCode}
-                    href={gameHref(gameSlug, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
+                    href={gameHref(teamGame, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
                     tileClassName="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm dark:border-white/10 dark:bg-black/40 hover:scale-105 transition-transform"
                     logoClassName="object-contain p-1.5"
                     fallbackClassName="font-black text-slate-400 text-sm"
                   />
                   <div className="min-w-0">
                     <Link
-                      href={gameHref(gameSlug, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
+                      href={gameHref(teamGame, `teams/${tt.team.slug || encodeURIComponent(tt.team.name)}`)}
                       className="text-base font-black text-slate-900 hover:text-[#0A5FC4] dark:text-white transition-colors block truncate"
                     >
                       {teamDisplayName(tt)}
@@ -435,10 +440,10 @@ export function EstaticTeamsPanel({ teams, seats = [], logoMode = 'TEAM', gameSl
                       const isStaff = Boolean(m.isStaff || m.staffRole);
                       const staffRole = m.staffRole || (m.isStaff ? m.role : null);
                       const playerUrl = m.slug
-                        ? gameHref(gameSlug, `players/${m.slug}`)
+                        ? gameHref(teamGame, `players/${m.slug}`)
                         : m.playerId
-                          ? gameHref(gameSlug, `players/${m.playerId}`)
-                          : gameHref(gameSlug, `players/${encodeURIComponent(m.ign)}`);
+                          ? gameHref(teamGame, `players/${m.playerId}`)
+                          : gameHref(teamGame, `players/${encodeURIComponent(m.ign)}`);
 
                       return (
                         <Link

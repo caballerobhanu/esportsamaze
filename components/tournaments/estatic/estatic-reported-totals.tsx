@@ -3,7 +3,7 @@ import { ClipboardList, Info } from 'lucide-react';
 import type { ReportedPlayerTotal, ReportedTeamTotal } from '@/app/(public)/[game]/tournaments/[slug]/tournament-data';
 import type { StandingsColumnKey, StandingsLogoMode } from '@/lib/standings-config';
 import { TeamMark } from '@/components/ui/team-mark';
-import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
+import { gameHref, gameSlugOf } from '@/lib/games';
 
 /** Columns the reported table can draw, and what it shows when the config names none of them. */
 const REPORTED_STANDINGS_COLUMNS: StandingsColumnKey[] = ['mp', 'wwcd', 'place', 'elims', 'bonus', 'total'];
@@ -43,15 +43,12 @@ export function EstaticReportedStandings({
   teams,
   logoMode = 'TEAM',
   columns = REPORTED_STANDINGS_COLUMNS,
-  gameSlug = DEFAULT_GAME_SLUG,
 }: {
   teams: ReportedTeamTotal[];
   /** How the standings tab draws each team: crest, flag, both, or neither. */
   logoMode?: StandingsLogoMode;
   /** The standings-config column choice, so the reported table honours the same toggles. */
   columns?: StandingsColumnKey[];
-  /** The game whose team pages these links must point at. Falls back to the default game. */
-  gameSlug?: string;
 }) {
   const derived = teams.some((team) => team.derived);
   const partialCount = teams.reduce((count, team) => count + team.partial.length, 0);
@@ -104,7 +101,7 @@ export function EstaticReportedStandings({
                       fallbackClassName="text-[9px] font-black text-slate-400"
                     />
                     {team.slug ? (
-                      <Link href={gameHref(gameSlug, `teams/${team.slug}`)} className="font-extrabold hover:text-[#0A5FC4]">
+                      <Link href={gameHref(gameSlugOf(team), `teams/${team.slug}`)} className="font-extrabold hover:text-[#0A5FC4]">
                         {team.displayName || team.name}
                       </Link>
                     ) : (
@@ -150,12 +147,9 @@ export function EstaticReportedStandings({
 export function EstaticReportedTotals({
   teams,
   players,
-  gameSlug = DEFAULT_GAME_SLUG,
 }: {
   teams: ReportedTeamTotal[];
   players: ReportedPlayerTotal[];
-  /** The game whose team/player pages these links must point at. Falls back to the default game. */
-  gameSlug?: string;
 }) {
   if (teams.length === 0 && players.length === 0) return null;
 
@@ -235,7 +229,7 @@ export function EstaticReportedTotals({
                 <tr key={player.playerId}>
                   <td className="px-4 py-3">
                     {player.slug ? (
-                      <Link href={gameHref(gameSlug, `players/${player.slug}`)} className="font-extrabold hover:text-[#0A5FC4]">
+                      <Link href={gameHref(gameSlugOf(player), `players/${player.slug}`)} className="font-extrabold hover:text-[#0A5FC4]">
                         {player.ign}
                       </Link>
                     ) : (
