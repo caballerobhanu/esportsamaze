@@ -111,15 +111,13 @@ a write during render.
 - **Under Attack mode is OFF** (Security Level could not be set to "High" — not where expected
   in the dashboard; optional). Re-enable Under Attack from the zone Overview if a flood returns.
 
-### Turbopack `.next` leftover that wedges a build (2026-10-06)
+### Turbopack `.next` leftover that wedges a build (2026-10-06, revised 2026-10-07)
 
-An interrupted `next build` leaves `.next/**/*.segments/todo-remove-fake-segment` directories
-behind; the next build then fails with `ENOTEMPTY` when it `rmdir`s a non-empty one. They also
-regenerate over time, which is normal. `deploy/update.sh` now clears them right before
-`npm run build` (only when present, `|| true` so a failed cleanup can never abort the deploy).
-If a build still fails with `ENOTEMPTY`:
+An interrupted `next build` leaves non-empty directories behind (`.next/**/*.segments/todo-remove-fake-segment`, and also plain `.next/server/app`); the next build then fails with `ENOTEMPTY` when it `rmdir`s a non-empty one. They regenerate over time, which is normal, and it only bites after a build was killed — a completed build does not wedge the next one.
+
+`deploy/update.sh` no longer clears `*.segments` selectively (that missed the `server/app` case). The build now self-heals: it runs `npm run build`, and on any failure clears `.next` and builds once more. So a normal deploy keeps Turbopack's incremental cache, and a wedged tree pays for one clean rebuild. If you ever need to clear it by hand:
 ```bash
-find .next -type d -name '*.segments' -prune -exec rm -rf {} +
+rm -rf .next
 ```
 
 **PM2 memory:** `deploy/ecosystem.config.cjs` uses `max_memory_restart: '2600M'` and
