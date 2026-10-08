@@ -89,6 +89,8 @@ export interface TeamContextTournament {
   slug: string;
   currency: string;
   startedAtMs: number | null;
+  /** Closing day, so an away-currency prize can be converted at its own event's rate. */
+  endedAtMs: number | null;
   finalRank: number | null;
   prizeWon: number | null;
   rosterJson: unknown;
@@ -223,6 +225,7 @@ export const loadTeamContext = unstable_cache(
                 slug: true,
                 currency: true,
                 startDate: true,
+                endDate: true,
                 prizeDistribution: true,
                 imageUrl: true,
                 imageDarkUrl: true,
@@ -391,6 +394,7 @@ export const loadTeamContext = unstable_cache(
             slug: true,
             currency: true,
             startDate: true,
+            endDate: true,
             prizeDistribution: true,
             imageUrl: true,
             imageDarkUrl: true,
@@ -466,6 +470,7 @@ export const loadTeamContext = unstable_cache(
         slug: tt.tournament.slug,
         currency: tt.tournament.currency,
         startedAtMs: tt.tournament.startDate ? tt.tournament.startDate.getTime() : null,
+        endedAtMs: tt.tournament.endDate ? tt.tournament.endDate.getTime() : null,
         finalRank: tt.finalRank,
         prizeWon: prizeMoneyFor(tt.tournamentId, tt.tournament.prizeDistribution, tt.prizeWon),
         rosterJson,
@@ -488,6 +493,7 @@ export const loadTeamContext = unstable_cache(
         slug: entry.tournament.slug,
         currency: entry.tournament.currency,
         startedAtMs: entry.tournament.startDate ? entry.tournament.startDate.getTime() : null,
+        endedAtMs: entry.tournament.endDate ? entry.tournament.endDate.getTime() : null,
         finalRank: null,
         prizeWon: null,
         rosterJson: entry.players.map(reportedEntry),

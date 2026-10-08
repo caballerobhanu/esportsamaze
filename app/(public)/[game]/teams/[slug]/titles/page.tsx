@@ -8,6 +8,8 @@ import { teamTitlesIntro } from '@/lib/entity-intros';
 import { collectTeamAwards } from '@/lib/team-awards';
 import { buildPlayerSlugMaps, collectLineupPlayerIds } from '@/lib/team-roster';
 import { loadLineupPlayers, loadTeamContext, teamMetadata } from '@/lib/team-data';
+import { eventUsdRates } from '@/lib/currency';
+import { nativeTotalFor } from '@/lib/geo-currency';
 
 export const dynamic = 'force-static';
 export const revalidate = 180;
@@ -55,6 +57,28 @@ export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
     playerIdToSlug,
   });
 
+  // Total prize money, each event converted to USD at its own closing-day rate so
+  // a cross-currency career (USD + INR + JPY) sums honestly rather than adding
+  // unlike units. The panel renders this one total in the visitor's currency with
+  // a USD reference line; the per-event rows below keep their own currency.
+  const ladder = team.tournaments.filter((event) => (event.prizeWon ?? 0) > 0);
+  const rates = await eventUsdRates(
+    ladder.map((event) => ({
+      endDate: event.endedAtMs ? new Date(event.endedAtMs) : null,
+      currency: event.currency,
+    })),
+  );
+  const totalWonUsd = ladder.reduce(
+    (sum, event, i) => sum + (event.prizeWon ?? 0) * (rates[i] ?? 1),
+    0,
+  );
+  // The headline figure: the exact native sum when every event shares a currency,
+  // else the USD total. Never a round-tripped conversion — that drifts from the rows.
+  const totalWonNative = nativeTotalFor(
+    ladder.map((event) => ({ amount: event.prizeWon ?? 0, currency: event.currency })),
+    totalWonUsd,
+  );
+
   const intro = teamTitlesIntro({
     name: team.name,
     titles: team.won.length,
@@ -65,7 +89,12 @@ export default async function TeamTitlesPage({ params }: TeamTitlesPageProps) {
   return (
     <TeamTabShell team={team} activeTab="titles">
       <TabIntro text={intro} />
-      <TeamTitlesPanel team={team} awards={awards} />
+      <TeamTitlesPanel
+        team={team}
+        awards={awards}
+        totalWonUsd={totalWonUsd}
+        totalWonNative={totalWonNative}
+      />
     </TeamTabShell>
   );
 }

@@ -137,3 +137,24 @@ export function formatAmountInCurrency(usdAmount: number, targetCurrency: string
 
   return `${symbol}${localVal.toLocaleString(locale)}${currencyCodeSuffix(code)}`;
 }
+
+/**
+ * The headline total for a set of winnings and the currency it is stated in.
+ *
+ * Every amount is denominated in its own event's currency, so a total is exact only
+ * when they all share one currency — then it is that currency's plain sum. A set
+ * split across currencies has no exact single figure, so it falls back to `usdTotal`
+ * (the base every rate is quoted against). The caller passes `usdTotal` again as the
+ * reference line, so the headline is the fact and the conversion stays secondary.
+ */
+export function nativeTotalFor(
+  rows: readonly { amount: number; currency: string | null }[],
+  usdTotal: number
+): { amount: number; currency: string } {
+  const currencies = new Set(rows.map((row) => (row.currency || 'USD').toUpperCase()));
+  if (currencies.size === 1) {
+    const currency = [...currencies][0];
+    return { amount: rows.reduce((sum, row) => sum + row.amount, 0), currency };
+  }
+  return { amount: usdTotal, currency: 'USD' };
+}
