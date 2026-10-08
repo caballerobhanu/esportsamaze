@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { formatAmountInCurrency, getVisitorLocalCurrency, secondaryCurrencyFor } from '@/lib/geo-currency';
+import { formatAmountInCurrency, secondaryCurrencyFor } from '@/lib/geo-currency';
 import { formatMoney } from '@/lib/utils';
 import { getCurrencyUsdRate } from '@/lib/tournament-math';
+import { useVisitorCurrency } from '@/lib/use-visitor-currency';
 import { DollarSign } from 'lucide-react';
 
 interface PrizePoolBadgeProps {
@@ -16,14 +17,6 @@ interface PrizePoolBadgeProps {
   inline?: boolean;
   /** Render one half on its own, for cards that style the two lines separately. */
   part?: 'both' | 'primary' | 'secondary';
-}
-
-const emptySubscribe = () => () => {};
-/** Server snapshot is a US visitor; the client re-renders with the real locale. */
-const getServerCurrency = () => 'USD';
-
-function useVisitorCurrency(): string {
-  return React.useSyncExternalStore(emptySubscribe, getVisitorLocalCurrency, getServerCurrency);
 }
 
 /**

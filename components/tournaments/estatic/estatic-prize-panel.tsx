@@ -25,7 +25,10 @@ import {
   type QualificationRule,
 } from '@/lib/qualification-rules';
 import { DEFAULT_GAME_SLUG, gameHref } from '@/lib/games';
-import { formatMoney } from '@/lib/utils';
+import { formatMoney, currencyCodeSuffix } from '@/lib/utils';
+import { formatAmountInCurrency } from '@/lib/geo-currency';
+import { getCurrencyUsdRate } from '@/lib/tournament-math';
+import { useVisitorCurrency } from '@/lib/use-visitor-currency';
 
 export interface TournamentPrizeRank {
   rank: string;
@@ -49,6 +52,8 @@ export interface EstaticPrizePanelProps {
     ranks: TournamentPrizeRank[];
   }>;
   currency?: string | null;
+  /** 1 unit of the event currency in USD, when the event records a rate. */
+  usdRate?: number | null;
   qualificationRules?: QualificationRule[];
   /** Players named on an award, so a player's honour can lead with their face. */
   awardPlayers?: Array<{ id: string; ign: string; slug: string | null; avatarUrl: string | null; game?: { slug: string } | null }>;
@@ -82,15 +87,11 @@ export function normalizeRankLabel(rank: string): string {
   });
 }
 
-function formatPrizeAmount(amount: number, curr = 'INR') {
-  if (amount == null || isNaN(amount)) return '—';
-  return formatMoney(amount, curr);
-}
-
 export function EstaticPrizePanel({
   totalPrizePool,
   prizeStages = [],
   currency = 'INR',
+  usdRate,
   qualificationRules = [],
   awardPlayers = [],
   teams = [],
@@ -98,6 +99,28 @@ export function EstaticPrizePanel({
   logoMode = 'TEAM',
   gameSlug = DEFAULT_GAME_SLUG,
 }: EstaticPrizePanelProps) {
+  const eventCurrency = (currency || 'INR').toUpperCase();
+  const visitorCurrency = useVisitorCurrency();
+  // The currencies a reader might want: the event's own, the visitor's, and USD —
+  // de-duplicated, so a value two of them share is offered once.
+  const currencyOptions = React.useMemo(
+    () => [...new Set([eventCurrency, (visitorCurrency || 'USD').toUpperCase(), 'USD'])],
+    [eventCurrency, visitorCurrency],
+  );
+  const [selectedCurrency, setSelectedCurrency] = React.useState(eventCurrency);
+
+  // Every amount on this tab is stored in the event's currency; render it in the
+  // chosen one, converting through USD when they differ.
+  const fmtPrize = React.useCallback(
+    (amount: number) => {
+      if (amount == null || Number.isNaN(amount)) return '—';
+      if (selectedCurrency === eventCurrency) return formatMoney(amount, eventCurrency);
+      const baseRate = usdRate && usdRate > 0 ? usdRate : getCurrencyUsdRate(eventCurrency);
+      return formatAmountInCurrency(Math.round(amount * baseRate), selectedCurrency);
+    },
+    [selectedCurrency, eventCurrency, usdRate],
+  );
+
   // `-1` is the combined Total across stages, which is what a ranked event
   // opens on; an unranked one opens on its first stage's ladder.
   const [selectedStageIdx, setSelectedStageIdx] = React.useState(() => (results.length > 0 ? -1 : 0));
@@ -395,14 +418,32 @@ export function EstaticPrizePanel({
               <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Official Prize Pool Allocation
             </span>
             <h3 className="mt-3 text-4xl sm:text-5xl font-black uppercase tracking-tight">
-              {effectiveTotalPrize > 0
-                ? formatPrizeAmount(effectiveTotalPrize, currency || 'INR')
-                : 'TBD'}{' '}
-              <span className="text-xl font-bold text-blue-200">{currency || 'INR'}</span>
+              {effectiveTotalPrize > 0 ? fmtPrize(effectiveTotalPrize) : 'TBD'}{' '}
+              {!currencyCodeSuffix(selectedCurrency) && (
+                <span className="text-xl font-bold text-blue-200">{selectedCurrency}</span>
+              )}
             </h3>
             <p className="mt-2 text-sm text-blue-100 font-medium max-w-xl">
               Official reward pool distributed across tournament podium finishes, special honours, and qualification berths.
             </p>
+            {/* Pick the currency every figure on this tab reads in: the event's own,
+                the visitor's, or USD. A value two of them share appears once. */}
+            {currencyOptions.length > 1 && (
+              <div className="mt-4 inline-flex items-center gap-1 rounded-full bg-white/10 p-1 backdrop-blur-md">
+                {currencyOptions.map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setSelectedCurrency(code)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                      selectedCurrency === code ? 'bg-white text-[#0A5FC4]' : 'text-blue-100 hover:bg-white/10'
+                    }`}
+                  >
+                    {code}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-white/10 backdrop-blur-md text-amber-300 shadow-inner border border-white/10">
@@ -446,7 +487,7 @@ export function EstaticPrizePanel({
               <span>{stage.stageName}</span>
               {stage.allocatedPrize ? (
                 <span className="text-[11px] opacity-80 font-normal">
-                  ({formatPrizeAmount(stage.allocatedPrize, currency || 'INR')})
+                  ({fmtPrize(stage.allocatedPrize)})
                 </span>
               ) : null}
             </button>
@@ -478,7 +519,7 @@ export function EstaticPrizePanel({
                 <div className="mt-4">
                   <h4 className="text-3xl font-black text-slate-900 dark:text-white">
                     {first.prize > 0
-                      ? formatPrizeAmount(first.prize, currency || 'INR')
+                      ? fmtPrize(first.prize)
                       : first.customReward || '1st Place'}
                   </h4>
 
@@ -546,7 +587,7 @@ export function EstaticPrizePanel({
                   <div className="mt-4">
                     <h4 className="text-3xl font-black text-slate-900 dark:text-white">
                       {second.prize > 0
-                        ? formatPrizeAmount(second.prize, currency || 'INR')
+                        ? fmtPrize(second.prize)
                         : second.customReward || 'Runner-Up'}
                     </h4>
 
@@ -614,7 +655,7 @@ export function EstaticPrizePanel({
                   <div className="mt-4">
                     <h4 className="text-3xl font-black text-slate-900 dark:text-white">
                       {third.prize > 0
-                        ? formatPrizeAmount(third.prize, currency || 'INR')
+                        ? fmtPrize(third.prize)
                         : third.customReward || '3rd Place'}
                     </h4>
 
@@ -746,7 +787,7 @@ export function EstaticPrizePanel({
 
                       <td className="py-4 pr-4 text-right font-black text-base text-[#0A5FC4] dark:text-blue-300">
                         {row.prizeWon && row.prizeWon > 0
-                          ? formatPrizeAmount(row.prizeWon, currency || 'INR')
+                          ? fmtPrize(row.prizeWon)
                           : '—'}
                       </td>
 
@@ -958,7 +999,7 @@ export function EstaticPrizePanel({
                       {/* Prize Amount */}
                       <td className="py-4 pr-4 text-right font-black text-base text-[#0A5FC4] dark:text-blue-300">
                         {row.prize > 0
-                          ? formatPrizeAmount(row.prize, currency || 'INR')
+                          ? fmtPrize(row.prize)
                           : row.rewardType === 'TITLE'
                           ? 'Title Only'
                           : '—'}
@@ -1116,7 +1157,7 @@ export function EstaticPrizePanel({
                         get the same treatment. */}
                     {amount > 0 ? (
                       <p className="mt-auto pt-2.5 text-sm font-black text-[#0A5FC4] dark:text-blue-300">
-                        {formatPrizeAmount(amount, currency || 'INR')}
+                        {fmtPrize(amount)}
                       </p>
                     ) : row.customReward ? (
                       <p className="mt-auto pt-2.5 text-xs font-bold text-slate-700 dark:text-slate-200">

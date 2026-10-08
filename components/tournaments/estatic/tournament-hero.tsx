@@ -87,6 +87,11 @@ export function TournamentHero({ ctx }: { ctx: TournamentContext }) {
               <span className="rounded-full bg-[#0A5FC4]/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-[#0A5FC4] dark:text-blue-300">
                 {tournament.game?.name || 'Battle Royale'}
               </span>
+              {tournament.series && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-slate-600 dark:bg-white/5 dark:text-slate-300">
+                  {tournament.series}
+                </span>
+              )}
               {(tournament.games ?? [])
                 .filter((g) => g.game.id !== tournament.gameId)
                 .map((g) => (

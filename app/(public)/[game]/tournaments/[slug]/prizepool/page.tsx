@@ -42,6 +42,7 @@ export default async function TournamentPrizePoolPage({
         totalPrizePool={ctx.tournament.prizePool}
         prizeStages={data.prizeStages}
         currency={ctx.tournament.currency}
+        usdRate={ctx.tournament.usdRate}
         qualificationRules={data.qualificationRules}
         awardPlayers={data.awardPlayers}
         teams={ctx.tournament.teams}
