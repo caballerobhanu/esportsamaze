@@ -170,31 +170,25 @@ const DEFAULT_HEADER_CARDS: HeaderCardItem[] = [
 const DEFAULT_TIEBREAKER_TIERS: TiebreakerTierItem[] = [
   {
     tier: 1,
-    title: 'Total Placement Points Across All Matches',
+    title: 'Total WWCD (Winner Winner Chicken Dinner) Count',
     description:
-      'In the event of a tie in total points, the squad with the higher placement points accumulated across all stage matches takes precedence.',
+      'In the event of a tie in total points, precedence is granted to the squad with the greater number of 1st-place finishes (match victories).',
   },
   {
     tier: 2,
-    title: 'Total WWCD (Winner Winner Chicken Dinner) Count',
+    title: 'Total Placement Points Across All Matches',
     description:
-      'If still tied, precedence is granted to the squad with the greater number of 1st-place finishes (match victories).',
+      'If still tied, the squad with the higher placement points accumulated across all stage matches takes precedence.',
   },
   {
     tier: 3,
-    title: 'Total Elimination Points',
+    title: 'Total Elimination / Finish Points',
     description:
-      'If still tied, the team with the higher raw eliminations total over the entire stage is awarded the higher rank.',
+      'If still tied, the team with the higher eliminations total over the entire stage is awarded the higher rank.',
   },
   {
     tier: 4,
-    title: 'Highest Single-Match Total Score',
-    description:
-      'If still tied, the highest individual match point tally achieved during the stage determines the tiebreaker.',
-  },
-  {
-    tier: 5,
-    title: 'Final Match Placement Head-to-Head',
+    title: 'Last Match Rank Placement Head-to-Head',
     description:
       'Should a tie persist through all criteria, placement in the very last match of the stage decides final standing.',
   },

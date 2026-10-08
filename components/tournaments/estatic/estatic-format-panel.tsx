@@ -605,23 +605,27 @@ ${stageSummary}
     return [
       {
         tier: 1,
-        title: 'Total Placement Points',
-        description: 'Higher placement points accumulated across all completed lobby matches.',
+        title: 'Total WWCD (Winner Winner Chicken Dinner) Count',
+        description:
+          'In the event of a tie in total points, precedence is granted to the squad with the greater number of 1st-place finishes (match victories).',
       },
       {
         tier: 2,
-        title: 'Total Chicken Dinners (WWCD)',
-        description: 'Total number of 1st-place match victories achieved.',
+        title: 'Total Placement Points Across All Matches',
+        description:
+          'If still tied, the squad with the higher placement points accumulated across all stage matches takes precedence.',
       },
       {
         tier: 3,
-        title: 'Total Elimination Points',
-        description: 'Highest fragging and total eliminations across all scheduled fixtures.',
+        title: 'Total Elimination / Finish Points',
+        description:
+          'If still tied, the team with the higher eliminations total over the entire stage is awarded the higher rank.',
       },
       {
         tier: 4,
-        title: 'Placement in Final Match',
-        description: 'Better finishing rank in the very last match contested between the squads.',
+        title: 'Last Match Rank Placement Head-to-Head',
+        description:
+          'Should a tie persist through all criteria, placement in the very last match of the stage decides final standing.',
       },
     ];
   }, [formatDetails?.tiebreakerTiers]);
