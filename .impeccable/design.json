@@ -1,83 +1,117 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-21T14:02:00.000Z",
+  "generatedAt": "2026-10-08T00:00:00.000Z",
   "title": "Design System: eSportsAmaze",
   "extensions": {
     "colorMeta": {
       "primary": {
         "role": "primary",
-        "displayName": "Press Cobalt",
-        "canonical": "#2452c2",
-        "tonalRamp": ["#0b1a3d", "#122a61", "#193985", "#2452c2", "#4b77dc", "#7da1e8", "#b5c9f4", "#e8effc"]
+        "displayName": "Broadcast Azure",
+        "canonical": "#0A5FC4",
+        "tonalRamp": ["#04213f", "#063162", "#08458a", "#0A5FC4", "#3d80d6", "#71a3e4", "#a9c6f0", "#dce7fa"]
       },
-      "accent": {
-        "role": "tertiary",
-        "displayName": "Editorial Crimson",
-        "canonical": "#cd2f7b",
-        "tonalRamp": ["#420a23", "#6c143d", "#9a1e58", "#cd2f7b", "#dd5e9a", "#ea93bd", "#f5c8dd", "#fdf0f6"]
+      "primary-deep": {
+        "role": "primary",
+        "displayName": "Azure Deep",
+        "canonical": "#0B4FA6",
+        "tonalRamp": ["#031a35", "#052a54", "#073b76", "#0B4FA6", "#3a72c0", "#6997d6", "#a0c0ea", "#d7e4f7"]
       },
       "canvas": {
         "role": "neutral",
         "displayName": "Cool Paper Canvas",
         "canonical": "#f5f7fa",
-        "tonalRamp": ["#0f1216", "#1c222b", "#333d4d", "#64748b", "#94a3b8", "#cbd5e1", "#eaeef4", "#f5f7fa"]
+        "tonalRamp": ["#e4e9f0", "#e8edf4", "#edf1f7", "#f1f4f8", "#f5f7fa", "#f8fafc", "#fbfcfd", "#ffffff"]
       },
       "surface": {
         "role": "neutral",
         "displayName": "Pure Surface",
         "canonical": "#ffffff",
-        "tonalRamp": ["#161b22", "#242c38", "#434f63", "#74839d", "#a5b1c5", "#d6dce7", "#f0f3f7", "#ffffff"]
+        "tonalRamp": ["#dfe3ea", "#e6eaf0", "#eceff4", "#f2f4f8", "#f7f9fb", "#fafbfd", "#fdfefe", "#ffffff"]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Navy Nightfall",
+        "canonical": "#0b1220",
+        "tonalRamp": ["#070b14", "#0b1220", "#0f1828", "#131e31", "#18253c", "#1e2c47", "#253455", "#2d3d64"]
       },
       "sand": {
         "role": "neutral",
         "displayName": "Subtle Sand",
         "canonical": "#eaeef4",
-        "tonalRamp": ["#1d242e", "#2e3947", "#4b5c72", "#778aa3", "#a7b5c8", "#cbd5e1", "#eaeef4", "#f8fafc"]
+        "tonalRamp": ["#d7dde7", "#dde3ec", "#e3e8f0", "#eaeef4", "#eff2f7", "#f3f5f9", "#f7f9fb", "#fbfcfd"]
       },
       "hairline": {
         "role": "neutral",
-        "displayName": "Hairline Divider",
+        "displayName": "Hairline",
         "canonical": "#e0e6ee",
-        "tonalRamp": ["#2a3441", "#3b4859", "#56687f", "#7f92ab", "#a9b8cc", "#cdd6e3", "#e0e6ee", "#f1f4f8"]
+        "tonalRamp": ["#c9d2df", "#d0d8e4", "#d8dfe9", "#e0e6ee", "#e7ecf3", "#eef1f7", "#f4f7fa", "#fafbfd"]
       },
       "ink": {
         "role": "neutral",
         "displayName": "Slate Ink",
         "canonical": "#161a22",
-        "tonalRamp": ["#0b0d11", "#161a22", "#272f3d", "#434f63", "#697994", "#9bb0cb", "#cdd8e6", "#e9edf3"]
+        "tonalRamp": ["#0b0d11", "#161a22", "#242a35", "#343b48", "#4a5261", "#6b7484", "#9aa2af", "#d5d9e0"]
       },
       "stone": {
         "role": "neutral",
         "displayName": "Slate Stone",
         "canonical": "#64748b",
-        "tonalRamp": ["#1e293b", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f8fafc"]
+        "tonalRamp": ["#3b4453", "#475262", "#546173", "#64748b", "#8593a6", "#a7b1c0", "#c8cfd8", "#e6e9ee"]
+      },
+      "champion-amber": {
+        "role": "secondary",
+        "displayName": "Champion Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["#5c3a03", "#8a5604", "#c07a06", "#f59e0b", "#f8b437", "#fac96a", "#fcdea1", "#fdf0d2"]
+      },
+      "live-rose": {
+        "role": "secondary",
+        "displayName": "Live Rose",
+        "canonical": "#f43f5e",
+        "tonalRamp": ["#60101f", "#8f172e", "#c22343", "#f43f5e", "#f76b83", "#f996a7", "#fbc2cc", "#fde3e8"]
+      },
+      "active-emerald": {
+        "role": "secondary",
+        "displayName": "Active Emerald",
+        "canonical": "#10b981",
+        "tonalRamp": ["#064e36", "#077352", "#0a966b", "#10b981", "#33c99b", "#5fd7b3", "#93e5cc", "#c9f3e5"]
+      },
+      "special-indigo": {
+        "role": "tertiary",
+        "displayName": "Special Indigo",
+        "canonical": "#6366f1",
+        "tonalRamp": ["#232379", "#2e2e9c", "#4640c4", "#6366f1", "#8285f4", "#a1a4f7", "#c2c3fa", "#e2e2fc"]
+      },
+      "editorial-blue": {
+        "role": "neutral",
+        "displayName": "Newsroom Cobalt (news only)",
+        "canonical": "#2452c2",
+        "tonalRamp": ["#0f244f", "#17357a", "#1d43a0", "#2452c2", "#4d74d4", "#7a99e2", "#a9bcee", "#d5dff8"]
+      },
+      "editorial-magenta": {
+        "role": "neutral",
+        "displayName": "Editorial Crimson (news only)",
+        "canonical": "#cd2f7b",
+        "tonalRamp": ["#4a1029", "#751a41", "#a12359", "#cd2f7b", "#da5d99", "#e58bb7", "#efb9d3", "#f8dce9"]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Hero headlines and major tournament titles." },
-      "headline": { "displayName": "Headline", "purpose": "Section headings and article titles." },
-      "title": { "displayName": "Title", "purpose": "Card headers, squad names, and standings tables." },
-      "body": { "displayName": "Body", "purpose": "Article text, commentary, and general UI descriptions." },
-      "label": { "displayName": "Label / Kicker", "purpose": "Table headers (.ed-th), category kickers (.kicker), badges, and timestamps." }
+      "display": { "displayName": "Display", "purpose": "Hero tournament / team / player titles." },
+      "headline": { "displayName": "Headline", "purpose": "Section titles inside panels, black weight and uppercase." },
+      "title": { "displayName": "Title", "purpose": "Card titles and squad names." },
+      "body": { "displayName": "Body", "purpose": "Prose and table cells." },
+      "label": { "displayName": "Label / Kicker", "purpose": "Section kickers, table headers, badges and metadata." }
     },
     "shadows": [
-      {
-        "name": "none",
-        "value": "none",
-        "purpose": "The Zero-Shadow Rule: depth is achieved through tonal contrast and hairline borders rather than drop shadows."
-      }
+      { "name": "rest-tile", "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)", "purpose": "shadow-xs — home tiles and small cards at rest." },
+      { "name": "rest-card", "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)", "purpose": "shadow-sm — feature cards and prize panels at rest." },
+      { "name": "hover-lift", "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)", "purpose": "shadow-lg — interactive card hover." },
+      { "name": "hero-glow", "value": "0 25px 70px -20px rgba(10,95,196,.5)", "purpose": "Hero crest plates." },
+      { "name": "callout-glow", "value": "0 20px 25px -5px rgba(30,58,138,.25)", "purpose": "Prize / overview gradient callouts (shadow-blue-900/25)." }
     ],
     "motion": [
-      {
-        "name": "ease-standard",
-        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
-        "purpose": "Standard UI color and state transitions."
-      },
-      {
-        "name": "live-pulse",
-        "value": "1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "purpose": "Live broadcast indicator pulse animation."
-      }
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Standard UI color and state transitions." },
+      { "name": "live-pulse", "value": "live-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite", "purpose": ".animate-live — live broadcast status dot." }
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
@@ -92,101 +126,96 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Tactile, pill-soft control with confident press cobalt background.",
+      "description": "Solid azure CTA used across the data-facing pages.",
       "html": "<button class=\"ds-btn-primary\">VIEW STANDINGS</button>",
-      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 16px; background-color: var(--ed-blue, #2452c2); padding: 10px 20px; font-size: 13px; font-weight: 500; color: #ffffff; border: none; cursor: pointer; transition: filter 0.2s ease, transform 0.1s ease; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); } .ds-btn-primary:active { transform: translateY(0); }"
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 16px; background-color: #0A5FC4; padding: 10px 24px; font-size: 12px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; color: #ffffff; border: none; cursor: pointer; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); transition: background-color 0.2s ease, box-shadow 0.2s ease; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-btn-primary:hover { background-color: #0B4FA6; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); } .ds-btn-primary:focus-visible { outline: 2px solid #0A5FC4; outline-offset: 2px; }"
     },
     {
-      "name": "Editorial Card",
+      "name": "Broadcast Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "Flat, paper-crisp module with distinct hairline header and no shadow.",
-      "html": "<div class=\"ds-card\"><div class=\"ds-card-head\"><span class=\"ds-label\">ROUND 1 · MATCH 4</span><span class=\"ds-kicker\">LIVE</span></div><div class=\"ds-card-body\"><p class=\"ds-body\">GodLike Esports claims WWCD with 14 finishes.</p></div></div>",
-      "css": ".ds-card { overflow: hidden; border-radius: 12px; border: 1px solid var(--ed-hair, #e0e6ee); background-color: var(--ed-surface, #ffffff); font-family: 'Plus Jakarta Sans', sans-serif; } .ds-card-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ed-hair, #e0e6ee); padding: 10px 16px; } .ds-card-body { padding: 16px; } .ds-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ed-stone, #64748b); } .ds-kicker { font-size: 10px; font-weight: 700; color: var(--ed-magenta, #cd2f7b); text-transform: uppercase; } .ds-body { font-size: 14px; line-height: 1.5; color: var(--ed-ink, #161a22); margin: 0; }"
+      "description": "The default data panel: soft rounded white card with an inset header strip and a soft rest shadow.",
+      "html": "<section class=\"ds-card\"><header class=\"ds-card-head\"><div><p class=\"ds-kicker\">Team honours</p><h2 class=\"ds-card-title\">Winnings &amp; awards</h2></div></header><div class=\"ds-card-body\"><p class=\"ds-body\">Prize-ladder money the organization took home.</p></div></section>",
+      "css": ".ds-card { overflow: hidden; border-radius: 24px; border: 1px solid #e2e8f0; background-color: #ffffff; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); font-family: 'Plus Jakarta Sans', sans-serif; } .ds-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 1px solid #f1f5f9; background-color: rgba(248, 250, 252, 0.5); padding: 20px 24px; } .ds-card-title { margin: 4px 0 0; font-size: 1.5rem; font-weight: 900; letter-spacing: -0.02em; text-transform: uppercase; color: #020617; } .ds-kicker { margin: 0; font-size: 10px; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; color: #0A5FC4; } .ds-card-body { padding: 24px; } .ds-body { margin: 0; font-size: 14px; line-height: 1.6; color: #334155; }"
     },
     {
-      "name": "Editorial Chip",
+      "name": "Tinted Status Badge",
+      "kind": "custom",
+      "refersTo": "badge-tinted",
+      "description": "Translucent hue tint with saturated text — the site's status language (azure / amber / emerald / rose).",
+      "html": "<span class=\"ds-badge\">BATTLEGROUNDS MOBILE INDIA</span> <span class=\"ds-badge ds-badge-amber\">CHAMPION</span> <span class=\"ds-badge ds-badge-emerald\">ACTIVE</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; background-color: rgba(10, 95, 196, 0.1); color: #0A5FC4; padding: 4px 12px; font-size: 10px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-badge-amber { background-color: rgba(251, 191, 36, 0.15); color: #b45309; } .ds-badge-emerald { background-color: rgba(16, 185, 129, 0.1); color: #059669; }"
+    },
+    {
+      "name": "Filter Chip",
       "kind": "chip",
       "refersTo": "chip",
-      "description": "Compact 8px hairline tag for status indicators and filter controls.",
-      "html": "<span class=\"ds-chip\">GROUP A</span>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid var(--ed-hair, #e0e6ee); background-color: var(--ed-surface, #ffffff); padding: 2px 8px; font-size: 11px; font-weight: 500; color: var(--ed-ink, #161a22); font-family: 'Plus Jakarta Sans', sans-serif; }"
+      "description": "Compact filter / segment chip with an azure selected state.",
+      "html": "<button class=\"ds-chip\">All</button> <button class=\"ds-chip ds-chip-active\">Live</button>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 12px; border: 1px solid #e2e8f0; background-color: #ffffff; color: #334155; padding: 4px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-chip:hover { background-color: #f1f5f9; } .ds-chip-active { background-color: #0A5FC4; border-color: #0A5FC4; color: #ffffff; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }"
     },
     {
       "name": "Search Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Quiet, high-legibility input with subtle hairline border and cobalt focus ring.",
+      "description": "Quiet, high-legibility field that lights azure on focus.",
       "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Search players, teams, tournaments...\" />",
-      "css": ".ds-input { width: 100%; border-radius: 8px; border: 1px solid var(--ed-hair, #e0e6ee); background-color: var(--ed-surface, #ffffff); padding: 10px 14px; font-size: 14px; color: var(--ed-ink, #161a22); font-family: 'Plus Jakarta Sans', sans-serif; outline: none; transition: border-color 0.2s ease; box-sizing: border-box; } .ds-input::placeholder { color: var(--ed-stone, #64748b); } .ds-input:focus { border-color: var(--ed-blue, #2452c2); }"
+      "css": ".ds-input { width: 100%; border-radius: 12px; border: 1px solid #e2e8f0; background-color: #ffffff; color: #0f172a; padding: 10px 14px; font-size: 14px; font-family: 'Plus Jakarta Sans', sans-serif; outline: none; box-sizing: border-box; transition: border-color 0.2s ease, box-shadow 0.2s ease; } .ds-input::placeholder { color: #94a3b8; } .ds-input:focus { border-color: #0A5FC4; box-shadow: 0 0 0 3px rgba(10, 95, 196, 0.2); }"
     },
     {
       "name": "Navigation Tab",
       "kind": "nav",
-      "refersTo": "nav",
-      "description": "Clean tab navigation link with persistent cobalt active underline.",
-      "html": "<div class=\"ds-tab-strip\"><a class=\"ds-tab ds-tab-active\">Overview</a><a class=\"ds-tab\">Matches</a><a class=\"ds-tab\">Standings</a></div>",
-      "css": ".ds-tab-strip { display: flex; gap: 24px; border-bottom: 1px solid var(--ed-hair, #e0e6ee); } .ds-tab { display: inline-flex; align-items: center; padding: 12px 2px; font-size: 14px; font-weight: 500; color: var(--ed-stone, #64748b); text-decoration: none; cursor: pointer; border-bottom: 2px solid transparent; font-family: 'Plus Jakarta Sans', sans-serif; transition: color 0.2s; } .ds-tab:hover { color: var(--ed-ink, #161a22); } .ds-tab-active { color: var(--ed-blue, #2452c2); border-bottom-color: var(--ed-blue, #2452c2); }"
+      "refersTo": "card",
+      "description": "Underline tab; the active state is a 2px azure rule and azure label.",
+      "html": "<div class=\"ds-tab-strip\"><a class=\"ds-tab\">OVERVIEW</a><a class=\"ds-tab ds-tab-active\">HONOURS</a></div>",
+      "css": ".ds-tab-strip { display: flex; gap: 20px; border-bottom: 1px solid #e2e8f0; } .ds-tab { display: inline-flex; align-items: center; padding: 12px 2px; font-size: 12px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; text-decoration: none; cursor: pointer; border-bottom: 2px solid transparent; font-family: 'Plus Jakarta Sans', sans-serif; transition: color 0.2s; } .ds-tab:hover { color: #0f172a; } .ds-tab-active { color: #0A5FC4; border-bottom-color: #0A5FC4; }"
     },
     {
       "name": "Live Pulse Indicator",
       "kind": "chip",
       "refersTo": "chip",
-      "description": "Pill indicator with subtle broadcast pulse for active tournament matches.",
+      "description": "Rose pill with a broadcast pulse for live tournament status.",
       "html": "<span class=\"ds-live\"><span class=\"ds-live-dot\"></span>LIVE NOW</span>",
-      "css": ".ds-live { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; background-color: rgba(205, 47, 123, 0.1); color: var(--ed-magenta, #cd2f7b); padding: 3px 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-live-dot { width: 6px; height: 6px; border-radius: 9999px; background-color: var(--ed-magenta, #cd2f7b); animation: ds-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; } @keyframes ds-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.9); } }"
+      "css": ".ds-live { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; background-color: rgba(244, 63, 94, 0.1); color: #e11d48; padding: 3px 10px; font-size: 10px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; font-family: 'Plus Jakarta Sans', sans-serif; } .ds-live-dot { width: 6px; height: 6px; border-radius: 9999px; background-color: #f43f5e; animation: ds-pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; } @keyframes ds-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.9); } }"
     }
   ],
   "narrative": {
-    "northStar": "The Esports Press Room",
-    "overview": "eSportsAmaze is structured as a calm, authoritative sports journalism desk rather than a chaotic gaming portal or dark flashy dashboard. Inspired by the editorial restraint of premium publications and broadcast control rooms, the interface treats esports statistics with the dignity of top-flight athletics. Clean paper-tinted surfaces replace harsh pure whites and muddy darks; crisp slate ink anchors long-form reading and dense tables; and one confident, high-clarity Press Cobalt commands interactive attention.\n\nThe visual atmosphere balances editorial breathing room with high tabular density. Data tables, standings matrices, and match scorecards are presented with razor-sharp micro-typography and hairline separation, completely eliminating fuzzy box shadows and neon glow effects. Broadcast energy is channeled selectively through pulse badges and Editorial Crimson highlights on live tournaments.",
+    "northStar": "The Broadcast Control Room",
+    "overview": "eSportsAmaze looks like the production gallery of a live esports broadcast: confident, high-contrast, and built for scanning dense numbers under time pressure. The default building block is a soft rounded card — a pure white panel with a 16–24px radius, a 1px slate-200 border, and a gentle shadow-xs/shadow-sm lift at rest — sitting on a cool paper canvas. In dark mode the same cards become deep navy panels (#0b1220).\n\nThe energy comes from one bright signal colour, Broadcast Azure (#0A5FC4), used freely on links, active pills, CTAs and tinted /10 badges, plus a small broadcast accent set (champion amber, live rose, active emerald, special indigo) delivered as translucent tinted pills — never as flat card fills. Headlines are black-weight and uppercase with tight tracking; numbers are tabular.\n\nThe newsroom vertical (app/(public)/news/** and legal pages) runs a deliberately quieter editorial sub-style — the .ed-* primitives, #2452c2, hairline borders, no shadows — for long-form reading. That style is real but secondary; it must not be imposed on the data-facing pages.",
     "keyCharacteristics": [
-      "Editorial Paper Canvas: Quiet, tinted backgrounds that allow dense data grids and team marks to stand out naturally.",
-      "Zero Drop Shadows: Structural hierarchy and depth conveyed strictly via tonal paper contrast and crisp 1px hairline dividers.",
-      "Press Cobalt Focal Points: The primary blue accent is guarded strictly for actionable controls, primary CTAs, and active navigation states.",
-      "Tabular Precision: Monospace-aligned numerical figures (tabular-nums) paired with wide-tracked micro-labels (tracking-wider).",
-      "Tactile Soft Controls: Distinctive pill-shaped buttons (16px radius) that introduce an approachable, human balance to rigid grid tables."
+      "Soft Broadcast Cards: 16px / 24px radius, pure white (navy #0b1220 in dark), 1px slate-200 border, shadow-xs/sm at rest",
+      "Azure Signal: #0A5FC4 is the primary; #2452c2 is news-only",
+      "Navy Nightfall: dark mode is a specific navy #0b1220, never generic black",
+      "Black-Weight Headlines: font-black uppercase tracking-tight",
+      "Broadcast Accent Pills: amber champion / rose live / emerald active / indigo special, as /10 tints",
+      "Tabular Precision: every points, rank and score figure is tabular-nums"
     ],
     "rules": [
-      {
-        "name": "The Rare Blue Rule",
-        "body": "Press Cobalt is reserved for actionable touchpoints and active state indicators. It should cover less than 8% of any given viewport; its rarity is what makes the interface instantly scanable.",
-        "section": "colors"
-      },
-      {
-        "name": "The Tinted Neutral Rule",
-        "body": "Never introduce pure #000000 or sterile #ffffff canvas backgrounds. Every neutral carries a minute slate or paper undertone to prevent harsh eye strain during extended match tracking.",
-        "section": "colors"
-      },
-      {
-        "name": "The Tabular Precision Rule",
-        "body": "All numerical points, finish tallies, match times, and rankings metrics must apply tabular-nums font-semibold (font-variant-numeric: tabular-nums). Non-tabular figures in data columns are strictly forbidden.",
-        "section": "typography"
-      },
-      {
-        "name": "The Editorial Kicker Rule",
-        "body": "Section titles and featured groupings should be preceded by an uppercase, wide-tracked micro-kicker in Slate Stone to establish immediate context before the primary headline.",
-        "section": "typography"
-      },
-      {
-        "name": "The Zero-Shadow Rule",
-        "body": "Surfaces are completely flat at rest. Depth is established through tonal paper contrast and hairline boundaries. Avoid ambient drop shadows, blurred glows, and inset bevels.",
-        "section": "elevation"
-      }
+      { "name": "The Azure Signature Rule", "body": "#0A5FC4 is the primary for every data-facing surface. Never substitute the newsroom #2452c2 on home, tournaments, teams, players, compare or rankings.", "section": "colors" },
+      { "name": "The Tinted-Signal Rule", "body": "Colour arrives as a translucent tint (bg-{hue}-500/10, bg-[#0A5FC4]/10, bg-amber-400/15) with saturated text on top. Never fill a whole card or section with a solid bright hue — the two gradient hero callouts are the only exceptions.", "section": "colors" },
+      { "name": "The Champion Amber Rule", "body": "Amber is earned, not decorative: it appears only for a winner, a 1st place, a podium, or a WWCD.", "section": "colors" },
+      { "name": "The Black-Weight Rule", "body": "Headings are font-black (900), generally uppercase with tight tracking. font-extrabold sentence-case is the editorial sub-style, not the default.", "section": "typography" },
+      { "name": "The Tabular Precision Rule", "body": "Points, ranks, finishes, times and money are tabular-nums font-semibold. Non-tabular figures in a data column are forbidden.", "section": "typography" },
+      { "name": "The Kicker Rule", "body": "A data card's title is preceded by an uppercase, wide-tracked micro-kicker in stone or azure.", "section": "typography" },
+      { "name": "The Lift-On-Hover Rule", "body": "A clickable card is flat-ish at rest and lifts (shadow + slight translate + azure border) on hover. Static info cards do not lift.", "section": "elevation" },
+      { "name": "The Newsroom-Is-Flat Rule", "body": "The no-shadow, hairline-only treatment is valid only inside the editorial/news sub-style. Do not flatten data cards to hairlines.", "section": "elevation" }
     ],
     "dos": [
-      "Do preserve the 1px hairline border strategy (--ed-hair) for all card, table, and header demarcations.",
-      "Do use tabular-nums on all statistical columns, point tables, and match countdown timers.",
-      "Do respect the 1320px maximum layout width (--page-max-width) across all public pages.",
-      "Do reserve Press Cobalt for actionable links, primary buttons, and active tabs.",
-      "Do use horizontal snap rails (.rail) on mobile screens to keep large data matrices accessible without causing full-page sideways scroll."
+      "Do build data panels as soft rounded cards: rounded-2xl/rounded-3xl border-slate-200 bg-white shadow-xs/sm dark:border-white/10 dark:bg-[#0b1220].",
+      "Do use #0A5FC4 as the primary on all data-facing surfaces.",
+      "Do headline with font-black uppercase tracking-tight, and precede card titles with an uppercase wide-tracked kicker.",
+      "Do carry status as translucent /{opacity} tints (azure / amber / emerald / rose / indigo) with saturated text.",
+      "Do use tabular-nums on every figure in a data column, and shadow-xs/sm at rest with a hover lift on interactive cards.",
+      "Do keep the editorial/news sub-style (.ed-*, #2452c2, hairline, no shadow) confined to app/(public)/news/** and legal pages.",
+      "Do respect the 1320px max width and use .rail snap rails for wide matrices on mobile."
     ],
     "donts": [
-      "Don't add heavy drop shadows, neon box-shadows, or blurred card glows.",
-      "Don't use pure #000000 or #ffffff backgrounds without the editorial cool-paper undertones.",
-      "Don't saturate entire cards or section backgrounds in solid bright colors.",
-      "Don't mix multiple conflicting accent colors in the same view; keep accents focused to Press Cobalt and occasional Editorial Crimson.",
-      "Don't render non-tabular numbers in standings, scorecards, or rankings matrices."
+      "Don't apply the newsroom's flat/hairline/no-shadow language to home, tournaments, teams, players, compare or rankings.",
+      "Don't use #2452c2 (--ed-blue) as the primary outside the news sub-style.",
+      "Don't fill a whole card or section with a solid bright colour; cover with a /{10} tint instead.",
+      "Don't use shadow-free 12px cards as the default container on data surfaces, and don't drop the dark:bg-[#0b1220] pairing.",
+      "Don't use font-extrabold sentence-case headings on game pages, or decorative mono for non-data text.",
+      "Don't render non-tabular numbers in standings, scorecards, prize tables or rankings."
     ]
   }
 }
