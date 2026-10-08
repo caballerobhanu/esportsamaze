@@ -669,6 +669,17 @@ export function EstaticStandingsPanel({
     return headstartFor(rules, matches, activeStageName);
   }, [config.bonusRules, matches, activeStageName, isFiltered]);
 
+  // The carry column's heading. Every standings header collapses to one letter on mobile
+  // (M W E P B T), so the label follows the same rule: its first letter, or two when that
+  // letter would collide with one already in use.
+  const headstartColumn = React.useMemo(() => {
+    const label = headstart.rule?.headstartLabel?.trim() || 'Headstart';
+    const mobile = 'MWEPBT'.includes((label[0] ?? '').toUpperCase())
+      ? label.slice(0, 2)
+      : label.slice(0, 1);
+    return { label, mobile };
+  }, [headstart.rule]);
+
   // A manual headstart has no source stage to attach its grid to, so show the breakdown grid on
   // the target stage instead. It is a stage-level explainer, so it stays put under a day/map filter.
   const manualHeadstart = React.useMemo(() => {
@@ -1222,6 +1233,7 @@ export function EstaticStandingsPanel({
               byTeam={sourceBonus.computation.byTeam}
               teams={teams}
               label={sourceBonus.rule.label}
+              logoMode={config.logoModeBySurface.standings}
             />
           )}
         </div>
@@ -1301,13 +1313,15 @@ export function EstaticStandingsPanel({
                   </th>
                 )}
 
-                {/* Headstart carry — only when a bonus rule targets this stage */}
+                {/* Bonus carry — only when a bonus rule targets this stage. Shown at every
+                    width: the points it adds are part of the Total beside it. */}
                 {headstart.rule && (
                   <th
-                    className="hidden lg:table-cell py-2.5 sm:py-3.5 px-2 text-center"
+                    className="py-2.5 sm:py-3.5 px-1 sm:px-2 text-center leading-tight"
                     title={headstart.rule.label}
                   >
-                    Headstart
+                    <span className="sm:hidden">{headstartColumn.mobile}</span>
+                    <span className="hidden sm:inline">{headstartColumn.label}</span>
                   </th>
                 )}
 
@@ -1578,10 +1592,10 @@ export function EstaticStandingsPanel({
                       </td>
                     )}
 
-                    {/* Headstart carry */}
+                    {/* Bonus carry */}
                     {headstart.rule && (
                       <td
-                        className="hidden lg:table-cell py-2 sm:py-3 px-2 text-center font-black text-amber-600 dark:text-amber-300"
+                        className="py-2 sm:py-3 px-1 sm:px-2 text-center font-black text-amber-600 dark:text-amber-300"
                         title={headstart.rule.label}
                       >
                         {team.headstartPoints ? (
@@ -1653,6 +1667,7 @@ export function EstaticStandingsPanel({
           byTeam={manualHeadstart.computation.byTeam}
           teams={teams}
           label={manualHeadstart.rule.label}
+          logoMode={config.logoModeBySurface.standings}
         />
       )}
     </div>

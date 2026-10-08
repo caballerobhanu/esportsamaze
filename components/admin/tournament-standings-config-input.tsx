@@ -1382,6 +1382,16 @@ function BonusRulesEditor({
             )}
           </div>
 
+          <div>
+            <label className={labelCls}>Standings column heading (default: Headstart)</label>
+            <input
+              className={inputCls}
+              value={rule.headstartLabel ?? ''}
+              placeholder="Headstart"
+              onChange={(e) => update(idx, { headstartLabel: e.target.value })}
+            />
+          </div>
+
           <div className="flex flex-wrap items-center gap-4">
             {!isManual && (
               <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">

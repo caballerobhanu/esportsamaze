@@ -159,6 +159,8 @@ export interface StageBonusRule {
   manualPeriods?: ManualBonusPeriod[];
   /** Stages the accumulated bonus is added into, e.g. ["Grand Finals"]. */
   targetStages: string[];
+  /** Heading for this rule's carry column on the Standings table; defaults to "Headstart". */
+  headstartLabel?: string;
   /** Render one standings table per period under the source stage. Unused when MANUAL. */
   showPeriodStandings?: boolean;
   /** Render the per-team bonus grid (under the source stage, or the target stage when MANUAL). */
@@ -758,6 +760,7 @@ export function normalizeBonusRules(v: unknown): StageBonusRule[] {
       : 'DAY';
     const id = String(r?.id || `bonus-${idx + 1}`).trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-');
     const label = String(r?.label || '').trim() || `${sourceStages[0] ?? 'Headstart'} bonus`;
+    const headstartLabel = String(r?.headstartLabel ?? '').trim();
     const windowDays = Number(r?.windowDays);
     const days = [...new Set(
       asArray(r?.days)
@@ -779,6 +782,7 @@ export function normalizeBonusRules(v: unknown): StageBonusRule[] {
       awards,
       ...(manualPeriods.length > 0 ? { manualPeriods } : {}),
       targetStages,
+      ...(headstartLabel ? { headstartLabel } : {}),
       ...(r?.showPeriodStandings === true ? { showPeriodStandings: true } : {}),
       ...(r?.showBonusTable === true ? { showBonusTable: true } : {}),
     });
