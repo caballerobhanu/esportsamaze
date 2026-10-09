@@ -28,6 +28,13 @@ export interface MetricColumn {
   aggregate?: MetricAggregation;
   /** Overrides the default thousands-separated number. */
   format?: (value: number) => string;
+  /**
+   * The Detailed metrics table shows this figure per game rather than as the
+   * event total. Scoring (matches, points, WWCD, placement) is left as a total.
+   */
+  perGame?: boolean;
+  /** How a per-game figure prints; falls back to `format` when omitted. */
+  perGameFormat?: (value: number) => string;
 }
 
 /** A match-wise accessor. Labels live on `MetricColumn`, not here. */
@@ -63,6 +70,11 @@ export interface EventMetricRow {
   sources: Record<string, MetricSource>;
   /** Match-wise sample size per metric — the honest denominator. */
   coverage: Record<string, EventMetricCoverage>;
+  /**
+   * The event's reported match count, when it has one. A per-game average of a
+   * reported slice divides by this; null when the event reported no matches.
+   */
+  reportedMatches?: number | null;
 }
 
 /** Total survived, from summed seconds. */
@@ -85,18 +97,29 @@ export function formatSurvivalAverage(seconds: number): string {
 }
 
 /**
+ * The telemetry reads per game, not as a running total: a damage or survival
+ * pile simply grows with the games played, so a totalled figure flatters an
+ * event with more games. These formats print the per-game average the Detailed
+ * metrics table resolves; scoring (matches, points, WWCD, placement) stays a
+ * total and keeps the plain number format.
+ */
+const perGameDamage = (value: number) => Math.round(value).toLocaleString('en-IN');
+const perGameOneDecimal = (value: number) => value.toFixed(1);
+const perGameTwoDecimals = (value: number) => value.toFixed(2);
+
+/**
  * Player columns. The two leading ones are the scorecard basics: they carry an
  * event that has no scorecards at all, and are dropped for any event that does.
  */
 export const PLAYER_METRIC_COLUMNS: MetricColumn[] = [
   { key: 'matches', label: 'MP' },
   { key: 'playerElims', label: 'Elims' },
-  { key: 'damage', label: 'Damage' },
-  { key: 'assists', label: 'Assists' },
-  { key: 'knockouts', label: 'Knockouts' },
-  { key: 'survivalTime', label: 'Survival', format: formatSurvivalTotal },
-  { key: 'grenadeElims', label: 'Grenade Elims' },
-  { key: 'utilitiesTotal', label: 'Utilities' },
+  { key: 'damage', label: 'Damage', perGame: true, perGameFormat: perGameDamage },
+  { key: 'assists', label: 'Assists', perGame: true, perGameFormat: perGameOneDecimal },
+  { key: 'knockouts', label: 'Knockouts', perGame: true, perGameFormat: perGameOneDecimal },
+  { key: 'survivalTime', label: 'Survival', format: formatSurvivalTotal, perGame: true, perGameFormat: formatSurvivalAverage },
+  { key: 'grenadeElims', label: 'Grenade Elims', perGame: true, perGameFormat: perGameTwoDecimals },
+  { key: 'utilitiesTotal', label: 'Utilities', perGame: true, perGameFormat: perGameTwoDecimals },
 ];
 
 /** Team columns: the same telemetry, plus the scoring a scorecard-less event needs. */
@@ -108,12 +131,12 @@ export const TEAM_METRIC_COLUMNS: MetricColumn[] = [
   { key: 'elimsPoints', label: 'Elims Pts' },
   { key: 'bonusPoints', label: 'Bonus' },
   { key: 'totalPoints', label: 'Total' },
-  { key: 'damage', label: 'Damage' },
-  { key: 'assists', label: 'Assists' },
-  { key: 'knockouts', label: 'Knockouts' },
-  { key: 'survivalTime', label: 'Survival', format: formatSurvivalTotal },
-  { key: 'grenadeElims', label: 'Grenade Elims' },
-  { key: 'utilitiesTotal', label: 'Utilities' },
+  { key: 'damage', label: 'Damage', perGame: true, perGameFormat: perGameDamage },
+  { key: 'assists', label: 'Assists', perGame: true, perGameFormat: perGameOneDecimal },
+  { key: 'knockouts', label: 'Knockouts', perGame: true, perGameFormat: perGameOneDecimal },
+  { key: 'survivalTime', label: 'Survival', format: formatSurvivalTotal, perGame: true, perGameFormat: formatSurvivalAverage },
+  { key: 'grenadeElims', label: 'Grenade Elims', perGame: true, perGameFormat: perGameTwoDecimals },
+  { key: 'utilitiesTotal', label: 'Utilities', perGame: true, perGameFormat: perGameTwoDecimals },
 ];
 
 /** The detail fields every scorecard carries, player row or team row. */
@@ -296,9 +319,33 @@ export function mergeEventMetrics({
       metrics,
       sources,
       coverage,
+      // The reported match count, so a per-game average of a reported-only
+      // metric (or one filled from the ladder on a scorecard event) has a
+      // denominator even though `matches` itself is dropped from `metrics`.
+      reportedMatches: ladderAggregate?.metrics.matches?.value ?? null,
     });
   }
 
   rows.sort((a, b) => (b.startDateMs ?? 0) - (a.startDateMs ?? 0));
   return rows;
+}
+
+/**
+ * The figure a row shows for one column.
+ *
+ * Scoring is the raw value. A telemetry column (`perGame`) is divided by the
+ * games it covers: the scorecard games that recorded it, or — for a reported
+ * day / stage / event slice — the event's reported match count. Null when the
+ * metric was not recorded, or when a reported figure has no match count to
+ * average over; the caller prints that as an em dash.
+ */
+export function eventMetricValue(row: EventMetricRow, column: MetricColumn): number | null {
+  const raw = row.metrics[column.key] ?? null;
+  if (raw === null || !column.perGame) return raw;
+
+  const fromMatch = row.sources[column.key] === 'MATCH';
+  const denominator = fromMatch
+    ? row.coverage[column.key]?.samples ?? 0
+    : row.reportedMatches ?? row.metrics.matches ?? 0;
+  return denominator > 0 ? raw / denominator : null;
 }
