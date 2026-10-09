@@ -58,7 +58,14 @@ export function groupBonusPeriods(
   rule: StageBonusRule,
   matches: readonly StandingsMatchLite[]
 ): BonusPeriodGroup[] {
-  let scoped = matches.filter((m) => rule.sourceStages.some((s) => sameStage(s, m.stageName)));
+  const stageMatches = matches.filter((m) =>
+    rule.sourceStages.some((s) => sameStage(s, m.stageName))
+  );
+  // The raw `day` value is a calendar offset from the stage's first match, so a stage with a
+  // rest day reads 1, 2, 7 … (the day filter above shows real dates for the same reason).
+  // Period labels must use each day's ordinal within the stage — "Day 3", never "Day 7".
+  const dayOrdinals = new Map(distinctDays(stageMatches).map((day, index) => [day, index + 1]));
+  let scoped = stageMatches;
   // An optional day picker restricts which match days take part (relative day numbers).
   if (rule.days && rule.days.length > 0) {
     const allowed = new Set(rule.days.map(String));
@@ -87,9 +94,11 @@ export function groupBonusPeriods(
       const chunk = days.slice(i, i + width);
       const key = `w${Math.floor(i / width) + 1}`;
       const set = new Set(chunk.map(String));
+      const from = dayOrdinals.get(String(chunk[0])) ?? chunk[0];
+      const to = dayOrdinals.get(String(chunk[chunk.length - 1])) ?? chunk[chunk.length - 1];
       groups.push({
         key,
-        label: chunk.length > 1 ? `Days ${chunk[0]}–${chunk[chunk.length - 1]}` : `Day ${chunk[0]}`,
+        label: chunk.length > 1 ? `Days ${from}–${to}` : `Day ${from}`,
         dayFrom: String(chunk[0]),
         dayTo: String(chunk[chunk.length - 1]),
         matches: scoped.filter((m) => set.has(String(dayNumber(String(m.day))))),
@@ -98,10 +107,10 @@ export function groupBonusPeriods(
     return groups;
   }
 
-  // DAY (default): one group per match day.
+  // DAY (default): one group per match day, labelled by its ordinal within the stage.
   return distinctDays(scoped).map((day) => ({
     key: `d${day}`,
-    label: `Day ${day}`,
+    label: `Day ${dayOrdinals.get(day) ?? dayNumber(day)}`,
     dayFrom: day,
     dayTo: day,
     matches: scoped.filter((m) => String(m.day) === day),

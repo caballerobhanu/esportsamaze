@@ -69,6 +69,30 @@ test('DAY period awards each day’s top 3 and accumulates', () => {
   assert.equal(out.byTeamPeriod.D, undefined);
 });
 
+test('a stage with a rest day labels periods by ordinal, not calendar offset', () => {
+  const matches = [
+    match('Circuit Stage', '1', dayResults('A', 'B')),
+    match('Circuit Stage', '2', dayResults('B', 'A')),
+    match('Circuit Stage', '7', dayResults('A', 'B')),
+  ];
+  const out = computeStageBonus(rule(), matches);
+
+  assert.deepEqual(out.periods.map((p) => p.label), ['Day 1', 'Day 2', 'Day 3']);
+  // The raw offset still keys each period, so the day picker keeps working.
+  assert.deepEqual(out.periods.map((p) => p.key), ['d1', 'd2', 'd7']);
+  assert.deepEqual(out.byTeamPeriod.A, { d1: 3, d2: 2, d7: 3 });
+});
+
+test('a day picker keeps each period labelled by its real tournament day', () => {
+  const matches = [
+    match('Circuit Stage', '1', dayResults('A', 'B')),
+    match('Circuit Stage', '2', dayResults('C', 'D')),
+    match('Circuit Stage', '3', dayResults('A', 'B')),
+  ];
+  const out = computeStageBonus(rule({ days: [1, 3] }), matches);
+  assert.deepEqual(out.periods.map((p) => p.label), ['Day 1', 'Day 3']);
+});
+
 test('DAY_WINDOW chunks consecutive days and ranks the whole window', () => {
   const matches = [
     match('Circuit Stage', '1', dayResults('A', 'B')),
@@ -85,6 +109,16 @@ test('DAY_WINDOW chunks consecutive days and ranks the whole window', () => {
   assert.equal(out.byTeam.A, 3 + 2);
   assert.equal(out.byTeam.B, 2 + 3);
   assert.equal(out.byTeam.C, 1 + 1);
+});
+
+test('DAY_WINDOW labels a window by day ordinal, not calendar offset', () => {
+  const matches = [
+    match('Circuit Stage', '1', dayResults('A', 'B')),
+    match('Circuit Stage', '2', dayResults('A', 'B')),
+    match('Circuit Stage', '9', dayResults('B', 'A')),
+  ];
+  const out = computeStageBonus(rule({ period: 'DAY_WINDOW', windowDays: 2 }), matches);
+  assert.deepEqual(out.periods.map((p) => p.label), ['Days 1–2', 'Day 3']);
 });
 
 test('a day picker restricts which days form periods', () => {
